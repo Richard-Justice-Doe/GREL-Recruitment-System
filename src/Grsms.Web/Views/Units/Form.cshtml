@@ -1,0 +1,63 @@
+@* Shared add/edit form for a unit. Id = 0 means "add". *@
+@model UnitFormDto
+@{
+    var isNew = Model.Id == 0;
+    ViewData["Title"] = isNew ? "Add unit" : $"Edit {Model.Name}";
+}
+
+<div class="page-header">
+    <h1>@ViewData["Title"]</h1>
+    @if (Model.DepartmentId is int deptId)
+    {
+        <a asp-controller="Departments" asp-action="Details" asp-route-id="@deptId" class="btn btn-outline-secondary">Cancel</a>
+    }
+    else
+    {
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+    }
+</div>
+
+<div class="card glass">
+    <div class="card-body p-4">
+        <form asp-action="@(isNew ? "Create" : "Edit")" asp-route-id="@(isNew ? null : Model.Id)" method="post" novalidate>
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="DepartmentId" class="form-label"></label>
+                    <select asp-for="DepartmentId" asp-items="ViewBag.DepartmentList" class="form-select">
+                        <option value="">— Choose a department —</option>
+                    </select>
+                    <span asp-validation-for="DepartmentId" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <div class="form-check form-switch mb-2">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label"></label>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <label asp-for="Name" class="form-label"></label>
+                    <input asp-for="Name" class="form-control" />
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Code" class="form-label"></label>
+                    <input asp-for="Code" class="form-control text-uppercase" />
+                    <span asp-validation-for="Code" class="text-danger small"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Description" class="form-label"></label>
+                    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Description" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

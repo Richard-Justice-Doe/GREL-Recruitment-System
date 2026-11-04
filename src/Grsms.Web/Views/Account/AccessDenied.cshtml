@@ -1,0 +1,11 @@
+@* Shown when a signed-in user opens a page their role does not allow. *@
+@{
+    ViewData["Title"] = "Access denied";
+    Layout = "_AuthLayout";
+}
+<div class="text-center">
+    <i class="fa-solid fa-lock fa-3x text-danger mb-3"></i>
+    <h1 class="h4">You do not have access to this page</h1>
+    <p class="text-body-secondary">If you need it for your work, ask the HR Administrator to update your role.</p>
+    <a href="~/" class="btn btn-primary">Back to home</a>
+</div>

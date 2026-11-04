@@ -1,0 +1,59 @@
+@* Sign-in page for everyone: staff and candidates.
+   The "Sign in with Microsoft 365" button only appears once IT has configured the AzureAd settings. *@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Sign in";
+    Layout = "_AuthLayout";
+    var providers = (List<Microsoft.AspNetCore.Authentication.AuthenticationScheme>?)ViewBag.ExternalProviders ?? [];
+}
+
+<h1 class="h4 mb-1">Welcome back</h1>
+<p class="text-body-secondary mb-4">Sign in to continue.</p>
+
+@if (providers.Count > 0)
+{
+    <form asp-action="ExternalLogin" method="post">
+        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        @foreach (var p in providers)
+        {
+            <button type="submit" name="provider" value="@p.Name" class="btn btn-outline-secondary w-100">
+                <i class="fa-brands fa-microsoft me-2"></i>Sign in with @p.DisplayName <span class="small text-body-secondary">(GREL staff)</span>
+            </button>
+        }
+    </form>
+    <div class="divider-text">or use your email and password</div>
+}
+
+<form asp-action="Login" method="post" novalidate>
+    <input type="hidden" asp-for="ReturnUrl" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+    @if (ViewBag.ShowResend == true)
+    {
+        <p class="small"><a asp-action="ResendConfirmation">Send the confirmation email again</a></p>
+    }
+
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label"></label>
+        <input asp-for="Email" class="form-control" autocomplete="username" autofocus />
+        <span asp-validation-for="Email" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <div class="d-flex justify-content-between">
+            <label asp-for="Password" class="form-label"></label>
+            <a asp-action="ForgotPassword" class="small">Forgot password?</a>
+        </div>
+        <input asp-for="Password" class="form-control" autocomplete="current-password" />
+        <span asp-validation-for="Password" class="text-danger small"></span>
+    </div>
+    <div class="form-check mb-4">
+        <input asp-for="RememberMe" class="form-check-input" />
+        <label asp-for="RememberMe" class="form-check-label small"></label>
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Sign in</button>
+</form>
+
+<p class="text-center small mt-4 mb-0">
+    Looking for a job at GREL? <a asp-action="Register">Create a candidate account</a>
+</p>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

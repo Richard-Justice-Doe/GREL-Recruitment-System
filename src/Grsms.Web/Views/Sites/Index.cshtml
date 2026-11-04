@@ -1,0 +1,50 @@
+@* Work locations (head office, estates, ...). *@
+@model IReadOnlyList<SiteListItemDto>
+@{
+    ViewData["Title"] = "Sites";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Sites</h1>
+        <p>Physical work locations. Each recruitment request records where the new hire will work.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add site</a>
+</div>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover datatable">
+                <thead>
+                <tr><th>Name</th><th>Code</th><th>Location</th><th>Status</th><th class="no-sort text-end">Actions</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var s in Model)
+                {
+                    <tr class="@(s.IsActive ? "" : "row-inactive")">
+                        <td class="fw-semibold">@s.Name</td>
+                        <td><code>@s.Code</code></td>
+                        <td>@(s.Location ?? "—")</td>
+                        <td><partial name="_StatusBadge" model="s.IsActive" /></td>
+                        <td class="text-end text-nowrap">
+                            <a asp-action="Edit" asp-route-id="@s.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
+                            <form asp-action="SetActive" asp-route-id="@s.Id" method="post" class="d-inline">
+                                <input type="hidden" name="active" value="@(!s.IsActive)" />
+                                @if (s.IsActive)
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate" data-confirm="Deactivate site @s.Name?"><i class="fa-solid fa-ban"></i></button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Activate"><i class="fa-solid fa-check"></i></button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

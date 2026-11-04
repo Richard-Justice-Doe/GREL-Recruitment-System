@@ -1,0 +1,230 @@
+/* =========================================================================
+   GRSMS stylesheet
+   Built on Bootstrap 5.3. Light/dark mode uses Bootstrap's own
+   data-bs-theme attribute on <html>; the GRSMS colours below are
+   defined once per theme as CSS variables ("tokens").
+
+   Contents:
+     1. Colour tokens (light + dark)
+     2. Page background
+     3. Glass cards
+     4. App shell: sidebar, top bar, content area
+     5. Tables, badges, forms
+     6. Sign-in pages
+     7. Small screens (mobile)
+   ========================================================================= */
+
+/* ---------- 1. Colour tokens ---------- */
+:root,
+[data-bs-theme="light"] {
+    /* GREL placeholder brand: deep green + gold. Change these two to rebrand. */
+    --grsms-brand: #1f6b4a;
+    --grsms-brand-rgb: 31, 107, 74;
+    --grsms-accent: #c9a227;
+
+    --grsms-bg-1: #eef4f1;
+    --grsms-bg-2: #e3ece8;
+    --grsms-glass: rgba(255, 255, 255, 0.72);
+    --grsms-glass-border: rgba(255, 255, 255, 0.9);
+    --grsms-shadow: 0 8px 28px rgba(16, 40, 30, 0.08);
+    --grsms-sidebar-bg: rgba(17, 46, 34, 0.94);
+    --grsms-sidebar-text: #d7e6de;
+    --grsms-sidebar-muted: #8fb3a1;
+
+    /* Make Bootstrap's "primary" the GREL green. */
+    --bs-primary: var(--grsms-brand);
+    --bs-primary-rgb: var(--grsms-brand-rgb);
+    --bs-link-color: var(--grsms-brand);
+    --bs-link-color-rgb: var(--grsms-brand-rgb);
+    --bs-link-hover-color: #174f37;
+}
+
+[data-bs-theme="dark"] {
+    --grsms-brand: #4cb98a;
+    --grsms-brand-rgb: 76, 185, 138;
+    --grsms-accent: #e0bd4c;
+
+    --grsms-bg-1: #0f1915;
+    --grsms-bg-2: #13211b;
+    --grsms-glass: rgba(28, 40, 35, 0.72);
+    --grsms-glass-border: rgba(255, 255, 255, 0.06);
+    --grsms-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    --grsms-sidebar-bg: rgba(10, 20, 16, 0.96);
+    --grsms-sidebar-text: #cfe0d7;
+    --grsms-sidebar-muted: #7a9a8a;
+
+    --bs-primary: var(--grsms-brand);
+    --bs-primary-rgb: var(--grsms-brand-rgb);
+    --bs-link-color: var(--grsms-brand);
+    --bs-link-color-rgb: var(--grsms-brand-rgb);
+    --bs-link-hover-color: #7fd3ad;
+}
+
+/* Bootstrap buttons keep their own colour variables, so point them at the brand too. */
+.btn-primary {
+    --bs-btn-bg: var(--grsms-brand);
+    --bs-btn-border-color: var(--grsms-brand);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--grsms-brand) 85%, #000);
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--grsms-brand) 85%, #000);
+    --bs-btn-active-bg: color-mix(in srgb, var(--grsms-brand) 75%, #000);
+    --bs-btn-active-border-color: color-mix(in srgb, var(--grsms-brand) 75%, #000);
+    --bs-btn-disabled-bg: var(--grsms-brand);
+    --bs-btn-disabled-border-color: var(--grsms-brand);
+}
+.btn-outline-primary {
+    --bs-btn-color: var(--grsms-brand);
+    --bs-btn-border-color: var(--grsms-brand);
+    --bs-btn-hover-bg: var(--grsms-brand);
+    --bs-btn-hover-border-color: var(--grsms-brand);
+    --bs-btn-active-bg: var(--grsms-brand);
+    --bs-btn-active-border-color: var(--grsms-brand);
+}
+
+/* ---------- 2. Page background ---------- */
+body {
+    min-height: 100vh;
+    background:
+        radial-gradient(1200px 600px at 100% -10%, rgba(var(--grsms-brand-rgb), 0.12), transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, rgba(201, 162, 39, 0.10), transparent 60%),
+        linear-gradient(160deg, var(--grsms-bg-1), var(--grsms-bg-2));
+    background-attachment: fixed;
+}
+
+/* ---------- 3. Glass cards ---------- */
+.glass {
+    background: var(--grsms-glass);
+    border: 1px solid var(--grsms-glass-border);
+    border-radius: 1rem;
+    box-shadow: var(--grsms-shadow);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.card.glass { --bs-card-bg: transparent; --bs-card-border-color: transparent; }
+
+/* KPI tiles on the home page */
+.stat-tile { padding: 1.25rem; display: flex; align-items: center; gap: 1rem; height: 100%; }
+.stat-tile .stat-icon {
+    width: 3rem; height: 3rem; flex: 0 0 3rem;
+    display: grid; place-items: center;
+    border-radius: 0.75rem;
+    background: rgba(var(--grsms-brand-rgb), 0.12);
+    color: var(--grsms-brand);
+    font-size: 1.25rem;
+}
+.stat-tile .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+.stat-tile .stat-label { color: var(--bs-secondary-color); font-size: 0.85rem; }
+
+/* ---------- 4. App shell ---------- */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+    width: 260px;
+    flex: 0 0 260px;
+    background: var(--grsms-sidebar-bg);
+    color: var(--grsms-sidebar-text);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 1.25rem 0.75rem;
+    z-index: 1040;
+    transition: transform 0.2s ease;
+}
+.sidebar .brand {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0 0.5rem 1.25rem;
+    color: #fff; text-decoration: none; font-weight: 700; letter-spacing: 0.02em;
+}
+.sidebar .brand-mark {
+    width: 2.25rem; height: 2.25rem; border-radius: 0.6rem;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--grsms-accent), #f0d77a);
+    color: #1b2a22; font-weight: 800;
+}
+.sidebar .brand small { display: block; font-weight: 400; color: var(--grsms-sidebar-muted); font-size: 0.72rem; letter-spacing: 0; }
+.sidebar .nav-section {
+    text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.08em;
+    color: var(--grsms-sidebar-muted);
+    padding: 1rem 0.75rem 0.35rem;
+}
+.sidebar .nav-link {
+    color: var(--grsms-sidebar-text);
+    border-radius: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    display: flex; align-items: center; gap: 0.7rem;
+}
+.sidebar .nav-link i { width: 1.1rem; text-align: center; opacity: 0.85; }
+.sidebar .nav-link:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.sidebar .nav-link.active { background: rgba(var(--grsms-brand-rgb), 0.35); color: #fff; }
+
+.app-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+
+.topbar {
+    position: sticky; top: 0; z-index: 1030;
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--grsms-glass);
+    border-bottom: 1px solid var(--grsms-glass-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+.topbar .page-title { font-size: 1.1rem; font-weight: 600; margin: 0; }
+.topbar .avatar {
+    width: 2rem; height: 2rem; border-radius: 50%;
+    display: inline-grid; place-items: center;
+    background: var(--grsms-brand); color: #fff; font-weight: 600; font-size: 0.85rem;
+}
+
+.app-content { padding: 1.5rem; flex: 1 1 auto; }
+.app-footer { padding: 1rem 1.5rem; color: var(--bs-secondary-color); font-size: 0.8rem; }
+
+/* Header row at the top of a page: title on the left, buttons on the right */
+.page-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.25rem; }
+.page-header h1 { font-size: 1.5rem; margin: 0; }
+.page-header p { margin: 0.15rem 0 0; color: var(--bs-secondary-color); }
+
+/* ---------- 5. Tables, badges, forms ---------- */
+.table { --bs-table-bg: transparent; margin-bottom: 0; }
+.table > thead th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bs-secondary-color); font-weight: 600; }
+.table td, .table th { vertical-align: middle; }
+.row-inactive td { opacity: 0.6; }
+
+.badge-soft-success { background: rgba(25, 135, 84, 0.14); color: #198754; }
+.badge-soft-secondary { background: rgba(108, 117, 125, 0.16); color: var(--bs-secondary-color); }
+.badge-soft-danger { background: rgba(220, 53, 69, 0.14); color: #dc3545; }
+.badge-soft-primary { background: rgba(var(--grsms-brand-rgb), 0.14); color: var(--grsms-brand); }
+[data-bs-theme="dark"] .badge-soft-success { color: #5dd39e; }
+[data-bs-theme="dark"] .badge-soft-danger { color: #ff7b88; }
+
+.form-label { font-weight: 500; }
+.form-text { font-size: 0.8rem; }
+pre.json { white-space: pre-wrap; word-break: break-word; font-size: 0.78rem; margin: 0; max-width: 420px; }
+
+/* DataTables (search box + pager) blend into the glass card */
+div.dt-container .dt-search input { border-radius: 0.5rem; }
+div.dt-container { padding: 0.25rem; }
+
+/* ---------- 6. Sign-in pages ---------- */
+.auth-wrapper { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem 1rem; }
+.auth-card { width: 100%; max-width: 440px; padding: 2rem; }
+.auth-brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+.auth-brand .brand-mark {
+    width: 2.75rem; height: 2.75rem; border-radius: 0.75rem;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--grsms-brand), color-mix(in srgb, var(--grsms-brand) 60%, var(--grsms-accent)));
+    color: #fff; font-weight: 800;
+}
+.divider-text { display: flex; align-items: center; gap: 0.75rem; color: var(--bs-secondary-color); font-size: 0.8rem; margin: 1.25rem 0; }
+.divider-text::before, .divider-text::after { content: ""; flex: 1; border-top: 1px solid var(--bs-border-color); }
+
+/* ---------- 7. Small screens ---------- */
+@media (max-width: 991.98px) {
+    /* The sidebar slides in from the left when the menu button is pressed. */
+    .sidebar { position: fixed; left: 0; transform: translateX(-100%); }
+    body.sidebar-open .sidebar { transform: translateX(0); }
+    body.sidebar-open .sidebar-backdrop { display: block; }
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 1035; }
+    .topbar { padding: 0.75rem 1rem; }
+    .app-content { padding: 1rem; }
+}

@@ -1,0 +1,127 @@
+@* Audit trail (read-only). Filters at the top, newest entries first, 50 per page.
+   The server does the paging because this table can grow to millions of rows. *@
+@model PagedResult<AuditLogDto>
+@{
+    ViewData["Title"] = "Audit trail";
+    var q = (AuditLogQuery)ViewBag.Query;
+    var entityNames = (IReadOnlyList<string>)ViewBag.EntityNames;
+    string[] actions = ["Created", "Updated", "Deleted", "SignedIn", "SignInFailed", "LockedOut", "SignedOut", "PasswordReset", "PasswordChanged"];
+
+    // Keeps the current filters when moving between pages.
+    object PageRoute(int page) => new { q.UserName, q.EntityName, q.EntityId, q.Action, From = q.From?.ToString("yyyy-MM-dd"), To = q.To?.ToString("yyyy-MM-dd"), page };
+
+    string ActionCss(string a) => a switch
+    {
+        "Created" => "badge-soft-success",
+        "Deleted" or "SignInFailed" or "LockedOut" => "badge-soft-danger",
+        "Updated" => "badge-soft-primary",
+        _ => "badge-soft-secondary"
+    };
+
+    // Pretty-prints the stored JSON so each changed field is on its own line.
+    string Pretty(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return "";
+        try { return System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonDocument.Parse(json).RootElement, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }); }
+        catch { return json; }
+    }
+}
+
+<div class="page-header">
+    <div>
+        <h1>Audit trail</h1>
+        <p>Every change to every record, and every sign-in, with who did it, when and from where. Times are UTC (Ghana time).</p>
+    </div>
+</div>
+
+<form method="get" class="card glass mb-3">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-sm-6 col-lg-3">
+            <label class="form-label small" for="UserName">User</label>
+            <input id="UserName" name="UserName" value="@q.UserName" class="form-control" placeholder="Part of name or email" />
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label class="form-label small" for="EntityName">Record type</label>
+            <select id="EntityName" name="EntityName" class="form-select">
+                <option value="">All</option>
+                @foreach (var n in entityNames)
+                {
+                    <option value="@n" selected="@(n == q.EntityName)">@n</option>
+                }
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label class="form-label small" for="Action">Action</label>
+            <select id="Action" name="Action" class="form-select">
+                <option value="">All</option>
+                @foreach (var a in actions)
+                {
+                    <option value="@a" selected="@(a == q.Action)">@a</option>
+                }
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-1">
+            <label class="form-label small" for="EntityId">Record id</label>
+            <input id="EntityId" name="EntityId" value="@q.EntityId" class="form-control" />
+        </div>
+        <div class="col-6 col-lg-2">
+            <label class="form-label small" for="From">From</label>
+            <input id="From" name="From" type="date" value="@q.From?.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+        <div class="col-6 col-lg-2">
+            <label class="form-label small" for="To">To</label>
+            <input id="To" name="To" type="date" value="@q.To?.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
+        </div>
+    </div>
+</form>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                <tr><th>When</th><th>User</th><th>Action</th><th>Record</th><th>Before</th><th>After</th><th>IP address</th></tr>
+                </thead>
+                <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-body-secondary py-4">No entries match these filters.</td></tr>
+                }
+                @foreach (var a in Model.Items)
+                {
+                    <tr>
+                        <td class="small text-nowrap">@a.Timestamp.ToString("dd MMM yyyy HH:mm:ss")</td>
+                        <td class="small">@(a.UserName ?? "system")</td>
+                        <td><span class="badge rounded-pill @ActionCss(a.Action)">@a.Action</span></td>
+                        <td class="small">@a.EntityName @(a.EntityId is null ? "" : $"#{a.EntityId}")</td>
+                        <td><pre class="json">@Pretty(a.OldValues)</pre></td>
+                        <td><pre class="json">@Pretty(a.NewValues)</pre></td>
+                        <td class="small">@a.IpAddress</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Pages">
+            <span class="small text-body-secondary">@Model.TotalCount entries · page @Model.Page of @Model.TotalPages</span>
+            <div class="btn-group">
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@ToRoute(PageRoute(Model.Page - 1))">Previous</a>
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@ToRoute(PageRoute(Model.Page + 1))">Next</a>
+            </div>
+        </nav>
+    </div>
+</div>
+
+@functions {
+    // asp-all-route-data needs a string dictionary; empty filters are left out of the address.
+    private static Dictionary<string, string> ToRoute(object values) =>
+        values.GetType().GetProperties()
+            .Select(p => (p.Name, Value: p.GetValue(values)?.ToString()))
+            .Where(x => !string.IsNullOrEmpty(x.Value))
+            .ToDictionary(x => x.Name, x => x.Value!);
+}

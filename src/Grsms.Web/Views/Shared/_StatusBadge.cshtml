@@ -1,0 +1,10 @@
+@* Small "Active" / "Inactive" pill. Usage: <partial name="_StatusBadge" model="item.IsActive" /> *@
+@model bool
+@if (Model)
+{
+    <span class="badge rounded-pill badge-soft-success">Active</span>
+}
+else
+{
+    <span class="badge rounded-pill badge-soft-secondary">Inactive</span>
+}

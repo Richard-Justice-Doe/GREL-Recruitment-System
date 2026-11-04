@@ -1,0 +1,36 @@
+@* Layout for pages used BEFORE signing in (login, register, forgot password, errors):
+   a single centred glass card, no sidebar. *@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] · GREL Recruitment</title>
+    <script src="~/js/theme-init.js"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<div class="auth-wrapper">
+    <div class="glass auth-card">
+        <div class="auth-brand">
+            <span class="brand-mark">G</span>
+            <div>
+                <div class="fw-bold">GREL Recruitment</div>
+                <div class="small text-body-secondary">Recruitment &amp; Selection Management</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-theme-toggle aria-label="Switch light or dark mode">
+                <i data-theme-icon class="fa-solid fa-moon"></i>
+            </button>
+        </div>
+        <partial name="_Alerts" />
+        @RenderBody()
+    </div>
+</div>
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

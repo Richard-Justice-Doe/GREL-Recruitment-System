@@ -1,0 +1,15 @@
+@* Home page for candidates (external job seekers). The full candidate portal (vacancies,
+   applications, progress tracker) is added in a later phase. *@
+@{
+    ViewData["Title"] = "My portal";
+    var name = User.FindFirst(AppClaimsPrincipalFactory.FullNameClaim)?.Value ?? "";
+}
+<div class="card glass">
+    <div class="card-body p-4">
+        <h1 class="h4">Welcome, @name</h1>
+        <p class="text-body-secondary mb-0">
+            Your GREL Careers account is active. Soon you will be able to browse open vacancies, apply,
+            upload your CV and certificates, and follow each application step by step from this page.
+        </p>
+    </div>
+</div>

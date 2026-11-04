@@ -1,0 +1,22 @@
+@* Landing page for the link in the confirmation email. *@
+@{
+    ViewData["Title"] = "Email confirmation";
+    Layout = "_AuthLayout";
+    var ok = ViewBag.Confirmed == true;
+}
+<div class="text-center">
+    @if (ok)
+    {
+        <i class="fa-solid fa-circle-check fa-3x text-success mb-3"></i>
+        <h1 class="h4">Email confirmed</h1>
+        <p class="text-body-secondary">Your account is active. You can now sign in.</p>
+        <a asp-action="Login" class="btn btn-primary">Sign in</a>
+    }
+    else
+    {
+        <i class="fa-solid fa-circle-xmark fa-3x text-danger mb-3"></i>
+        <h1 class="h4">This link did not work</h1>
+        <p class="text-body-secondary">It may have expired or already been used.</p>
+        <a asp-action="ResendConfirmation" class="btn btn-primary">Send a new link</a>
+    }
+</div>

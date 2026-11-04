@@ -1,0 +1,61 @@
+@* Department Master Data list: every department with its HOD, unit count and status. *@
+@model IReadOnlyList<DepartmentListItemDto>
+@{
+    ViewData["Title"] = "Departments";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Departments</h1>
+        <p>Every recruitment activity belongs to one of these departments.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add department</a>
+</div>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover datatable">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Code</th>
+                    <th>Head of Department</th>
+                    <th class="text-center">Units</th>
+                    <th>Status</th>
+                    <th class="no-sort text-end">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var d in Model)
+                {
+                    <tr class="@(d.IsActive ? "" : "row-inactive")">
+                        <td><a asp-action="Details" asp-route-id="@d.Id" class="fw-semibold text-decoration-none">@d.Name</a></td>
+                        <td><code>@d.Code</code></td>
+                        <td>@(d.HeadOfDepartmentName ?? "Not assigned")</td>
+                        <td class="text-center">@d.UnitCount</td>
+                        <td><partial name="_StatusBadge" model="d.IsActive" /></td>
+                        <td class="text-end text-nowrap">
+                            <a asp-action="Edit" asp-route-id="@d.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
+                            <form asp-action="SetActive" asp-route-id="@d.Id" method="post" class="d-inline">
+                                <input type="hidden" name="active" value="@(!d.IsActive)" />
+                                @if (d.IsActive)
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate"
+                                            data-confirm="Deactivate @d.Name? It will no longer be available for new recruitment requests.">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Activate"><i class="fa-solid fa-check"></i></button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

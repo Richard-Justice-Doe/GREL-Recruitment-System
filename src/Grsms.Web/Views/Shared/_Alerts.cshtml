@@ -1,0 +1,21 @@
+@* Coloured banners for one-off messages set by controllers (TempData["Success"], ["Error"], ["Info"]).
+   They appear once on the next page and then disappear. *@
+@{
+    var alerts = new (string Key, string Css, string Icon)[]
+    {
+        ("Success", "success", "fa-circle-check"),
+        ("Error", "danger", "fa-circle-exclamation"),
+        ("Info", "info", "fa-circle-info"),
+    };
+}
+@foreach (var (key, css, icon) in alerts)
+{
+    if (TempData[key] is string message)
+    {
+        <div class="alert alert-@css alert-dismissible fade show d-flex gap-2 align-items-start" role="alert">
+            <i class="fa-solid @icon mt-1"></i>
+            <div>@message</div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+}

@@ -1,0 +1,61 @@
+@* All units across departments, with a department filter. *@
+@model IReadOnlyList<UnitListItemDto>
+@{
+    ViewData["Title"] = "Units";
+    int? departmentId = ViewBag.DepartmentId;
+}
+
+<div class="page-header">
+    <div>
+        <h1>Units</h1>
+        <p>Sub-sections inside departments, e.g. Finance → Payroll.</p>
+    </div>
+    <a asp-action="Create" asp-route-departmentId="@departmentId" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add unit</a>
+</div>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-sm-6 col-lg-4">
+        <label class="form-label small" for="departmentId">Department</label>
+        <select id="departmentId" name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select" onchange="this.form.submit()">
+            <option value="">All departments</option>
+        </select>
+    </div>
+    <noscript><div class="col-auto"><button class="btn btn-outline-secondary">Filter</button></div></noscript>
+</form>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover datatable">
+                <thead>
+                <tr><th>Department</th><th>Unit</th><th>Code</th><th>Status</th><th class="no-sort text-end">Actions</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var u in Model)
+                {
+                    <tr class="@(u.IsActive ? "" : "row-inactive")">
+                        <td><a asp-controller="Departments" asp-action="Details" asp-route-id="@u.DepartmentId" class="text-decoration-none">@u.DepartmentName</a></td>
+                        <td class="fw-semibold">@u.Name</td>
+                        <td><code>@u.Code</code></td>
+                        <td><partial name="_StatusBadge" model="u.IsActive" /></td>
+                        <td class="text-end text-nowrap">
+                            <a asp-action="Edit" asp-route-id="@u.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
+                            <form asp-action="SetActive" asp-route-id="@u.Id" method="post" class="d-inline">
+                                <input type="hidden" name="active" value="@(!u.IsActive)" />
+                                @if (u.IsActive)
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate" data-confirm="Deactivate unit @u.Name?"><i class="fa-solid fa-ban"></i></button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Activate"><i class="fa-solid fa-check"></i></button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

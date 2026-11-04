@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Grsms.Application/Grsms.Application.csproj" />
+    <Project Path="src/Grsms.Domain/Grsms.Domain.csproj" />
+    <Project Path="src/Grsms.Infrastructure/Grsms.Infrastructure.csproj" />
+    <Project Path="src/Grsms.Web/Grsms.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Grsms.Tests/Grsms.Tests.csproj" />
+  </Folder>
+</Solution>

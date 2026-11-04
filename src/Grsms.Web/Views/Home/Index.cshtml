@@ -1,0 +1,75 @@
+@* Staff home page (Phase 1). Shows organisation counts and the build roadmap.
+   Replaced by the full recruitment dashboard (Module 1) in Phase 11. *@
+@model HomeViewModel
+@{
+    ViewData["Title"] = "Home";
+    var name = User.FindFirst(AppClaimsPrincipalFactory.FullNameClaim)?.Value ?? "";
+    var tiles = new (string Label, int Value, string Icon)[]
+    {
+        ("Active departments", Model.ActiveDepartments, "fa-sitemap"),
+        ("Active units", Model.Units, "fa-diagram-project"),
+        ("Active sites", Model.Sites, "fa-location-dot"),
+        ("Active staff accounts", Model.StaffAccounts, "fa-user-tie"),
+        ("Candidate accounts", Model.CandidateAccounts, "fa-user-graduate"),
+    };
+    var phases = new (int No, string Name, bool Done)[]
+    {
+        (1, "Foundation: database, sign-in, roles, departments, units, sites, audit trail", true),
+        (2, "Recruitment requests and approval workflow", false),
+        (3, "Vacancy management", false),
+        (4, "Job advertisements", false),
+        (5, "Candidate portal and application tracking", false),
+        (6, "CV screening and shortlisting", false),
+        (7, "Assessments, interviews and scorecards", false),
+        (8, "Background checks and offers", false),
+        (9, "Appointment letters and onboarding", false),
+        (10, "Messaging, notifications and surveys", false),
+        (11, "Reports and dashboards", false),
+        (12, "Security hardening", false),
+        (13, "Production deployment", false),
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Welcome, @name</h1>
+        <p>GREL Recruitment &amp; Selection Management System</p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    @foreach (var t in tiles)
+    {
+        <div class="col-6 col-md-4 col-xl">
+            <div class="glass stat-tile">
+                <div class="stat-icon"><i class="fa-solid @t.Icon"></i></div>
+                <div>
+                    <div class="stat-value">@t.Value</div>
+                    <div class="stat-label">@t.Label</div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<div class="card glass">
+    <div class="card-body p-4">
+        <h2 class="h5 mb-3">Build progress</h2>
+        <ul class="list-unstyled mb-0">
+            @foreach (var p in phases)
+            {
+                <li class="d-flex gap-2 py-1">
+                    @if (p.Done)
+                    {
+                        <i class="fa-solid fa-circle-check text-success mt-1"></i>
+                    }
+                    else
+                    {
+                        <i class="fa-regular fa-circle text-body-secondary mt-1"></i>
+                    }
+                    <span class="@(p.Done ? "" : "text-body-secondary")"><strong>Phase @p.No</strong> · @p.Name</span>
+                </li>
+            }
+        </ul>
+    </div>
+</div>

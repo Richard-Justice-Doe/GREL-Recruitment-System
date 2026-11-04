@@ -1,0 +1,56 @@
+@* Left-hand navigation. Each link is shown only to roles that may open it; the server checks again
+   on every request, so hiding a link is for tidiness, not security.
+   New modules add their links here as they are built. *@
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    string Active(params string[] names) => names.Contains(controller) ? "active" : "";
+
+    var canMasterData = (await Auth.AuthorizeAsync(User, Policies.MasterData)).Succeeded;
+    var canUsers = (await Auth.AuthorizeAsync(User, Policies.UserAdmin)).Succeeded;
+    var canAudit = (await Auth.AuthorizeAsync(User, Policies.AuditTrail)).Succeeded;
+}
+<aside class="sidebar" aria-label="Main menu">
+    <a class="brand" asp-controller="Home" asp-action="Index">
+        <span class="brand-mark">G</span>
+        <span>GREL Recruitment<small>Recruitment &amp; Selection</small></span>
+    </a>
+
+    <nav class="nav flex-column">
+        <a class="nav-link @Active("Home")" asp-controller="Home" asp-action="Index">
+            <i class="fa-solid fa-gauge-high"></i> Home
+        </a>
+
+        @if (canMasterData)
+        {
+            <div class="nav-section">Organisation</div>
+            <a class="nav-link @Active("Departments")" asp-controller="Departments" asp-action="Index">
+                <i class="fa-solid fa-sitemap"></i> Departments
+            </a>
+            <a class="nav-link @Active("Units")" asp-controller="Units" asp-action="Index">
+                <i class="fa-solid fa-diagram-project"></i> Units
+            </a>
+            <a class="nav-link @Active("Sites")" asp-controller="Sites" asp-action="Index">
+                <i class="fa-solid fa-location-dot"></i> Sites
+            </a>
+        }
+
+        @if (canUsers || canAudit)
+        {
+            <div class="nav-section">Administration</div>
+            @if (canUsers)
+            {
+                <a class="nav-link @Active("Users")" asp-controller="Users" asp-action="Index">
+                    <i class="fa-solid fa-users-gear"></i> Users &amp; roles
+                </a>
+            }
+            @if (canAudit)
+            {
+                <a class="nav-link @Active("AuditLogs")" asp-controller="AuditLogs" asp-action="Index">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Audit trail
+                </a>
+            }
+        }
+    </nav>
+</aside>

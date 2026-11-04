@@ -1,0 +1,12 @@
+@* Shown after registering or asking for a new confirmation email. Deliberately the same text either way. *@
+@{
+    ViewData["Title"] = "Check your email";
+    Layout = "_AuthLayout";
+}
+<div class="text-center">
+    <i class="fa-solid fa-envelope-circle-check fa-3x text-primary mb-3"></i>
+    <h1 class="h4">Check your email</h1>
+    <p class="text-body-secondary">If the address can be registered, we have sent a confirmation link to it. Click the link to activate your account, then sign in.</p>
+    <p class="small">Nothing arrived after a few minutes? Check your spam folder or <a asp-action="ResendConfirmation">send it again</a>.</p>
+    <a asp-action="Login" class="btn btn-primary">Go to sign in</a>
+</div>

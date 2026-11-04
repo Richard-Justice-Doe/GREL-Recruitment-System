@@ -1,0 +1,294 @@
+@* One onboarding: the checklist (HR, department, IT, the new employee's items), the first-day details and the
+   appointment letter. Each panel only shows the actions the user may take now. *@
+@model OnboardingDetailsDto
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
+@{
+    ViewData["Title"] = $"Onboarding: {Model.EmployeeName}";
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var staff = ViewBag.Staff as SelectList;
+    var percent = Model.Tasks.Count == 0 ? 0 : Model.TasksFinished * 100 / Model.Tasks.Count;
+    string TaskCss(OnboardingTaskStatus s) => s switch
+    {
+        OnboardingTaskStatus.Done => "badge-soft-success",
+        OnboardingTaskStatus.NotNeeded => "badge-soft-secondary",
+        _ => "badge-soft-warning"
+    };
+    string StatusCss(OnboardingStatus s) => s switch
+    {
+        OnboardingStatus.Completed => "badge-soft-success",
+        OnboardingStatus.Cancelled => "badge-soft-secondary",
+        _ => "badge-soft-warning"
+    };
+    var defaultTerms = Model.LetterTerms ?? """
+Probation: 6 months from the date of appointment, after which your appointment will be confirmed subject to satisfactory performance.
+Working hours: 8:00 to 17:00, Monday to Friday, or as your department requires.
+Annual leave, medical cover and other benefits: in line with GREL's conditions of service for your grade.
+Notice: one month's notice or one month's salary in lieu, on either side, after confirmation.
+""";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Onboarding: @Model.EmployeeName <span class="badge rounded-pill @StatusCss(Model.Status) fs-6 align-middle">@Model.Status.DisplayName()</span></h1>
+        <p>@Model.Number · @Model.JobTitle · @Model.DivisionName → @Model.DepartmentName · @Model.SiteName
+            · starts <strong>@Model.StartDate.ToString("ddd dd MMM yyyy")</strong></p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if ((await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded)
+        {
+            <a asp-controller="Hiring" asp-action="Case" asp-route-id="@Model.ApplicationId" class="btn btn-outline-secondary">Hiring case</a>
+        }
+        <a asp-action="Letter" asp-route-id="@Model.Id" class="btn btn-outline-secondary"><i class="fa-regular fa-file-lines me-1"></i>Letter preview</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">All onboarding</a>
+    </div>
+</div>
+
+@if (Model.Status == OnboardingStatus.Cancelled)
+{
+    <div class="alert alert-secondary">Cancelled: @Model.CancelReason</div>
+}
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        @* ---- Checklist *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Checklist</h2>
+                    <span class="small text-body-secondary">@Model.TasksFinished of @Model.Tasks.Count finished</span>
+                </div>
+                <div class="progress mb-3" role="progressbar" aria-label="Checklist progress" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100" style="height: 6px">
+                    <div class="progress-bar" style="width: @percent%"></div>
+                </div>
+
+                @foreach (var team in Model.Tasks.GroupBy(t => t.Team).OrderBy(g => g.Key))
+                {
+                    <h3 class="h6 mt-3">@team.Key.DisplayName()@(team.Key == OnboardingTeam.NewEmployee ? " (to bring on the first day; tick when received)" : "")</h3>
+                    @foreach (var t in team)
+                    {
+                        <div class="border rounded-3 p-2 mb-2 small @(t.IsOverdue ? "border-danger" : "")">
+                            <div class="d-flex justify-content-between gap-2">
+                                <div>
+                                    <strong>@t.Title</strong>
+                                    <div class="text-body-secondary">
+                                        @(t.AssignedTo ?? (t.Team == OnboardingTeam.NewEmployee ? "HR ticks when received" : "Unassigned"))
+                                        @if (t.DueDate is not null)
+                                        {
+                                            <span> · due @t.DueDate.Value.ToString("dd MMM")</span>
+                                        }
+                                        @if (t.IsOverdue) { <span class="text-danger fw-semibold"> · overdue</span> }
+                                    </div>
+                                    @if (t.CompletedBy is not null)
+                                    {
+                                        <div class="text-body-secondary">@t.Status.DisplayName() by @t.CompletedBy, @t.CompletedAt?.ToString("dd MMM yyyy")</div>
+                                    }
+                                    @if (t.Notes is not null) { <div class="mt-1">@t.Notes</div> }
+                                </div>
+                                <span class="badge rounded-pill @TaskCss(t.Status) align-self-start">@t.Status.DisplayName()</span>
+                            </div>
+                            @if (t.CanUpdate)
+                            {
+                                <form asp-action="UpdateTask" asp-route-id="@Model.Id" method="post" class="mt-2">
+                                    <input type="hidden" name="taskId" value="@t.Id" />
+                                    @if (t.Status == OnboardingTaskStatus.Open)
+                                    {
+                                        <div class="input-group input-group-sm">
+                                            <input name="notes" class="form-control" maxlength="2000" placeholder="Notes (required for &quot;not needed&quot;)" aria-label="Notes" />
+                                            <button type="submit" name="status" value="Done" class="btn btn-outline-success"><i class="fa-solid fa-check me-1"></i>Done</button>
+                                            <button type="submit" name="status" value="NotNeeded" class="btn btn-outline-secondary">Not needed</button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit" name="status" value="Open" class="btn btn-sm btn-link p-0">Reopen</button>
+                                    }
+                                </form>
+                            }
+                            @if (Model.CanManage && t.Status == OnboardingTaskStatus.Open && t.Team != OnboardingTeam.NewEmployee)
+                            {
+                                <details class="mt-1">
+                                    <summary class="text-body-secondary">Reassign or change the due date</summary>
+                                    <form asp-action="AssignTask" asp-route-id="@Model.Id" method="post" class="mt-2">
+                                        <input type="hidden" name="taskId" value="@t.Id" />
+                                        <div class="input-group input-group-sm">
+                                            <select name="userId" class="form-select" aria-label="Responsible person">
+                                                <option value="">Unassigned</option>
+                                                @foreach (var s in staff ?? Enumerable.Empty<SelectListItem>())
+                                                {
+                                                    <option value="@s.Value" selected="@(s.Value == t.AssignedToUserId)">@s.Text</option>
+                                                }
+                                            </select>
+                                            <input name="dueDate" type="date" class="form-control" value="@t.DueDate?.ToString("yyyy-MM-dd")" aria-label="Due date" />
+                                            <button type="submit" class="btn btn-outline-primary">Save</button>
+                                        </div>
+                                    </form>
+                                    <form asp-action="RemoveTask" asp-route-id="@Model.Id" method="post" class="mt-1">
+                                        <input type="hidden" name="taskId" value="@t.Id" />
+                                        <button type="submit" class="btn btn-sm btn-link text-danger p-0" data-confirm="Remove this task from the checklist?">Remove from the checklist</button>
+                                    </form>
+                                </details>
+                            }
+                        </div>
+                    }
+                }
+
+                @if (Model.CanManage)
+                {
+                    <form asp-action="AddTask" asp-route-id="@Model.Id" method="post" class="border-top pt-3 mt-3">
+                        <h3 class="h6">Add a task</h3>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <select name="team" class="form-select form-select-sm" aria-label="Team">
+                                    @foreach (var tm in Enum.GetValues<OnboardingTeam>())
+                                    {
+                                        <option value="@tm">@tm.DisplayName()</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <input name="title" class="form-control form-control-sm" maxlength="300" required placeholder="What needs doing" aria-label="Task" />
+                            </div>
+                            <div class="col-md-5">
+                                <select name="userId" class="form-select form-select-sm" aria-label="Responsible person">
+                                    <option value="">Unassigned</option>
+                                    @foreach (var s in staff ?? Enumerable.Empty<SelectListItem>())
+                                    {
+                                        <option value="@s.Value">@s.Text</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <input name="dueDate" type="date" class="form-control form-control-sm" aria-label="Due date" />
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-sm btn-outline-primary w-100">Add task</button>
+                            </div>
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        @* ---- Appointment letter *@
+        <div class="card glass mb-3 @(Model.CanIssueLetter && Model.LetterIssuedAt is null ? "border border-primary" : "")">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Appointment letter @Model.LetterNumber</h2>
+                @if (Model.LetterSignedAt is not null)
+                {
+                    <p class="small mb-2"><span class="badge rounded-pill badge-soft-success">Signed</span>
+                        by @Model.LetterSignedName on @Model.LetterSignedAt.Value.ToString("dd MMM yyyy HH:mm")</p>
+                }
+                else if (Model.LetterIssuedAt is not null)
+                {
+                    <p class="small mb-2"><span class="badge rounded-pill badge-soft-warning">Waiting for the new employee's signature</span><br />
+                        Issued by @Model.LetterIssuedBy on @Model.LetterIssuedAt.Value.ToString("dd MMM yyyy HH:mm")</p>
+                }
+                else
+                {
+                    <p class="small text-body-secondary mb-2">Not issued yet. An HR Manager issues it.</p>
+                }
+
+                @if (Model.CanIssueLetter)
+                {
+                    <form asp-action="IssueLetter" asp-route-id="@Model.Id" method="post">
+                        <label for="terms" class="form-label small">Conditions of appointment</label>
+                        <textarea id="terms" name="terms" class="form-control form-control-sm mb-2" rows="7" maxlength="8000" required>@defaultTerms</textarea>
+                        <button type="submit" class="btn btn-sm btn-primary" data-confirm="@(Model.LetterIssuedAt is null ? "Issue the letter to the new employee?" : "Send the revised letter to the new employee?")">
+                            <i class="fa-solid fa-file-signature me-1"></i>@(Model.LetterIssuedAt is null ? "Issue the appointment letter" : "Issue a revised letter")
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+
+        @* ---- First day *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">First day</h2>
+                @if (Model.CanManage)
+                {
+                    <form asp-action="UpdateFirstDay" asp-route-id="@Model.Id" method="post" class="small">
+                        <div class="row g-2 mb-2">
+                            <div class="col-7">
+                                <label for="startDate" class="form-label small mb-0">Start date</label>
+                                <input id="startDate" name="startDate" type="date" class="form-control form-control-sm" value="@Model.StartDate.ToString("yyyy-MM-dd")" disabled="@(!Model.CanEditStartDate)" />
+                            </div>
+                            <div class="col-5">
+                                <label for="reportTime" class="form-label small mb-0">Report at</label>
+                                <input id="reportTime" name="reportTime" type="time" class="form-control form-control-sm" value="@Model.ReportTime.ToString("HH:mm")" />
+                            </div>
+                        </div>
+                        @if (!Model.CanEditStartDate) { <div class="form-text mt-0 mb-2">The start date is fixed: the letter is signed.</div> }
+                        <label for="reportLocation" class="form-label small mb-0">Where</label>
+                        <input id="reportLocation" name="reportLocation" class="form-control form-control-sm mb-2" maxlength="300" value="@Model.ReportLocation" required />
+                        <label for="contactPersonUserId" class="form-label small mb-0">Met by</label>
+                        <select id="contactPersonUserId" name="contactPersonUserId" class="form-select form-select-sm mb-2">
+                            <option value="">Not decided yet</option>
+                            @foreach (var s in staff ?? Enumerable.Empty<SelectListItem>())
+                            {
+                                <option value="@s.Value" selected="@(s.Value == Model.ContactPersonUserId)">@s.Text</option>
+                            }
+                        </select>
+                        <label for="firstDayNotes" class="form-label small mb-0">Notes for the new employee</label>
+                        <textarea id="firstDayNotes" name="firstDayNotes" class="form-control form-control-sm mb-2" rows="2" maxlength="4000">@Model.FirstDayNotes</textarea>
+                        <label for="employeeNumber" class="form-label small mb-0">Staff number (from payroll)</label>
+                        <input id="employeeNumber" name="employeeNumber" class="form-control form-control-sm mb-2" maxlength="30" value="@Model.EmployeeNumber" />
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Save first-day details</button>
+                    </form>
+                }
+                else
+                {
+                    <dl class="details-grid small mb-0">
+                        <dt>When</dt><dd>@Model.StartDate.ToString("dddd dd MMM yyyy"), @Model.ReportTime.ToString("HH:mm")</dd>
+                        <dt>Where</dt><dd>@Model.ReportLocation</dd>
+                        <dt>Met by</dt><dd>@(Model.ContactPerson ?? "Not decided yet")</dd>
+                        @if (Model.FirstDayNotes is not null) { <dt>Notes</dt><dd style="white-space: pre-wrap">@Model.FirstDayNotes</dd> }
+                        <dt>Staff number</dt><dd>@(Model.EmployeeNumber ?? "—")</dd>
+                    </dl>
+                }
+            </div>
+        </div>
+
+        @* ---- About *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <dl class="details-grid small mb-0">
+                    <dt>New employee</dt><dd>@Model.EmployeeName@(Model.EmployeeEmail is null ? "" : $" · {Model.EmployeeEmail}")</dd>
+                    <dt>Salary</dt><dd>GHS @Model.MonthlySalary.ToString("N2") per month</dd>
+                    <dt>Application</dt><dd>@Model.ApplicationNumber · offer @Model.OfferNumber · @Model.VacancyNumber</dd>
+                    <dt>Started by</dt><dd>@Model.CreatedBy, @Model.CreatedAt.ToString("dd MMM yyyy")</dd>
+                </dl>
+            </div>
+        </div>
+
+        @* ---- Complete / cancel *@
+        @if (Model.CanManage)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Finish</h2>
+                    @if (Model.CanComplete)
+                    {
+                        <form asp-action="Complete" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <button type="submit" class="btn btn-success" data-confirm="Mark the onboarding as completed?"><i class="fa-solid fa-flag-checkered me-1"></i>Complete onboarding</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <p class="small text-body-secondary">@Model.CompleteBlockedReason</p>
+                    }
+                    <form asp-action="Cancel" asp-route-id="@Model.Id" method="post">
+                        <div class="input-group input-group-sm">
+                            <input name="reason" class="form-control" maxlength="2000" required placeholder="Reason (e.g. did not report)" aria-label="Reason for cancelling" />
+                            <button type="submit" class="btn btn-outline-danger" data-confirm="Cancel this onboarding?">Cancel onboarding</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+</div>

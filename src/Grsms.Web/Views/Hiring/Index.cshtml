@@ -1,0 +1,78 @@
+@* Hiring recommendations (hiring reports):
+     Awaiting my decision - for the HOD (endorse), HR Manager and MD (approve)
+     Approved             - ready for (or with) an offer
+     With offers          - an offer has been sent
+     All                  - everything I may see, with division, department, period and status filters *@
+@model IReadOnlyList<HiringListItemDto>
+@{
+    ViewData["Title"] = "Hiring";
+    var f = (HiringFilter)ViewBag.Filter;
+    var tabs = new[] { ("awaiting", "Awaiting my decision"), ("approved", "Approved"), ("offers", "With offers"), ("all", "All") };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Hiring recommendations and offers</h1>
+        <p>The hiring report for each recommended candidate: HOD endorsement, HR and MD approval, background checks and the offer.</p>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var (key, label) in tabs)
+    {
+        <li class="nav-item"><a class="nav-link @(f.Tab == key ? "active" : "")" asp-action="Index" asp-route-tab="@key">@label</a></li>
+    }
+</ul>
+
+<form method="get" class="card glass mb-3">
+    <input type="hidden" name="tab" value="@f.Tab" />
+    <div class="card-body row g-2 align-items-end">
+        <partial name="_ReportFilters" model="(f.DivisionId, f.DepartmentId, f.From, f.To)" />
+        @if (f.Tab == "all")
+        {
+            <div class="col-sm-6 col-lg-2">
+                <label class="form-label small" for="Status">Status</label>
+                <select id="Status" name="Status" class="form-select">
+                    <option value="">Any status</option>
+                    @foreach (var s in Enum.GetValues<HiringStatus>())
+                    {
+                        <option value="@s" selected="@(f.Status == s)">@s.DisplayName()</option>
+                    }
+                </select>
+            </div>
+        }
+        <div class="col-sm-6 col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            <a asp-action="Index" asp-route-tab="@f.Tab" class="btn btn-outline-secondary">Clear</a>
+        </div>
+    </div>
+</form>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead><tr><th>Reference</th><th>Candidate</th><th>Vacancy</th><th>Department</th><th class="text-end">Salary (GHS / month)</th><th>Start</th><th>Status</th><th>Offer</th></tr></thead>
+                <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr><td colspan="8" class="text-center text-body-secondary py-4">@(f.Tab == "awaiting" ? "Nothing is waiting for your decision." : "Nothing here.")</td></tr>
+                }
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td class="text-nowrap"><a asp-action="Case" asp-route-id="@r.ApplicationId" class="fw-semibold text-decoration-none">@r.Number</a></td>
+                        <td>@r.ApplicantName</td>
+                        <td>@r.VacancyNumber<div class="small text-body-secondary">@r.JobTitle</div></td>
+                        <td>@r.DepartmentName<div class="small text-body-secondary">@r.DivisionName</div></td>
+                        <td class="text-end">@r.ProposedSalary.ToString("N2")</td>
+                        <td class="small text-nowrap">@r.ProposedStartDate.ToString("dd MMM yyyy")</td>
+                        <td><span class="badge rounded-pill @(r.Status == HiringStatus.Approved ? "badge-soft-success" : r.Status is HiringStatus.Rejected or HiringStatus.Withdrawn ? "badge-soft-secondary" : "badge-soft-warning")">@r.Status.DisplayName()</span></td>
+                        <td class="small">@(r.OfferStatus?.DisplayName() ?? "—")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

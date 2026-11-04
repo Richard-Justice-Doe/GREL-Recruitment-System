@@ -1,0 +1,129 @@
+@* A vacancy's shortlisting board: the requirements, every application ranked by screening score (those meeting the
+   minimum first), the recruiter's and Head of Department's recommendations, and the actions the user may take. *@
+@model ShortlistBoardDto
+@{
+    ViewData["Title"] = $"Shortlisting · {Model.VacancyNumber}";
+    string RecCss(ShortlistRecommendation r) => r switch
+    {
+        ShortlistRecommendation.Shortlist => "badge-soft-success",
+        ShortlistRecommendation.DoNotShortlist => "badge-soft-danger",
+        _ => "badge-soft-secondary"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Shortlisting: @Model.JobTitle</h1>
+        <p><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> · @Model.DepartmentName
+            · @Model.NumberOfPositions position@(Model.NumberOfPositions == 1 ? "" : "s") · closes @Model.ClosingDate.ToString("dd MMM yyyy")</p>
+    </div>
+    @if (Model.IsReviewer)
+    {
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="Interviews" asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-outline-secondary"><i class="fa-solid fa-ranking-star me-1"></i>Interview results</a>
+            <form asp-action="Screen" method="post">
+                <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+                <button type="submit" class="btn btn-outline-secondary"><i class="fa-solid fa-rotate me-1"></i>Re-run screening</button>
+            </form>
+            <form asp-action="SendToHod" method="post">
+                <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+                <button type="submit" class="btn btn-primary" disabled="@(Model.AwaitingHod == 0)">
+                    <i class="fa-solid fa-paper-plane me-1"></i>Ask the HOD for their view @(Model.AwaitingHod > 0 ? $"({Model.AwaitingHod})" : "")
+                </button>
+            </form>
+        </div>
+    }
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card glass h-100">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">What the screening checks</h2>
+                <dl class="details-grid mb-2">
+                    <dt>Education (20 pts)</dt><dd>At least @Model.MinimumEducation.DisplayName()</dd>
+                    <dt>Experience (20 pts)</dt><dd>@(Model.MinYearsExperience == 0 ? "No minimum" : $"At least {Model.MinYearsExperience} years")</dd>
+                    <dt>Essential (45 pts)</dt><dd>@(Model.EssentialItems.Count == 0 ? "None listed" : string.Join(" · ", Model.EssentialItems))</dd>
+                    <dt>Desirable (15 pts)</dt><dd>@(Model.DesirableItems.Count == 0 ? "None listed" : string.Join(" · ", Model.DesirableItems))</dd>
+                </dl>
+                <p class="small text-body-secondary mb-0">
+                    Scores use what applicants entered in their profile (education, years, skills, certifications), not the text inside their CV files.
+                    <i class="fa-solid fa-circle-check text-success"></i> = meets every minimum and essential requirement. The score guides the panel; people make the decision.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card glass h-100">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">How shortlisting works</h2>
+                <ol class="small ps-3 mb-0">
+                    <li>The recruiter recommends <em>shortlist</em> or <em>do not shortlist</em>.</li>
+                    <li>The Head of Department agrees or disagrees (with a comment if they disagree).</li>
+                    <li>The recruiter or HR Manager shortlists. Without the HOD's agreement, only an HR Manager can, giving a reason.</li>
+                </ol>
+                <p class="small mt-2 mb-0"><strong>@Model.Shortlisted</strong> shortlisted · <strong>@Model.AwaitingHod</strong> waiting for the HOD</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                <tr><th>#</th><th>Applicant</th><th style="min-width:9rem">Score</th><th>Missing essentials</th><th>Recruiter</th><th>HOD</th><th>Status</th><th style="min-width:15rem">Actions</th></tr>
+                </thead>
+                <tbody>
+                @if (Model.Rows.Count == 0)
+                {
+                    <tr><td colspan="8" class="text-center text-body-secondary py-4">No applications yet.</td></tr>
+                }
+                @for (var i = 0; i < Model.Rows.Count; i++)
+                {
+                    var r = Model.Rows[i];
+                    <tr>
+                        <td class="text-body-secondary">@(i + 1)</td>
+                        <td>
+                            <a asp-controller="Applications" asp-action="Details" asp-route-id="@r.ApplicationId" class="fw-semibold text-decoration-none">@r.FullName</a>
+                            @if (r.IsInternal) { <span class="badge rounded-pill badge-soft-primary ms-1">Staff</span> }
+                            <div class="small text-body-secondary">@r.ApplicationNumber · @r.HighestEducation.DisplayName() · @r.YearsExperience yrs</div>
+                        </td>
+                        <td>
+                            @if (r.Score is int score)
+                            {
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height:.5rem" role="progressbar" aria-label="Score" aria-valuenow="@score" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar @(r.MeetsMinimum == true ? "bg-success" : "bg-warning")" style="width:@score%"></div>
+                                    </div>
+                                    <strong>@score</strong>
+                                    @if (r.MeetsMinimum == true) { <i class="fa-solid fa-circle-check text-success" title="Meets the minimum requirements"></i> }
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="small text-body-secondary">Not screened</span>
+                            }
+                        </td>
+                        <td class="small">@(r.MissingEssential.Count == 0 ? "—" : string.Join(", ", r.MissingEssential))</td>
+                        <td>
+                            <span class="badge rounded-pill @RecCss(r.RecruiterRecommendation)">@r.RecruiterRecommendation.DisplayName()</span>
+                            @if (r.RecruiterNote is not null) { <div class="small text-body-secondary">@r.RecruiterNote</div> }
+                        </td>
+                        <td>
+                            <span class="badge rounded-pill @RecCss(r.HodRecommendation)">@r.HodRecommendation.DisplayName()</span>
+                            @if (r.HodNote is not null) { <div class="small text-body-secondary">@r.HodNote</div> }
+                        </td>
+                        <td><partial name="_ApplicationStatus" model="r.Status" /></td>
+                        <td>
+                            <partial name="_ShortlistActions" model="(r, Model.VacancyId, (string?)null)" />
+                            @if (r.IsOwn) { <span class="small text-body-secondary">Your own application</span> }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

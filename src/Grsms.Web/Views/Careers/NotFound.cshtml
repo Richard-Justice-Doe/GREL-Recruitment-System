@@ -1,0 +1,13 @@
+@* Shown when an advert link is wrong, or the advert has closed. *@
+@{
+    ViewData["Title"] = "Vacancy not available";
+    Layout = "_PublicLayout";
+    Context.Response.StatusCode = 404;
+}
+
+<div class="dash-card text-center py-5">
+    <i class="fa-regular fa-calendar-xmark fa-2x text-body-secondary mb-2"></i>
+    <h1 class="h5">This vacancy is no longer open</h1>
+    <p class="text-body-secondary">The advert may have closed, or the link may be wrong.</p>
+    <a asp-action="Index" class="btn btn-primary">See current vacancies</a>
+</div>

@@ -1,0 +1,41 @@
+@* Workflow progress indicator:  Draft → Recruitment review → HR approval → MD approval → Approved.
+   Completed steps are ticked, the current step is highlighted, and a rejected/cancelled request
+   shows a red cross at the step where it stopped. *@
+@model RecruitmentRequestDetailsDto
+@{
+    var steps = new[] { "Draft", "Recruitment review", "HR approval", "MD approval", "Approved" };
+
+    int IndexOf(RecruitmentRequestStatus s) => s switch
+    {
+        RecruitmentRequestStatus.Draft or RecruitmentRequestStatus.Returned => 0,
+        RecruitmentRequestStatus.RecruitmentReview => 1,
+        RecruitmentRequestStatus.HrApproval => 2,
+        RecruitmentRequestStatus.MdApproval => 3,
+        RecruitmentRequestStatus.Approved => 4,
+        _ => 0
+    };
+
+    var stopped = Model.Status is RecruitmentRequestStatus.Rejected or RecruitmentRequestStatus.Cancelled;
+    // For a stopped request, the step it stopped at is the status it was in just before.
+    var current = stopped ? IndexOf(Model.History.LastOrDefault()?.FromStatus ?? RecruitmentRequestStatus.Draft) : IndexOf(Model.Status);
+    var finished = Model.Status == RecruitmentRequestStatus.Approved;
+}
+<ol class="stepper" aria-label="Approval progress">
+    @for (var i = 0; i < steps.Length; i++)
+    {
+        var state = i < current || (finished && i == current) ? "done"
+                  : i == current ? (stopped ? "stopped" : "current")
+                  : "todo";
+        <li class="step step-@state" aria-current="@(state == "current" ? "step" : null)">
+            <span class="step-dot">
+                @switch (state)
+                {
+                    case "done": <i class="fa-solid fa-check"></i> break;
+                    case "stopped": <i class="fa-solid fa-xmark"></i> break;
+                    default: @(i + 1) break;
+                }
+            </span>
+            <span class="step-label">@steps[i]</span>
+        </li>
+    }
+</ol>

@@ -27,6 +27,48 @@ public class UserDirectory(ApplicationDbContext db) : IUserDirectory
             .Select(u => new LookupItem(u.Id, u.FullName + " (" + u.Email + ")"))
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<UserContact>> GetContactsInRoleAsync(string role, CancellationToken ct = default) =>
+        await UsersInRole(role)
+            .Where(u => u.Email != null)
+            .Select(u => new UserContact(u.Id, u.FullName, u.Email!))
+            .ToListAsync(ct);
+
+    public Task<UserContact?> GetContactAsync(string userId, CancellationToken ct = default) =>
+        db.Users.AsNoTracking()
+            .Where(u => u.Id == userId && u.Email != null)
+            .Select(u => new UserContact(u.Id, u.FullName, u.Email!))
+            .FirstOrDefaultAsync(ct);
+
+    public Task<int?> GetDepartmentIdAsync(string userId, CancellationToken ct = default) =>
+        db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.DepartmentId).FirstOrDefaultAsync(ct);
+
+    public Task<bool> IsActiveStaffAsync(string userId, CancellationToken ct = default) =>
+        db.Users.AnyAsync(u => u.Id == userId && u.IsActive && !u.IsCandidate, ct);
+
+    public async Task<IReadOnlyList<LookupItem>> GetActiveStaffAsync(int? departmentId, CancellationToken ct = default) =>
+        await db.Users.AsNoTracking()
+            .Where(u => u.IsActive && !u.IsCandidate && (departmentId == null || u.DepartmentId == departmentId))
+            .OrderBy(u => u.FullName)
+            .Select(u => new LookupItem(u.Id, u.FullName + " (" + u.Email + ")"))
+            .ToListAsync(ct);
+
+    public Task<int> CountCandidatesAsync(CancellationToken ct = default) =>
+        db.Users.CountAsync(u => u.IsCandidate, ct);
+
+    public async Task<IReadOnlyList<DateTime>> GetCandidateRegistrationDatesAsync(DateTime sinceUtc, CancellationToken ct = default) =>
+        await db.Users.AsNoTracking()
+            .Where(u => u.IsCandidate && u.CreatedAt >= sinceUtc)
+            .Select(u => u.CreatedAt)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CandidateSummary>> GetLatestCandidatesAsync(int count, CancellationToken ct = default) =>
+        await db.Users.AsNoTracking()
+            .Where(u => u.IsCandidate)
+            .OrderByDescending(u => u.CreatedAt)
+            .Take(count)
+            .Select(u => new CandidateSummary(u.Id, u.FullName, u.Email ?? "", u.CreatedAt, u.EmailConfirmed))
+            .ToListAsync(ct);
+
     /// <summary>Active users who hold the named role (joins Users → UserRoles → Roles).</summary>
     private IQueryable<ApplicationUser> UsersInRole(string role) =>
         from u in db.Users.AsNoTracking()

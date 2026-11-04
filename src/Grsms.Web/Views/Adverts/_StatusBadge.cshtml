@@ -1,0 +1,13 @@
+@* Coloured pill for an advert's status. Usage: <partial name="_StatusBadge" model="a.Status" /> *@
+@model Grsms.Domain.Advertisements.AdvertStatus
+@{
+    var css = Model switch
+    {
+        AdvertStatus.Draft => "badge-soft-secondary",
+        AdvertStatus.Scheduled => "badge-soft-warning",
+        AdvertStatus.Live => "badge-soft-success",
+        AdvertStatus.Closed => "badge-soft-primary",
+        _ => "badge-soft-secondary"
+    };
+}
+<span class="badge rounded-pill @css">@Model.DisplayName()</span>

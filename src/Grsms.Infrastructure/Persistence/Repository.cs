@@ -16,6 +16,9 @@ public class Repository<T>(ApplicationDbContext db) : IRepository<T> where T : B
 {
     private readonly DbSet<T> _set = db.Set<T>();
 
+    /// <summary>The database context, for specialised repositories that add their own queries.</summary>
+    protected ApplicationDbContext Db { get; } = db;
+
     public Task<T?> GetByIdAsync(int id, CancellationToken ct = default) =>
         // FirstOrDefaultAsync (rather than FindAsync) guarantees the soft-delete filter is applied.
         _set.FirstOrDefaultAsync(e => e.Id == id, ct);

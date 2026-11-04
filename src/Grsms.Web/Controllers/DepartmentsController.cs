@@ -13,7 +13,7 @@ namespace Grsms.Web.Controllers;
 /// The controller stays thin: every rule lives in <see cref="IDepartmentService"/>.
 /// </summary>
 [Authorize(Policy = Policies.MasterData)]
-public class DepartmentsController(IDepartmentService departments, IUserDirectory users) : AppController
+public class DepartmentsController(IDepartmentService departments, IDivisionService divisions, IUserDirectory users) : AppController
 {
     public async Task<IActionResult> Index(CancellationToken ct) =>
         View(await departments.GetAllAsync(ct));
@@ -26,7 +26,7 @@ public class DepartmentsController(IDepartmentService departments, IUserDirector
 
     public async Task<IActionResult> Create(CancellationToken ct)
     {
-        await LoadHodListAsync(null, ct);
+        await LoadListsAsync(null, null, ct);
         return View("Form", new DepartmentFormDto());
     }
 
@@ -43,7 +43,7 @@ public class DepartmentsController(IDepartmentService departments, IUserDirector
             }
             AddErrors(result);
         }
-        await LoadHodListAsync(form.HeadOfDepartmentUserId, ct);
+        await LoadListsAsync(form.HeadOfDepartmentUserId, form.DivisionId, ct);
         return View("Form", form);
     }
 
@@ -51,7 +51,7 @@ public class DepartmentsController(IDepartmentService departments, IUserDirector
     {
         var form = await departments.GetForEditAsync(id, ct);
         if (form is null) return NotFound();
-        await LoadHodListAsync(form.HeadOfDepartmentUserId, ct);
+        await LoadListsAsync(form.HeadOfDepartmentUserId, form.DivisionId, ct);
         return View("Form", form);
     }
 
@@ -69,7 +69,7 @@ public class DepartmentsController(IDepartmentService departments, IUserDirector
             }
             AddErrors(result);
         }
-        await LoadHodListAsync(form.HeadOfDepartmentUserId, ct);
+        await LoadListsAsync(form.HeadOfDepartmentUserId, form.DivisionId, ct);
         return View("Form", form);
     }
 
@@ -83,10 +83,16 @@ public class DepartmentsController(IDepartmentService departments, IUserDirector
         return returnTo == "details" ? RedirectToAction(nameof(Details), new { id }) : RedirectToAction(nameof(Index));
     }
 
-    /// <summary>Drop-down of users who hold the Head of Department role.</summary>
-    private async Task LoadHodListAsync(string? selected, CancellationToken ct)
+    /// <summary>Drop-downs: users who hold the Head of Department role, and the active divisions.</summary>
+    private async Task LoadListsAsync(string? selectedHod, int? selectedDivision, CancellationToken ct)
     {
         var hods = await users.GetActiveUsersInRoleAsync(Roles.HeadOfDepartment, ct);
-        ViewBag.HodList = new SelectList(hods, nameof(LookupItem.Value), nameof(LookupItem.Text), selected);
+        ViewBag.HodList = new SelectList(hods, nameof(LookupItem.Value), nameof(LookupItem.Text), selectedHod);
+
+        // Active divisions, plus the department's current one if it has since been deactivated.
+        var list = (await divisions.GetActiveLookupAsync(ct)).ToList();
+        if (selectedDivision is int id && list.All(d => d.Value != id.ToString()))
+            list.AddRange((await divisions.GetAllLookupAsync(ct)).Where(d => d.Value == id.ToString()));
+        ViewBag.DivisionList = new SelectList(list, nameof(LookupItem.Value), nameof(LookupItem.Text), selectedDivision?.ToString());
     }
 }

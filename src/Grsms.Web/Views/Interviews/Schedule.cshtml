@@ -1,0 +1,96 @@
+@* Schedule an interview or assessment for a shortlisted applicant: type, time, place, panel (which must include the
+   department's Head of Department) and the weighted scorecard criteria. *@
+@model ScheduleFormDto
+@{
+    ViewData["Title"] = "Schedule interview or assessment";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Schedule round @Model.Round: @Model.ApplicantName</h1>
+        <p>@Model.ApplicationNumber · @Model.JobTitle</p>
+    </div>
+    <a asp-controller="Applications" asp-action="Details" asp-route-id="@Model.ApplicationId" class="btn btn-outline-secondary">Cancel</a>
+</div>
+
+<form asp-action="Schedule" method="post" novalidate>
+    <input type="hidden" asp-for="ApplicationId" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+    <div class="row g-3">
+        <div class="col-xl-7">
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Session</h2>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Type" class="form-label"></label>
+                            <select asp-for="Type" asp-items="Html.GetEnumSelectList<InterviewType>()" class="form-select"></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Mode" class="form-label"></label>
+                            <select asp-for="Mode" asp-items="Html.GetEnumSelectList<InterviewMode>()" class="form-select"></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="StartsAt" class="form-label"></label>
+                            <input asp-for="StartsAt" type="datetime-local" class="form-control" value="@Model.StartsAt?.ToString("yyyy-MM-ddTHH:mm")" />
+                            <span asp-validation-for="StartsAt" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="DurationMinutes" class="form-label"></label>
+                            <input asp-for="DurationMinutes" type="number" min="10" max="480" class="form-control" />
+                            <span asp-validation-for="DurationMinutes" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Location" class="form-label"></label>
+                            <input asp-for="Location" class="form-control" placeholder="e.g. Board Room, Head Office, Takoradi, or a Teams link" />
+                            <span asp-validation-for="Location" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="CandidateInstructions" class="form-label"></label>
+                            <textarea asp-for="CandidateInstructions" class="form-control" rows="3" maxlength="2000"
+                                      placeholder="e.g. Bring your original certificates and a valid ID card."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2">Scorecard criteria</h2>
+                    <p class="small text-body-secondary">One per line, as <code>name | weight</code>. The weights must add up to 100. Each panel member rates each criterion from 1 (poor) to 5 (outstanding).</p>
+                    <textarea asp-for="Criteria" class="form-control font-monospace small" rows="7"></textarea>
+                    <span asp-validation-for="Criteria" class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-5">
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2">Panel</h2>
+                    <p class="small text-body-secondary">At least 2 people. The department's <strong>Head of Department</strong> must be on the panel (ticked for you). Choose one chair.</p>
+                    <div class="border rounded-3 p-2" style="max-height: 22rem; overflow-y: auto">
+                        @foreach (var s in Model.StaffList)
+                        {
+                            var on = Model.PanelUserIds.Contains(s.Value);
+                            var hod = Model.RequiredPanelUserIds.Contains(s.Value);
+                            <div class="d-flex align-items-center gap-2 py-1">
+                                <input class="form-check-input mt-0" type="checkbox" name="PanelUserIds" value="@s.Value" id="p-@s.Value" checked="@on" />
+                                <label class="form-check-label small flex-grow-1" for="p-@s.Value">
+                                    @s.Text
+                                    @if (hod) { <span class="badge rounded-pill badge-soft-primary ms-1">HOD</span> }
+                                </label>
+                                <input class="form-check-input mt-0" type="radio" name="ChairUserId" value="@s.Value" checked="@(Model.ChairUserId == s.Value)"
+                                       title="Chair" aria-label="Make @s.Text the chair" />
+                            </div>
+                        }
+                    </div>
+                    <div class="form-text">Tick to add to the panel; the round button on the right marks the chair.</div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-calendar-check me-1"></i>Schedule and send invitations</button>
+        </div>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

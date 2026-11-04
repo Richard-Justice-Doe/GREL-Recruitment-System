@@ -1,0 +1,284 @@
+@* One recruitment request: progress stepper, details, attachments, the action panel for whoever
+   may act now (requester: edit/submit/cancel; approver: approve/return/reject), and the history timeline.
+   What each person can do is decided by the service (Model.CanEdit, CanDecide, ...), not here. *@
+@model RecruitmentRequestDetailsDto
+@{
+    ViewData["Title"] = Model.RequestNumber;
+    var stageRole = RecruitmentWorkflow.ApproverRole(Model.Status);
+    string DotCss(WorkflowAction a) => a switch
+    {
+        WorkflowAction.Rejected or WorkflowAction.Cancelled => "danger",
+        WorkflowAction.Returned => "warning",
+        _ => ""
+    };
+    string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.0} MB" : $"{Math.Max(1, bytes / 1024)} KB";
+}
+
+<div class="page-header">
+    <div>
+        <h1>@Model.PositionTitle @(Model.NumberOfPositions > 1 ? $"(×{Model.NumberOfPositions})" : "") <partial name="_StatusBadge" model="Model.Status" /></h1>
+        <p>@Model.RequestNumber · @Model.DepartmentName@(Model.UnitName is null ? "" : $" → {Model.UnitName}") · @Model.SiteName</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All requests</a>
+        @if (Model.CanEdit)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
+        }
+    </div>
+</div>
+
+<div class="card glass mb-3">
+    <div class="card-body py-4">
+        <partial name="_WorkflowStepper" model="Model" />
+        @if (stageRole is not null)
+        {
+            <p class="text-center small text-body-secondary mb-0 mt-3">
+                Waiting for the <strong>@stageRole</strong> since @Model.StatusChangedAt.ToString("dd MMM yyyy HH:mm").
+            </p>
+        }
+    </div>
+</div>
+
+<div class="row g-3">
+    @* ------------------------------------------------------------ left column: details + history *@
+    <div class="col-xl-7">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Request details</h2>
+                <dl class="details-grid">
+                    <dt>Request number</dt><dd>@Model.RequestNumber</dd>
+                    <dt>Division</dt><dd>@Model.DivisionName</dd>
+                    <dt>Department</dt><dd>@Model.DepartmentName</dd>
+                    <dt>Unit</dt><dd>@(Model.UnitName ?? "—")</dd>
+                    <dt>Site</dt><dd>@Model.SiteName</dd>
+                    <dt>Position</dt><dd>@Model.PositionTitle</dd>
+                    <dt>Number of positions</dt><dd>@Model.NumberOfPositions</dd>
+                    <dt>Employment type</dt><dd>@Model.EmploymentType.DisplayName()</dd>
+                    <dt>Reason</dt><dd>@Model.VacancyReason.DisplayName()@(Model.ReplacedEmployee is null ? "" : $": replacing {Model.ReplacedEmployee}")</dd>
+                    <dt>Head of Department</dt><dd>@(Model.HeadOfDepartmentName ?? "—")</dd>
+                    <dt>Requested by (HOD)</dt><dd>@Model.RequestedByName</dd>
+                    <dt>Date requested</dt><dd>@(Model.DateRequested?.ToString("dd MMM yyyy") ?? "Not submitted yet")</dd>
+                    <dt>Assigned recruiter</dt><dd>@(Model.AssignedRecruiterName ?? "Assigned at Recruitment Review")</dd>
+                    <dt>Budget code</dt><dd><code>@Model.BudgetCode</code></dd>
+                    <dt>Estimated annual cost</dt><dd>GHS @Model.EstimatedAnnualCost.ToString("N2")</dd>
+                    <dt>Budget validated</dt>
+                    <dd>
+                        @if (Model.BudgetValidated)
+                        {
+                            <span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Yes, by @Model.BudgetValidatedByName</span>
+                        }
+                        else
+                        {
+                            <span class="text-body-secondary">Not yet (done by the HR Manager)</span>
+                        }
+                    </dd>
+                    @if (Model.ApprovedAt is not null)
+                    {
+                        <dt>Final approval</dt><dd>@Model.ApprovedAt.Value.ToString("dd MMM yyyy HH:mm")</dd>
+                    }
+                </dl>
+                <h3 class="h6 mt-4">Justification</h3>
+                <p class="mb-0" style="white-space: pre-wrap">@Model.Justification</p>
+            </div>
+        </div>
+
+        <div class="card glass">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
+                <ul class="timeline">
+                    @foreach (var h in Model.History)
+                    {
+                        <li>
+                            <span class="tl-dot @DotCss(h.Action)"></span>
+                            <div><strong>@h.Action.DisplayName()</strong> by @h.ActorName</div>
+                            <div class="small text-body-secondary">
+                                @h.ActionAt.ToString("dd MMM yyyy HH:mm")
+                                @if (h.FromStatus != h.ToStatus)
+                                {
+                                    <span> · @h.FromStatus.DisplayName() → @h.ToStatus.DisplayName()</span>
+                                }
+                            </div>
+                            @if (h.Comments is not null)
+                            {
+                                <div class="tl-comment small">@h.Comments</div>
+                            }
+                        </li>
+                    }
+                </ul>
+                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="RecruitmentRequest" asp-route-entityId="@Model.Id" class="small">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
+                </a>
+            </div>
+        </div>
+    </div>
+
+    @* ------------------------------------------------------------ right column: actions + attachments *@
+    <div class="col-xl-5">
+
+        @* Requester: submit / cancel *@
+        @if (Model.CanSubmit || Model.CanCancel)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Your actions</h2>
+                    @if (Model.CanSubmit)
+                    {
+                        @if (Model.Status == RecruitmentRequestStatus.Returned)
+                        {
+                            <div class="alert alert-warning small">
+                                <i class="fa-solid fa-rotate-left me-1"></i>This request was returned for changes. Read the comments in the history, update the request, then resubmit it.
+                            </div>
+                        }
+                        @if (!Model.HasJobDescription)
+                        {
+                            <p class="small text-danger"><i class="fa-solid fa-paperclip me-1"></i>Attach the job description before submitting.</p>
+                        }
+                        <form asp-action="Submit" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <button type="submit" class="btn btn-primary w-100" disabled="@(!Model.HasJobDescription)"
+                                    data-confirm="Submit this request for approval? You will not be able to edit it unless it is returned to you.">
+                                <i class="fa-solid fa-paper-plane me-1"></i>@(Model.Status == RecruitmentRequestStatus.Returned ? "Resubmit for approval" : "Submit for approval")
+                            </button>
+                        </form>
+                    }
+                    @if (Model.CanCancel)
+                    {
+                        <form asp-action="Cancel" asp-route-id="@Model.Id" method="post">
+                            <label for="reason" class="form-label small">Cancel this request</label>
+                            <div class="input-group">
+                                <input id="reason" name="reason" class="form-control form-control-sm" placeholder="Reason (optional)" maxlength="2000" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Cancel this request permanently?">Cancel request</button>
+                            </div>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+
+        @* Approver: decision panel *@
+        @if (Model.CanDecide)
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Your decision (@Model.Status.DisplayName())</h2>
+                    <form asp-action="Decide" asp-route-id="@Model.Id" method="post">
+                        <input type="hidden" name="ExpectedStatus" value="@Model.Status" />
+
+                        @if (Model.Status == RecruitmentRequestStatus.RecruitmentReview)
+                        {
+                            <div class="mb-3">
+                                <label for="AssignedRecruiterUserId" class="form-label small">Assign recruiter (if approving)</label>
+                                <select id="AssignedRecruiterUserId" name="AssignedRecruiterUserId" asp-items="ViewBag.RecruiterList" class="form-select form-select-sm"></select>
+                            </div>
+                        }
+                        @if (Model.Status == RecruitmentRequestStatus.HrApproval)
+                        {
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="BudgetValidated" name="BudgetValidated" value="true" />
+                                <label class="form-check-label small" for="BudgetValidated">
+                                    <strong>Budget validated:</strong> I have checked budget code <code>@Model.BudgetCode</code> and the estimated cost of GHS @Model.EstimatedAnnualCost.ToString("N2").
+                                </label>
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="Comments" class="form-label small">Comments <span class="text-body-secondary">(required to return or reject)</span></label>
+                            <textarea id="Comments" name="Comments" class="form-control" rows="3" maxlength="2000"></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="Decision" value="Approve" class="btn btn-success">
+                                <i class="fa-solid fa-check me-1"></i>Approve
+                            </button>
+                            <button type="submit" name="Decision" value="Return" class="btn btn-outline-warning"
+                                    data-confirm="Return this request to the Head of Department for changes?">
+                                <i class="fa-solid fa-rotate-left me-1"></i>Return for changes
+                            </button>
+                            <button type="submit" name="Decision" value="Reject" class="btn btn-outline-danger"
+                                    data-confirm="Reject this request permanently? This cannot be undone.">
+                                <i class="fa-solid fa-xmark me-1"></i>Reject permanently
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+        else if (Model.DecisionBlockedReason is not null)
+        {
+            <div class="alert alert-info small"><i class="fa-solid fa-circle-info me-1"></i>@Model.DecisionBlockedReason</div>
+        }
+
+        @if (Model.Status == RecruitmentRequestStatus.Approved)
+        {
+            <div class="alert alert-success small">
+                <i class="fa-solid fa-circle-check me-1"></i>Fully approved.
+                @if (Model.VacancyId is int vacancyId)
+                {
+                    <span>Vacancy <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@vacancyId" class="alert-link">@Model.VacancyNumber</a> has been created from it.</span>
+                }
+                else if (Model.CanCreateVacancy)
+                {
+                    <div class="mt-2">
+                        <a asp-controller="Vacancies" asp-action="Create" asp-route-requestId="@Model.Id" class="btn btn-sm btn-success">
+                            <i class="fa-solid fa-plus me-1"></i>Create the vacancy
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <span>Waiting for a Recruitment Officer to create the vacancy.</span>
+                }
+            </div>
+        }
+
+        @* Attachments *@
+        <div class="card glass">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Documents</h2>
+                @if (Model.Attachments.Count == 0)
+                {
+                    <p class="small text-body-secondary">No documents yet.</p>
+                }
+                <ul class="list-unstyled mb-3">
+                    @foreach (var a in Model.Attachments)
+                    {
+                        <li class="d-flex align-items-start gap-2 py-2 border-bottom">
+                            <i class="fa-regular @(a.ContentType == "application/pdf" ? "fa-file-pdf" : a.ContentType.StartsWith("image/") ? "fa-file-image" : "fa-file-lines") fa-lg mt-1"></i>
+                            <div class="flex-grow-1 text-break">
+                                <a asp-action="Download" asp-route-id="@Model.Id" asp-route-attachmentId="@a.Id" class="fw-semibold text-decoration-none">@a.FileName</a>
+                                <div class="small text-body-secondary">@a.Category.DisplayName() · @Size(a.SizeBytes) · @a.UploadedAt.ToString("dd MMM yyyy")</div>
+                            </div>
+                            @if (Model.CanEdit)
+                            {
+                                <form asp-action="RemoveAttachment" asp-route-id="@Model.Id" method="post">
+                                    <input type="hidden" name="attachmentId" value="@a.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove" data-confirm="Remove @a.FileName?"><i class="fa-solid fa-trash"></i></button>
+                                </form>
+                            }
+                        </li>
+                    }
+                </ul>
+
+                @if (Model.CanEdit)
+                {
+                    <form asp-action="Upload" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+                        <div class="mb-2">
+                            <label for="category" class="form-label small">Document type</label>
+                            <select id="category" name="category" class="form-select form-select-sm">
+                                @foreach (var c in Enum.GetValues<AttachmentCategory>())
+                                {
+                                    <option value="@c" selected="@(c == AttachmentCategory.JobDescription && !Model.HasJobDescription)">@c.DisplayName()</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <input type="file" name="file" class="form-control form-control-sm" accept="@AttachmentService.AcceptList" required />
+                            <div class="form-text">PDF, Word, Excel, PowerPoint or image. Up to 10 MB.</div>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload me-1"></i>Upload</button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>

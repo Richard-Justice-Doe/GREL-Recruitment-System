@@ -1,0 +1,13 @@
+@* Coloured pill for a recruitment request's status. Usage: <partial name="_StatusBadge" model="r.Status" /> *@
+@model RecruitmentRequestStatus
+@{
+    var css = Model switch
+    {
+        RecruitmentRequestStatus.Draft => "badge-soft-secondary",
+        RecruitmentRequestStatus.Returned => "badge-soft-warning",
+        RecruitmentRequestStatus.Approved => "badge-soft-success",
+        RecruitmentRequestStatus.Rejected or RecruitmentRequestStatus.Cancelled => "badge-soft-danger",
+        _ => "badge-soft-primary" // waiting at an approval stage
+    };
+}
+<span class="badge rounded-pill @css">@Model.DisplayName()</span>

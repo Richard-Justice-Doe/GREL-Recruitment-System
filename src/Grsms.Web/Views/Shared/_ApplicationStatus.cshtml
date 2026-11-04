@@ -1,0 +1,13 @@
+@* Coloured pill for an application's status. Usage: <partial name="_ApplicationStatus" model="a.Status" /> *@
+@model Grsms.Domain.Applications.ApplicationStatus
+@{
+    var css = Model switch
+    {
+        ApplicationStatus.Submitted => "badge-soft-primary",
+        ApplicationStatus.UnderReview => "badge-soft-warning",
+        ApplicationStatus.Shortlisted or ApplicationStatus.Interview or ApplicationStatus.Offer or ApplicationStatus.Hired => "badge-soft-success",
+        ApplicationStatus.NotSuccessful => "badge-soft-danger",
+        _ => "badge-soft-secondary"
+    };
+}
+<span class="badge rounded-pill @css">@Model.DisplayName()</span>

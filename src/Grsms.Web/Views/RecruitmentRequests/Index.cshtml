@@ -1,0 +1,139 @@
+@* Recruitment Requests list with two tabs:
+     * Awaiting my action - requests sitting at a stage the user's role decides (oldest first);
+     * All requests       - every request the user may see (newest first).
+   Filters and paging are done on the server, so the list stays fast as requests build up. *@
+@model PagedResult<RecruitmentRequestListItemDto>
+@{
+    ViewData["Title"] = "Recruitment requests";
+    var tab = (string)ViewBag.Tab;
+    var f = (RecruitmentRequestFilter)ViewBag.Filter;
+    var awaitingCount = (int)ViewBag.AwaitingCount;
+
+    // Keeps tab + filters when paging.
+    Dictionary<string, string> Route(int page)
+    {
+        var d = new Dictionary<string, string> { ["tab"] = tab, ["page"] = page.ToString() };
+        if (f.Status is { } s) d["Status"] = s.ToString();
+        if (f.DivisionId is { } div) d["DivisionId"] = div.ToString();
+        if (f.DepartmentId is { } dep) d["DepartmentId"] = dep.ToString();
+        if (f.From is { } from) d["From"] = from.ToString("yyyy-MM-dd");
+        if (f.To is { } to) d["To"] = to.ToString("yyyy-MM-dd");
+        if (!string.IsNullOrWhiteSpace(f.Search)) d["Search"] = f.Search;
+        return d;
+    }
+}
+
+<div class="page-header">
+    <div>
+        <h1>Recruitment requests</h1>
+        <p>Requests to fill positions, from Draft to Managing Director approval.</p>
+    </div>
+    @if (ViewBag.CanRaise == true)
+    {
+        <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Raise a request</a>
+    }
+</div>
+
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item">
+        <a class="nav-link @(tab == "awaiting" ? "active" : "")" asp-action="Index" asp-route-tab="awaiting">
+            Awaiting my action
+            @if (awaitingCount > 0)
+            {
+                <span class="badge rounded-pill text-bg-danger ms-1">@awaitingCount</span>
+            }
+        </a>
+    </li>
+    <li class="nav-item"><a class="nav-link @(tab == "all" ? "active" : "")" asp-action="Index" asp-route-tab="all">All requests</a></li>
+</ul>
+
+<form method="get" class="card glass mb-3">
+    <input type="hidden" name="tab" value="@tab" />
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-sm-6 col-lg-3">
+            <label class="form-label small" for="Search">Search</label>
+            <input id="Search" name="Search" value="@f.Search" class="form-control" placeholder="Request number or position" />
+        </div>
+        <partial name="_ReportFilters" model="(f.DivisionId, f.DepartmentId, f.From, f.To)" />
+        @if (tab == "all")
+        {
+            <div class="col-sm-6 col-lg-3">
+                <label class="form-label small" for="Status">Status</label>
+                <select id="Status" name="Status" class="form-select">
+                    <option value="">Any status</option>
+                    @foreach (var s in Enum.GetValues<RecruitmentRequestStatus>())
+                    {
+                        <option value="@s" selected="@(f.Status == s)">@s.DisplayName()</option>
+                    }
+                </select>
+            </div>
+        }
+        <div class="col-sm-6 col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            <a asp-action="Index" asp-route-tab="@tab" class="btn btn-outline-secondary">Clear</a>
+        </div>
+    </div>
+</form>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>Request no.</th>
+                    <th>Position</th>
+                    <th>Division</th>
+                    <th>Department</th>
+                    <th>Requested by (HOD)</th>
+                    <th class="text-end">Est. annual cost (GHS)</th>
+                    <th>Status</th>
+                    <th>@(tab == "awaiting" ? "Waiting since" : "Submitted")</th>
+                </tr>
+                </thead>
+                <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="text-center text-body-secondary py-4">
+                            @(tab == "awaiting" ? "Nothing is waiting for you. 🎉" : "No requests match these filters.")
+                        </td>
+                    </tr>
+                }
+                @foreach (var r in Model.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap"><a asp-action="Details" asp-route-id="@r.Id" class="fw-semibold text-decoration-none">@r.RequestNumber</a></td>
+                        <td>@r.PositionTitle @(r.NumberOfPositions > 1 ? $"(×{r.NumberOfPositions})" : "")</td>
+                        <td>@r.DivisionName</td>
+                        <td>@r.DepartmentName</td>
+                        <td>@r.RequestedByName</td>
+                        <td class="text-end">@r.EstimatedAnnualCost.ToString("N2")</td>
+                        <td><partial name="_StatusBadge" model="r.Status" /></td>
+                        <td class="small text-nowrap">
+                            @if (tab == "awaiting")
+                            {
+                                @r.StatusChangedAt.ToString("dd MMM yyyy")
+                                var days = (int)(DateTime.UtcNow - r.StatusChangedAt).TotalDays;
+                                if (days >= 3) { <span class="badge rounded-pill badge-soft-danger ms-1">@days days</span> }
+                            }
+                            else
+                            {
+                                @(r.DateRequested?.ToString("dd MMM yyyy") ?? "Not yet")
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Pages">
+            <span class="small text-body-secondary">@Model.TotalCount requests · page @Model.Page of @Model.TotalPages</span>
+            <div class="btn-group">
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+            </div>
+        </nav>
+    </div>
+</div>

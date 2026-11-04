@@ -1,11 +1,17 @@
+using Grsms.Application.Dashboard;
+using Microsoft.AspNetCore.Mvc.Rendering;
+
 namespace Grsms.Web.Models;
 
-/// <summary>Numbers shown on the Phase 1 home page.</summary>
+/// <summary>The staff home page (dashboard).</summary>
 public class HomeViewModel
 {
-    public int ActiveDepartments { get; set; }
-    public int Units { get; set; }
-    public int Sites { get; set; }
-    public int StaffAccounts { get; set; }
-    public int CandidateAccounts { get; set; }
+    public required DashboardDto Dashboard { get; init; }
+
+    /// <summary>The Division / Department filter currently applied.</summary>
+    public DashboardFilter Filter { get; init; } = new(null, null);
+
+    /// <summary>Drop-downs for the filter bar (null when the user only sees their own departments).</summary>
+    public SelectList? DivisionList { get; init; }
+    public SelectList? DepartmentList { get; init; }
 }

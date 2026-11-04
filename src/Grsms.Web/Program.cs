@@ -17,8 +17,10 @@ using Grsms.Infrastructure;
 using Grsms.Infrastructure.Email;
 using Grsms.Infrastructure.Identity;
 using Grsms.Infrastructure.Persistence;
+using Grsms.Infrastructure.Storage;
 using Grsms.Web.Controllers;
 using Grsms.Web.Security;
+using Grsms.Web.Workers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -41,14 +43,33 @@ builder.Host.UseSerilog((context, logger) => logger
         retainedFileCountLimit: 30));
 
 // ---------------------------------------------------------------- 2. Layers
+// Demo mode (SQLite file instead of MySQL; see docs/01-getting-started.md): a relative file path is
+// placed inside the application folder, and the folder is created if needed.
+if (Grsms.Infrastructure.DependencyInjection.IsSqlite(builder.Configuration))
+{
+    var csb = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=App_Data/grsms-demo.db");
+    csb.DataSource = Path.GetFullPath(csb.DataSource, builder.Environment.ContentRootPath);
+    Directory.CreateDirectory(Path.GetDirectoryName(csb.DataSource)!);
+    builder.Configuration["ConnectionStrings:DefaultConnection"] = csb.ToString();
+}
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-// A relative email pickup folder (used until SMTP is configured) is placed inside the application folder.
+builder.Services.AddScoped<IAppLinks, AppLinks>();
+builder.Services.AddScoped<Grsms.Web.Helpers.NavCounts>(); // sidebar badges + notification bell
+
+// Background job: closes vacancies whose closing date has passed (see Workers/VacancyAutoCloseWorker.cs).
+builder.Services.AddHostedService<VacancyAutoCloseWorker>();
+
+// Relative folders for saved emails (used until SMTP is configured) and uploaded files are placed
+// inside the application folder.
 builder.Services.PostConfigure<EmailOptions>(o =>
     o.PickupDirectory = Path.GetFullPath(o.PickupDirectory, builder.Environment.ContentRootPath));
+builder.Services.PostConfigure<StorageOptions>(o =>
+    o.RootFolder = Path.GetFullPath(o.RootFolder, builder.Environment.ContentRootPath));
 
 // Keys that protect cookies and password-reset links are saved to disk, so users are not signed
 // out (and emailed links keep working) when the application restarts. The folder ("DataProtection:KeysFolder")
@@ -163,14 +184,16 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapStaticAssets();
+// CSS, JavaScript, fonts and images are public, so the sign-in page itself is styled.
+// (Without this, the "sign-in required" fallback policy would block them too.)
+app.MapStaticAssets().AllowAnonymous();
 app.MapControllerRoute(
         name: "default",
         pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 
 // ---------------------------------------------------------------- 6. Database start-up
-await DbInitializer.InitializeAsync(app.Services, app.Configuration);
+await DbInitializer.InitializeAsync(app.Services, app.Configuration, app.Environment.IsDevelopment());
 
 app.Run();
 

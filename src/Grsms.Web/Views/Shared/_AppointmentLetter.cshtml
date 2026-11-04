@@ -1,0 +1,38 @@
+@* The appointment letter, shared by the new employee's page and the staff preview. Printable. *@
+@model MyAppointmentDto
+@{
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+}
+<article class="card glass offer-letter">
+    <div class="card-body p-4 p-md-5">
+        <p class="text-end small mb-4">Ref: @(Model.LetterNumber ?? "(draft)")<br />@((Model.LetterIssuedAt ?? DateTime.UtcNow).ToString("d MMMM yyyy", gb))</p>
+        <p>Dear @Model.EmployeeName,</p>
+        <h2 class="h5 my-3">Letter of appointment: @Model.JobTitle</h2>
+        <p>Further to your acceptance of our offer, Ghana Rubber Estates Limited (GREL) is pleased to appoint you as
+            <strong>@Model.JobTitle</strong> in the <strong>@Model.DepartmentName</strong> department, on the following terms:</p>
+        <table class="table table-sm w-auto">
+            <tbody>
+            <tr><th scope="row">Position</th><td>@Model.JobTitle</td></tr>
+            <tr><th scope="row">Department</th><td>@Model.DepartmentName</td></tr>
+            <tr><th scope="row">Place of work</th><td>@Model.SiteName</td></tr>
+            @if (Model.ReportingTo is not null) { <tr><th scope="row">Reporting to</th><td>@Model.ReportingTo</td></tr> }
+            <tr><th scope="row">Monthly salary</th><td>GHS @Model.MonthlySalary.ToString("N2", gb) (gross)</td></tr>
+            <tr><th scope="row">Date of appointment</th><td>@Model.StartDate.ToString("dddd d MMMM yyyy", gb)</td></tr>
+            </tbody>
+        </table>
+        @if (Model.LetterTerms is not null)
+        {
+            <h3 class="h6">Conditions of appointment</h3>
+            <div class="mb-3" style="white-space: pre-wrap">@Model.LetterTerms</div>
+        }
+        <p>On your first day, please report at <strong>@Model.ReportTime.ToString("HH:mm")</strong> to <strong>@Model.ReportLocation</strong>@(Model.ContactPerson is null ? "" : $", where {Model.ContactPerson} will meet you").</p>
+        <p>Please confirm your acceptance of this appointment by signing this letter.</p>
+        <p>Yours sincerely,<br /><br />Human Resources<br />Ghana Rubber Estates Limited</p>
+        @if (Model.LetterSignedAt is not null)
+        {
+            <div class="border-top pt-3 small">
+                <strong>Accepted and signed electronically</strong> by <em>@Model.LetterSignedName</em> on @Model.LetterSignedAt.Value.ToString("d MMMM yyyy 'at' HH:mm", gb) GMT.
+            </div>
+        }
+    </div>
+</article>

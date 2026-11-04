@@ -1,0 +1,227 @@
+@* One application (staff view): the applicant's details and documents as sent, the review actions the user may
+   take now, and the full history including internal comments. *@
+@model ApplicationDetailsDto
+@{
+    ViewData["Title"] = Model.ApplicationNumber;
+    var download = Url.Action("Download", new { id = Model.Id })!;
+}
+
+<div class="page-header">
+    <div>
+        <h1>@Model.FullName <partial name="_ApplicationStatus" model="Model.Status" />
+            @if (Model.IsInternal)
+            {
+                <span class="badge rounded-pill badge-soft-primary">GREL staff</span>
+            }
+        </h1>
+        <p>@Model.ApplicationNumber · <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> @Model.JobTitle
+            · @Model.DivisionName → @Model.DepartmentName</p>
+    </div>
+    <a asp-action="Index" asp-route-tab="all" asp-route-VacancyId="@Model.VacancyId" class="btn btn-outline-secondary">
+        <i class="fa-solid fa-arrow-left me-1"></i>All applications for this vacancy
+    </a>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Applicant (as sent on @Model.SubmittedAt.ToString("dd MMM yyyy HH:mm"))</h2>
+                <dl class="details-grid">
+                    <dt>Email</dt><dd><a href="mailto:@Model.Email">@Model.Email</a></dd>
+                    <dt>Phone</dt><dd><a href="tel:@Model.Phone">@Model.Phone</a></dd>
+                    <dt>Location</dt><dd>@(Model.Location ?? "—")</dd>
+                    <dt>Highest education</dt><dd>@Model.HighestEducation.DisplayName()@(Model.FieldOfStudy is null ? "" : $" in {Model.FieldOfStudy}")</dd>
+                    <dt>Experience</dt><dd>@Model.YearsExperience year@(Model.YearsExperience == 1 ? "" : "s")</dd>
+                    <dt>Current / last job</dt><dd>@(Model.CurrentPosition ?? "—")@(Model.CurrentEmployer is null ? "" : $" at {Model.CurrentEmployer}")</dd>
+                    @if (Model.LinkedInUrl is not null && Uri.TryCreate(Model.LinkedInUrl, UriKind.Absolute, out var li) && (li.Scheme == "https" || li.Scheme == "http"))
+                    {
+                        <dt>LinkedIn / portfolio</dt><dd class="text-break"><a href="@Model.LinkedInUrl" target="_blank" rel="noopener noreferrer">@Model.LinkedInUrl</a></dd>
+                    }
+                    <dt>Source</dt><dd>@Model.Source.DisplayName()@(Model.AdvertNumber is null ? "" : $" (advert {Model.AdvertNumber})")</dd>
+                </dl>
+                @foreach (var (title, list) in new[] { ("Skills", Model.Skills), ("Certifications", Model.Certifications) })
+                {
+                    <h3 class="h6 mt-3">@title</h3>
+                    @if (list.Count == 0)
+                    {
+                        <p class="small text-body-secondary mb-0">None listed.</p>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var item in list)
+                            {
+                                <span class="badge rounded-pill badge-soft-secondary fw-normal fs-6">@item</span>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        @if (Model.CoverLetter is not null)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Covering message</h2>
+                    <div style="white-space: pre-wrap">@Model.CoverLetter</div>
+                </div>
+            </div>
+        }
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Documents</h2>
+                <partial name="_DocumentList" model="(Model.Documents, download)" />
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        @* ---- Phase 6: screening result and shortlisting *@
+        @{
+            var row = (ShortlistRowDto?)ViewBag.ShortlistRow;
+            var s = Model.Screening;
+            string? backToApplication = "application";
+        }
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Screening</h2>
+                    <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@Model.VacancyId" class="small">Shortlisting board</a>
+                </div>
+                @if (s is null)
+                {
+                    <p class="small text-body-secondary mb-0">Not screened yet. A reviewer can run screening from the shortlisting board.</p>
+                }
+                else
+                {
+                    <div class="d-flex align-items-baseline gap-2 mb-2">
+                        <span class="fs-3 fw-semibold">@s.Score</span><span class="text-body-secondary">/ 100</span>
+                        @if (s.MeetsMinimum)
+                        {
+                            <span class="badge rounded-pill badge-soft-success">Meets the minimum requirements</span>
+                        }
+                        else
+                        {
+                            <span class="badge rounded-pill badge-soft-warning">Below the minimum</span>
+                        }
+                    </div>
+                    <table class="table table-sm small mb-2">
+                        <tbody>
+                        <tr><td>Education @(s.EducationMet ? "✓" : "✗")</td><td class="text-end">@s.EducationPoints / 20</td></tr>
+                        <tr><td>Experience @(s.ExperienceMet ? "✓" : "✗")</td><td class="text-end">@s.ExperiencePoints / 20</td></tr>
+                        <tr><td>Essential skills and certifications</td><td class="text-end">@s.EssentialPoints / 45</td></tr>
+                        <tr><td>Desirable skills and certifications</td><td class="text-end">@s.DesirablePoints / 15</td></tr>
+                        </tbody>
+                    </table>
+                    @if (s.MissingEssential.Count > 0)
+                    {
+                        <div class="small"><strong>Missing essential:</strong> @string.Join(", ", s.MissingEssential)</div>
+                    }
+                    @if (s.MatchedEssential.Count + s.MatchedDesirable.Count > 0)
+                    {
+                        <div class="small text-body-secondary"><strong>Found:</strong> @string.Join(", ", s.MatchedEssential.Concat(s.MatchedDesirable))</div>
+                    }
+                }
+
+                @if (Model.RecruiterRecommendation != ShortlistRecommendation.None || Model.HodRecommendation != ShortlistRecommendation.None)
+                {
+                    <hr />
+                    <dl class="details-grid small mb-0">
+                        <dt>Recruiter</dt><dd>@Model.RecruiterRecommendation.DisplayName()@(Model.RecruiterNote is null ? "" : $": {Model.RecruiterNote}")</dd>
+                        <dt>Head of Department</dt><dd>@Model.HodRecommendation.DisplayName()@(Model.HodNote is null ? "" : $": {Model.HodNote}")</dd>
+                    </dl>
+                }
+                @if (row is not null && (row.CanRecommend || row.CanHodReview || row.CanShortlist))
+                {
+                    <hr />
+                    <partial name="_ShortlistActions" model="(row, Model.VacancyId, backToApplication)" />
+                }
+            </div>
+        </div>
+
+        @* ---- Phase 7: interviews and assessments *@
+        @if (Model.Status is ApplicationStatus.Shortlisted or ApplicationStatus.Interview or ApplicationStatus.Offer or ApplicationStatus.Hired or ApplicationStatus.OfferDeclined)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Interviews and assessments</h2>
+                    <div class="d-grid gap-2">
+                        @if (ViewBag.CanSchedule == true)
+                        {
+                            <a asp-controller="Interviews" asp-action="Schedule" asp-route-applicationId="@Model.Id" class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-calendar-plus me-1"></i>Schedule an interview or assessment
+                            </a>
+                        }
+                        <a asp-controller="Interviews" asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-outline-secondary btn-sm">Interview results for this vacancy</a>
+                        @if (Model.Status is not ApplicationStatus.Shortlisted)
+                        {
+                            <a asp-controller="Hiring" asp-action="Case" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-user-tie me-1"></i>Hiring: checks, recommendation and offer</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.CanStartReview || Model.CanMarkNotSuccessful)
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Review</h2>
+                    @if (Model.CanStartReview)
+                    {
+                        <form asp-action="StartReview" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-magnifying-glass me-1"></i>Start review</button>
+                            <div class="form-text">The applicant's tracker then shows "Under review". Shortlisting arrives in Phase 6.</div>
+                        </form>
+                    }
+                    @if (Model.CanMarkNotSuccessful)
+                    {
+                        <form asp-action="NotSuccessful" asp-route-id="@Model.Id" method="post">
+                            <label for="reason" class="form-label small">Not taking it further? Reason (internal only, the applicant does not see it)</label>
+                            <textarea id="reason" name="reason" class="form-control form-control-sm mb-2" rows="3" maxlength="2000" required
+                                      placeholder="e.g. Does not meet the minimum education requirement"></textarea>
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100"
+                                    data-confirm="Mark this application not successful? The applicant will be emailed.">Mark not successful</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+        else if (Model.ActionBlockedReason is not null)
+        {
+            <div class="alert alert-info small"><i class="fa-solid fa-circle-info me-1"></i>@Model.ActionBlockedReason</div>
+        }
+
+        @if (Model.OutcomeReason is not null)
+        {
+            <div class="alert alert-secondary small"><strong>Internal reason:</strong> @Model.OutcomeReason</div>
+        }
+
+        <div class="card glass">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
+                <ul class="timeline">
+                    @foreach (var h in Model.History)
+                    {
+                        <li>
+                            <span class="tl-dot @(h.Action is ApplicationAction.NotSuccessful or ApplicationAction.Withdrawn ? "warning" : "")"></span>
+                            <div><strong>@h.Action.DisplayName()</strong> by @h.ActorName</div>
+                            <div class="small text-body-secondary">@h.ActionAt.ToString("dd MMM yyyy HH:mm")</div>
+                            @if (h.Comments is not null)
+                            {
+                                <div class="tl-comment small">@h.Comments</div>
+                            }
+                        </li>
+                    }
+                </ul>
+                <p class="small text-body-secondary mb-2">Department HOD: @Model.RequestingHodName</p>
+                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="JobApplication" asp-route-entityId="@Model.Id" class="small">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

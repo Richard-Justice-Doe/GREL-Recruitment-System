@@ -148,7 +148,8 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
 
         foreach (var entry in db.ChangeTracker.Entries().ToList())
         {
-            if (entry.Entity is AuditLog) continue;
+            // Audit rows themselves, and the technical reference-number counters, are not audited.
+            if (entry.Entity is AuditLog or NumberSequence) continue;
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
 
             string action;

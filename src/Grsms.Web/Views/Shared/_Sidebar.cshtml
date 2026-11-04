@@ -1,8 +1,10 @@
 @* Left-hand navigation. Each link is shown only to roles that may open it; the server checks again
    on every request, so hiding a link is for tidiness, not security.
+   The small numbers on the right come from NavCounts (Helpers/NavCounts.cs).
    New modules add their links here as they are built. *@
 @using Microsoft.AspNetCore.Authorization
 @inject IAuthorizationService Auth
+@inject NavCounts Nav
 @{
     var controller = ViewContext.RouteData.Values["controller"]?.ToString();
     string Active(params string[] names) => names.Contains(controller) ? "active" : "";
@@ -10,21 +12,107 @@
     var canMasterData = (await Auth.AuthorizeAsync(User, Policies.MasterData)).Succeeded;
     var canUsers = (await Auth.AuthorizeAsync(User, Policies.UserAdmin)).Succeeded;
     var canAudit = (await Auth.AuthorizeAsync(User, Policies.AuditTrail)).Succeeded;
+    var canRequests = (await Auth.AuthorizeAsync(User, Policies.RecruitmentRequests)).Succeeded;
+    var canVacancies = (await Auth.AuthorizeAsync(User, Policies.Vacancies)).Succeeded;
+    var canAdverts = (await Auth.AuthorizeAsync(User, Policies.Adverts)).Succeeded;
+    var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
+    var isCandidate = User.IsInRole(Roles.Candidate);
+    var isStaff = !isCandidate && Roles.Staff.Any(User.IsInRole);
+    var counts = await Nav.GetAsync();
 }
 <aside class="sidebar" aria-label="Main menu">
     <a class="brand" asp-controller="Home" asp-action="Index">
-        <span class="brand-mark">G</span>
+        <span class="brand-mark"><i class="fa-solid fa-shield-halved"></i></span>
         <span>GREL Recruitment<small>Recruitment &amp; Selection</small></span>
     </a>
 
     <nav class="nav flex-column">
         <a class="nav-link @Active("Home")" asp-controller="Home" asp-action="Index">
-            <i class="fa-solid fa-gauge-high"></i> Home
+            <i class="fa-solid fa-house"></i> Home
+        </a>
+
+        @if (canRequests || canVacancies)
+        {
+            <div class="nav-section">Talent &amp; recruitment</div>
+        }
+        @if (canRequests)
+        {
+            <a class="nav-link @Active("RecruitmentRequests")" asp-controller="RecruitmentRequests" asp-action="Index">
+                <i class="fa-regular fa-file-lines"></i> Recruitment requests
+                @if (counts.RequestsAwaitingMe is > 0)
+                {
+                    <span class="nav-count attention" title="Awaiting your decision">@counts.RequestsAwaitingMe</span>
+                }
+            </a>
+        }
+        @if (canVacancies)
+        {
+            <a class="nav-link @Active("Vacancies")" asp-controller="Vacancies" asp-action="Index">
+                <i class="fa-solid fa-briefcase"></i> Vacancies
+                @if (counts.OpenVacancies is int open)
+                {
+                    <span class="nav-count" title="Open vacancies">@open</span>
+                }
+            </a>
+        }
+        @if (canAdverts)
+        {
+            <a class="nav-link @Active("Adverts")" asp-controller="Adverts" asp-action="Index">
+                <i class="fa-solid fa-bullhorn"></i> Job adverts
+            </a>
+        }
+        @if (canApplications)
+        {
+            <a class="nav-link @Active("Applications")" asp-controller="Applications" asp-action="Index">
+                <i class="fa-solid fa-inbox"></i> Applications
+            </a>
+            <a class="nav-link @Active("Hiring")" asp-controller="Hiring" asp-action="Index">
+                <i class="fa-solid fa-user-tie"></i> Hiring and offers
+            </a>
+        }
+
+        @if (isStaff)
+        {
+            @* Any staff member can sit on an interview panel (Phase 7). *@
+            <a class="nav-link @Active("Interviews")" asp-controller="Interviews" asp-action="Index">
+                <i class="fa-solid fa-people-group"></i> Interviews
+                @if (counts.ScorecardsToDo is > 0)
+                {
+                    <span class="nav-count attention" title="Scorecards waiting for you">@counts.ScorecardsToDo</span>
+                }
+            </a>
+        }
+        @if (canApplications || counts.OnboardingTasksToDo is > 0)
+        {
+            @* Phase 9: HR and HODs follow every onboarding; anyone else sees the link while they have checklist items. *@
+            <a class="nav-link @Active("Onboarding")" asp-controller="Onboarding" asp-action="Index"
+               asp-route-tab="@(counts.OnboardingTasksToDo is > 0 ? "tasks" : "progress")">
+                <i class="fa-solid fa-door-open"></i> Onboarding
+                @if (counts.OnboardingTasksToDo is > 0)
+                {
+                    <span class="nav-count attention" title="Onboarding tasks waiting for you">@counts.OnboardingTasksToDo</span>
+                }
+            </a>
+        }
+
+        @* Everyone signed in: candidates, and GREL staff applying for internal vacancies. *@
+        <div class="nav-section">@(isCandidate ? "My job search" : "My career")</div>
+        <a class="nav-link" asp-controller="Careers" asp-action="Index">
+            <i class="fa-solid fa-briefcase"></i> @(isCandidate ? "Current vacancies" : "Job openings")
+        </a>
+        <a class="nav-link @Active("MyApplications")" asp-controller="MyApplications" asp-action="Index">
+            <i class="fa-regular fa-paper-plane"></i> My applications
+        </a>
+        <a class="nav-link @Active("Profile")" asp-controller="Profile" asp-action="Index">
+            <i class="fa-regular fa-id-card"></i> My profile
         </a>
 
         @if (canMasterData)
         {
             <div class="nav-section">Organisation</div>
+            <a class="nav-link @Active("Divisions")" asp-controller="Divisions" asp-action="Index">
+                <i class="fa-solid fa-building"></i> Divisions
+            </a>
             <a class="nav-link @Active("Departments")" asp-controller="Departments" asp-action="Index">
                 <i class="fa-solid fa-sitemap"></i> Departments
             </a>
@@ -38,7 +126,7 @@
 
         @if (canUsers || canAudit)
         {
-            <div class="nav-section">Administration</div>
+            <div class="nav-section">Management</div>
             @if (canUsers)
             {
                 <a class="nav-link @Active("Users")" asp-controller="Users" asp-action="Index">
@@ -53,4 +141,11 @@
             }
         }
     </nav>
+
+    <div class="sidebar-footer">
+        <a class="nav-link" asp-controller="Account" asp-action="ChangePassword">
+            <i class="fa-solid fa-sliders"></i> Change password
+        </a>
+        <div class="powered-by">GREL · Recruitment &amp; Selection</div>
+    </div>
 </aside>

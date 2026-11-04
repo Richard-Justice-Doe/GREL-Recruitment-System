@@ -16,6 +16,9 @@ public class Site : BaseEntity
     /// <summary>Short code, e.g. "HQ". Must be unique.</summary>
     public string Code { get; set; } = string.Empty;
 
+    /// <summary>What kind of site it is, e.g. "Rubber Plantation Estate" or "Rubber Processing Factory". Optional.</summary>
+    public string? SiteType { get; set; }
+
     /// <summary>Town, region or address, so applicants know where the job is.</summary>
     public string? Location { get; set; }
 

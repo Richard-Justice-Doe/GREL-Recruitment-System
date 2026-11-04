@@ -1,75 +1,390 @@
-@* Staff home page (Phase 1). Shows organisation counts and the build roadmap.
-   Replaced by the full recruitment dashboard (Module 1) in Phase 11. *@
+@* Staff home page (dashboard). Data comes from DashboardService (Application/Dashboard).
+   Layout: greeting, KPI cards with 7-day bar charts, then "My tasks" + requests in progress + latest candidates
+   on the left and the vacancy closing calendar on the right. Panels the user may not see are left out. *@
+@using System.Globalization
+@using Grsms.Application.Dashboard
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
 @model HomeViewModel
 @{
     ViewData["Title"] = "Home";
+    var d = Model.Dashboard;
     var name = User.FindFirst(AppClaimsPrincipalFactory.FullNameClaim)?.Value ?? "";
-    var tiles = new (string Label, int Value, string Icon)[]
+    var firstName = name.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? name;
+    var canUsers = (await Auth.AuthorizeAsync(User, Policies.UserAdmin)).Succeeded;
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var hour = DateTime.UtcNow.Hour; // GREL is on GMT
+    var greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    var showCalendar = d.ClosingDays is not null;
+    var showBottom = d.InProgress is not null || d.LatestCandidates is not null;
+}
+@functions {
+    // Same initials + colour for the same person everywhere on the page.
+    private static readonly string[] AvatarColours = ["#1f6b4a", "#2f6fdf", "#7c4dce", "#d9822b", "#c2410c", "#0f8a8a", "#b8336a"];
+
+    private static string Initials(string name) =>
+        string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
+
+    private static string AvatarColour(string name)
     {
-        ("Active departments", Model.ActiveDepartments, "fa-sitemap"),
-        ("Active units", Model.Units, "fa-diagram-project"),
-        ("Active sites", Model.Sites, "fa-location-dot"),
-        ("Active staff accounts", Model.StaffAccounts, "fa-user-tie"),
-        ("Candidate accounts", Model.CandidateAccounts, "fa-user-graduate"),
-    };
-    var phases = new (int No, string Name, bool Done)[]
-    {
-        (1, "Foundation: database, sign-in, roles, departments, units, sites, audit trail", true),
-        (2, "Recruitment requests and approval workflow", false),
-        (3, "Vacancy management", false),
-        (4, "Job advertisements", false),
-        (5, "Candidate portal and application tracking", false),
-        (6, "CV screening and shortlisting", false),
-        (7, "Assessments, interviews and scorecards", false),
-        (8, "Background checks and offers", false),
-        (9, "Appointment letters and onboarding", false),
-        (10, "Messaging, notifications and surveys", false),
-        (11, "Reports and dashboards", false),
-        (12, "Security hardening", false),
-        (13, "Production deployment", false),
-    };
+        var h = 0;
+        foreach (var c in name) h = unchecked(h * 31 + c);
+        return AvatarColours[(h & 0x7fffffff) % AvatarColours.Length];
+    }
+
+    private static string DayLetter(DateOnly day) => day.DayOfWeek.ToString()[..1];
 }
 
-<div class="page-header">
+<div class="dash-greeting dash-greeting-row">
     <div>
-        <h1>Welcome, @name</h1>
-        <p>GREL Recruitment &amp; Selection Management System</p>
+        <h1>@greeting, @firstName <span aria-hidden="true">👋</span></h1>
+        <p>Here is what is happening in recruitment today, @today.ToString("dddd d MMMM yyyy", CultureInfo.GetCultureInfo("en-GB")).</p>
     </div>
-</div>
-
-<div class="row g-3 mb-4">
-    @foreach (var t in tiles)
+    @if (Model.DivisionList is not null)
     {
-        <div class="col-6 col-md-4 col-xl">
-            <div class="glass stat-tile">
-                <div class="stat-icon"><i class="fa-solid @t.Icon"></i></div>
-                <div>
-                    <div class="stat-value">@t.Value</div>
-                    <div class="stat-label">@t.Label</div>
-                </div>
+        @* Division / Department filter for the KPI cards, the in-progress list and the calendar. *@
+        <form method="get" class="dash-filter" aria-label="Filter the dashboard">
+            @if (d.Month != new DateOnly(today.Year, today.Month, 1))
+            {
+                <input type="hidden" name="month" value="@d.Month.ToString("yyyy-MM")" />
+            }
+            <select name="divisionId" asp-items="Model.DivisionList" class="form-select form-select-sm" aria-label="Division" onchange="this.form.submit()">
+                <option value="">All divisions</option>
+            </select>
+            <select name="departmentId" asp-items="Model.DepartmentList" class="form-select form-select-sm" aria-label="Department" onchange="this.form.submit()">
+                <option value="">All departments</option>
+            </select>
+            <noscript><button type="submit" class="btn btn-sm btn-primary">Apply</button></noscript>
+            @if (Model.Filter.IsSet)
+            {
+                <a asp-action="Index" class="btn btn-sm btn-link px-1">Clear</a>
+            }
+        </form>
+    }
+</div>
+@if (Model.Filter.IsSet)
+{
+    <p class="small text-body-secondary mb-2">
+        <i class="fa-solid fa-filter me-1"></i>Filtered. <i>My tasks</i> still lists everything waiting for you, and
+        <i>Registered candidates</i> counts all candidates (candidates are linked to a department once they apply, in a later phase).
+    </p>
+}
+
+@* ---------------------------------------------------------------- KPI cards *@
+<div class="kpi-grid mb-3">
+    @foreach (var k in d.Kpis)
+    {
+        var link = k.Kind switch
+        {
+            KpiKind.Requests => Url.Action("Index", "RecruitmentRequests", new { tab = "all", Model.Filter.DivisionId, Model.Filter.DepartmentId }),
+            KpiKind.Approved => Url.Action("Index", "RecruitmentRequests", new { tab = "all", Status = "Approved", Model.Filter.DivisionId, Model.Filter.DepartmentId }),
+            KpiKind.OpenVacancies => Url.Action("Index", "Vacancies", new { Tab = "open", Model.Filter.DivisionId, Model.Filter.DepartmentId }),
+            KpiKind.Applications => Url.Action("Index", "Applications", new { tab = "all", Model.Filter.DivisionId, Model.Filter.DepartmentId }),
+            KpiKind.Candidates when canUsers => Url.Action("Index", "Users", new { candidates = true }),
+            _ => null
+        };
+        var max = Math.Max(1, k.Last7Days.Max(x => x.Count));
+        <section class="dash-card kpi-card">
+            <header class="kpi-head">
+                <i class="fa-solid @k.Icon"></i>
+                @if (link is not null)
+                {
+                    <a href="@link" class="stretched-link text-reset text-decoration-none">@k.Title</a>
+                }
+                else
+                {
+                    <span>@k.Title</span>
+                }
+                @if (link is not null)
+                {
+                    <i class="fa-solid fa-chevron-right kpi-go"></i>
+                }
+            </header>
+            <div class="kpi-figure">
+                <span class="kpi-value">@k.Total.ToString("N0")</span>
+                @if (k.ChangePercent is int pct)
+                {
+                    <span class="kpi-trend @(pct > 0 ? "up" : pct < 0 ? "down" : "flat")">
+                        <i class="fa-solid @(pct > 0 ? "fa-arrow-trend-up" : pct < 0 ? "fa-arrow-trend-down" : "fa-minus")"></i>@Math.Abs(pct)%
+                    </span>
+                    <span class="kpi-note">vs last week</span>
+                }
+                else if (k.ThisWeek > 0)
+                {
+                    <span class="kpi-trend up"><i class="fa-solid fa-arrow-trend-up"></i>+@k.ThisWeek</span>
+                    <span class="kpi-note">this week</span>
+                }
+                else
+                {
+                    <span class="kpi-note">No change this week</span>
+                }
             </div>
-        </div>
+            <div class="kpi-bars" role="img" aria-label="@k.Title per day for the last 7 days: @string.Join(", ", k.Last7Days.Select(x => $"{x.Day:ddd} {x.Count}"))">
+                @foreach (var day in k.Last7Days)
+                {
+                    var h = 12 + (int)Math.Round(88.0 * day.Count / max);
+                    <div class="kpi-bar @(day.Day == today ? "today" : "")" title="@day.Day.ToString("ddd d MMM"): @day.Count">
+                        <span style="height:@h%"></span>
+                        <small>@DayLetter(day.Day)</small>
+                    </div>
+                }
+            </div>
+        </section>
     }
 </div>
 
-<div class="card glass">
-    <div class="card-body p-4">
-        <h2 class="h5 mb-3">Build progress</h2>
-        <ul class="list-unstyled mb-0">
-            @foreach (var p in phases)
+<div class="row g-3">
+    <div class="@(showCalendar ? "col-xl-8" : "col-12")">
+
+        @* ---------------------------------------------------------------- My tasks *@
+        <section class="dash-card mb-3">
+            <header class="dash-card-head">
+                <h2><i class="fa-solid fa-list-check"></i> My tasks
+                    @if (d.TaskTotal > 0) { <span class="badge rounded-pill badge-soft-primary ms-1">@d.TaskTotal</span> }
+                </h2>
+            </header>
+            @if (d.Tasks.Count == 0)
             {
-                <li class="d-flex gap-2 py-1">
-                    @if (p.Done)
-                    {
-                        <i class="fa-solid fa-circle-check text-success mt-1"></i>
-                    }
-                    else
-                    {
-                        <i class="fa-regular fa-circle text-body-secondary mt-1"></i>
-                    }
-                    <span class="@(p.Done ? "" : "text-body-secondary")"><strong>Phase @p.No</strong> · @p.Name</span>
-                </li>
+                <div class="dash-empty">
+                    <i class="fa-regular fa-circle-check"></i>
+                    <div>You're all caught up. Nothing is waiting for you.</div>
+                </div>
             }
-        </ul>
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table dash-table">
+                        <thead>
+                            <tr><th>Task</th><th class="d-none d-md-table-cell">From</th><th>Status</th><th class="d-none d-sm-table-cell">Waiting since</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in d.Tasks)
+                            {
+                                var url = t.Target switch
+                                {
+                                    DashboardTaskTarget.Request => Url.Action("Details", "RecruitmentRequests", new { id = t.Id }),
+                                    DashboardTaskTarget.Vacancy => Url.Action("Details", "Vacancies", new { id = t.Id }),
+                                    DashboardTaskTarget.Shortlist => Url.Action("Vacancy", "Shortlisting", new { id = t.Id }),
+                                    DashboardTaskTarget.Interview => Url.Action("Details", "Interviews", new { id = t.Id }),
+                                    DashboardTaskTarget.Hiring => Url.Action("Case", "Hiring", new { id = t.Id }),
+                                    DashboardTaskTarget.Onboarding => Url.Action("Details", "Onboarding", new { id = t.Id }),
+                                    DashboardTaskTarget.NewOnboarding => Url.Action("Start", "Onboarding", new { id = t.Id }),
+                                    _ => Url.Action("Create", "Vacancies", new { requestId = t.Id })
+                                };
+                                var person = t.PersonName == "You" ? name : t.PersonName;
+                                var days = (int)(DateTime.UtcNow - t.Since).TotalDays;
+                                <tr>
+                                    <td>
+                                        <a href="@url" class="task-link">
+                                            <span class="task-title">@t.Title</span>
+                                            <small>@t.Reference · @t.Action</small>
+                                        </a>
+                                    </td>
+                                    <td class="text-nowrap d-none d-md-table-cell">
+                                        <span class="person">
+                                            <span class="mini-avatar" style="background:@AvatarColour(person)">@Initials(person)</span>
+                                            @t.PersonName
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (t.Status is RecruitmentRequestStatus rs)
+                                        {
+                                            <partial name="~/Views/RecruitmentRequests/_StatusBadge.cshtml" model="rs" />
+                                        }
+                                        else if (t.Status is VacancyStatus vs)
+                                        {
+                                            <partial name="~/Views/Vacancies/_StatusBadge.cshtml" model="vs" />
+                                        }
+                                    </td>
+                                    <td class="text-nowrap d-none d-sm-table-cell">
+                                        @t.Since.ToString("ddd, d MMM")
+                                        @if (days >= 3)
+                                        {
+                                            <span class="badge rounded-pill badge-soft-danger ms-1" title="Waiting @days days"><i class="fa-solid fa-triangle-exclamation me-1"></i>@days d</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (d.TaskTotal > d.Tasks.Count)
+                {
+                    <div class="dash-more">Showing the @d.Tasks.Count oldest of @d.TaskTotal. Open Recruitment requests or Vacancies to see them all.</div>
+                }
+            }
+        </section>
+
+        @if (showBottom)
+        {
+            <div class="row g-3">
+                @* ---------------------------------------------------------------- Requests in progress *@
+                @if (d.InProgress is not null)
+                {
+                    <div class="@(d.LatestCandidates is not null ? "col-lg-6" : "col-12")">
+                        <section class="dash-card h-100">
+                            <header class="dash-card-head">
+                                <h2><i class="fa-solid fa-bars-progress"></i> Requests in approval</h2>
+                                <a asp-controller="RecruitmentRequests" asp-action="Index" asp-route-tab="all" class="view-more">View more <i class="fa-solid fa-chevron-right"></i></a>
+                            </header>
+                            @if (d.InProgress.Count == 0)
+                            {
+                                <div class="dash-empty"><i class="fa-regular fa-folder-open"></i><div>No requests are waiting for approval.</div></div>
+                            }
+                            else
+                            {
+                                <table class="table dash-table">
+                                    <thead><tr><th>Position</th><th style="width:42%">Progress</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var r in d.InProgress)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <a asp-controller="RecruitmentRequests" asp-action="Details" asp-route-id="@r.Id" class="person text-reset text-decoration-none">
+                                                        <span class="mini-avatar" style="background:@AvatarColour(r.RequestedByName)" title="Raised by @r.RequestedByName">@Initials(r.RequestedByName)</span>
+                                                        <span class="text-truncate">@r.PositionTitle</span>
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    <div class="progress-line" title="@r.Status.DisplayName()">
+                                                        <div class="progress" role="progressbar" aria-label="@r.PositionTitle progress" aria-valuenow="@r.Percent" aria-valuemin="0" aria-valuemax="100">
+                                                            <div class="progress-bar" style="width:@r.Percent%"></div>
+                                                        </div>
+                                                        <span>@r.Percent%</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                @if (d.InProgressTotal > d.InProgress.Count)
+                                {
+                                    <div class="dash-more">+ @(d.InProgressTotal - d.InProgress.Count) more in approval</div>
+                                }
+                            }
+                        </section>
+                    </div>
+                }
+
+                @* ---------------------------------------------------------------- Latest candidates *@
+                @if (d.LatestCandidates is not null)
+                {
+                    <div class="@(d.InProgress is not null ? "col-lg-6" : "col-12")">
+                        <section class="dash-card h-100">
+                            <header class="dash-card-head">
+                                <h2><i class="fa-solid fa-id-badge"></i> Latest candidates</h2>
+                                @if (canUsers)
+                                {
+                                    <a asp-controller="Users" asp-action="Index" asp-route-candidates="true" class="view-more">View more <i class="fa-solid fa-chevron-right"></i></a>
+                                }
+                            </header>
+                            @if (d.LatestCandidates.Count == 0)
+                            {
+                                <div class="dash-empty"><i class="fa-regular fa-user"></i><div>No candidates have registered yet.</div></div>
+                            }
+                            else
+                            {
+                                <table class="table dash-table">
+                                    <thead><tr><th>Name</th><th>Registered</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var c in d.LatestCandidates)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <span class="person" title="@c.Email">
+                                                        <span class="mini-avatar" style="background:@AvatarColour(c.FullName)">@Initials(c.FullName)</span>
+                                                        <span class="text-truncate">@c.FullName</span>
+                                                    </span>
+                                                </td>
+                                                <td class="text-nowrap">
+                                                    @c.RegisteredAt.ToString("d MMM yyyy")
+                                                    @if (!c.EmailConfirmed)
+                                                    {
+                                                        <span class="badge rounded-pill badge-soft-warning ms-1" title="Email address not confirmed yet">Unconfirmed</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </section>
+                    </div>
+                }
+            </div>
+        }
     </div>
+
+    @* ---------------------------------------------------------------- Vacancy closing calendar *@
+    @if (showCalendar)
+    {
+        var prev = d.Month.AddMonths(-1);
+        var next = d.Month.AddMonths(1);
+        <div class="col-xl-4">
+            <section class="dash-card calendar-card">
+                <header class="dash-card-head">
+                    <h2><i class="fa-regular fa-calendar"></i> Vacancy closing dates</h2>
+                    <a asp-controller="Vacancies" asp-action="Index" asp-route-tab="open" class="view-more">View more <i class="fa-solid fa-chevron-right"></i></a>
+                </header>
+                <nav class="month-nav" aria-label="Choose month">
+                    <a asp-action="Index" asp-route-month="@prev.ToString("yyyy-MM")" asp-route-divisionId="@Model.Filter.DivisionId" asp-route-departmentId="@Model.Filter.DepartmentId" aria-label="Previous month">
+                        <i class="fa-solid fa-chevron-left"></i><span>@prev.ToString("MMMM")</span>
+                    </a>
+                    <strong>@d.Month.ToString("MMMM yyyy")</strong>
+                    <a asp-action="Index" asp-route-month="@next.ToString("yyyy-MM")" asp-route-divisionId="@Model.Filter.DivisionId" asp-route-departmentId="@Model.Filter.DepartmentId" aria-label="Next month">
+                        <span>@next.ToString("MMMM")</span><i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                </nav>
+
+                @if (d.ClosingDays!.Count == 0)
+                {
+                    <div class="dash-empty">
+                        <i class="fa-regular fa-calendar-xmark"></i>
+                        <div>No vacancies close in @d.Month.ToString("MMMM yyyy").</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="closing-list">
+                        @foreach (var day in d.ClosingDays)
+                        {
+                            var daysLeft = day.Date.DayNumber - today.DayNumber;
+                            <div class="closing-day @(daysLeft < 0 ? "past" : "")">
+                                <div class="cal-chip @(day.Date == today ? "today" : "")">
+                                    <span>@day.Date.ToString("ddd")</span>
+                                    <strong>@day.Date.Day</strong>
+                                </div>
+                                <div class="closing-items">
+                                    @foreach (var v in day.Vacancies)
+                                    {
+                                        var tone = v.IsClosed || daysLeft < 0 ? "muted" : daysLeft <= 3 ? "danger" : daysLeft <= 7 ? "warning" : "success";
+                                        <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@v.Id" class="closing-item tone-@tone">
+                                            <span class="closing-title">@v.JobTitle</span>
+                                            <small>
+                                                <i class="fa-solid fa-building"></i> @v.DepartmentName
+                                                · @v.Positions @(v.Positions == 1 ? "position" : "positions")
+                                                @if (v.IsClosed)
+                                                {
+                                                    <text>· closed</text>
+                                                }
+                                                else if (daysLeft == 0)
+                                                {
+                                                    <text>· closes today</text>
+                                                }
+                                                else if (daysLeft > 0)
+                                                {
+                                                    <text>· @daysLeft @(daysLeft == 1 ? "day" : "days") left</text>
+                                                }
+                                            </small>
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+    }
 </div>

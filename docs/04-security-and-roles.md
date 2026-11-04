@@ -1,14 +1,64 @@
 # 4. Security and roles
 
-## Who can do what (Phase 1)
+## Who can do what (Phases 1-9)
 
 | Screen / action | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member | Employee | Candidate |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Sign in, change own password | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Home page | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (candidate home) |
-| Departments, Units, Sites | ✅ | | | | | | | |
+| Divisions, Departments, Units, Sites | ✅ | | | | | | | |
 | Users & roles | ✅ | | | | | | | |
 | Audit trail (read only) | ✅ | ✅ | | | | | | |
+| See recruitment requests | all | all | all | all | own departments | | | |
+| Raise / edit / submit / cancel a request | | | | | ✅ own departments, own requests | | | |
+| Decide at Recruitment Review (and assign recruiter) | | | | ✅ | | | | |
+| Decide at HR Approval (and validate budget) | | ✅ | | | | | | |
+| Decide at MD Approval (final) | | | ✅ | | | | | |
+| Download request documents | ✅ | ✅ | ✅ | ✅ | own departments | | | |
+| See vacancies | all | all | all | all | own departments (read only) | | | |
+| Create (from approved request), edit, submit a vacancy | | | | ✅ | | | | |
+| Approve (publish) or return a vacancy | | ✅ not one they submitted | | | | | | |
+| Close, reopen, archive a vacancy | | ✅ | | ✅ | | | | |
+| See job adverts | all | all | all | all | own departments (read only) | | | |
+| Create, edit, publish / schedule, close, clone an advert; record external postings | | ✅ | | ✅ | | | | |
+| Public careers page (website adverts) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (and anyone, no sign-in) |
+| Internal jobs on the careers page (internal-portal adverts) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| My profile, apply, my applications, withdraw | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (external jobs only) |
+| See applications (details and documents) | all | all | all | all | own departments (read only) | | | |
+| Start review, mark not successful | | ✅ not their own | | ✅ not their own | | | | |
+| Shortlisting board and scores | all | all | all | all | own departments | | | |
+| Re-run screening, recommend, ask the HOD | | ✅ not their own | | ✅ not their own | | | | |
+| Agree / disagree with a shortlist recommendation | | | | | ✅ own departments | | | |
+| Shortlist (HOD agreed) | | ✅ | | ✅ | | | | |
+| Shortlist without the HOD's agreement (with reason) | | ✅ | | | | | | |
+| Schedule, reschedule, complete, cancel interviews and assessments | | ✅ not their own | | ✅ not their own | | | | |
+| Sit on a panel and submit a scorecard | if chosen | if chosen | if chosen | if chosen | ✅ always for own department | if chosen | if chosen | |
+| See all scorecards of a session; interview results | ✅ | ✅ | ✅ | ✅ | ✅ own departments | after submitting their own | | |
+| Hiring cases (checks, recommendation, offer) | all | all | all | all | own departments | | | |
+| Record checks, recommend hire, send / withdraw offers | | ✅ not their own | | ✅ not their own | | | | |
+| Endorse a hiring recommendation | | | | | ✅ own departments | | | |
+| Approve at HR stage (reason needed against the HOD) | | ✅ not if they proposed it | | | | | | |
+| Final hiring approval | | | ✅ not if they proposed it or approved at HR | | | | | |
+| Read offer letter, accept / decline | | | | | | | ✅ own | ✅ own |
+| See onboardings (checklist, first day, letter preview) | all | all | all | all | own departments | if given a task | if given a task | |
+| Start onboarding; change first-day details, staff number and checklist; complete, cancel | | ✅ not their own | | ✅ not their own | | | | |
+| Issue / revise the appointment letter (until signed) | | ✅ not their own | | | | | | |
+| Tick off a checklist item | | ✅ any | | ✅ any | ✅ department items and their own | their own | their own | |
+| Read and sign own appointment letter; see own first-day information | | | | | | | ✅ own | ✅ own |
+
+### Workflow controls (recruitment requests)
+* **Segregation of duties:** nobody can decide on a request they raised, even if they also hold the approver role.
+* **One role per stage:** the server refuses a decision from anyone outside that stage's role.
+* **Comments are compulsory** when returning or rejecting, so the HOD always knows why.
+* **Budget validation** must be ticked by the HR Manager before HR approval. It is cleared again if the request is resubmitted.
+* **No double decisions:** each request carries a version stamp. If two approvers act at the same moment, only the first decision is saved and the second person is asked to reload. A decision posted from an out-of-date page (the stage has moved on) is also refused.
+* **Everything is recorded:** each step is written to the request's history and to the audit trail.
+
+### Workflow controls (vacancies)
+* A vacancy can only be created from a **fully approved** recruitment request, and only **one** per request (also enforced by a unique database index).
+* The department, number of positions and employment type are copied from the approved request and **can't be changed**, so a vacancy can't quietly grow beyond what the MD approved.
+* The person who submitted a vacancy can't approve it, and stale or simultaneous decisions are refused (same version-stamp protection as requests).
+* Automatic closing runs as **"System"**, and each closure is recorded in the history and audit trail.
 
 A person can hold several roles. For example, a Head of Department is usually also an Employee. Each new phase adds its own rows to this table (raising requests, approvals, interviews, ...).
 
@@ -26,6 +76,13 @@ The rules are defined once in `src/Grsms.Web/Security/Policies.cs` and **checked
 | **Interview Panel Member** | Reviews interviews, completes scorecards. |
 | **Employee** | Views internal vacancies, applies internally, tracks applications. |
 | **Candidate** | External job seeker: registers on the portal and applies. Cannot be given to staff. |
+
+### Workflow controls (job adverts)
+* An advert can only be created or published while its vacancy is **Published** (approval complete) and before its closing date; it never runs past that date.
+* Staff-only (internal) vacancies can only be advertised on the internal portal, so they never reach the public careers page.
+* The public careers page shows only adverts that are live today, on the company-website channel, for a vacancy that is still open. Internal-portal adverts are shown only to signed-in staff (never to candidates or anonymous visitors).
+* External channels (LinkedIn, Indeed, Jobberman, newspapers) are not connected to GRSMS: no passwords for those sites are stored. Recruiters post the copy-ready text themselves and record the link.
+* Links recorded for a channel are only shown as clickable when they start with http:// or https://.
 
 ## Sign-in protection
 
@@ -60,7 +117,9 @@ To stop anyone being locked out of the system:
 | Unencrypted traffic | HTTPS redirection, plus HSTS in production |
 | Malicious redirects after sign-in | Only addresses inside GRSMS are followed |
 | SQL injection | All database access goes through Entity Framework parameterised queries |
-| Script injection (XSS) | Razor HTML-encodes all output, and email bodies encode user-entered names |
+| Script injection (XSS) | Razor HTML-encodes all output, and email bodies encode user-entered text |
+| Malicious uploads | Only PDF, Word, Excel, PowerPoint, PNG and JPG are accepted, up to 10 MB. The first bytes must match the file type, so a renamed program is refused. Files are stored **outside** the website folder under random names, are only reachable through a permission-checked download page, and are always sent as downloads (never opened inside the site). Each file's SHA-256 fingerprint is recorded. |
+| Path tricks in file names | Folder parts of an uploaded name (`C:\fakepath\..\`) are stripped. Stored names are generated by the system and checked to stay inside the storage folder. |
 
 Phase 12 (Security hardening) adds a full Content-Security-Policy, rate limiting on the sign-in page, and a review of all of the above.
 

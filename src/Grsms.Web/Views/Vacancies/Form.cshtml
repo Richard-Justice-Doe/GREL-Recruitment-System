@@ -1,0 +1,164 @@
+@* Create / edit a vacancy (Recruitment Officer). Department, number of positions and employment type
+   come from the approved request and cannot be changed here. *@
+@model VacancyFormDto
+@{
+    var isNew = Model.Id == 0;
+    ViewData["Title"] = isNew ? "Create vacancy" : $"Edit vacancy";
+}
+
+<div class="page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        <p>From approved request <a asp-controller="RecruitmentRequests" asp-action="Details" asp-route-id="@Model.RecruitmentRequestId">@Model.RequestNumber</a> · @Model.DepartmentName</p>
+    </div>
+    <a asp-action="@(isNew ? "Index" : "Details")" asp-route-id="@(isNew ? null : Model.Id)" asp-route-tab="@(isNew ? "awaiting" : null)" class="btn btn-outline-secondary">Cancel</a>
+</div>
+
+<form asp-action="@(isNew ? "Create" : "Edit")" asp-route-id="@(isNew ? null : Model.Id)" method="post" novalidate>
+    <input type="hidden" asp-for="RecruitmentRequestId" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+
+    <div class="row g-3">
+        @* ---------------------------------------------------------------- The job *@
+        <div class="col-12">
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">The job</h2>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="JobTitle" class="form-label"></label>
+                            <input asp-for="JobTitle" class="form-control" />
+                            <span asp-validation-for="JobTitle" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="VacancyType" class="form-label"></label>
+                            <select asp-for="VacancyType" asp-items="Html.GetEnumSelectList<VacancyType>()" class="form-select"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Department</label>
+                            <input class="form-control" value="@Model.DepartmentName" disabled />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Positions · employment type</label>
+                            <input class="form-control" value="@Model.NumberOfPositions · @Model.EmploymentType.DisplayName()" disabled />
+                            <div class="form-text">Fixed by the approved request.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="UnitId" class="form-label"></label>
+                            <select asp-for="UnitId" asp-items="ViewBag.UnitList" class="form-select">
+                                <option value="">— Whole department —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SiteId" class="form-label"></label>
+                            <select asp-for="SiteId" asp-items="ViewBag.SiteList" class="form-select">
+                                <option value="">— Choose —</option>
+                            </select>
+                            <span asp-validation-for="SiteId" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ReportingManagerUserId" class="form-label"></label>
+                            <select asp-for="ReportingManagerUserId" asp-items="ViewBag.ManagerList" class="form-select">
+                                <option value="">— Not set —</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="JobDescription" class="form-label"></label>
+                            <textarea asp-for="JobDescription" class="form-control" rows="10"
+                                      placeholder="Job purpose&#10;&#10;Key duties and responsibilities:&#10;- ...&#10;- ..."></textarea>
+                            <div class="form-text">This text is shown to applicants. The job description file attached to the request stays with the request.</div>
+                            <span asp-validation-for="JobDescription" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ---------------------------------------------------------------- Requirements *@
+        <div class="col-12">
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Requirements</h2>
+                    <p class="small text-body-secondary">These are used to rank applicants later (CV screening), so list each skill or certification on its own line.</p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="MinimumEducation" class="form-label"></label>
+                            <select asp-for="MinimumEducation" asp-items="Html.GetEnumSelectList<EducationLevel>()" class="form-select"></select>
+                        </div>
+                        <div class="col-md-8">
+                            <label asp-for="FieldOfStudy" class="form-label"></label>
+                            <input asp-for="FieldOfStudy" class="form-control" placeholder="e.g. Occupational Health & Safety, Engineering or related" />
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="QualificationNotes" class="form-label"></label>
+                            <input asp-for="QualificationNotes" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="MinYearsExperience" class="form-label"></label>
+                            <input asp-for="MinYearsExperience" type="number" min="0" max="40" class="form-control" />
+                            <span asp-validation-for="MinYearsExperience" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-8">
+                            <label asp-for="ExperienceNotes" class="form-label"></label>
+                            <input asp-for="ExperienceNotes" class="form-control" placeholder="e.g. in a manufacturing or plantation environment" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EssentialSkills" class="form-label"></label>
+                            <textarea asp-for="EssentialSkills" class="form-control" rows="5" placeholder="Risk assessment&#10;Incident investigation"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="DesirableSkills" class="form-label"></label>
+                            <textarea asp-for="DesirableSkills" class="form-control" rows="5" placeholder="Microsoft Excel&#10;Report writing"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EssentialCertifications" class="form-label"></label>
+                            <textarea asp-for="EssentialCertifications" class="form-control" rows="3" placeholder="NEBOSH IGC"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="DesirableCertifications" class="form-label"></label>
+                            <textarea asp-for="DesirableCertifications" class="form-control" rows="3" placeholder="First Aid at Work"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ---------------------------------------------------------------- Salary and dates *@
+        <div class="col-12">
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Salary and closing date</h2>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label asp-for="SalaryMin" class="form-label"></label>
+                            <input asp-for="SalaryMin" type="number" step="0.01" min="0" class="form-control" />
+                            <span asp-validation-for="SalaryMin" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="SalaryMax" class="form-label"></label>
+                            <input asp-for="SalaryMax" type="number" step="0.01" min="0" class="form-control" />
+                            <span asp-validation-for="SalaryMax" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input asp-for="ShowSalary" class="form-check-input" />
+                                <label asp-for="ShowSalary" class="form-check-label"></label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="ClosingDate" class="form-label"></label>
+                            <input asp-for="ClosingDate" type="date" class="form-control" />
+                            <span asp-validation-for="ClosingDate" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save draft</button>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

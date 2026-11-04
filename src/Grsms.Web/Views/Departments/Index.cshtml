@@ -7,7 +7,7 @@
 <div class="page-header">
     <div>
         <h1>Departments</h1>
-        <p>Every recruitment activity belongs to one of these departments.</p>
+        <p>Every recruitment activity belongs to one of these departments. Each department sits in a <a asp-controller="Divisions" asp-action="Index">division</a>.</p>
     </div>
     <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add department</a>
 </div>
@@ -20,6 +20,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Code</th>
+                    <th>Division</th>
                     <th>Head of Department</th>
                     <th class="text-center">Units</th>
                     <th>Status</th>
@@ -32,6 +33,7 @@
                     <tr class="@(d.IsActive ? "" : "row-inactive")">
                         <td><a asp-action="Details" asp-route-id="@d.Id" class="fw-semibold text-decoration-none">@d.Name</a></td>
                         <td><code>@d.Code</code></td>
+                        <td>@d.DivisionName</td>
                         <td>@(d.HeadOfDepartmentName ?? "Not assigned")</td>
                         <td class="text-center">@d.UnitCount</td>
                         <td><partial name="_StatusBadge" model="d.IsActive" /></td>

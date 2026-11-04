@@ -1,0 +1,166 @@
+@* Vacancies list with four tabs:
+     Open             - published, closing soonest first
+     Pending approval - waiting for the HR Manager, longest first
+     Awaiting a vacancy - approved recruitment requests that still need a vacancy (Recruitment Officers start here)
+     All              - every vacancy, newest first, with a status filter *@
+@model PagedResult<VacancyListItemDto>
+@{
+    ViewData["Title"] = "Vacancies";
+    var f = (VacancyFilter)ViewBag.Filter;
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    Dictionary<string, string> Route(int page)
+    {
+        var d = new Dictionary<string, string> { ["tab"] = f.Tab, ["page"] = page.ToString() };
+        if (f.Status is { } s) d["Status"] = s.ToString();
+        if (f.DivisionId is { } div) d["DivisionId"] = div.ToString();
+        if (f.DepartmentId is { } dep) d["DepartmentId"] = dep.ToString();
+        if (f.From is { } from) d["From"] = from.ToString("yyyy-MM-dd");
+        if (f.To is { } to) d["To"] = to.ToString("yyyy-MM-dd");
+        if (!string.IsNullOrWhiteSpace(f.Search)) d["Search"] = f.Search;
+        return d;
+    }
+
+    var tabs = new (string Key, string Label, int? Count, string BadgeCss)[]
+    {
+        ("open", "Open", (int)ViewBag.OpenCount, "text-bg-success"),
+        ("pending", "Pending approval", (int)ViewBag.PendingCount, "text-bg-warning"),
+        ("awaiting", "Approved requests awaiting a vacancy", (int)ViewBag.AwaitingCount, "text-bg-danger"),
+        ("all", "All", null, ""),
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Vacancies</h1>
+        <p>Positions approved for recruitment, from draft to published and closed.</p>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var t in tabs)
+    {
+        <li class="nav-item">
+            <a class="nav-link @(f.Tab == t.Key ? "active" : "")" asp-action="Index" asp-route-tab="@t.Key">
+                @t.Label
+                @if (t.Count > 0)
+                {
+                    <span class="badge rounded-pill @t.BadgeCss ms-1">@t.Count</span>
+                }
+            </a>
+        </li>
+    }
+</ul>
+
+@if (f.Tab == "awaiting")
+{
+    var approved = (IReadOnlyList<ApprovedRequestDto>)ViewBag.ApprovedRequests;
+    <div class="card glass">
+        <div class="card-body">
+            <p class="text-body-secondary small">These recruitment requests have been fully approved by the Managing Director. Create a vacancy for each one so it can be advertised.</p>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead><tr><th>Request no.</th><th>Position</th><th>Department</th><th>Approved</th><th>Assigned recruiter</th><th></th></tr></thead>
+                    <tbody>
+                    @if (approved.Count == 0)
+                    {
+                        <tr><td colspan="6" class="text-center text-body-secondary py-4">Every approved request already has a vacancy.</td></tr>
+                    }
+                    @foreach (var r in approved)
+                    {
+                        <tr>
+                            <td><a asp-controller="RecruitmentRequests" asp-action="Details" asp-route-id="@r.Id" class="text-decoration-none">@r.RequestNumber</a></td>
+                            <td>@r.PositionTitle @(r.NumberOfPositions > 1 ? $"(×{r.NumberOfPositions})" : "")</td>
+                            <td>@r.DepartmentName</td>
+                            <td class="small">@r.ApprovedAt?.ToString("dd MMM yyyy")</td>
+                            <td>@(r.AssignedRecruiterName ?? "—")</td>
+                            <td class="text-end">
+                                @if (ViewBag.CanCreate == true)
+                                {
+                                    <a asp-action="Create" asp-route-requestId="@r.Id" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus me-1"></i>Create vacancy</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <form method="get" class="card glass mb-3">
+        <input type="hidden" name="tab" value="@f.Tab" />
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-sm-6 col-lg-3">
+                <label class="form-label small" for="Search">Search</label>
+                <input id="Search" name="Search" value="@f.Search" class="form-control" placeholder="Vacancy number or job title" />
+            </div>
+            <partial name="_ReportFilters" model="(f.DivisionId, f.DepartmentId, f.From, f.To)" />
+            @if (f.Tab == "all")
+            {
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label small" for="Status">Status</label>
+                    <select id="Status" name="Status" class="form-select">
+                        <option value="">Any status</option>
+                        @foreach (var s in Enum.GetValues<VacancyStatus>())
+                        {
+                            <option value="@s" selected="@(f.Status == s)">@s.DisplayName()</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="col-sm-6 col-lg-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+                <a asp-action="Index" asp-route-tab="@f.Tab" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="card glass">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                    <tr><th>Vacancy no.</th><th>Job title</th><th>Division</th><th>Department</th><th>Open to</th><th>Recruiter</th><th>Status</th><th>Closing date</th></tr>
+                    </thead>
+                    <tbody>
+                    @if (Model.Items.Count == 0)
+                    {
+                        <tr><td colspan="8" class="text-center text-body-secondary py-4">No vacancies here.</td></tr>
+                    }
+                    @foreach (var v in Model.Items)
+                    {
+                        var daysLeft = v.ClosingDate.DayNumber - today.DayNumber;
+                        <tr>
+                            <td class="text-nowrap"><a asp-action="Details" asp-route-id="@v.Id" class="fw-semibold text-decoration-none">@v.VacancyNumber</a></td>
+                            <td>@v.JobTitle @(v.NumberOfPositions > 1 ? $"(×{v.NumberOfPositions})" : "")</td>
+                            <td>@v.DivisionName</td>
+                            <td>@v.DepartmentName</td>
+                            <td class="small">@v.VacancyType.DisplayName()</td>
+                            <td>@v.RecruiterName</td>
+                            <td><partial name="_StatusBadge" model="v.Status" /></td>
+                            <td class="small text-nowrap">
+                                @v.ClosingDate.ToString("dd MMM yyyy")
+                                @if (v.Status == VacancyStatus.Published && daysLeft is >= 0 and <= 3)
+                                {
+                                    <span class="badge rounded-pill badge-soft-danger ms-1">@(daysLeft == 0 ? "today" : $"{daysLeft} days")</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Pages">
+                <span class="small text-body-secondary">@Model.TotalCount vacancies · page @Model.Page of @Model.TotalPages</span>
+                <div class="btn-group">
+                    <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
+                    <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+                </div>
+            </nav>
+        </div>
+    </div>
+}

@@ -24,7 +24,7 @@ public class SiteService(IRepository<Site> sites, IUnitOfWork unitOfWork) : ISit
     public async Task<IReadOnlyList<SiteListItemDto>> GetAllAsync(CancellationToken ct = default) =>
         (await sites.ListAsync(ct: ct))
             .OrderBy(s => s.Name)
-            .Select(s => new SiteListItemDto(s.Id, s.Name, s.Code, s.Location, s.IsActive))
+            .Select(s => new SiteListItemDto(s.Id, s.Name, s.Code, s.SiteType, s.Location, s.IsActive))
             .ToList();
 
     public async Task<SiteFormDto?> GetForEditAsync(int id, CancellationToken ct = default)
@@ -35,6 +35,7 @@ public class SiteService(IRepository<Site> sites, IUnitOfWork unitOfWork) : ISit
             Id = s.Id,
             Name = s.Name,
             Code = s.Code,
+            SiteType = s.SiteType,
             Location = s.Location,
             IsActive = s.IsActive
         };
@@ -88,6 +89,7 @@ public class SiteService(IRepository<Site> sites, IUnitOfWork unitOfWork) : ISit
         form.Name = form.Name.Trim();
         form.Code = form.Code.Trim().ToUpperInvariant();
         form.Location = string.IsNullOrWhiteSpace(form.Location) ? null : form.Location.Trim();
+        form.SiteType = string.IsNullOrWhiteSpace(form.SiteType) ? null : form.SiteType.Trim();
     }
 
     private async Task<List<string>> ValidateAsync(SiteFormDto form, CancellationToken ct)
@@ -104,6 +106,7 @@ public class SiteService(IRepository<Site> sites, IUnitOfWork unitOfWork) : ISit
     {
         entity.Name = form.Name;
         entity.Code = form.Code;
+        entity.SiteType = form.SiteType;
         entity.Location = form.Location;
         entity.IsActive = form.IsActive;
     }

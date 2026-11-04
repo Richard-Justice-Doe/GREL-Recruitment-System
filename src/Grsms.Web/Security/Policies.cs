@@ -22,10 +22,34 @@ public static class Policies
     /// <summary>Any GREL staff member (every role except Candidate).</summary>
     public const string Staff = nameof(Staff);
 
+    /// <summary>Open the Recruitment Requests screens (which requests each person sees is decided by the service).</summary>
+    public const string RecruitmentRequests = nameof(RecruitmentRequests);
+
+    /// <summary>Raise a new recruitment request.</summary>
+    public const string RaiseRecruitmentRequest = nameof(RaiseRecruitmentRequest);
+
+    /// <summary>Open the Vacancies screens (what each person may do there is decided by VacancyService).</summary>
+    public const string Vacancies = nameof(Vacancies);
+
+    /// <summary>Open the staff Applications screens (which applications each person sees is decided by ApplicationService).</summary>
+    public const string Applications = nameof(Applications);
+
+    /// <summary>Open the Job adverts screens (what each person may do there is decided by AdvertService).</summary>
+    public const string Adverts = nameof(Adverts);
+
     /// <summary>Registers the policies above. Called from Program.cs.</summary>
     public static AuthorizationBuilder AddGrsmsPolicies(this AuthorizationBuilder builder) => builder
         .AddPolicy(MasterData, p => p.RequireRole(Roles.HrAdministrator))
         .AddPolicy(UserAdmin, p => p.RequireRole(Roles.HrAdministrator))
         .AddPolicy(AuditTrail, p => p.RequireRole(Roles.HrAdministrator, Roles.HrManager))
-        .AddPolicy(Staff, p => p.RequireRole(Roles.Staff));
+        .AddPolicy(Staff, p => p.RequireRole(Roles.Staff))
+        .AddPolicy(RecruitmentRequests, p => p.RequireRole(
+            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
+        .AddPolicy(RaiseRecruitmentRequest, p => p.RequireRole(Roles.HeadOfDepartment))
+        .AddPolicy(Vacancies, p => p.RequireRole(
+            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
+        .AddPolicy(Adverts, p => p.RequireRole(
+            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
+        .AddPolicy(Applications, p => p.RequireRole(
+            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator));
 }

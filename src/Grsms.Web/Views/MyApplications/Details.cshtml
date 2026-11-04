@@ -1,0 +1,193 @@
+@* One of my applications: a progress tracker (Received → Under review → Shortlisted → Interview → Offer → Hired),
+   what happened when, what I sent, and "Withdraw". Staff comments are never shown here. *@
+@model MyApplicationDetailsDto
+@{
+    ViewData["Title"] = Model.ApplicationNumber;
+    var stages = ApplicationWorkflow.TrackerStages;
+    var stopped = Model.Status is ApplicationStatus.NotSuccessful or ApplicationStatus.Withdrawn or ApplicationStatus.OfferDeclined;
+    // Where the tracker stops: the current stage, or (if it ended) the last stage it reached.
+    var reached = stages.ToList().IndexOf(Model.LastStageReached);
+    var download = Url.Action("Download", new { id = Model.Id })!;
+}
+
+<div class="page-header">
+    <div>
+        <h1>@Model.JobTitle <partial name="_ApplicationStatus" model="Model.Status" /></h1>
+        <p>@Model.ApplicationNumber · @Model.DepartmentName · @Model.SiteName</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>My applications</a>
+</div>
+
+<div class="card glass mb-3">
+    <div class="card-body py-4">
+        <ol class="stepper" aria-label="Application progress">
+            @for (var i = 0; i < stages.Count; i++)
+            {
+                // Ended applications: stages reached are ticked, the next one shows a cross (e.g. "not shortlisted").
+                var state = stopped
+                    ? i <= reached ? "done" : i == reached + 1 ? "stopped" : "todo"
+                    : i < reached || (i == reached && Model.Status == ApplicationStatus.Hired) ? "done"
+                    : i == reached ? "current" : "todo";
+                <li class="step step-@state" aria-current="@(state == "current" ? "step" : null)">
+                    <span class="step-dot">
+                        @if (state == "done") { <i class="fa-solid fa-check"></i> }
+                        else if (state == "stopped") { <i class="fa-solid fa-xmark"></i> }
+                        else { @(i + 1) }
+                    </span>
+                    <span class="step-label">@stages[i].DisplayName()</span>
+                </li>
+            }
+        </ol>
+        <p class="text-center small mb-0 mt-3">
+            @switch (Model.Status)
+            {
+                case ApplicationStatus.Submitted:
+                    <span>We have received your application. The recruitment team will review it after the closing date (@Model.ClosingDate.ToString("dd MMM yyyy")).</span>
+                    break;
+                case ApplicationStatus.UnderReview:
+                    <span>Your application is being reviewed. We will contact you if you are shortlisted.</span>
+                    break;
+                case ApplicationStatus.NotSuccessful:
+                    <span class="text-body-secondary">Thank you for applying. Your application was not taken further this time. We encourage you to apply for other vacancies.</span>
+                    break;
+                case ApplicationStatus.Withdrawn:
+                    <span class="text-body-secondary">You withdrew this application.</span>
+                    break;
+                case ApplicationStatus.OfferDeclined:
+                    <span class="text-body-secondary">You declined the offer for this position.</span>
+                    break;
+                case ApplicationStatus.Hired:
+                    <span class="text-success"><strong>Congratulations, you have been hired!</strong> @(ViewBag.Appointment is MyAppointmentDto ? "Your first-day information is below." : "HR will contact you about your appointment letter and first day.")</span>
+                    break;
+                default:
+                    <span class="text-success">Your application has reached the <strong>@Model.Status.DisplayName()</strong> stage.</span>
+                    break;
+            }
+        </p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">What you sent</h2>
+                <dl class="details-grid mb-3">
+                    <dt>Applied</dt><dd>@Model.SubmittedAt.ToString("dd MMM yyyy HH:mm")</dd>
+                    <dt>Where you saw the job</dt><dd>@Model.Source.DisplayName()</dd>
+                </dl>
+                @if (Model.CoverLetter is not null)
+                {
+                    <h3 class="h6">Covering message</h3>
+                    <div class="mb-3" style="white-space: pre-wrap">@Model.CoverLetter</div>
+                }
+                <h3 class="h6">Documents</h3>
+                <partial name="_DocumentList" model="(Model.Documents, download)" />
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-5">
+        @* ---- Phase 7: invitations to interviews and assessments (no scores or comments, ever) *@
+        @{
+            var sessions = (IReadOnlyList<ApplicantInterviewDto>?)ViewBag.Interviews ?? [];
+        }
+        @* ---- Phase 9: the appointment letter and the first day *@
+        @if (ViewBag.Appointment is MyAppointmentDto appt)
+        {
+            <div class="card glass mb-3 @(appt.CanSign ? "border border-primary" : "border border-success")">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-solid fa-door-open me-1"></i>Your first day</h2>
+                    <dl class="details-grid small mb-2">
+                        <dt>When</dt><dd class="fw-semibold">@appt.StartDate.ToString("dddd dd MMMM yyyy"), @appt.ReportTime.ToString("HH:mm")</dd>
+                        <dt>Where</dt><dd>@appt.ReportLocation</dd>
+                        @if (appt.ContactPerson is not null)
+                        {
+                            <dt>Who meets you</dt><dd>@appt.ContactPerson@(appt.ContactEmail is null ? "" : $" ({appt.ContactEmail})")</dd>
+                        }
+                        @if (appt.FirstDayNotes is not null)
+                        {
+                            <dt>Please note</dt><dd style="white-space: pre-wrap">@appt.FirstDayNotes</dd>
+                        }
+                    </dl>
+                    @if (appt.ToBring.Count > 0)
+                    {
+                        <h3 class="h6 small fw-semibold mb-1">Please bring</h3>
+                        <ul class="list-unstyled small mb-3">
+                            @foreach (var (item, received) in appt.ToBring)
+                            {
+                                <li>@if (received) { <i class="fa-solid fa-check text-success me-1"></i> } else { <i class="fa-regular fa-square me-1"></i> }@item@(received ? " (received)" : "")</li>
+                            }
+                        </ul>
+                    }
+                    @if (appt.LetterReady)
+                    {
+                        <a asp-action="Appointment" asp-route-id="@Model.Id" class="btn btn-sm @(appt.CanSign ? "btn-primary" : "btn-outline-secondary")">
+                            @(appt.CanSign ? "Read and sign my appointment letter" : "View my appointment letter")</a>
+                    }
+                    else
+                    {
+                        <p class="small text-body-secondary mb-0">Your appointment letter is being prepared. We will email you when it is ready.</p>
+                    }
+                </div>
+            </div>
+        }
+        @* ---- Phase 8: the offer *@
+        @if (ViewBag.Offer is MyOfferDto offer)
+        {
+            <div class="card glass mb-3 @(offer.CanRespond ? "border border-success" : "")">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-solid fa-envelope-open-text me-1"></i>Your offer</h2>
+                    <p class="small mb-2">@offer.JobTitle · GHS @offer.MonthlySalary.ToString("N2") per month · starts @offer.StartDate.ToString("dd MMM yyyy")<br />
+                        <strong>@offer.Status.DisplayName()</strong>@(offer.CanRespond ? $" · reply by {offer.ExpiresOn:dd MMM yyyy}" : "")</p>
+                    <a asp-action="Offer" asp-route-id="@Model.Id" class="btn btn-sm @(offer.CanRespond ? "btn-success" : "btn-outline-secondary")">@(offer.CanRespond ? "Read and reply to my offer" : "View my offer letter")</a>
+                </div>
+            </div>
+        }
+        @foreach (var s in sessions.Where(s => s.Status == InterviewStatus.Scheduled))
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-regular fa-calendar me-1"></i>Your @s.Type.DisplayName().ToLowerInvariant()</h2>
+                    <dl class="details-grid small mb-0">
+                        <dt>When</dt><dd class="fw-semibold">@s.StartsAt.ToString("dddd dd MMMM yyyy, HH:mm") GMT</dd>
+                        <dt>How long</dt><dd>About @s.DurationMinutes minutes</dd>
+                        <dt>How</dt><dd>@s.Mode.DisplayName()</dd>
+                        <dt>Where</dt><dd class="text-break">@s.Location</dd>
+                        @if (s.Instructions is not null)
+                        {
+                            <dt>Please note</dt><dd>@s.Instructions</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        }
+        @if (Model.CanWithdraw)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2">Changed your mind?</h2>
+                    <form asp-action="Withdraw" asp-route-id="@Model.Id" method="post">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Withdraw this application? You cannot apply for this vacancy again.">
+                            Withdraw my application
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+        <div class="card glass">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Updates</h2>
+                <ul class="timeline">
+                    @foreach (var t in Model.Timeline)
+                    {
+                        <li>
+                            <span class="tl-dot"></span>
+                            <div><strong>@t.What</strong></div>
+                            <div class="small text-body-secondary">@t.When.ToString("dd MMM yyyy HH:mm")</div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

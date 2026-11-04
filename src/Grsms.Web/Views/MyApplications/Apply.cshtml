@@ -1,0 +1,83 @@
+@* Apply for a job: shows what will be sent (profile + documents), asks where they saw the job, an optional
+   covering message and a confirmation. If the profile is incomplete, it points to "My profile" first. *@
+@model ApplyFormDto
+@{
+    ViewData["Title"] = $"Apply: {Model.JobTitle}";
+    var p = Model.Profile ?? new ProfileFormDto();
+    var ready = p.Missing.Count == 0;
+    var here = Url.Action("Apply", new { id = Model.AdvertNumber });
+    var profileDownload = Url.Action("Download", "Profile")!;
+}
+
+<div class="page-header">
+    <div>
+        <h1>Apply: @Model.JobTitle</h1>
+        <p>@Model.DepartmentName · closes @Model.ClosingDate.ToString("dddd dd MMM yyyy")</p>
+    </div>
+    <a asp-controller="Careers" asp-action="Details" asp-route-id="@Model.AdvertNumber" class="btn btn-outline-secondary">Back to the job</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">What we will send</h2>
+                    <a asp-controller="Profile" asp-action="Index" asp-route-returnUrl="@here" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen me-1"></i>Edit my profile</a>
+                </div>
+                @if (!ready)
+                {
+                    <div class="alert alert-warning small">
+                        <i class="fa-solid fa-circle-exclamation me-1"></i>Before you can apply, add <strong>@string.Join(", ", p.Missing)</strong> to
+                        <a asp-controller="Profile" asp-action="Index" asp-route-returnUrl="@here">your profile</a>.
+                    </div>
+                }
+                <dl class="details-grid">
+                    <dt>Name</dt><dd>@p.FullName</dd>
+                    <dt>Email</dt><dd>@p.Email</dd>
+                    <dt>Phone</dt><dd>@(p.Phone ?? "—")</dd>
+                    <dt>Location</dt><dd>@(p.Location ?? "—")</dd>
+                    <dt>Highest education</dt><dd>@(p.HighestEducation is { } e && e != EducationLevel.None ? e.DisplayName() : "—")@(p.FieldOfStudy is null ? "" : $" in {p.FieldOfStudy}")</dd>
+                    <dt>Experience</dt><dd>@p.YearsExperience year@(p.YearsExperience == 1 ? "" : "s")@(p.CurrentPosition is null ? "" : $" · {p.CurrentPosition}")@(p.CurrentEmployer is null ? "" : $" at {p.CurrentEmployer}")</dd>
+                    <dt>Skills</dt><dd style="white-space: pre-line">@(p.Skills ?? "—")</dd>
+                    <dt>Certifications</dt><dd style="white-space: pre-line">@(p.Certifications ?? "—")</dd>
+                </dl>
+                <h3 class="h6 mt-3">Documents</h3>
+                <partial name="_DocumentList" model="(p.Documents, profileDownload)" />
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        <form asp-action="Apply" method="post" novalidate class="card glass border border-primary">
+            <div class="card-body p-4">
+                <input type="hidden" asp-for="AdvertNumber" />
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+                <div class="mb-3">
+                    <label asp-for="Source" class="form-label"></label>
+                    <select asp-for="Source" class="form-select">
+                        @foreach (var s in Enum.GetValues<ApplicationSource>())
+                        {
+                            <option value="@s" selected="@(Model.Source == s)">@s.DisplayName()</option>
+                        }
+                    </select>
+                    <span asp-validation-for="Source" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="CoverLetter" class="form-label"></label>
+                    <textarea asp-for="CoverLetter" class="form-control" rows="7" maxlength="4000"
+                              placeholder="Why you are interested in this role and what you would bring to it."></textarea>
+                    <span asp-validation-for="CoverLetter" class="text-danger small"></span>
+                </div>
+                <div class="form-check mb-3">
+                    <input asp-for="Confirm" class="form-check-input" />
+                    <label asp-for="Confirm" class="form-check-label small"></label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100" disabled="@(!ready)">
+                    <i class="fa-solid fa-paper-plane me-1"></i>Send application
+                </button>
+                <p class="small text-body-secondary mt-2 mb-0">You can apply once for each vacancy. A copy of your profile and documents is kept with the application.</p>
+            </div>
+        </form>
+    </div>
+</div>

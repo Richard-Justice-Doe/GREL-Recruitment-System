@@ -1,0 +1,314 @@
+@* One vacancy: progress stepper, job details, requirements, salary, the action panel for whoever may
+   act now, and the history. What each person may do comes from the service (Model.CanEdit, ...). *@
+@model VacancyDetailsDto
+@{
+    ViewData["Title"] = Model.VacancyNumber;
+
+    // Stepper: Draft → Pending approval → Published → Closed → Archived
+    var steps = new[] { "Draft", "Pending approval", "Published", "Closed", "Archived" };
+    var current = (int)Model.Status; // the enum order matches the steps
+    var skills = Model.Requirements.Where(r => r.Type == RequirementType.Skill).ToList();
+    var certs = Model.Requirements.Where(r => r.Type == RequirementType.Certification).ToList();
+    string Salary() =>
+        Model.SalaryMin is null && Model.SalaryMax is null ? "Not specified"
+        : Model.SalaryMin is { } a && Model.SalaryMax is { } b ? $"GHS {a:N2} - {b:N2} per month"
+        : Model.SalaryMin is { } m ? $"From GHS {m:N2} per month"
+        : $"Up to GHS {Model.SalaryMax:N2} per month";
+    string DotCss(VacancyAction a) => a switch
+    {
+        VacancyAction.Returned => "warning",
+        VacancyAction.Archived => "danger",
+        _ => ""
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>@Model.JobTitle @(Model.NumberOfPositions > 1 ? $"(×{Model.NumberOfPositions})" : "") <partial name="_StatusBadge" model="Model.Status" /></h1>
+        <p>@Model.VacancyNumber · @Model.DepartmentName@(Model.UnitName is null ? "" : $" → {Model.UnitName}") · @Model.SiteName</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All vacancies</a>
+        @if (Model.CanEdit)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
+        }
+    </div>
+</div>
+
+<div class="card glass mb-3">
+    <div class="card-body py-4">
+        <ol class="stepper" aria-label="Vacancy progress">
+            @for (var i = 0; i < steps.Length; i++)
+            {
+                var state = i < current || (i == current && Model.Status == VacancyStatus.Archived) ? "done" : i == current ? "current" : "todo";
+                <li class="step step-@state" aria-current="@(state == "current" ? "step" : null)">
+                    <span class="step-dot">@if (state == "done") { <i class="fa-solid fa-check"></i> } else { @(i + 1) }</span>
+                    <span class="step-label">@steps[i]</span>
+                </li>
+            }
+        </ol>
+        <p class="text-center small mb-0 mt-3">
+            @if (Model.IsOpenForApplications)
+            {
+                <span class="text-success"><i class="fa-solid fa-door-open me-1"></i>Open for applications. Closes @Model.ClosingDate.ToString("dddd dd MMM yyyy") (@(Model.DaysToClosing == 0 ? "today" : $"in {Model.DaysToClosing} days")).</span>
+            }
+            else if (Model.Status == VacancyStatus.PendingApproval)
+            {
+                <span class="text-body-secondary">Waiting for the <strong>HR Manager</strong> since @Model.StatusChangedAt.ToString("dd MMM yyyy HH:mm").</span>
+            }
+            else if (Model.Status == VacancyStatus.Closed)
+            {
+                <span class="text-body-secondary">Closed to applications on @Model.ClosedAt?.ToString("dd MMM yyyy").</span>
+            }
+        </p>
+    </div>
+</div>
+
+@if (Model.ReturnComments is not null)
+{
+    <div class="alert alert-warning"><i class="fa-solid fa-rotate-left me-1"></i><strong>Returned for changes:</strong> @Model.ReturnComments</div>
+}
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Overview</h2>
+                <dl class="details-grid">
+                    <dt>Vacancy number</dt><dd>@Model.VacancyNumber</dd>
+                    <dt>From request</dt><dd><a asp-controller="RecruitmentRequests" asp-action="Details" asp-route-id="@Model.RecruitmentRequestId">@Model.RequestNumber</a></dd>
+                    <dt>Division</dt><dd>@Model.DivisionName</dd>
+                    <dt>Department</dt><dd>@Model.DepartmentName</dd>
+                    <dt>Requesting HOD</dt><dd>@Model.RequestingHodName</dd>
+                    <dt>Unit</dt><dd>@(Model.UnitName ?? "—")</dd>
+                    <dt>Site</dt><dd>@Model.SiteName</dd>
+                    <dt>Reporting manager</dt><dd>@(Model.ReportingManagerName ?? "—")</dd>
+                    <dt>Employment type</dt><dd>@Model.EmploymentType.DisplayName()</dd>
+                    <dt>Positions</dt><dd>@Model.NumberOfPositions</dd>
+                    <dt>Who may apply</dt><dd>@Model.VacancyType.DisplayName()</dd>
+                    <dt>Salary</dt><dd>@Salary() @(Model.ShowSalary ? "" : "(not shown on adverts)")</dd>
+                    <dt>Closing date</dt><dd>@Model.ClosingDate.ToString("dd MMM yyyy")</dd>
+                    <dt>Recruiter</dt><dd>@Model.RecruiterName</dd>
+                    @if (Model.PublishedAt is not null)
+                    {
+                        <dt>Published</dt><dd>@Model.PublishedAt.Value.ToString("dd MMM yyyy HH:mm")</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Job description</h2>
+                <div style="white-space: pre-wrap">@Model.JobDescription</div>
+            </div>
+        </div>
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Requirements</h2>
+                <dl class="details-grid mb-3">
+                    <dt>Minimum education</dt><dd>@Model.MinimumEducation.DisplayName()@(Model.FieldOfStudy is null ? "" : $" in {Model.FieldOfStudy}")</dd>
+                    @if (Model.QualificationNotes is not null)
+                    {
+                        <dt>Other qualifications</dt><dd>@Model.QualificationNotes</dd>
+                    }
+                    <dt>Experience</dt><dd>@(Model.MinYearsExperience == 0 ? "No minimum" : $"At least {Model.MinYearsExperience} years")@(Model.ExperienceNotes is null ? "" : $" {Model.ExperienceNotes}")</dd>
+                </dl>
+                @foreach (var (title, list) in new[] { ("Skills", skills), ("Certifications", certs) })
+                {
+                    <h3 class="h6">@title</h3>
+                    @if (list.Count == 0)
+                    {
+                        <p class="small text-body-secondary">None listed.</p>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            @foreach (var r in list)
+                            {
+                                <span class="badge rounded-pill @(r.IsEssential ? "badge-soft-primary" : "badge-soft-secondary") fw-normal fs-6">
+                                    @if (r.IsEssential) { <i class="fa-solid fa-star me-1 small" title="Essential"></i> }@r.Name
+                                </span>
+                            }
+                        </div>
+                    }
+                }
+                <p class="small text-body-secondary mb-0"><i class="fa-solid fa-star me-1"></i>= essential; others are desirable.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        @* ---- Recruitment Officer: submit / archive draft *@
+        @if (Model.CanSubmit)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Ready?</h2>
+                    <p class="small">Check the wording, requirements, salary and closing date, then send it to the HR Manager. Approving it publishes it.</p>
+                    <form asp-action="Submit" asp-route-id="@Model.Id" method="post">
+                        <button type="submit" class="btn btn-primary w-100" data-confirm="Submit this vacancy for approval?">
+                            <i class="fa-solid fa-paper-plane me-1"></i>Submit for approval
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @* ---- HR Manager: approve / return *@
+        @if (Model.CanDecide)
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Your decision</h2>
+                    <form asp-action="Decide" asp-route-id="@Model.Id" method="post">
+                        <input type="hidden" name="ExpectedStatus" value="@Model.Status" />
+                        <div class="mb-3">
+                            <label for="Comments" class="form-label small">Comments <span class="text-body-secondary">(required to return)</span></label>
+                            <textarea id="Comments" name="Comments" class="form-control" rows="3" maxlength="2000"></textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="Decision" value="Approve" class="btn btn-success"
+                                    data-confirm="Approve and publish this vacancy now?">
+                                <i class="fa-solid fa-check me-1"></i>Approve and publish
+                            </button>
+                            <button type="submit" name="Decision" value="Return" class="btn btn-outline-warning">
+                                <i class="fa-solid fa-rotate-left me-1"></i>Return for changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+        else if (Model.DecisionBlockedReason is not null)
+        {
+            <div class="alert alert-info small"><i class="fa-solid fa-circle-info me-1"></i>@Model.DecisionBlockedReason</div>
+        }
+
+        @* ---- Close / reopen / archive *@
+        @if (Model.CanClose || Model.CanReopen || Model.CanArchive)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Manage</h2>
+                    @if (Model.CanClose)
+                    {
+                        <form asp-action="Close" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <label for="closeReason" class="form-label small">Close early (it closes by itself after the closing date)</label>
+                            <div class="input-group">
+                                <input id="closeReason" name="reason" class="form-control form-control-sm" placeholder="Reason (optional)" maxlength="2000" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Close this vacancy to new applications?">Close now</button>
+                            </div>
+                        </form>
+                    }
+                    @if (Model.CanReopen)
+                    {
+                        <form asp-action="Reopen" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <label for="closingDate" class="form-label small">Reopen with a new closing date</label>
+                            <div class="input-group">
+                                <input id="closingDate" name="closingDate" type="date" class="form-control form-control-sm"
+                                       min="@DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd")" required />
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Reopen</button>
+                            </div>
+                        </form>
+                    }
+                    @if (Model.CanArchive)
+                    {
+                        <form asp-action="Archive" asp-route-id="@Model.Id" method="post">
+                            <label for="archiveReason" class="form-label small">@(Model.Status == VacancyStatus.Draft ? "Abandon this draft" : "Archive (recruitment finished)")</label>
+                            <div class="input-group">
+                                <input id="archiveReason" name="reason" class="form-control form-control-sm" placeholder="Reason (optional)" maxlength="2000" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" data-confirm="Archive this vacancy? It will be kept for history only.">Archive</button>
+                            </div>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ---- Applications (Phase 5) *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Applications</h2>
+                    <div class="fs-4 fw-semibold">@ViewBag.ApplicationCount</div>
+                </div>
+<div class="d-flex flex-wrap gap-2">
+                                <a asp-controller="Applications" asp-action="Index" asp-route-tab="all" asp-route-VacancyId="@Model.Id" class="btn btn-sm btn-outline-primary">
+                    <i class="fa-solid fa-inbox me-1"></i>View applications
+                </a>
+                <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@Model.Id" class="btn btn-sm btn-primary">
+                    <i class="fa-solid fa-list-check me-1"></i>Shortlisting
+                </a>
+                </div>
+            </div>
+        </div>
+
+        @* ---- Job adverts (Phase 4) *@
+        @{
+            var adverts = (IReadOnlyList<AdvertListItemDto>?)ViewBag.Adverts ?? [];
+        }
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Job adverts (@adverts.Count)</h2>
+                    @if (ViewBag.CanAdvertise == true)
+                    {
+                        <a asp-controller="Adverts" asp-action="Create" asp-route-vacancyId="@Model.Id" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-bullhorn me-1"></i>Create advert
+                        </a>
+                    }
+                </div>
+                @if (adverts.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0">
+                        @(Model.Status == VacancyStatus.Published
+                            ? "Not advertised yet."
+                            : "Adverts can be created once the vacancy is published (approval complete).")
+                    </p>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var a in adverts)
+                        {
+                            <li class="d-flex justify-content-between align-items-center py-2 border-bottom gap-2">
+                                <div>
+                                    <a asp-controller="Adverts" asp-action="Details" asp-route-id="@a.Id" class="fw-semibold text-decoration-none">@a.AdvertNumber</a>
+                                    <div class="small text-body-secondary">@a.StartDate.ToString("dd MMM") – @a.EndDate.ToString("dd MMM yyyy") · @string.Join(", ", a.Channels.Select(c => c.DisplayName()))</div>
+                                </div>
+                                <partial name="~/Views/Adverts/_StatusBadge.cshtml" model="a.Status" />
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        @* ---- History *@
+        <div class="card glass">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
+                <ul class="timeline">
+                    @foreach (var h in Model.History)
+                    {
+                        <li>
+                            <span class="tl-dot @DotCss(h.Action)"></span>
+                            <div><strong>@h.Action.DisplayName()</strong> by @h.ActorName</div>
+                            <div class="small text-body-secondary">@h.ActionAt.ToString("dd MMM yyyy HH:mm")</div>
+                            @if (h.Comments is not null)
+                            {
+                                <div class="tl-comment small">@h.Comments</div>
+                            }
+                        </li>
+                    }
+                </ul>
+                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="Vacancy" asp-route-entityId="@Model.Id" class="small">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

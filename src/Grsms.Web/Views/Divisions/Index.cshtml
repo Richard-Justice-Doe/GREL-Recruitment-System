@@ -1,0 +1,70 @@
+@* Division Master Data list: GREL's divisions (Corporate, Operations) with their department counts. *@
+@model IReadOnlyList<DivisionListItemDto>
+@{
+    ViewData["Title"] = "Divisions";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Divisions</h1>
+        <p>The top level of GREL's structure. Every department belongs to one division.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add division</a>
+</div>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Code</th>
+                    <th class="text-center">Active departments</th>
+                    <th class="text-center">Inactive departments</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var d in Model)
+                {
+                    <tr class="@(d.IsActive ? "" : "row-inactive")">
+                        <td class="fw-semibold">
+                            @d.Name
+                            @if (d.Description is not null)
+                            {
+                                <div class="small text-body-secondary fw-normal">@d.Description</div>
+                            }
+                        </td>
+                        <td><code>@d.Code</code></td>
+                        <td class="text-center">
+                            <a asp-controller="Departments" asp-action="Index" class="text-decoration-none">@d.ActiveDepartments</a>
+                        </td>
+                        <td class="text-center">@d.InactiveDepartments</td>
+                        <td><partial name="_StatusBadge" model="d.IsActive" /></td>
+                        <td class="text-end text-nowrap">
+                            <a asp-action="Edit" asp-route-id="@d.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
+                            <form asp-action="SetActive" asp-route-id="@d.Id" method="post" class="d-inline">
+                                <input type="hidden" name="active" value="@(!d.IsActive)" />
+                                @if (d.IsActive)
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate"
+                                            data-confirm="Deactivate @d.Name? This is only allowed once it has no active departments.">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Activate"><i class="fa-solid fa-check"></i></button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-body-secondary mb-0">To move a department to another division, edit the department.</p>
+    </div>
+</div>

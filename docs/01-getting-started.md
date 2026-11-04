@@ -12,6 +12,22 @@ This guide takes you from a fresh computer to a running GRSMS in about 15 minute
 
 Check .NET is installed by opening PowerShell and typing `dotnet --list-sdks`. You should see a line starting with `10.`.
 
+## Have Docker? One command, real MySQL
+
+If Docker Desktop is installed, you can skip everything below. Create a `.env` file with four passwords, run `docker compose up -d --build`, and open **http://localhost:8080**. The database viewer is at http://localhost:8081. Full instructions: [10 Running with Docker](10-docker.md).
+
+## Running `dotnet run` against the Docker database
+
+On this PC, `dotnet run --project src/Grsms.Web` (http://localhost:5014) uses the **same MySQL database as the Docker app** (`localhost:3307`), through a user-secret set on 4 November 2026:
+
+```powershell
+dotnet user-secrets --project src/Grsms.Web set "ConnectionStrings:DefaultConnection" "server=localhost;port=3307;database=grsms;user=grsms;password=<MYSQL_PASSWORD from .env>"
+```
+
+So http://localhost:5014 and http://localhost:8080 show the same data. Start Docker first (`docker compose up -d`). Sign in with the administrator from `.env`.
+
+> The old **demo mode** (a separate SQLite file filled with made-up people and records) was switched off on 4 November 2026: its `demo` launch profile and demo database were removed. The demo code (`DemoDataSeeder.cs`) is still in the project, but nothing starts it.
+
 ## Step 1: Create the database and a database user
 
 Open **MySQL Workbench** or the `mysql` command line as the `root` user, and run the following (change the password):
@@ -95,7 +111,7 @@ Double-click a `.eml` file to open it in Outlook, then click the link inside. To
 
 ## Step 6: First things to do as the HR Administrator
 
-1. **Sites:** add GREL's real work locations next to *Head Office*.
+1. **Sites:** GREL's 12 sites are pre-loaded; fill in the missing site types and locations.
 2. **Units:** open each department and add its units.
 3. **Users:** create accounts for the HR Manager, Managing Director, Recruitment Officers and each Head of Department.
 4. **Departments:** edit each department and pick its Head of Department.

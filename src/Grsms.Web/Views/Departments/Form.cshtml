@@ -27,14 +27,22 @@
                     <div class="form-text">Short code used in reference numbers, e.g. HSE.</div>
                     <span asp-validation-for="Code" class="text-danger small"></span>
                 </div>
-                <div class="col-md-8">
+                <div class="col-md-4">
+                    <label asp-for="DivisionId" class="form-label"></label>
+                    <select asp-for="DivisionId" asp-items="ViewBag.DivisionList" class="form-select">
+                        <option value="">Choose a division</option>
+                    </select>
+                    <div class="form-text">Corporate or Operations. Moving a department does not change the division recorded on its existing requests and vacancies.</div>
+                    <span asp-validation-for="DivisionId" class="text-danger small"></span>
+                </div>
+                <div class="col-md-5">
                     <label asp-for="HeadOfDepartmentUserId" class="form-label"></label>
                     <select asp-for="HeadOfDepartmentUserId" asp-items="ViewBag.HodList" class="form-select">
                         <option value="">— Not assigned —</option>
                     </select>
                     <div class="form-text">Only active users with the "Head of Department" role are listed. Give a user that role on the Users screen first.</div>
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
+                <div class="col-md-3 d-flex align-items-end">
                     <div class="form-check form-switch mb-2">
                         <input asp-for="IsActive" class="form-check-input" role="switch" />
                         <label asp-for="IsActive" class="form-check-label"></label>

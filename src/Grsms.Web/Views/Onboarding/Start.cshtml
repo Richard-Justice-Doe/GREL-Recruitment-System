@@ -1,0 +1,76 @@
+@* Start onboarding for a candidate who accepted the offer (Recruitment Officer / HR Manager).
+   The default checklist is created with owners: the vacancy's recruiter (HR), the department's HOD and the Head of IT. *@
+@model StartOnboardingForm
+@{
+    ViewData["Title"] = $"Start onboarding: {Model.EmployeeName}";
+}
+
+<div class="page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        <p>@Model.JobTitle · @Model.DepartmentName · accepted offer @Model.OfferNumber</p>
+    </div>
+    <a asp-action="Index" asp-route-tab="start" class="btn btn-outline-secondary">Cancel</a>
+</div>
+
+<form asp-action="Start" method="post" novalidate>
+    <input type="hidden" asp-for="ApplicationId" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+
+    <div class="row g-3">
+        <div class="col-xl-8">
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">First day</h2>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="StartDate" class="form-label">Start date</label>
+                            <input id="StartDate" name="StartDate" type="date" class="form-control" value="@Model.StartDate?.ToString("yyyy-MM-dd")" required />
+                            <div class="form-text">From the accepted offer. Can be changed until the letter is signed.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="ReportTime" class="form-label">Report at</label>
+                            <input id="ReportTime" name="ReportTime" type="time" class="form-control" value="@Model.ReportTime?.ToString("HH:mm")" required />
+                        </div>
+                        <div class="col-md-5">
+                            <label for="ContactPersonUserId" class="form-label">Met by (supervisor or buddy)</label>
+                            <select id="ContactPersonUserId" name="ContactPersonUserId" class="form-select">
+                                <option value="">Not decided yet</option>
+                                @foreach (var s in Model.Staff)
+                                {
+                                    <option value="@s.Value" selected="@(s.Value == Model.ContactPersonUserId)">@s.Text</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="ReportLocation" class="form-label">Where to report</label>
+                            <input id="ReportLocation" name="ReportLocation" class="form-control" maxlength="300" value="@Model.ReportLocation" required />
+                        </div>
+                        <div class="col-12">
+                            <label for="FirstDayNotes" class="form-label">Anything else for the first day (optional)</label>
+                            <textarea id="FirstDayNotes" name="FirstDayNotes" class="form-control" rows="3" maxlength="4000"
+                                      placeholder="Dress code, transport from the gate, lunch, ...">@Model.FirstDayNotes</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card glass">
+                <div class="card-body p-4 small">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">What happens next</h2>
+                    <ol class="ps-3 mb-0">
+                        <li class="mb-1">The standard checklist is created and its owners are emailed: HR (the recruiter), the department (its Head) and IT (the Head of IT).</li>
+                        <li class="mb-1">An HR Manager issues the appointment letter.</li>
+                        <li class="mb-1">The new employee signs it in their portal and sees the first-day information and what to bring.</li>
+                        <li>When every item is done or not needed, HR completes the onboarding.</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-play me-1"></i>Start onboarding</button>
+    </div>
+</form>

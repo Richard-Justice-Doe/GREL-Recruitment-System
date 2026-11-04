@@ -3,7 +3,7 @@ using Grsms.Domain.Common;
 namespace Grsms.Domain.Organization;
 
 /// <summary>
-/// A GREL department, for example "Finance" or "Sales and Marketing".
+/// A GREL department, for example "Finance" or "Factory APM". Each department sits in one <see cref="Division"/>.
 ///
 /// Every recruitment activity (request, vacancy, interview, ...) belongs to exactly one department.
 /// The department's Head of Department (HOD) is automatically included in that department's
@@ -11,6 +11,12 @@ namespace Grsms.Domain.Organization;
 /// </summary>
 public class Department : BaseEntity
 {
+    /// <summary>The division (Corporate or Operations) this department belongs to (Divisions.Id). Required.</summary>
+    public int DivisionId { get; set; }
+
+    /// <summary>Navigation property to the parent division.</summary>
+    public Division? Division { get; set; }
+
     /// <summary>Full name shown on screens, e.g. "Health, Safety &amp; Environment (HSE)". Must be unique.</summary>
     public string Name { get; set; } = string.Empty;
 

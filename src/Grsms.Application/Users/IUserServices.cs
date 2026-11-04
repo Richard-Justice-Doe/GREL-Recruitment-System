@@ -20,7 +20,37 @@ public interface IUserDirectory
 
     /// <summary>Active users holding <paramref name="role"/>, for drop-down lists (value = user id).</summary>
     Task<IReadOnlyList<LookupItem>> GetActiveUsersInRoleAsync(string role, CancellationToken ct = default);
+
+    /// <summary>Name and email of every active user holding <paramref name="role"/> (for notification emails).</summary>
+    Task<IReadOnlyList<UserContact>> GetContactsInRoleAsync(string role, CancellationToken ct = default);
+
+    /// <summary>Name and email of one user, or null if not found.</summary>
+    Task<UserContact?> GetContactAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>The user's home department (Users.DepartmentId), or null.</summary>
+    Task<int?> GetDepartmentIdAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>True for an active GREL staff account (not a candidate).</summary>
+    Task<bool> IsActiveStaffAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>Active staff for drop-downs (value = user id). With a department: that department's staff only.</summary>
+    Task<IReadOnlyList<LookupItem>> GetActiveStaffAsync(int? departmentId, CancellationToken ct = default);
+
+    /// <summary>How many candidate accounts exist (home-page dashboard).</summary>
+    Task<int> CountCandidatesAsync(CancellationToken ct = default);
+
+    /// <summary>When each candidate account created on or after <paramref name="sinceUtc"/> was registered (dashboard chart).</summary>
+    Task<IReadOnlyList<DateTime>> GetCandidateRegistrationDatesAsync(DateTime sinceUtc, CancellationToken ct = default);
+
+    /// <summary>The most recently registered candidates, newest first (dashboard "Latest candidates").</summary>
+    Task<IReadOnlyList<CandidateSummary>> GetLatestCandidatesAsync(int count, CancellationToken ct = default);
 }
+
+/// <summary>A candidate account as shown on the dashboard.</summary>
+public record CandidateSummary(string Id, string FullName, string Email, DateTime RegisteredAt, bool EmailConfirmed);
+
+/// <summary>Who to email: id, display name and address.</summary>
+public record UserContact(string Id, string FullName, string Email);
 
 /// <summary>
 /// User account management for the HR Administrator (Users screen).

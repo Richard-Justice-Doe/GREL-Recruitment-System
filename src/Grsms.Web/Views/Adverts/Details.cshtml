@@ -1,0 +1,250 @@
+@* One job advert: status and dates, the advert as applicants see it, each channel (with copy-ready text and
+   "record posting" for external channels), the actions the user may take now, and the history. *@
+@model AdvertDetailsDto
+@{
+    ViewData["Title"] = Model.AdvertNumber;
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    string ChannelCss(ChannelPostStatus s) => s switch
+    {
+        ChannelPostStatus.Posted => "badge-soft-success",
+        ChannelPostStatus.Removed => "badge-soft-secondary",
+        _ => "badge-soft-warning"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>@Model.Title <partial name="_StatusBadge" model="Model.Status" /></h1>
+        <p>@Model.AdvertNumber · vacancy <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a>
+            · @Model.DivisionName → @Model.DepartmentName</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All adverts</a>
+        @if (Model.CanEdit)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
+        }
+        @if (Model.PublicLink is not null)
+        {
+            <a href="@Model.PublicLink" class="btn btn-outline-secondary" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>View on careers page</a>
+        }
+    </div>
+</div>
+
+<div class="card glass mb-3">
+    <div class="card-body py-3 text-center small">
+        @switch (Model.Status)
+        {
+            case AdvertStatus.Draft:
+                <span class="text-body-secondary">Draft: not visible anywhere yet. Runs @Model.StartDate.ToString("dd MMM") – @Model.EndDate.ToString("dd MMM yyyy") once published.</span>
+                break;
+            case AdvertStatus.Scheduled:
+                <span class="text-warning-emphasis"><i class="fa-solid fa-clock me-1"></i>Scheduled: goes live by itself on <strong>@Model.StartDate.ToString("dddd dd MMM yyyy")</strong> and runs until @Model.EndDate.ToString("dd MMM yyyy").</span>
+                break;
+            case AdvertStatus.Live:
+                var days = Model.EndDate.DayNumber - today.DayNumber;
+                <span class="text-success"><i class="fa-solid fa-tower-broadcast me-1"></i>Live since @Model.PublishedAt?.ToString("dd MMM yyyy HH:mm"). Ends @Model.EndDate.ToString("dddd dd MMM yyyy") (@(days == 0 ? "today" : $"in {days} days")).</span>
+                break;
+            default:
+                <span class="text-body-secondary">Closed on @Model.ClosedAt?.ToString("dd MMM yyyy HH:mm").</span>
+                break;
+        }
+    </div>
+</div>
+
+@if (Model.PublishBlockedReason is not null)
+{
+    <div class="alert alert-warning small"><i class="fa-solid fa-triangle-exclamation me-1"></i><strong>Can't publish yet:</strong> @Model.PublishBlockedReason</div>
+}
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">The advert</h2>
+                <h3 class="h5">@Model.Title</h3>
+                <div style="white-space: pre-wrap">@Model.Body</div>
+                <h4 class="h6 mt-4">How to apply</h4>
+                <div style="white-space: pre-wrap">@Model.HowToApply</div>
+            </div>
+        </div>
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Channels</h2>
+                @foreach (var c in Model.Channels)
+                {
+                    <div class="border rounded-3 p-3 mb-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <strong>@c.Channel.DisplayName()</strong>
+                            <span class="badge rounded-pill @ChannelCss(c.Status)">@c.Status.DisplayName()</span>
+                        </div>
+                        <div class="small text-body-secondary mt-1">
+                            @if (c.IsAutomatic)
+                            {
+                                @:Published automatically by GRSMS while the advert is live.
+                            }
+                            @if (c.PostedAt is not null)
+                            {
+                                @: Posted @c.PostedAt.Value.ToString("dd MMM yyyy HH:mm") by @c.PostedByName.
+                            }
+                            @if (c.RemovedAt is not null)
+                            {
+                                @: Taken down @c.RemovedAt.Value.ToString("dd MMM yyyy HH:mm").
+                            }
+                        </div>
+                        @if (c.Reference is not null)
+                        {
+                            <div class="small mt-1 text-break">
+                                @if (Uri.TryCreate(c.Reference, UriKind.Absolute, out var uri) && (uri.Scheme == "https" || uri.Scheme == "http"))
+                                {
+                                    <a href="@c.Reference" target="_blank" rel="noopener noreferrer">@c.Reference</a>
+                                }
+                                else
+                                {
+                                    @c.Reference
+                                }
+                            </div>
+                        }
+
+                        @if (c.CopyText is not null)
+                        {
+                            <details class="mt-2" @(c.Status == ChannelPostStatus.ToPost && Model.Status == AdvertStatus.Live ? "open" : "")>
+                                <summary class="small">Copy-ready text for @c.Channel.DisplayName()</summary>
+                                <textarea id="copy-@c.Id" class="form-control font-monospace small mt-2" rows="8" readonly>@c.CopyText</textarea>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-copy-target="copy-@c.Id">
+                                    <i class="fa-regular fa-copy me-1"></i>Copy
+                                </button>
+                            </details>
+                            @if (Model.CanManageChannels && c.Status != ChannelPostStatus.Posted)
+                            {
+                                <form asp-action="MarkPosted" asp-route-id="@Model.Id" method="post" class="mt-2">
+                                    <input type="hidden" name="channelId" value="@c.Id" />
+                                    <label for="ref-@c.Id" class="form-label small mb-1">
+                                        @(c.Channel == AdvertChannel.Newspaper ? "Newspaper and edition, once printed" : "Link to the posting, once it is up")
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <input id="ref-@c.Id" name="reference" class="form-control" maxlength="500" required
+                                               placeholder="@(c.Channel == AdvertChannel.Newspaper ? "e.g. Daily Graphic, 12 Nov 2026, p. 34" : "https://…")" />
+                                        <button type="submit" class="btn btn-outline-success">Record as posted</button>
+                                    </div>
+                                </form>
+                            }
+                            @if ((Model.CanManageChannels || Model.Status == AdvertStatus.Closed && Model.CanClone) && c.Status == ChannelPostStatus.Posted)
+                            {
+                                <form asp-action="MarkRemoved" asp-route-id="@Model.Id" method="post" class="mt-2">
+                                    <input type="hidden" name="channelId" value="@c.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" data-confirm="Record that the advert has been taken down from @c.Channel.DisplayName()?">
+                                        Record as taken down
+                                    </button>
+                                </form>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        @if (Model.CanPublish)
+        {
+            var later = Model.StartDate > today;
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Ready?</h2>
+                    <p class="small">
+                        @if (later)
+                        {
+                            @:The start date is @Model.StartDate.ToString("dd MMM yyyy"), so the advert will be <strong>scheduled</strong> and go live by itself that day.
+                        }
+                        else
+                        {
+                            @:The advert goes <strong>live now</strong> on the internal portal and/or careers page. External channels get copy-ready text for you to post.
+                        }
+                    </p>
+                    <form asp-action="Publish" asp-route-id="@Model.Id" method="post">
+                        <button type="submit" class="btn btn-primary w-100" data-confirm="@(later ? "Schedule this advert?" : "Publish this advert now?")">
+                            <i class="fa-solid @(later ? "fa-clock" : "fa-bullhorn") me-1"></i>@(later ? "Schedule" : "Publish now")
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @if (Model.CanUnschedule || Model.CanClose || Model.CanClone)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Manage</h2>
+                    @if (Model.CanUnschedule)
+                    {
+                        <form asp-action="Unschedule" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <button type="submit" class="btn btn-sm btn-outline-warning w-100">Cancel schedule (back to draft)</button>
+                        </form>
+                    }
+                    @if (Model.CanClose)
+                    {
+                        <form asp-action="Close" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <label for="closeReason" class="form-label small">Close early (it closes by itself after the end date)</label>
+                            <div class="input-group">
+                                <input id="closeReason" name="reason" class="form-control form-control-sm" placeholder="Reason (optional)" maxlength="2000" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Close this advert now?">Close now</button>
+                            </div>
+                        </form>
+                    }
+                    @if (Model.CanClone)
+                    {
+                        <form asp-action="Clone" asp-route-id="@Model.Id" method="post">
+                            <p class="small mb-2">Clone: copy the text and channels into a new draft (e.g. to re-advertise). The vacancy must still be published.</p>
+                            <button type="submit" class="btn btn-sm btn-outline-primary w-100"><i class="fa-regular fa-clone me-1"></i>Clone into a new draft</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Details</h2>
+                <dl class="details-grid mb-0">
+                    <dt>Advert number</dt><dd>@Model.AdvertNumber</dd>
+                    <dt>Vacancy</dt><dd><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> (@Model.VacancyStatus.DisplayName(), closes @Model.VacancyClosingDate.ToString("dd MMM yyyy"))</dd>
+                    <dt>Division</dt><dd>@Model.DivisionName</dd>
+                    <dt>Department</dt><dd>@Model.DepartmentName</dd>
+                    <dt>Requesting HOD</dt><dd>@Model.RequestingHodName</dd>
+                    <dt>Runs</dt><dd>@Model.StartDate.ToString("dd MMM yyyy") – @Model.EndDate.ToString("dd MMM yyyy")</dd>
+                    <dt>Created by</dt><dd>@Model.CreatedByName</dd>
+                    @if (Model.ClonedFromAdvertId is int sourceId)
+                    {
+                        <dt>Cloned from</dt><dd><a asp-action="Details" asp-route-id="@sourceId">@Model.ClonedFromAdvertNumber</a></dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        <div class="card glass">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
+                <ul class="timeline">
+                    @foreach (var h in Model.History)
+                    {
+                        <li>
+                            <span class="tl-dot @(h.Action is AdvertAction.Closed or AdvertAction.AutoClosed ? "warning" : "")"></span>
+                            <div><strong>@h.Action.DisplayName()</strong> by @h.ActorName</div>
+                            <div class="small text-body-secondary">@h.ActionAt.ToString("dd MMM yyyy HH:mm")</div>
+                            @if (h.Comments is not null)
+                            {
+                                <div class="tl-comment small text-break">@h.Comments</div>
+                            }
+                        </li>
+                    }
+                </ul>
+                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="JobAdvert" asp-route-entityId="@Model.Id" class="small">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+

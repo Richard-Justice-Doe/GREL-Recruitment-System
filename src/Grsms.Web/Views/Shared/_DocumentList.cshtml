@@ -1,0 +1,27 @@
+@* A list of uploaded documents with download links.
+   Model: (Docs, DownloadUrl) where DownloadUrl is the Download action's address without the attachment id,
+   e.g. "/MyApplications/Download/5"; "?attachmentId=<id>" is added for each file. *@
+@model (IReadOnlyList<AttachmentDto> Docs, string DownloadUrl)
+@{
+    static string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.0} MB" : $"{Math.Max(1, bytes / 1024)} KB";
+    static string Icon(string type) => type == "application/pdf" ? "fa-file-pdf" : type.StartsWith("image/") ? "fa-file-image" : "fa-file-lines";
+}
+@if (Model.Docs.Count == 0)
+{
+    <p class="small text-body-secondary mb-0">No documents.</p>
+}
+else
+{
+    <ul class="list-unstyled mb-0">
+        @foreach (var d in Model.Docs.OrderBy(d => d.Category).ThenBy(d => d.FileName))
+        {
+            <li class="d-flex align-items-start gap-2 py-2 border-bottom">
+                <i class="fa-regular @Icon(d.ContentType) fa-lg mt-1"></i>
+                <div class="flex-grow-1 text-break">
+                    <a href="@Model.DownloadUrl?attachmentId=@d.Id" class="fw-semibold text-decoration-none">@d.FileName</a>
+                    <div class="small text-body-secondary">@d.Category.DisplayName() · @Size(d.SizeBytes) · @d.UploadedAt.ToString("dd MMM yyyy")</div>
+                </div>
+            </li>
+        }
+    </ul>
+}

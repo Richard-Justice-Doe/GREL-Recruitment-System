@@ -1,0 +1,134 @@
+@* Onboarding:
+     My tasks          - checklist items assigned to me (anyone on the staff, e.g. IT)
+     In progress       - onboardings under way, by start date
+     Waiting to start  - accepted offers with no onboarding yet (HR)
+     All               - everything I may see, with division, department, start-date and status filters *@
+@model IReadOnlyList<OnboardingListItemDto>
+@{
+    ViewData["Title"] = "Onboarding";
+    var f = (OnboardingFilter)ViewBag.Filter;
+    var myTasks = ViewBag.MyTasks as IReadOnlyList<MyOnboardingTaskDto>;
+    var toStart = ViewBag.ToStart as IReadOnlyList<OnboardingToStartDto>;
+    var isHr = User.IsInRole(Roles.RecruitmentOfficer) || User.IsInRole(Roles.HrManager);
+    var tabs = new List<(string, string)> { ("tasks", "My tasks"), ("progress", "In progress") };
+    if (isHr) tabs.Add(("start", "Waiting to start"));
+    tabs.Add(("all", "All"));
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+}
+
+<div class="page-header">
+    <div>
+        <h1>Onboarding</h1>
+        <p>Appointment letters, first-day arrangements and the onboarding checklist for HR, the department and IT.</p>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var (key, label) in tabs)
+    {
+        <li class="nav-item"><a class="nav-link @(f.Tab == key ? "active" : "")" asp-action="Index" asp-route-tab="@key">@label</a></li>
+    }
+</ul>
+
+@if (f.Tab is "progress" or "all" or "start")
+{
+    <form method="get" class="card glass mb-3">
+        <input type="hidden" name="tab" value="@f.Tab" />
+        <div class="card-body row g-2 align-items-end">
+            <partial name="_ReportFilters" model="(f.DivisionId, f.DepartmentId, f.From, f.To)" />
+            @if (f.Tab == "all")
+            {
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label small" for="Status">Status</label>
+                    <select id="Status" name="Status" class="form-select">
+                        <option value="">Any status</option>
+                        @foreach (var s in Enum.GetValues<OnboardingStatus>())
+                        {
+                            <option value="@s" selected="@(f.Status == s)">@s.DisplayName()</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="col-sm-6 col-lg-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+                <a asp-action="Index" asp-route-tab="@f.Tab" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </div>
+    </form>
+}
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            @if (myTasks is not null)
+            {
+                <table class="table table-hover">
+                    <thead><tr><th>Task</th><th>Team</th><th>New employee</th><th>Due</th><th>Starts</th></tr></thead>
+                    <tbody>
+                    @if (myTasks.Count == 0)
+                    {
+                        <tr><td colspan="5" class="text-center text-body-secondary py-4">No onboarding tasks for you.</td></tr>
+                    }
+                    @foreach (var t in myTasks)
+                    {
+                        <tr>
+                            <td><a asp-action="Details" asp-route-id="@t.OnboardingId" class="fw-semibold text-decoration-none">@t.Title</a></td>
+                            <td class="small">@t.Team.DisplayName()</td>
+                            <td>@t.EmployeeName<div class="small text-body-secondary">@t.Number · @t.JobTitle</div></td>
+                            <td class="small text-nowrap @(t.DueDate < today ? "text-danger fw-semibold" : "")">@(t.DueDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                            <td class="small text-nowrap">@t.StartDate.ToString("dd MMM yyyy")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+            else if (toStart is not null)
+            {
+                <table class="table table-hover">
+                    <thead><tr><th>New employee</th><th>Job</th><th>Department</th><th>Start date (offer)</th><th>Accepted</th><th></th></tr></thead>
+                    <tbody>
+                    @if (toStart.Count == 0)
+                    {
+                        <tr><td colspan="6" class="text-center text-body-secondary py-4">Every accepted offer has an onboarding.</td></tr>
+                    }
+                    @foreach (var s in toStart)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@s.EmployeeName<div class="small text-body-secondary">@s.ApplicationNumber · @s.OfferNumber</div></td>
+                            <td>@s.JobTitle</td>
+                            <td>@s.DepartmentName<div class="small text-body-secondary">@s.DivisionName</div></td>
+                            <td class="small text-nowrap">@s.StartDate.ToString("dd MMM yyyy")</td>
+                            <td class="small text-nowrap">@s.AcceptedAt.ToString("dd MMM yyyy")</td>
+                            <td class="text-end"><a asp-action="Start" asp-route-id="@s.ApplicationId" class="btn btn-sm btn-primary">Start onboarding</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <table class="table table-hover">
+                    <thead><tr><th>Reference</th><th>New employee</th><th>Department</th><th>Starts</th><th>Letter</th><th>Checklist</th><th>Status</th></tr></thead>
+                    <tbody>
+                    @if (Model.Count == 0)
+                    {
+                        <tr><td colspan="7" class="text-center text-body-secondary py-4">Nothing here.</td></tr>
+                    }
+                    @foreach (var o in Model)
+                    {
+                        <tr>
+                            <td class="text-nowrap"><a asp-action="Details" asp-route-id="@o.Id" class="fw-semibold text-decoration-none">@o.Number</a></td>
+                            <td>@o.EmployeeName<div class="small text-body-secondary">@o.JobTitle</div></td>
+                            <td>@o.DepartmentName<div class="small text-body-secondary">@o.DivisionName</div></td>
+                            <td class="small text-nowrap">@o.StartDate.ToString("dd MMM yyyy")</td>
+                            <td class="small">@(o.LetterSigned ? "Signed" : o.LetterIssued ? "Issued, not signed" : "Not issued")</td>
+                            <td class="small text-nowrap">@o.TasksDone / @o.TasksTotal</td>
+                            <td><span class="badge rounded-pill @(o.Status == OnboardingStatus.Completed ? "badge-soft-success" : o.Status == OnboardingStatus.Cancelled ? "badge-soft-secondary" : "badge-soft-warning")">@o.Status.DisplayName()</span></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,67 @@
+# Local Docker setup: MySQL 8.4 + the GRSMS web app.
+# Passwords come from the .env file next to this one (not in source control).
+#   docker compose up -d --build      then open http://localhost:8080
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: grsms
+      MYSQL_USER: grsms
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+    # utf8mb4 + case-insensitive collation: the duplicate-name checks depend on it (docs/01-getting-started.md).
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    ports:
+      - "3307:3306"   # 3307 on the host so it doesn't clash with a locally installed MySQL
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Development: tables are created/updated automatically at start-up, and the sign-in cookie
+      # works over plain HTTP. (Production requires HTTPS for the cookie.)
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "server=db;port=3306;database=grsms;user=grsms;password=${MYSQL_PASSWORD}"
+      SeedAdmin__Email: ${SEED_ADMIN_EMAIL:?set SEED_ADMIN_EMAIL in .env}
+      SeedAdmin__Password: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env}
+      SeedAdmin__FullName: ${SEED_ADMIN_FULLNAME:-System Administrator}
+      App__BaseUrl: http://localhost:8080
+    ports:
+      - "8080:8080"   # host 8080, so it doesn't clash with `dotnet run` on 5014
+    volumes:
+      - app-data:/app/App_Data   # uploads, saved .eml emails, data-protection keys
+      - app-logs:/app/logs
+
+  # Web-based database viewer: http://localhost:8081
+  # Sign in with user "grsms" and MYSQL_PASSWORD from .env (or "root" / MYSQL_ROOT_PASSWORD).
+  # Bound to 127.0.0.1 so only this computer can open it.
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "127.0.0.1:8081:80"
+
+volumes:
+  mysql-data:
+  app-data:
+  app-logs:

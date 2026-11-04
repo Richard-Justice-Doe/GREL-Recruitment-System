@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Local password list (CREDENTIALS.local.md): never commit
+*.local.md
+
 # User-specific files
 *.rsuser
 *.suo

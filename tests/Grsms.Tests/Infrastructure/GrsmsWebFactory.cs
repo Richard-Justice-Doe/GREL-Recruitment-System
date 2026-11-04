@@ -39,6 +39,10 @@ public sealed class GrsmsWebFactory : WebApplicationFactory<Program>
         // Keep test logs and key files out of the source folder.
         builder.UseSetting("Logs:Folder", Path.Combine(Path.GetTempPath(), "grsms-test-logs"));
         builder.UseSetting("DataProtection:KeysFolder", Path.Combine(MailFolder, "keys"));
+        builder.UseSetting("Storage:RootFolder", Path.Combine(MailFolder, "uploads"));
+        // The test database is one shared in-memory connection, which must not be used by a
+        // background job at the same time as the test. Automatic closing is tested directly instead.
+        builder.UseSetting("Vacancies:AutoClose", "false");
 
         builder.ConfigureTestServices(services =>
         {

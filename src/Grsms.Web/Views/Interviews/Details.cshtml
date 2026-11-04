@@ -1,0 +1,226 @@
+@* One interview or assessment: when and where, the panel (who has scored), my scorecard, the scorecards I may see
+   (panel members see the others only after submitting their own), and the recruiter's actions. *@
+@model InterviewDetailsDto
+@{
+    ViewData["Title"] = $"{Model.Type.DisplayName()}: {Model.ApplicantName}";
+    var mine = Model.MyScorecard;
+    string RecCss(PanelRecommendation r) => r switch
+    {
+        PanelRecommendation.StronglyRecommend or PanelRecommendation.Recommend => "badge-soft-success",
+        PanelRecommendation.WithReservations => "badge-soft-warning",
+        _ => "badge-soft-danger"
+    };
+    var ratingLabels = new[] { "", "1 Poor", "2 Below", "3 Meets", "4 Above", "5 Outstanding" };
+}
+
+<div class="page-header">
+    <div>
+        <h1>@Model.Type.DisplayName(): @Model.ApplicantName
+            <span class="badge rounded-pill @(Model.Status == InterviewStatus.Scheduled ? "badge-soft-primary" : Model.Status == InterviewStatus.Completed ? "badge-soft-success" : "badge-soft-secondary")">@Model.Status.DisplayName()</span>
+        </h1>
+        <p>Round @Model.Round · <a asp-controller="Applications" asp-action="Details" asp-route-id="@Model.ApplicationId">@Model.ApplicationNumber</a>
+            · @Model.VacancyNumber @Model.JobTitle · @Model.DepartmentName</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>Interviews</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <dl class="details-grid mb-0">
+                    <dt>When</dt><dd>@Model.StartsAt.ToString("dddd dd MMMM yyyy, HH:mm") GMT (@Model.DurationMinutes min)</dd>
+                    <dt>How</dt><dd>@Model.Mode.DisplayName()</dd>
+                    <dt>Where</dt><dd class="text-break">@Model.Location</dd>
+                    @if (Model.CandidateInstructions is not null)
+                    {
+                        <dt>Applicant told</dt><dd>@Model.CandidateInstructions</dd>
+                    }
+                    @if (Model.StatusReason is not null)
+                    {
+                        <dt>Reason</dt><dd>@Model.StatusReason</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        @* ---- My scorecard *@
+        @if (Model.IsPanelMember)
+        {
+            <div class="card glass mb-3 @(Model.CanScore && mine is null ? "border border-primary" : "")">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">My scorecard @(mine is null ? "" : $"(submitted {mine.SubmittedAt:dd MMM HH:mm}, {mine.WeightedScore:0.0}/100)")</h2>
+                    @if (Model.ScoreNotYetReason is not null)
+                    {
+                        <p class="small text-body-secondary mb-0"><i class="fa-regular fa-clock me-1"></i>@Model.ScoreNotYetReason</p>
+                    }
+                    else if (Model.CanScore)
+                    {
+                        <form asp-action="Scorecard" asp-route-id="@Model.Id" method="post">
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead><tr><th>Criterion</th><th class="text-center">Weight</th><th>Rating</th></tr></thead>
+                                    <tbody>
+                                    @foreach (var c in Model.Criteria)
+                                    {
+                                        var current = mine?.Ratings.GetValueOrDefault(c.Id);
+                                        <tr>
+                                            <td>@c.Name</td>
+                                            <td class="text-center">@c.Weight</td>
+                                            <td>
+                                                <select name="ratings[@c.Id]" class="form-select form-select-sm" required aria-label="Rating for @c.Name">
+                                                    <option value="">Choose…</option>
+                                                    @for (var r = 1; r <= 5; r++)
+                                                    {
+                                                        <option value="@r" selected="@(current == r)">@ratingLabels[r]</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label for="strengths" class="form-label small">Strengths</label>
+                                    <textarea id="strengths" name="strengths" class="form-control form-control-sm" rows="3" maxlength="4000">@mine?.Strengths</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="concerns" class="form-label small">Concerns (required if you do not recommend)</label>
+                                    <textarea id="concerns" name="concerns" class="form-control form-control-sm" rows="3" maxlength="4000">@mine?.Concerns</textarea>
+                                </div>
+                            </div>
+                            <label for="recommendation" class="form-label small">Overall recommendation</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <select id="recommendation" name="recommendation" class="form-select form-select-sm w-auto" required>
+                                    <option value="">Choose…</option>
+                                    @foreach (var r in Enum.GetValues<PanelRecommendation>())
+                                    {
+                                        <option value="@r" selected="@(mine?.Recommendation == r)">@r.DisplayName()</option>
+                                    }
+                                </select>
+                                <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>@(mine is null ? "Submit scorecard" : "Update scorecard")</button>
+                            </div>
+                            <div class="form-text">You can update it until the session is marked completed.</div>
+                        </form>
+                    }
+                    else if (mine is null)
+                    {
+                        <p class="small text-body-secondary mb-0">You did not submit a scorecard for this session.</p>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ---- All scorecards *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Scorecards</h2>
+                    @if (Model.AverageScore is decimal avg)
+                    {
+                        <span>Average <strong class="fs-5">@avg.ToString("0.0")</strong> / 100</span>
+                    }
+                </div>
+                @if (Model.ScorecardsHidden)
+                {
+                    <p class="small text-body-secondary mb-0"><i class="fa-solid fa-eye-slash me-1"></i>Submit your own scorecard first. You will then see the others, so everyone scores independently.</p>
+                }
+                else if (Model.Scorecards.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0">No scorecards yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm small">
+                            <thead>
+                            <tr><th>Criterion (weight)</th>
+                                @foreach (var s in Model.Scorecards) { <th class="text-center">@s.PanelName</th> }
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var c in Model.Criteria)
+                            {
+                                <tr><td>@c.Name (@c.Weight)</td>
+                                    @foreach (var s in Model.Scorecards) { <td class="text-center">@s.Ratings.GetValueOrDefault(c.Id)</td> }
+                                </tr>
+                            }
+                            <tr class="fw-semibold"><td>Weighted score / 100</td>
+                                @foreach (var s in Model.Scorecards) { <td class="text-center">@s.WeightedScore.ToString("0.0")</td> }
+                            </tr>
+                            <tr><td>Recommendation</td>
+                                @foreach (var s in Model.Scorecards) { <td class="text-center"><span class="badge rounded-pill @RecCss(s.Recommendation)">@s.Recommendation.DisplayName()</span></td> }
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    @foreach (var s in Model.Scorecards.Where(s => s.Strengths is not null || s.Concerns is not null))
+                    {
+                        <div class="border-top pt-2 mt-2 small">
+                            <strong>@s.PanelName</strong>
+                            @if (s.Strengths is not null) { <div><span class="text-success">Strengths:</span> @s.Strengths</div> }
+                            @if (s.Concerns is not null) { <div><span class="text-danger">Concerns:</span> @s.Concerns</div> }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Panel</h2>
+                <ul class="list-unstyled mb-0">
+                    @foreach (var p in Model.Panel)
+                    {
+                        <li class="d-flex justify-content-between align-items-center py-1">
+                            <span>@p.Name @if (p.IsChair) { <span class="badge rounded-pill badge-soft-primary ms-1">Chair</span> }</span>
+                            @if (p.HasSubmitted)
+                            {
+                                <span class="small text-success"><i class="fa-solid fa-circle-check me-1"></i>Scored</span>
+                            }
+                            else
+                            {
+                                <span class="small text-body-secondary">Waiting</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        @if (Model.CanManage)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Manage</h2>
+                    <form asp-action="Complete" asp-route-id="@Model.Id" method="post" class="mb-3">
+                        <button type="submit" class="btn btn-sm btn-success w-100" data-confirm="Mark this session completed? Scorecards become final.">
+                            <i class="fa-solid fa-flag-checkered me-1"></i>Mark completed
+                        </button>
+                    </form>
+                    <form asp-action="Reschedule" asp-route-id="@Model.Id" method="post" class="mb-3">
+                        <label class="form-label small" for="startsAt">Reschedule (only before any scorecard)</label>
+                        <input id="startsAt" name="startsAt" type="datetime-local" class="form-control form-control-sm mb-1" required />
+                        <input name="location" class="form-control form-control-sm mb-1" placeholder="New place (leave empty to keep)" maxlength="500" aria-label="New place" />
+                        <button type="submit" class="btn btn-sm btn-outline-primary w-100">Reschedule and notify</button>
+                    </form>
+                    <form asp-action="NoShow" asp-route-id="@Model.Id" method="post" class="mb-3">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100" data-confirm="Record that the applicant did not attend?">Applicant did not attend</button>
+                    </form>
+                    <form asp-action="Cancel" asp-route-id="@Model.Id" method="post">
+                        <div class="input-group input-group-sm">
+                            <input name="reason" class="form-control" placeholder="Reason for cancelling" maxlength="2000" required aria-label="Reason for cancelling" />
+                            <button type="submit" class="btn btn-outline-danger" data-confirm="Cancel this session? The applicant and panel will be emailed.">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <a asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-outline-primary w-100"><i class="fa-solid fa-ranking-star me-1"></i>All interview results for this vacancy</a>
+    </div>
+</div>

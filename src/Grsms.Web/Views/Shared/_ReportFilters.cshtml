@@ -1,0 +1,24 @@
+@* Division, Department and Recruitment period (From / To) filter fields, shared by the list pages.
+   The page's controller fills ViewBag.DivisionList / ViewBag.DepartmentList (AppController.LoadFilterListsAsync).
+   Model: (DivisionId, DepartmentId, From, To) currently applied. *@
+@model (int? DivisionId, int? DepartmentId, DateOnly? From, DateOnly? To)
+<div class="col-sm-6 col-lg-2">
+    <label class="form-label small" for="DivisionId">Division</label>
+    <select id="DivisionId" name="DivisionId" asp-items="ViewBag.DivisionList" class="form-select">
+        <option value="">All divisions</option>
+    </select>
+</div>
+<div class="col-sm-6 col-lg-3">
+    <label class="form-label small" for="DepartmentId">Department</label>
+    <select id="DepartmentId" name="DepartmentId" asp-items="ViewBag.DepartmentList" class="form-select">
+        <option value="">All departments</option>
+    </select>
+</div>
+<div class="col-6 col-lg-2">
+    <label class="form-label small" for="From">Period from</label>
+    <input id="From" name="From" type="date" value="@Model.From?.ToString("yyyy-MM-dd")" class="form-control" />
+</div>
+<div class="col-6 col-lg-2">
+    <label class="form-label small" for="To">Period to</label>
+    <input id="To" name="To" type="date" value="@Model.To?.ToString("yyyy-MM-dd")" class="form-control" />
+</div>

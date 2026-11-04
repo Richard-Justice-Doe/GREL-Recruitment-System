@@ -26,7 +26,12 @@
                     <input asp-for="Code" class="form-control text-uppercase" />
                     <span asp-validation-for="Code" class="text-danger small"></span>
                 </div>
-                <div class="col-md-8">
+                <div class="col-md-6">
+                    <label asp-for="SiteType" class="form-label"></label>
+                    <input asp-for="SiteType" class="form-control" placeholder="e.g. Rubber Plantation Estate" />
+                    <span asp-validation-for="SiteType" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
                     <label asp-for="Location" class="form-label"></label>
                     <input asp-for="Location" class="form-control" />
                     <span asp-validation-for="Location" class="text-danger small"></span>

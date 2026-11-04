@@ -17,7 +17,7 @@
         <div class="table-responsive">
             <table class="table table-hover datatable">
                 <thead>
-                <tr><th>Name</th><th>Code</th><th>Location</th><th>Status</th><th class="no-sort text-end">Actions</th></tr>
+                <tr><th>Name</th><th>Code</th><th>Type</th><th>Location</th><th>Status</th><th class="no-sort text-end">Actions</th></tr>
                 </thead>
                 <tbody>
                 @foreach (var s in Model)
@@ -25,6 +25,7 @@
                     <tr class="@(s.IsActive ? "" : "row-inactive")">
                         <td class="fw-semibold">@s.Name</td>
                         <td><code>@s.Code</code></td>
+                        <td>@(s.SiteType ?? "—")</td>
                         <td>@(s.Location ?? "—")</td>
                         <td><partial name="_StatusBadge" model="s.IsActive" /></td>
                         <td class="text-end text-nowrap">

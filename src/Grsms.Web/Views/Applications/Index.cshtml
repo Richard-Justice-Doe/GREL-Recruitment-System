@@ -1,0 +1,157 @@
+@* Staff Applications list with three tabs:
+     New          - received, not yet reviewed (oldest first)
+     Under review - being reviewed (oldest first)
+     All          - everything, newest first, with a status filter
+   Report filters: division, department, vacancy, source, internal/external, period. *@
+@model PagedResult<ApplicationListItemDto>
+@{
+    ViewData["Title"] = "Applications";
+    var f = (ApplicationFilter)ViewBag.Filter;
+    var counts = (ApplicationCounts)ViewBag.Counts;
+
+    Dictionary<string, string> Route(int page)
+    {
+        var d = new Dictionary<string, string> { ["tab"] = f.Tab, ["page"] = page.ToString() };
+        if (f.Status is { } s && f.Tab == "all") d["Status"] = s.ToString();
+        if (f.DivisionId is { } div) d["DivisionId"] = div.ToString();
+        if (f.DepartmentId is { } dep) d["DepartmentId"] = dep.ToString();
+        if (f.VacancyId is { } vac) d["VacancyId"] = vac.ToString();
+        if (f.Source is { } src) d["Source"] = src.ToString();
+        if (f.Internal is { } i) d["Internal"] = i.ToString();
+        if (f.From is { } from) d["From"] = from.ToString("yyyy-MM-dd");
+        if (f.To is { } to) d["To"] = to.ToString("yyyy-MM-dd");
+        if (!string.IsNullOrWhiteSpace(f.Search)) d["Search"] = f.Search;
+        return d;
+    }
+
+    var tabs = new (string Key, string Label, int? Count, string BadgeCss)[]
+    {
+        ("new", "New", counts.New, "text-bg-primary"),
+        ("review", "Under review", counts.UnderReview, "text-bg-warning"),
+        ("all", "All", counts.Total, "text-bg-secondary"),
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Applications</h1>
+        <p>Applications received through the careers page and internal portal.</p>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var t in tabs)
+    {
+        <li class="nav-item">
+            <a class="nav-link @(f.Tab == t.Key ? "active" : "")" asp-action="Index" asp-route-tab="@t.Key" asp-route-VacancyId="@f.VacancyId">
+                @t.Label
+                @if (t.Count > 0)
+                {
+                    <span class="badge rounded-pill @t.BadgeCss ms-1">@t.Count</span>
+                }
+            </a>
+        </li>
+    }
+</ul>
+
+<form method="get" class="card glass mb-3">
+    <input type="hidden" name="tab" value="@f.Tab" />
+    @if (f.VacancyId is int vacancyFilter)
+    {
+        <input type="hidden" name="VacancyId" value="@vacancyFilter" />
+    }
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-sm-6 col-lg-3">
+            <label class="form-label small" for="Search">Search</label>
+            <input id="Search" name="Search" value="@f.Search" class="form-control" placeholder="Name, email, APP- or VAC- number" />
+        </div>
+        <partial name="_ReportFilters" model="(f.DivisionId, f.DepartmentId, f.From, f.To)" />
+        <div class="col-sm-6 col-lg-2">
+            <label class="form-label small" for="Internal">Applicants</label>
+            <select id="Internal" name="Internal" class="form-select">
+                <option value="">Everyone</option>
+                <option value="true" selected="@(f.Internal == true)">GREL staff</option>
+                <option value="false" selected="@(f.Internal == false)">External</option>
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-2">
+            <label class="form-label small" for="Source">Source</label>
+            <select id="Source" name="Source" class="form-select">
+                <option value="">Any source</option>
+                @foreach (var s in Enum.GetValues<ApplicationSource>())
+                {
+                    <option value="@s" selected="@(f.Source == s)">@s.DisplayName()</option>
+                }
+            </select>
+        </div>
+        @if (f.Tab == "all")
+        {
+            <div class="col-sm-6 col-lg-2">
+                <label class="form-label small" for="Status">Status</label>
+                <select id="Status" name="Status" class="form-select">
+                    <option value="">Any status</option>
+                    @foreach (var s in Enum.GetValues<ApplicationStatus>())
+                    {
+                        <option value="@s" selected="@(f.Status == s)">@s.DisplayName()</option>
+                    }
+                </select>
+            </div>
+        }
+        <div class="col-sm-6 col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            <a asp-action="Index" asp-route-tab="@f.Tab" class="btn btn-outline-secondary">Clear</a>
+        </div>
+    </div>
+</form>
+
+@if (f.VacancyId is not null && Model.Items.Count > 0)
+{
+    <p class="small"><i class="fa-solid fa-filter me-1"></i>Showing applications for vacancy <strong>@Model.Items[0].VacancyNumber</strong> only.
+        <a asp-action="Index" asp-route-tab="@f.Tab">Show all vacancies</a></p>
+}
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr><th>Application</th><th>Applicant</th><th>Vacancy</th><th>Department</th><th>Education</th><th class="text-center">Years</th><th>Source</th><th>Applied</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="9" class="text-center text-body-secondary py-4">No applications here.</td></tr>
+                }
+                @foreach (var a in Model.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap"><a asp-action="Details" asp-route-id="@a.Id" class="fw-semibold text-decoration-none">@a.ApplicationNumber</a></td>
+                        <td>
+                            @a.FullName
+                            @if (a.IsInternal)
+                            {
+                                <span class="badge rounded-pill badge-soft-primary ms-1">Staff</span>
+                            }
+                        </td>
+                        <td><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@a.VacancyId" class="text-decoration-none">@a.VacancyNumber</a><div class="small text-body-secondary">@a.JobTitle</div></td>
+                        <td>@a.DepartmentName<div class="small text-body-secondary">@a.DivisionName</div></td>
+                        <td class="small">@a.HighestEducation.DisplayName()</td>
+                        <td class="text-center">@a.YearsExperience</td>
+                        <td class="small">@a.Source.DisplayName()</td>
+                        <td class="small text-nowrap">@a.SubmittedAt.ToString("dd MMM yyyy")</td>
+                        <td><partial name="_ApplicationStatus" model="a.Status" /></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Pages">
+            <span class="small text-body-secondary">@Model.TotalCount applications · page @Model.Page of @Model.TotalPages</span>
+            <div class="btn-group">
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+            </div>
+        </nav>
+    </div>
+</div>

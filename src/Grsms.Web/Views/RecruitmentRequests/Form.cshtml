@@ -1,0 +1,125 @@
+@* Raise / edit a recruitment request (Head of Department). Id = 0 means "new".
+   Attachments are added on the details page after the draft is saved. *@
+@model RecruitmentRequestFormDto
+@{
+    var isNew = Model.Id == 0;
+    ViewData["Title"] = isNew ? "Raise a recruitment request" : "Edit recruitment request";
+}
+
+<div class="page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        <p>Saved as a draft first. You can attach documents and submit it for approval on the next page.</p>
+    </div>
+    <a asp-action="@(isNew ? "Index" : "Details")" asp-route-id="@(isNew ? null : Model.Id)" class="btn btn-outline-secondary">Cancel</a>
+</div>
+
+<form asp-action="@(isNew ? "Create" : "Edit")" asp-route-id="@(isNew ? null : Model.Id)" method="post" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card glass h-100">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Where</h2>
+                    <div class="mb-3">
+                        <label asp-for="DepartmentId" class="form-label"></label>
+                        <select asp-for="DepartmentId" asp-items="ViewBag.DepartmentList" class="form-select" data-units-url="@Url.Action("Units")">
+                            <option value="">— Choose —</option>
+                        </select>
+                        <span asp-validation-for="DepartmentId" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="UnitId" class="form-label"></label>
+                        <select asp-for="UnitId" asp-items="ViewBag.UnitList" class="form-select">
+                            <option value="">— None / whole department —</option>
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label asp-for="SiteId" class="form-label"></label>
+                        <select asp-for="SiteId" asp-items="ViewBag.SiteList" class="form-select">
+                            <option value="">— Choose —</option>
+                        </select>
+                        <span asp-validation-for="SiteId" class="text-danger small"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card glass h-100">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Budget</h2>
+                    <div class="mb-3">
+                        <label asp-for="BudgetCode" class="form-label"></label>
+                        <input asp-for="BudgetCode" class="form-control text-uppercase" />
+                        <span asp-validation-for="BudgetCode" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-0">
+                        <label asp-for="EstimatedAnnualCost" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text">GHS</span>
+                            <input asp-for="EstimatedAnnualCost" class="form-control" type="number" step="0.01" min="0" />
+                        </div>
+                        <div class="form-text">Total yearly cost of all the positions: salary, allowances and employer contributions.</div>
+                        <span asp-validation-for="EstimatedAnnualCost" class="text-danger small"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">The position</h2>
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label asp-for="PositionTitle" class="form-label"></label>
+                            <input asp-for="PositionTitle" class="form-control" placeholder="e.g. Safety Officer" />
+                            <span asp-validation-for="PositionTitle" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="NumberOfPositions" class="form-label"></label>
+                            <input asp-for="NumberOfPositions" class="form-control" type="number" min="1" max="100" />
+                            <span asp-validation-for="NumberOfPositions" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EmploymentType" class="form-label"></label>
+                            <select asp-for="EmploymentType" asp-items="Html.GetEnumSelectList<EmploymentType>()" class="form-select">
+                                <option value="">— Choose —</option>
+                            </select>
+                            <span asp-validation-for="EmploymentType" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="VacancyReason" class="form-label"></label>
+                            <select asp-for="VacancyReason" asp-items="Html.GetEnumSelectList<VacancyReason>()" class="form-select" data-toggle-replacement>
+                                <option value="">— Choose —</option>
+                            </select>
+                            <span asp-validation-for="VacancyReason" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6" id="replacedEmployeeGroup">
+                            <label asp-for="ReplacedEmployee" class="form-label"></label>
+                            <input asp-for="ReplacedEmployee" class="form-control" placeholder="Name and staff number" />
+                            <span asp-validation-for="ReplacedEmployee" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Justification" class="form-label"></label>
+                            <textarea asp-for="Justification" class="form-control" rows="5"
+                                      placeholder="Why is this hire needed now? What happens to the work if it is not approved?"></textarea>
+                            <span asp-validation-for="Justification" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save draft</button>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/recruitment-request-form.js" asp-append-version="true"></script>
+}

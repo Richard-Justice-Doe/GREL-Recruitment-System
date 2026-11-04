@@ -1,15 +1,61 @@
-@* Home page for candidates (external job seekers). The full candidate portal (vacancies,
-   applications, progress tracker) is added in a later phase. *@
+@* Home page for candidates (external job seekers): profile readiness, their applications and a link to the jobs. *@
+@inject ApplicationService Applications
+@inject CandidateProfileService Profiles
 @{
     ViewData["Title"] = "My portal";
     var name = User.FindFirst(AppClaimsPrincipalFactory.FullNameClaim)?.Value ?? "";
+    var mine = await Applications.MyApplicationsAsync();
+    var profile = await Profiles.GetMineAsync();
 }
-<div class="card glass">
-    <div class="card-body p-4">
-        <h1 class="h4">Welcome, @name</h1>
-        <p class="text-body-secondary mb-0">
-            Your GREL Careers account is active. Soon you will be able to browse open vacancies, apply,
-            upload your CV and certificates, and follow each application step by step from this page.
-        </p>
+
+<div class="dash-greeting">
+    <h1>Welcome, @name</h1>
+    <p>Find a job at GREL, apply online and follow each application step by step.</p>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <section class="dash-card h-100">
+            <h2 class="h6"><i class="fa-regular fa-id-card me-1"></i>My profile</h2>
+            @if (profile.Missing.Count > 0)
+            {
+                <p class="small">Before you can apply, add <strong>@string.Join(", ", profile.Missing)</strong>.</p>
+                <a asp-controller="Profile" asp-action="Index" class="btn btn-primary btn-sm">Complete my profile</a>
+            }
+            else
+            {
+                <p class="small text-success"><i class="fa-solid fa-circle-check me-1"></i>Your profile and CV are ready.</p>
+                <a asp-controller="Profile" asp-action="Index" class="btn btn-outline-secondary btn-sm">Update my profile</a>
+            }
+        </section>
+    </div>
+    <div class="col-lg-4">
+        <section class="dash-card h-100">
+            <h2 class="h6"><i class="fa-solid fa-briefcase me-1"></i>Current vacancies</h2>
+            <p class="small">See the jobs open at GREL now and apply in a few clicks.</p>
+            <a asp-controller="Careers" asp-action="Index" class="btn btn-primary btn-sm">See current vacancies</a>
+        </section>
+    </div>
+    <div class="col-lg-4">
+        <section class="dash-card h-100">
+            <h2 class="h6"><i class="fa-regular fa-paper-plane me-1"></i>My applications (@mine.Count)</h2>
+            @if (mine.Count == 0)
+            {
+                <p class="small text-body-secondary mb-0">You have not applied yet.</p>
+            }
+            else
+            {
+                <ul class="list-unstyled mb-2">
+                    @foreach (var a in mine.Take(4))
+                    {
+                        <li class="d-flex justify-content-between align-items-center gap-2 py-1">
+                            <a asp-controller="MyApplications" asp-action="Details" asp-route-id="@a.Id" class="text-decoration-none small">@a.JobTitle</a>
+                            <partial name="_ApplicationStatus" model="a.Status" />
+                        </li>
+                    }
+                </ul>
+                <a asp-controller="MyApplications" asp-action="Index" class="small">All my applications</a>
+            }
+        </section>
     </div>
 </div>

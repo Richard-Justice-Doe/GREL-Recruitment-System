@@ -65,18 +65,45 @@ The controller then redirects to the details page with a green "saved" banner.
 | **Interceptor** | `AuditSaveChangesInterceptor` | Code that runs automatically on every save: audit fields, soft delete and audit trail, so no developer can forget them. |
 | **Policies** | `Web/Security/Policies.cs` | Who may do what is defined once and referenced by name. |
 
+## Workflows (Phase 2 onwards)
+
+Approval workflows follow the same three-part design, shown here with recruitment requests:
+
+| Part | File | Holds |
+|---|---|---|
+| **The map** | `Domain/Recruitment/RecruitmentWorkflow.cs` | The stages, the role that decides at each one, what comes next on approval, and which statuses are editable or final. Pure rules, no database. Change the workflow here. |
+| **The record** | `Domain/Recruitment/RecruitmentRequest.cs` → `RecordStep(...)` | Moving to a new status always writes a history row and refreshes the `Version` concurrency stamp, in one method, so the two can't get out of step. |
+| **The gatekeeper** | `Application/Recruitment/RecruitmentRequestService.cs` | Who may act (role, "not your own request", department visibility), the stage-specific checks (budget tick, recruiter assignment, comments), saving, and notification emails. |
+
+Shared building blocks added in Phase 2, reusable by later modules:
+* `INumberGenerator`: concurrency-safe reference numbers (`RR-APM-2026-0001`; vacancies and offers will use it too).
+* `AttachmentService` + `IFileStorage`: validated uploads, stored outside the website, for any record (`OwnerType` + `OwnerId`).
+* `ConcurrencyConflictException`: raised by the unit of work when two people save the same record at once.
+* `IAppLinks`: full links for emails.
+
+Added in Phase 3:
+* `AccessScope` (Application/Common): the single "who sees which department's records" rule, used by requests and vacancies.
+* `WorkflowMailer` (Application/Common): the shared notification email (no self-emails, same layout everywhere, failures logged but never undoing a saved step).
+* `VacancyWorkflow` + `VacancyService`: the same map / record / gatekeeper pattern as requests.
+* **Background jobs** live in `Grsms.Web/Workers`. `VacancyAutoCloseWorker` runs every hour in its own scope with no signed-in user (recorded as "System") and simply calls `VacancyService.CloseExpiredAsync`, so the rule itself stays testable in the Application layer.
+* Modules avoid depending on each other directly: the request page asks `IVacancyLookup` ("is there a vacancy for this request?") instead of using the whole vacancy service.
+
+Added with the home dashboard (November 2026, see [11 Home dashboard](11-home-dashboard.md#for-developers)):
+* `DashboardService` (Application/Dashboard): read-only, builds the whole Home page in one call and reuses the module services for their "awaiting me" rules. The web layer passes in what the user may see as a `DashboardAccess` flag set, because authorization policies are a web concern.
+* `NavCounts` (Web/Helpers): scoped per request, so the sidebar badges and the bell share one set of count queries.
+
 ## Folder structure (Phase 1)
 
 ```
 src/
 ├── Grsms.Domain/
 │   ├── Common/BaseEntity.cs          ← Id + audit + soft-delete fields shared by every table
-│   ├── Organization/                 ← Department, Unit, Site
+│   ├── Organization/                 ← Division, Department, Unit, Site
 │   ├── Auditing/AuditLog.cs          ← audit trail row + standard action names
 │   └── Security/Roles.cs             ← the 8 role names
 ├── Grsms.Application/
 │   ├── Common/                       ← Result, PagedResult, interfaces (IRepository, IEmailService, ...)
-│   ├── Organization/                 ← DTOs + DepartmentService, UnitService, SiteService
+│   ├── Organization/                 ← DTOs + DivisionService, DepartmentService, UnitService, SiteService
 │   ├── Users/                        ← user DTOs + IUserDirectory, IUserAdminService
 │   ├── Auditing/                     ← IAuditLogService + query/DTO
 │   └── DependencyInjection.cs
@@ -100,6 +127,101 @@ src/
     ├── Models/                       ← view models for account pages and the home page
     ├── Views/                        ← one folder per controller + Shared (layouts, partials)
     └── wwwroot/                      ← css/site.css, js/site.js, lib/ (Bootstrap, Font Awesome, DataTables, jQuery)
+```
+
+**Added in Phase 2:**
+
+```
+Grsms.Domain/Recruitment/            ← RecruitmentRequest (+ history), enums, RecruitmentWorkflow
+Grsms.Domain/Documents/Attachment.cs
+Grsms.Application/Recruitment/       ← DTOs, IRecruitmentRequestRepository, RecruitmentRequestService
+Grsms.Application/Documents/         ← AttachmentService (upload checks)
+Grsms.Application/Common/Interfaces/ISupportInterfaces.cs  ← INumberGenerator, IFileStorage, IAppLinks
+Grsms.Infrastructure/Persistence/    ← RecruitmentRequestRepository, NumberGenerator, RecruitmentConfigurations
+Grsms.Infrastructure/Storage/        ← LocalFileStorage
+Grsms.Web/Controllers/RecruitmentRequestsController.cs
+Grsms.Web/Views/RecruitmentRequests/ ← Index, Form, Details, _StatusBadge, _WorkflowStepper
+Grsms.Web/Helpers/EnumExtensions.cs  ← friendly enum names on screen
+```
+
+**Added in Phase 3:**
+
+```
+Grsms.Domain/Vacancies/              ← Vacancy (+ requirements, history), enums, VacancyWorkflow
+Grsms.Application/Common/            ← AccessScope, WorkflowMailer (shared by all workflows)
+Grsms.Application/Vacancies/         ← DTOs, IVacancyRepository, VacancyService
+Grsms.Infrastructure/Persistence/    ← VacancyRepository, VacancyConfigurations
+Grsms.Web/Controllers/VacanciesController.cs
+Grsms.Web/Views/Vacancies/           ← Index, Form, Details, _StatusBadge
+Grsms.Web/Workers/VacancyAutoCloseWorker.cs
+```
+
+**Added in Phase 4:**
+
+```
+Grsms.Domain/Advertisements/         ← JobAdvert (+ channels, history), enums, AdvertWorkflow
+Grsms.Application/Adverts/           ← DTOs, IAdvertRepository, AdvertService, AdvertText (default and copy-ready text)
+Grsms.Application/Common/EnumText.cs ← friendly enum names in text the services write
+Grsms.Infrastructure/Persistence/    ← AdvertRepository, AdvertConfigurations
+Grsms.Web/Controllers/               ← AdvertsController (staff), CareersController (public, no sign-in)
+Grsms.Web/Views/Adverts/             ← Index, Form, Details, _StatusBadge
+Grsms.Web/Views/Careers/             ← Index, Details, NotFound (use Shared/_PublicLayout)
+Grsms.Web/Workers/VacancyAutoCloseWorker.cs ← now also runs AdvertService.RunScheduleAsync (publish scheduled, close expired)
+```
+
+**Added in Phase 5:**
+
+```
+Grsms.Domain/Applications/          ← CandidateProfile, JobApplication (+ history), enums, ApplicationWorkflow
+Grsms.Application/Applications/     ← DTOs, IApplicationRepository, CandidateProfileService, ApplicationService
+Grsms.Infrastructure/Persistence/    ← ApplicationRepository, ApplicationConfigurations
+Grsms.Web/Controllers/               ← ProfileController + MyApplicationsController (any signed-in person),
+                                       ApplicationsController (staff)
+Grsms.Web/Views/Profile, MyApplications, Applications/
+Grsms.Web/Views/Shared/              ← _DocumentList, _ApplicationStatus
+```
+
+**Added in Phase 6:**
+
+```
+Grsms.Domain/Applications/CvScreening.cs   ← the scoring rules (pure, unit-tested) and ScreeningResult
+Grsms.Application/Shortlisting/             ← DTOs, ShortlistingService (board, screening, recommend, HOD view, shortlist)
+Grsms.Web/Controllers/ShortlistingController.cs
+Grsms.Web/Views/Shortlisting/Vacancy.cshtml ← the ranked board
+Grsms.Web/Views/Shared/_ShortlistActions   ← the actions, shared by the board and the application page
+```
+
+**Added in Phase 7:**
+
+```
+Grsms.Domain/Interviews/             ← Interview (+ panel, criteria, scorecards, ratings), enums, InterviewWorkflow
+Grsms.Application/Interviews/        ← DTOs, IInterviewRepository, InterviewService
+Grsms.Infrastructure/Persistence/    ← InterviewRepository, InterviewConfigurations
+Grsms.Web/Controllers/InterviewsController.cs  (Staff policy: anyone can be on a panel)
+Grsms.Web/Views/Interviews/          ← Index, Schedule, Details (scorecard), Results
+```
+
+**Added in Phase 8:**
+
+```
+Grsms.Domain/Hiring/                 ← BackgroundCheck, HiringRecommendation, Offer, enums, HiringWorkflow
+Grsms.Application/Hiring/            ← DTOs, HiringService (checks, recommendation and approvals, offers, expiry)
+Grsms.Infrastructure/Persistence/    ← HiringConfigurations (generic repositories are enough)
+Grsms.Web/Controllers/HiringController.cs; MyApplicationsController gains Offer + RespondOffer
+Grsms.Web/Views/Hiring/              ← Index, Case;  Views/MyApplications/Offer (printable offer letter)
+Grsms.Web/Workers/VacancyAutoCloseWorker.cs ← now also expires unanswered offers
+```
+
+**Added in Phase 9:**
+
+```
+Grsms.Domain/Onboarding/             ← OnboardingRecord (letter + first day), OnboardingTask, enums, OnboardingWorkflow (default checklist)
+Grsms.Application/Onboarding/        ← DTOs, OnboardingService (start, checklist, letter, signature, complete, cancel, "my tasks")
+Grsms.Infrastructure/Persistence/    ← OnboardingConfigurations (generic repositories are enough)
+Grsms.Web/Controllers/OnboardingController.cs (Staff policy: checklist items can go to anyone, e.g. IT);
+    MyApplicationsController gains Appointment + SignLetter; HiringController links to onboarding
+Grsms.Web/Views/Onboarding/          ← Index, Start, Details, Letter;  Views/MyApplications/Appointment;
+    Views/Shared/_AppointmentLetter (one letter for the new employee and the staff preview)
 ```
 
 ## How to add a new feature (worked example)

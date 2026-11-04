@@ -1,0 +1,56 @@
+@* Public careers page: every advert running today on the Company website channel. Signed-in GREL staff also see
+   adverts on the Internal portal channel (staff-only jobs), marked "GREL staff only". *@
+@model IReadOnlyList<PublicJobDto>
+@{
+    ViewData["Title"] = "Current vacancies";
+    ViewData["Description"] = "Current job vacancies at Ghana Rubber Estates Limited (GREL).";
+    Layout = "_PublicLayout";
+    var isStaff = ViewBag.IsStaff == true;
+}
+
+<div class="mb-4">
+    <h1 class="h3 mb-1">Current vacancies</h1>
+    <p class="text-body-secondary mb-0">
+        Join Ghana Rubber Estates Limited.
+        @if (isStaff)
+        {
+            @:As GREL staff you also see internal vacancies, open to staff only.
+        }
+    </p>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="dash-card text-center py-5">
+        <i class="fa-regular fa-folder-open fa-2x text-body-secondary mb-2"></i>
+        <p class="mb-0">There are no open vacancies at the moment. Please check again soon.</p>
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var j in Model)
+        {
+            var daysLeft = j.ClosingDate.DayNumber - DateOnly.FromDateTime(DateTime.UtcNow).DayNumber;
+            <div class="col-md-6 col-xl-4">
+                <a asp-action="Details" asp-route-id="@j.AdvertNumber" class="dash-card job-card d-block h-100 text-reset text-decoration-none">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <h2 class="h6 mb-0">@j.Title</h2>
+                        @if (j.InternalOnly)
+                        {
+                            <span class="badge rounded-pill badge-soft-primary text-nowrap">GREL staff only</span>
+                        }
+                    </div>
+                    <div class="small text-body-secondary">
+                        <div><i class="fa-solid fa-sitemap fa-fw me-1"></i>@j.DepartmentName · @j.DivisionName</div>
+                        <div><i class="fa-solid fa-location-dot fa-fw me-1"></i>@j.SiteName</div>
+                        <div><i class="fa-solid fa-briefcase fa-fw me-1"></i>@j.EmploymentType.DisplayName()@(j.NumberOfPositions > 1 ? $" · {j.NumberOfPositions} positions" : "")</div>
+                    </div>
+                    <div class="small mt-2 @(daysLeft <= 3 ? "text-danger" : "")">
+                        <i class="fa-regular fa-calendar fa-fw me-1"></i>Closes @j.ClosingDate.ToString("dd MMM yyyy")@(daysLeft == 0 ? " (today)" : daysLeft <= 3 ? $" (in {daysLeft} days)" : "")
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+}

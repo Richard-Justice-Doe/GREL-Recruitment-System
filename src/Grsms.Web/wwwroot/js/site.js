@@ -4,6 +4,8 @@
 //   2. Mobile sidebar open/close
 //   3. "Are you sure?" confirmation for buttons marked data-confirm
 //   4. DataTables (search, sort, paging) on any <table class="datatable">
+//   5. "Copy" buttons: <button data-copy-target="id-of-textarea"> (job advert texts)
+//   6. Print buttons: <button data-print> (offer letters)
 // =========================================================================
 
 (function () {
@@ -54,5 +56,30 @@
                 });
             });
         }
+
+        // ---- 6. Print buttons ---------------------------------------------
+        document.querySelectorAll("[data-print]").forEach(function (btn) {
+            btn.addEventListener("click", function () { window.print(); });
+        });
+
+        // ---- 5. Copy buttons --------------------------------------------
+        document.querySelectorAll("[data-copy-target]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                var box = document.getElementById(btn.getAttribute("data-copy-target"));
+                if (!box) return;
+                var done = function () {
+                    var old = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-check me-1"></i>Copied';
+                    setTimeout(function () { btn.innerHTML = old; }, 1500);
+                };
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(box.value).then(done);
+                } else {
+                    box.select();
+                    document.execCommand("copy");   // fallback for plain-http addresses
+                    done();
+                }
+            });
+        });
     });
 })();

@@ -15,20 +15,27 @@ All screens are in the left-hand menu. On a phone, tap the ☰ button at the top
 
 ---
 
+## Divisions
+
+**Menu → Organisation → Divisions**
+
+GREL has two divisions, **Corporate** and **Operations**, and every department belongs to one of them. You can add, rename or deactivate a division. A division can only be deactivated once none of its departments are active. To move a department to the other division, edit the department (below). See [12 Divisions, departments and sites](12-divisions-and-departments.md).
+
 ## Departments
 
 **Menu → Organisation → Departments**
 
-The list shows every department, its Head of Department (HOD), how many units it has, and whether it is active. Type in the **Search** box to filter, or click a column heading to sort.
+The list shows every department, its division, its Head of Department (HOD), how many units it has, and whether it is active. Type in the **Search** box to filter, or click a column heading to sort.
 
 ### Add a department
 1. Click **Add department**.
 2. Enter the **name** (e.g. *Plantation Operations*) and a short **code** (e.g. *PLANT*). The code appears in reference numbers, so keep it short. Letters, numbers, `&` and `-` only.
-3. Optionally choose the **Head of Department** (see *Users* below to give someone that role first).
-4. Click **Save**.
+3. Choose the **division** (Corporate or Operations). This is required.
+4. Optionally choose the **Head of Department** (see *Users* below to give someone that role first).
+5. Click **Save**.
 
 ### Edit a department
-Click the ✏️ button, or open the department and click **Edit**.
+Click the ✏️ button, or open the department and click **Edit**. Changing the division moves the department; its existing requests and vacancies keep the division they were raised under.
 
 ### Deactivate or activate
 Click 🚫 (deactivate) or ✔️ (activate).
@@ -57,9 +64,9 @@ Units are the sections inside a department, for example **Finance → Payroll** 
 
 Sites are physical work locations (Head Office, estates, depots). Each recruitment request will record where the new hire will work.
 
-**Menu → Organisation → Sites → Add site:** enter the name, a short code and the location (town or address).
+**Menu → Organisation → Sites → Add site:** enter the name, a short code, the site type (e.g. Rubber Plantation Estate) and the location (town or address).
 
-*Head Office* is already set up. Add GREL's other locations before Phase 2 starts.
+GREL's 12 sites are already set up. Six of them have no site type yet (Allabokazo, Assin Adubease, Manso Amenfi, Awodua, Nsuame, Agona Abream): edit them to add it.
 
 ---
 

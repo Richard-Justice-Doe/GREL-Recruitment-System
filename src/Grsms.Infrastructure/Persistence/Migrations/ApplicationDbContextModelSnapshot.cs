@@ -19,6 +19,620 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                 .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
+            modelBuilder.Entity("Grsms.Domain.Advertisements.AdvertActionEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("ActionAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("ActorUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("JobAdvertId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("JobAdvertId", "ActionAt");
+
+                    b.ToTable("JobAdvertActions", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Advertisements.AdvertChannelPost", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<int>("JobAdvertId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PostedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PostedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("RemovedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobAdvertId", "Channel")
+                        .IsUnique();
+
+                    b.ToTable("AdvertChannels", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Advertisements.JobAdvert", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("AdvertNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("ClonedFromAdvertId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("HowToApply")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RequestingHodUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("StatusChangedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdvertNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ClonedFromAdvertId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("RequestingHodUserId");
+
+                    b.HasIndex("DepartmentId", "Status");
+
+                    b.HasIndex("DivisionId", "Status");
+
+                    b.HasIndex("Status", "EndDate");
+
+                    b.HasIndex("Status", "StartDate");
+
+                    b.HasIndex("VacancyId", "Status");
+
+                    b.ToTable("JobAdverts", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.ApplicationActionEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("ActionAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("ActorUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("JobApplicationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("JobApplicationId", "ActionAt");
+
+                    b.ToTable("JobApplicationActions", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.CandidateProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Certifications")
+                        .HasMaxLength(3000)
+                        .HasColumnType("varchar(3000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("CurrentEmployer")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("CurrentPosition")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("FieldOfStudy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("HighestEducation")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("LinkedInUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Skills")
+                        .HasMaxLength(3000)
+                        .HasColumnType("varchar(3000)");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("YearsExperience")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("CandidateProfiles", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.JobApplication", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("ApplicantUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("ApplicationNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Certifications")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CoverLetter")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("CurrentEmployer")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("CurrentPosition")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("FieldOfStudy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("HighestEducation")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("HodNote")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HodRecommendation")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("HodRecommendedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HodRecommendedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("JobAdvertId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LinkedInUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<bool?>("MeetsMinimum")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("OutcomeReason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("RecruiterNote")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecruiterRecommendation")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("RecruiterRecommendedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RecruiterRecommendedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("RequestingHodUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("ScreenedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ScreeningDetails")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ScreeningScore")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ShortlistedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Skills")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("StatusChangedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("YearsExperience")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicantUserId");
+
+                    b.HasIndex("ApplicationNumber")
+                        .IsUnique();
+
+                    b.HasIndex("HodRecommendedByUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("JobAdvertId");
+
+                    b.HasIndex("RecruiterRecommendedByUserId");
+
+                    b.HasIndex("RequestingHodUserId");
+
+                    b.HasIndex("SubmittedAt");
+
+                    b.HasIndex("DepartmentId", "Status");
+
+                    b.HasIndex("DivisionId", "Status");
+
+                    b.HasIndex("VacancyId", "ApplicantUserId")
+                        .IsUnique();
+
+                    b.HasIndex("VacancyId", "ScreeningScore");
+
+                    b.HasIndex("VacancyId", "Status");
+
+                    b.ToTable("JobApplications", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Auditing.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -72,6 +686,952 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Documents.Attachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("StoredFileName")
+                        .IsUnique();
+
+                    b.HasIndex("OwnerType", "OwnerId");
+
+                    b.ToTable("Attachments", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Hiring.BackgroundCheck", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("JobApplicationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecordedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("JobApplicationId");
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.ToTable("BackgroundChecks", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Hiring.HiringRecommendation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HodComment")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("HodDecidedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HodDecision")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("HodUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("HrComment")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("HrDecidedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HrDecision")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("HrUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("JobApplicationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Justification")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MdComment")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("MdDecidedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("MdDecision")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("MdUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<decimal>("ProposedSalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly>("ProposedStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("RequestingHodUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("HodUserId");
+
+                    b.HasIndex("HrUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("MdUserId");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("RequestingHodUserId");
+
+                    b.HasIndex("VacancyId");
+
+                    b.HasIndex("DivisionId", "Status");
+
+                    b.HasIndex("JobApplicationId", "Status");
+
+                    b.HasIndex("Status", "DepartmentId");
+
+                    b.ToTable("HiringRecommendations", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Hiring.Offer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<int>("HiringRecommendationId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("JobApplicationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("JobTitle")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<decimal>("MonthlySalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestingHodUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SentByUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Terms")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("HiringRecommendationId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("JobApplicationId");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("RequestingHodUserId");
+
+                    b.HasIndex("SentByUserId");
+
+                    b.HasIndex("DivisionId", "Status");
+
+                    b.HasIndex("Status", "ExpiresOn");
+
+                    b.HasIndex("VacancyId", "Status");
+
+                    b.ToTable("Offers", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.Interview", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("CandidateInstructions")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("JobApplicationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("RequestingHodUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ScheduledByUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("StatusReason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("RequestingHodUserId");
+
+                    b.HasIndex("ScheduledByUserId");
+
+                    b.HasIndex("DepartmentId", "Status");
+
+                    b.HasIndex("DivisionId", "Status");
+
+                    b.HasIndex("JobApplicationId", "Round")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "StartsAt");
+
+                    b.HasIndex("VacancyId", "Status");
+
+                    b.ToTable("Interviews", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.InterviewCriterion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("InterviewId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Weight")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InterviewId");
+
+                    b.ToTable("InterviewCriteria", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.InterviewPanelMember", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("InterviewId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsChair")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("InterviewId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("InterviewPanelMembers", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.Scorecard", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Concerns")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("InterviewId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("PanelUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Recommendation")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Strengths")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<decimal>("WeightedScore")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("decimal(5,1)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("PanelUserId");
+
+                    b.HasIndex("InterviewId", "PanelUserId")
+                        .IsUnique();
+
+                    b.ToTable("Scorecards", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.ScorecardRating", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("CriterionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ScorecardId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CriterionId");
+
+                    b.HasIndex("ScorecardId", "CriterionId")
+                        .IsUnique();
+
+                    b.ToTable("ScorecardRatings", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("CancelReason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContactPersonUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("EmployeeNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("EmployeeUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("FirstDayNotes")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("JobApplicationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("JobTitle")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime?>("LetterAcknowledgedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("LetterAcknowledgedIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("LetterAcknowledgedName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("LetterIssuedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("LetterIssuedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("LetterNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("LetterTerms")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("MonthlySalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<int>("OfferId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReportLocation")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<TimeOnly>("ReportTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("RequestingHodUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("StatusChangedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactPersonUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("EmployeeUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("JobApplicationId")
+                        .IsUnique();
+
+                    b.HasIndex("LetterIssuedByUserId");
+
+                    b.HasIndex("LetterNumber")
+                        .IsUnique();
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("OfferId")
+                        .IsUnique();
+
+                    b.HasIndex("RequestingHodUserId");
+
+                    b.HasIndex("SiteId");
+
+                    b.HasIndex("VacancyId");
+
+                    b.HasIndex("DepartmentId", "Status");
+
+                    b.HasIndex("DivisionId", "Status");
+
+                    b.HasIndex("Status", "StartDate");
+
+                    b.ToTable("Onboardings", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingTask", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("AssignedToUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CompletedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("OnboardingRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Team")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompletedByUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("AssignedToUserId", "Status");
+
+                    b.HasIndex("OnboardingRecordId", "SortOrder");
+
+                    b.ToTable("OnboardingTasks", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Organization.Department", b =>
                 {
                     b.Property<int>("Id")
@@ -101,6 +1661,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
 
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
                     b.Property<string>("HeadOfDepartmentUserId")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
@@ -128,6 +1691,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
+                    b.HasIndex("DivisionId");
+
                     b.HasIndex("HeadOfDepartmentUserId");
 
                     b.HasIndex("IsDeleted");
@@ -144,6 +1709,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "HR",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Human Resources"
@@ -154,6 +1720,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "IT",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Information Technology"
@@ -164,6 +1731,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "FIN",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Finance"
@@ -174,6 +1742,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "PROC",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Procurement"
@@ -184,6 +1753,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "SCM",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Supply Chain"
@@ -194,7 +1764,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "SALES",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 1,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Sales and Marketing"
                         },
@@ -204,7 +1775,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "PROD",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 2,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Production"
                         },
@@ -214,7 +1786,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "ENG",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 2,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Engineering"
                         },
@@ -224,7 +1797,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "MAINT",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 2,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Maintenance"
                         },
@@ -234,19 +1808,21 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "HSE",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 2,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Health, Safety & Environment (HSE)"
                         },
                         new
                         {
                             Id = 11,
-                            Code = "QA",
+                            Code = "PQ",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 2,
+                            IsActive = false,
                             IsDeleted = false,
-                            Name = "Quality Assurance"
+                            Name = "Progress and Quality"
                         },
                         new
                         {
@@ -254,7 +1830,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "RND",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 1,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Research & Development"
                         },
@@ -264,7 +1841,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "LEGAL",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 1,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Legal & Compliance"
                         },
@@ -274,7 +1852,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "SEC",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 1,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Security"
                         },
@@ -284,6 +1863,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "ADMIN",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Administration"
@@ -294,6 +1874,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "CA",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Corporate Affairs"
@@ -304,9 +1885,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "TRANS",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
-                            Name = "Transport & Logistics"
+                            Name = "Transport"
                         },
                         new
                         {
@@ -314,7 +1896,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "WH",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 2,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Warehouse"
                         },
@@ -324,9 +1907,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "PROJ",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 2,
+                            IsActive = false,
                             IsDeleted = false,
-                            Name = "Projects"
+                            Name = "Project"
                         },
                         new
                         {
@@ -334,6 +1918,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "IA",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
+                            DivisionId = 1,
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Internal Audit"
@@ -344,7 +1929,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "MED",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 1,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Medical Services"
                         },
@@ -354,7 +1940,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "CR",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 1,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Community Relations"
                         },
@@ -364,7 +1951,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "SUS",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 1,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Sustainability"
                         },
@@ -374,9 +1962,191 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             Code = "BD",
                             CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             CreatedBy = "system",
-                            IsActive = true,
+                            DivisionId = 1,
+                            IsActive = false,
                             IsDeleted = false,
                             Name = "Business Development"
+                        },
+                        new
+                        {
+                            Id = 25,
+                            Code = "CIV",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Civil & Infrastructure"
+                        },
+                        new
+                        {
+                            Id = 26,
+                            Code = "STR",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Stores"
+                        },
+                        new
+                        {
+                            Id = 27,
+                            Code = "GAR",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Garage"
+                        },
+                        new
+                        {
+                            Id = 28,
+                            Code = "EST",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = false,
+                            IsDeleted = false,
+                            Name = "Estates"
+                        },
+                        new
+                        {
+                            Id = 29,
+                            Code = "RUTAP",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "RuTAP"
+                        },
+                        new
+                        {
+                            Id = 30,
+                            Code = "DTC",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "DTC"
+                        },
+                        new
+                        {
+                            Id = 31,
+                            Code = "APM",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Factory APM"
+                        },
+                        new
+                        {
+                            Id = 32,
+                            Code = "TBU",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Factory TBU"
+                        },
+                        new
+                        {
+                            Id = 33,
+                            Code = "NUC",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            DivisionId = 2,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Nucleus Operations"
+                        });
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Organization.Division", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Divisions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "CORP",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Corporate"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "OPS",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Operations"
                         });
                 });
 
@@ -420,6 +2190,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<string>("SiteType")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -448,7 +2222,146 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             CreatedBy = "system",
                             IsActive = true,
                             IsDeleted = false,
-                            Name = "Head Office"
+                            Location = "Takoradi",
+                            Name = "Head Office",
+                            SiteType = "Corporate Headquarters"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "ABU",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Abura",
+                            SiteType = "Rubber Plantation Estate"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "APM",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Apeminim",
+                            SiteType = "Rubber Processing Factory"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "RUTAP",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "RuTAP",
+                            SiteType = "Rubber Outgrower & Technical Assistance Programme Operations"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "TSI",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Tsibu",
+                            SiteType = "Rubber Processing Factory (1D1F Expansion Project)"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "ALB",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Allabokazo"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Code = "ASA",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Assin Adubease"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Code = "MAN",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Manso Amenfi"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Code = "SUB",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Subri",
+                            SiteType = "Rubber Plantation Estate"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Code = "AWO",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Awodua"
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Code = "NSU",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Nsuame"
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Code = "AGA",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Agona Abream"
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Code = "TBU",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = false,
+                            IsDeleted = false,
+                            Name = "TBU Factory",
+                            SiteType = "Rubber Processing Factory (1D1F Expansion Project)"
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Code = "NUC",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            IsActive = false,
+                            IsDeleted = false,
+                            Name = "Nucleus Operations Areas",
+                            SiteType = "Estate Management and Plantation Operations"
                         });
                 });
 
@@ -513,6 +2426,500 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Units", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Recruitment.RecruitmentRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AssignedRecruiterUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("BudgetCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<bool>("BudgetValidated")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("BudgetValidatedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DateRequested")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmploymentType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<decimal>("EstimatedAnnualCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Justification")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<int>("NumberOfPositions")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PositionTitle")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("ReplacedEmployee")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("RequestNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("RequestedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("StatusChangedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("VacancyReason")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedRecruiterUserId");
+
+                    b.HasIndex("BudgetValidatedByUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("RequestNumber")
+                        .IsUnique();
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("SiteId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("DepartmentId", "Status");
+
+                    b.HasIndex("DivisionId", "Status");
+
+                    b.ToTable("RecruitmentRequests", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Recruitment.RecruitmentRequestAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("ActionAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("ActorUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("RecruitmentRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("RecruitmentRequestId", "ActionAt");
+
+                    b.ToTable("RecruitmentRequestActions", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Vacancies.Vacancy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("ClosingDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DivisionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmploymentType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("ExperienceNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("FieldOfStudy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("JobDescription")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("JobTitle")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int>("MinYearsExperience")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MinimumEducation")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<int>("NumberOfPositions")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("QualificationNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("RecruiterUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("RecruitmentRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReportingManagerUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("RequestingHodUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<decimal?>("SalaryMax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("SalaryMin")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("ShowSalary")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("StatusChangedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("VacancyNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("VacancyType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("RecruiterUserId");
+
+                    b.HasIndex("RecruitmentRequestId")
+                        .IsUnique();
+
+                    b.HasIndex("ReportingManagerUserId");
+
+                    b.HasIndex("RequestingHodUserId");
+
+                    b.HasIndex("SiteId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("VacancyNumber")
+                        .IsUnique();
+
+                    b.HasIndex("DepartmentId", "Status");
+
+                    b.HasIndex("DivisionId", "Status");
+
+                    b.HasIndex("Status", "ClosingDate");
+
+                    b.ToTable("Vacancies", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyActionEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("ActionAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("ActorUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("VacancyId", "ActionAt");
+
+                    b.ToTable("VacancyActions", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyRequirement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsEssential")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("VacancyId", "Type");
+
+                    b.ToTable("VacancyRequirements", (string)null);
                 });
 
             modelBuilder.Entity("Grsms.Infrastructure.Identity.ApplicationUser", b =>
@@ -616,6 +3023,20 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Infrastructure.Persistence.NumberSequence", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("LastValue")
+                        .HasColumnType("int");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("NumberSequences", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -808,12 +3229,445 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("UserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Advertisements.AdvertActionEntry", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Advertisements.JobAdvert", null)
+                        .WithMany("Actions")
+                        .HasForeignKey("JobAdvertId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Advertisements.AdvertChannelPost", b =>
+                {
+                    b.HasOne("Grsms.Domain.Advertisements.JobAdvert", null)
+                        .WithMany("Channels")
+                        .HasForeignKey("JobAdvertId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Advertisements.JobAdvert", b =>
+                {
+                    b.HasOne("Grsms.Domain.Advertisements.JobAdvert", null)
+                        .WithMany()
+                        .HasForeignKey("ClonedFromAdvertId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Division", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestingHodUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany()
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.ApplicationActionEntry", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Applications.JobApplication", null)
+                        .WithMany("Actions")
+                        .HasForeignKey("JobApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.CandidateProfile", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.JobApplication", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicantUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Division", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("HodRecommendedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Advertisements.JobAdvert", null)
+                        .WithMany()
+                        .HasForeignKey("JobAdvertId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecruiterRecommendedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestingHodUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany()
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Hiring.BackgroundCheck", b =>
+                {
+                    b.HasOne("Grsms.Domain.Applications.JobApplication", null)
+                        .WithMany()
+                        .HasForeignKey("JobApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Hiring.HiringRecommendation", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Division", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("HodUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("HrUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Applications.JobApplication", null)
+                        .WithMany()
+                        .HasForeignKey("JobApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("MdUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestingHodUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany()
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Hiring.Offer", b =>
+                {
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Division", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Hiring.HiringRecommendation", null)
+                        .WithMany()
+                        .HasForeignKey("HiringRecommendationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Applications.JobApplication", null)
+                        .WithMany()
+                        .HasForeignKey("JobApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestingHodUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("SentByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany()
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.Interview", b =>
+                {
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Division", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Applications.JobApplication", null)
+                        .WithMany()
+                        .HasForeignKey("JobApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestingHodUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ScheduledByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany()
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.InterviewCriterion", b =>
+                {
+                    b.HasOne("Grsms.Domain.Interviews.Interview", null)
+                        .WithMany("Criteria")
+                        .HasForeignKey("InterviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.InterviewPanelMember", b =>
+                {
+                    b.HasOne("Grsms.Domain.Interviews.Interview", null)
+                        .WithMany("Panel")
+                        .HasForeignKey("InterviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.Scorecard", b =>
+                {
+                    b.HasOne("Grsms.Domain.Interviews.Interview", null)
+                        .WithMany("Scorecards")
+                        .HasForeignKey("InterviewId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PanelUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.ScorecardRating", b =>
+                {
+                    b.HasOne("Grsms.Domain.Interviews.InterviewCriterion", null)
+                        .WithMany()
+                        .HasForeignKey("CriterionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Interviews.Scorecard", null)
+                        .WithMany("Ratings")
+                        .HasForeignKey("ScorecardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingRecord", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ContactPersonUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Division", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Applications.JobApplication", null)
+                        .WithMany()
+                        .HasForeignKey("JobApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("LetterIssuedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Hiring.Offer", null)
+                        .WithMany()
+                        .HasForeignKey("OfferId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestingHodUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Site", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany()
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingTask", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedToUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Onboarding.OnboardingRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnboardingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Grsms.Domain.Organization.Department", b =>
                 {
+                    b.HasOne("Grsms.Domain.Organization.Division", "Division")
+                        .WithMany("Departments")
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("HeadOfDepartmentUserId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Division");
                 });
 
             modelBuilder.Entity("Grsms.Domain.Organization.Unit", b =>
@@ -825,6 +3679,137 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Recruitment.RecruitmentRequest", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedRecruiterUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("BudgetValidatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Division", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Site", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Unit", null)
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Recruitment.RecruitmentRequestAction", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Recruitment.RecruitmentRequest", "RecruitmentRequest")
+                        .WithMany("Actions")
+                        .HasForeignKey("RecruitmentRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("RecruitmentRequest");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Vacancies.Vacancy", b =>
+                {
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Division", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecruiterUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Recruitment.RecruitmentRequest", null)
+                        .WithMany()
+                        .HasForeignKey("RecruitmentRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ReportingManagerUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestingHodUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Site", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Organization.Unit", null)
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyActionEntry", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany("Actions")
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyRequirement", b =>
+                {
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany("Requirements")
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Grsms.Infrastructure.Identity.ApplicationUser", b =>
@@ -891,9 +3876,52 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Advertisements.JobAdvert", b =>
+                {
+                    b.Navigation("Actions");
+
+                    b.Navigation("Channels");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.JobApplication", b =>
+                {
+                    b.Navigation("Actions");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.Interview", b =>
+                {
+                    b.Navigation("Criteria");
+
+                    b.Navigation("Panel");
+
+                    b.Navigation("Scorecards");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Interviews.Scorecard", b =>
+                {
+                    b.Navigation("Ratings");
+                });
+
             modelBuilder.Entity("Grsms.Domain.Organization.Department", b =>
                 {
                     b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Organization.Division", b =>
+                {
+                    b.Navigation("Departments");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Recruitment.RecruitmentRequest", b =>
+                {
+                    b.Navigation("Actions");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Vacancies.Vacancy", b =>
+                {
+                    b.Navigation("Actions");
+
+                    b.Navigation("Requirements");
                 });
 #pragma warning restore 612, 618
         }

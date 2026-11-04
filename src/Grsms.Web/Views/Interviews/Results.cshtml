@@ -1,0 +1,56 @@
+@* A vacancy's interview results: every applicant who reached an interview or assessment, best average first,
+   with each session's average and the panel's recommendations. Used to prepare the hiring recommendation (Phase 8). *@
+@model IReadOnlyList<InterviewResultDto>
+@{
+    ViewData["Title"] = $"Interview results · {ViewBag.VacancyNumber}";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Interview results: @ViewBag.JobTitle</h1>
+        <p><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@ViewBag.VacancyId">@ViewBag.VacancyNumber</a> · averages are of the panel members' weighted scorecards (out of 100)</p>
+    </div>
+    <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@ViewBag.VacancyId" class="btn btn-outline-secondary">Shortlisting board</a>
+</div>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th>#</th><th>Applicant</th><th class="text-center">Screening</th><th>Sessions</th><th class="text-center">Interview average</th><th>Panel recommendations</th><th>Status</th></tr></thead>
+                <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-body-secondary py-4">No interviews or assessments yet.</td></tr>
+                }
+                @for (var n = 0; n < Model.Count; n++)
+                {
+                    var r = Model[n];
+                    <tr>
+                        <td class="text-body-secondary">@(n + 1)</td>
+                        <td><a asp-controller="Applications" asp-action="Details" asp-route-id="@r.ApplicationId" class="fw-semibold text-decoration-none">@r.ApplicantName</a>
+                            <div class="small text-body-secondary">@r.ApplicationNumber · <a asp-controller="Hiring" asp-action="Case" asp-route-id="@r.ApplicationId">hiring case</a></div></td>
+                        <td class="text-center">@(r.ScreeningScore?.ToString() ?? "—")</td>
+                        <td class="small">
+                            @foreach (var s in r.Sessions)
+                            {
+                                <div><a asp-action="Details" asp-route-id="@s.InterviewId" class="text-decoration-none">Round @s.Round · @s.Type.DisplayName()</a>:
+                                    @(s.Average is decimal a ? a.ToString("0.0") : "—") (@s.Scorecards/@s.Panel scored, @s.Status.DisplayName().ToLowerInvariant())</div>
+                            }
+                        </td>
+                        <td class="text-center fs-5 fw-semibold">@(r.OverallAverage is decimal avg ? avg.ToString("0.0") : "—")</td>
+                        <td class="small">
+                            @foreach (var (rec, count) in r.Recommendations.OrderBy(x => x.Key))
+                            {
+                                <div>@rec.DisplayName(): @count</div>
+                            }
+                        </td>
+                        <td><partial name="_ApplicationStatus" model="r.Status" /></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-body-secondary mb-0">The final hiring recommendation, with the Head of Department, is made in the next step (Phase 8).</p>
+    </div>
+</div>

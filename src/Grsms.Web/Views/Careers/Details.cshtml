@@ -1,0 +1,66 @@
+@* One running advert on the careers page. Online applications open in Phase 5 (candidate portal);
+   until then candidates follow the advert's "How to apply" text, and can already create their account. *@
+@model PublicJobDto
+@{
+    ViewData["Title"] = Model.Title;
+    ViewData["Description"] = $"{Model.Title} at Ghana Rubber Estates Limited (GREL). Closes {Model.ClosingDate:dd MMM yyyy}.";
+    Layout = "_PublicLayout";
+}
+
+<a asp-action="Index" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>All vacancies</a>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-8">
+        <article class="dash-card p-4">
+            <h1 class="h3">@Model.Title</h1>
+            @if (Model.InternalOnly)
+            {
+                <p><span class="badge rounded-pill badge-soft-primary">GREL staff only</span></p>
+            }
+            <div style="white-space: pre-wrap">@Model.Body</div>
+        </article>
+    </div>
+    <div class="col-lg-4">
+        <aside class="dash-card p-4">
+            <dl class="mb-3">
+                <dt class="small text-body-secondary">Department</dt><dd>@Model.DepartmentName (@Model.DivisionName)</dd>
+                <dt class="small text-body-secondary">Location</dt><dd>@Model.SiteName</dd>
+                <dt class="small text-body-secondary">Employment type</dt><dd>@Model.EmploymentType.DisplayName()</dd>
+                @if (Model.NumberOfPositions > 1)
+                {
+                    <dt class="small text-body-secondary">Positions</dt><dd>@Model.NumberOfPositions</dd>
+                }
+                <dt class="small text-body-secondary">Closing date</dt><dd class="fw-semibold">@Model.ClosingDate.ToString("dddd dd MMMM yyyy")</dd>
+                <dt class="small text-body-secondary">Reference</dt><dd>@Model.AdvertNumber</dd>
+            </dl>
+            <h2 class="h6">How to apply</h2>
+            <p class="small" style="white-space: pre-wrap">@Model.HowToApply</p>
+            @{
+                var apply = ((bool CanApply, string? Reason, int? ExistingApplicationId))ViewBag.ApplyStatus;
+                var applyUrl = Url.Action("Apply", "MyApplications", new { id = Model.AdvertNumber });
+            }
+            @if (User.Identity?.IsAuthenticated != true)
+            {
+                <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@applyUrl" class="btn btn-primary w-100">
+                    <i class="fa-solid fa-paper-plane me-1"></i>Sign in to apply
+                </a>
+                <p class="small text-body-secondary mt-2 mb-0">
+                    New here? <a asp-controller="Account" asp-action="Register">Create a free candidate account</a>, confirm your email, then come back to apply.
+                </p>
+            }
+            else if (apply.ExistingApplicationId is int existing)
+            {
+                <div class="alert alert-success small mb-2"><i class="fa-solid fa-circle-check me-1"></i>You have applied for this vacancy.</div>
+                <a asp-controller="MyApplications" asp-action="Details" asp-route-id="@existing" class="btn btn-outline-primary w-100">Track my application</a>
+            }
+            else if (apply.CanApply)
+            {
+                <a href="@applyUrl" class="btn btn-primary w-100"><i class="fa-solid fa-paper-plane me-1"></i>Apply now</a>
+            }
+            else if (apply.Reason is not null)
+            {
+                <div class="alert alert-info small mb-0">@apply.Reason</div>
+            }
+        </aside>
+    </div>
+</div>

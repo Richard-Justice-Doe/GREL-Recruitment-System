@@ -22,22 +22,76 @@ public class OrganizationServiceTests : IDisposable
     private T Get<T>(IServiceScope scope) where T : notnull => scope.ServiceProvider.GetRequiredService<T>();
 
     [Fact]
-    public async Task Seed_data_contains_the_24_departments_8_roles_and_head_office()
+    public async Task Seed_data_contains_two_divisions_17_grel_departments_8_roles_and_grel_sites()
     {
         using var scope = _db.NewScope();
         var db = Get<ApplicationDbContext>(scope);
 
-        Assert.Equal(24, await db.Departments.CountAsync());
+        Assert.Equal(["Corporate", "Operations"], await db.Divisions.OrderBy(d => d.Id).Select(d => d.Name).ToListAsync());
+
+        // 33 rows: GREL's 17 departments are active (9 Corporate, 8 Operations); the rest are kept but inactive.
+        Assert.Equal(33, await db.Departments.CountAsync());
+        var active = await db.Departments.Where(d => d.IsActive).ToListAsync();
+        Assert.Equal(17, active.Count);
+        Assert.Equal(9, active.Count(d => d.DivisionId == 1));
+        Assert.Equal(8, active.Count(d => d.DivisionId == 2));
+        Assert.Contains(active, d => d.Name == "Transport" && d.DivisionId == 1);
+        Assert.Contains(active, d => d.Name == "Factory TBU" && d.DivisionId == 2);
+        Assert.Contains(active, d => d.Name == "Nucleus Operations" && d.DivisionId == 2);
+        Assert.DoesNotContain(active, d => d.Name is "Estates" or "Progress and Quality" or "Project");
         Assert.Equal(8, await db.Roles.CountAsync());
-        Assert.Contains(await db.Departments.Select(d => d.Name).ToListAsync(), n => n == "Health, Safety & Environment (HSE)");
-        Assert.Equal("HQ", (await db.Sites.SingleAsync()).Code);
+
+        Assert.Equal(14, await db.Sites.CountAsync());
+        var hq = await db.Sites.SingleAsync(s => s.Id == 1);
+        Assert.Equal(("HQ", "Corporate Headquarters", "Takoradi"), (hq.Code, hq.SiteType, hq.Location));
+        Assert.Equal("Rubber Plantation Estate", (await db.Sites.SingleAsync(s => s.Name == "Subri")).SiteType);
+
+        // GREL's 12 sites are active; Tsibu is the TBU factory, so the separate "TBU Factory" row (13) is inactive.
+        Assert.Equal(12, await db.Sites.CountAsync(s => s.IsActive));
+        Assert.StartsWith("Rubber Processing Factory", (await db.Sites.SingleAsync(s => s.Name == "Tsibu")).SiteType);
+        Assert.True(await db.Sites.AnyAsync(s => s.Name == "Apeminim" && s.IsActive));
+        Assert.False(await db.Sites.AnyAsync(s => s.Code == "TBU" && s.IsActive));
+    }
+
+    [Fact]
+    public async Task A_department_needs_an_active_division()
+    {
+        using var scope = _db.NewScope();
+        var departments = Get<IDepartmentService>(scope);
+
+        Assert.False((await departments.CreateAsync(new DepartmentFormDto { Name = "Agronomy", Code = "AGR" })).Succeeded);
+        Assert.False((await departments.CreateAsync(new DepartmentFormDto { Name = "Agronomy", Code = "AGR", DivisionId = 99 })).Succeeded);
+
+        // Moving Finance (Corporate) to Operations is allowed and shows on the list.
+        var form = (await departments.GetForEditAsync(3))!;
+        form.DivisionId = 2;
+        Assert.True((await departments.UpdateAsync(form)).Succeeded);
+        Assert.Equal("Operations", (await departments.GetAllAsync()).Single(d => d.Id == 3).DivisionName);
+    }
+
+    [Fact]
+    public async Task A_division_with_active_departments_cannot_be_deactivated()
+    {
+        using var scope = _db.NewScope();
+        var divisions = Get<IDivisionService>(scope);
+
+        Assert.False((await divisions.SetActiveAsync(1, false)).Succeeded);
+
+        var created = await divisions.CreateAsync(new DivisionFormDto { Name = "Projects", Code = " proj " });
+        Assert.True(created.Succeeded);
+        Assert.True((await divisions.SetActiveAsync(created.Value, false)).Succeeded);
+        Assert.False((await divisions.CreateAsync(new DivisionFormDto { Name = "Corporate", Code = "PROJ" })).Succeeded);
+
+        // An inactive division cannot receive departments.
+        Assert.False((await Get<IDepartmentService>(scope).CreateAsync(
+            new DepartmentFormDto { Name = "Agronomy", Code = "AGR", DivisionId = created.Value })).Succeeded);
     }
 
     [Fact]
     public async Task Creating_a_department_fills_audit_fields_and_writes_an_audit_row()
     {
         using var scope = _db.NewScope();
-        var result = await Get<IDepartmentService>(scope).CreateAsync(new DepartmentFormDto { Name = "Agronomy", Code = " agr " });
+        var result = await Get<IDepartmentService>(scope).CreateAsync(new DepartmentFormDto { Name = "Agronomy", Code = " agr ", DivisionId = 2 });
 
         Assert.True(result.Succeeded);
         var db = Get<ApplicationDbContext>(scope);
@@ -77,7 +131,7 @@ public class OrganizationServiceTests : IDisposable
     public async Task Duplicate_department_name_or_code_is_rejected()
     {
         using var scope = _db.NewScope();
-        var result = await Get<IDepartmentService>(scope).CreateAsync(new DepartmentFormDto { Name = "Finance", Code = "HSE" });
+        var result = await Get<IDepartmentService>(scope).CreateAsync(new DepartmentFormDto { Name = "Finance", Code = "HSE", DivisionId = 1 });
 
         Assert.False(result.Succeeded);
         Assert.Equal(2, result.Errors.Count);
@@ -142,7 +196,7 @@ public class OrganizationServiceTests : IDisposable
         await departments.SetActiveAsync(5, false);
 
         var lookup = await departments.GetActiveLookupAsync();
-        Assert.Equal(23, lookup.Count);
+        Assert.Equal(16, lookup.Count); // GREL's 17 active departments, minus the one just deactivated
         Assert.DoesNotContain(lookup, l => l.Value == "5");
     }
 }

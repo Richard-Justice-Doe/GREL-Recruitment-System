@@ -59,6 +59,25 @@ dotnet user-secrets --project src/Grsms.Web set "Email:FromAddress" "recruitment
 
 > **Microsoft 365 mailboxes:** Microsoft is retiring username/password ("basic") SMTP sign-in for Exchange Online. When GREL's mail details are known, a later phase will add the right method (OAuth or a relay connector).
 
+### Uploaded files
+| Setting | Default | Meaning |
+|---|---|---|
+| `Storage:RootFolder` | `App_Data/uploads` | Where uploaded documents are kept: a local folder (`D:\GRSMS\uploads`) or a file-server share (`\\fileserver\grsms`). Relative paths are inside the web app folder. **Never** point it inside `wwwroot`. Back it up with the database. The app's account needs read/write access. |
+| `Uploads:MaxFileSizeMb` | `10` | Largest file accepted, in MB (the upload page allows at most 25 MB per request) |
+
+### Vacancies
+| Setting | Default | Meaning |
+|---|---|---|
+| `Vacancies:AutoClose` | `true` | Close published vacancies automatically once their closing date has passed. The same job also publishes scheduled **job adverts** on their start date and closes adverts after their end date or once their vacancy closes (Phase 4). |
+| `Vacancies:AutoCloseIntervalMinutes` | `60` | How often the check runs (it also runs about 30 seconds after start-up) |
+
+> If GRSMS ever runs on **several servers at once**, leave `AutoClose` on for only one of them.
+
+### Links in emails
+| Setting | Default | Meaning |
+|---|---|---|
+| `App:BaseUrl` | *(empty)* | The site's public address, e.g. `https://recruitment.grel.example`. Emails normally use the address the user is browsing on; this is the fallback for emails sent without a browser request (later phases). |
+
 ### Logging (Serilog)
 | Setting | Default | Meaning |
 |---|---|---|
@@ -74,6 +93,8 @@ Email__SmtpHost                       = mail.grel.example
 Email__FromAddress                    = recruitment@grel.example
 DataProtection__KeysFolder            = D:\GRSMS\keys
 Logs__Folder                          = D:\GRSMS\logs
+Storage__RootFolder                   = \\fileserver\grsms\uploads
+App__BaseUrl                          = https://recruitment.grel.example
 ```
 
 Full hosting instructions (IIS or Linux) arrive in Phase 13.

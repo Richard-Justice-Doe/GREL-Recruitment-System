@@ -1,0 +1,57 @@
+@* The shortlisting actions for one application, used on the board and on the application page.
+   Model: (Row, VacancyId, ReturnTo) — ReturnTo "application" sends the user back to the application page. *@
+@model (ShortlistRowDto Row, int VacancyId, string? ReturnTo)
+@{
+    var r = Model.Row;
+}
+@if (r.CanRecommend)
+{
+    <details class="mb-2">
+        <summary class="small">Recruiter recommendation@(r.RecruiterRecommendation == ShortlistRecommendation.None ? "" : " (change)")</summary>
+        <form asp-controller="Shortlisting" asp-action="Recommend" asp-route-id="@r.ApplicationId" method="post" class="mt-2">
+            <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+            <input type="hidden" name="returnTo" value="@Model.ReturnTo" />
+            <textarea name="note" class="form-control form-control-sm mb-2" rows="2" maxlength="2000" placeholder="Note for the HOD (required for 'do not shortlist')">@r.RecruiterNote</textarea>
+            <div class="d-flex gap-2">
+                <button type="submit" name="recommendation" value="Shortlist" class="btn btn-sm btn-outline-success flex-fill">Shortlist</button>
+                <button type="submit" name="recommendation" value="DoNotShortlist" class="btn btn-sm btn-outline-danger flex-fill">Do not shortlist</button>
+            </div>
+        </form>
+    </details>
+}
+@if (r.CanHodReview)
+{
+    <details class="mb-2" @(r.HodRecommendation == ShortlistRecommendation.None ? "open" : "")>
+        <summary class="small fw-semibold">Your view as Head of Department</summary>
+        <form asp-controller="Shortlisting" asp-action="HodReview" asp-route-id="@r.ApplicationId" method="post" class="mt-2">
+            <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+            <input type="hidden" name="returnTo" value="@Model.ReturnTo" />
+            <textarea name="note" class="form-control form-control-sm mb-2" rows="2" maxlength="2000" placeholder="Comment (required if you disagree with the recruiter)">@r.HodNote</textarea>
+            <div class="d-flex gap-2">
+                <button type="submit" name="view" value="Shortlist" class="btn btn-sm btn-outline-success flex-fill">Agree: shortlist</button>
+                <button type="submit" name="view" value="DoNotShortlist" class="btn btn-sm btn-outline-danger flex-fill">Do not shortlist</button>
+            </div>
+        </form>
+    </details>
+}
+@if (r.CanShortlist)
+{
+    <form asp-controller="Shortlisting" asp-action="Shortlist" asp-route-id="@r.ApplicationId" method="post">
+        <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+        <input type="hidden" name="returnTo" value="@Model.ReturnTo" />
+        @if (r.NeedsOverride)
+        {
+            <input name="reason" class="form-control form-control-sm mb-2" maxlength="2000" required
+                   placeholder="HOD has not agreed: reason for overriding" aria-label="Reason for overriding the Head of Department" />
+            <button type="submit" class="btn btn-sm btn-warning w-100" data-confirm="Shortlist without the Head of Department's agreement?">
+                <i class="fa-solid fa-user-check me-1"></i>Shortlist (HR Manager override)
+            </button>
+        }
+        else
+        {
+            <button type="submit" class="btn btn-sm btn-success w-100" data-confirm="Shortlist @r.FullName? They will be emailed.">
+                <i class="fa-solid fa-user-check me-1"></i>Shortlist
+            </button>
+        }
+    </form>
+}

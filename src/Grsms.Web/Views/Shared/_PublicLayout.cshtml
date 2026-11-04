@@ -1,0 +1,52 @@
+@* Layout for public pages anyone can open without signing in (the careers pages):
+   a simple top bar with the GREL brand and a sign-in link, no sidebar. *@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] · GREL Careers</title>
+    @if (ViewData["Description"] is string description)
+    {
+        <meta name="description" content="@description" />
+    }
+    <script src="~/js/theme-init.js"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="public-body">
+<header class="public-top">
+    <div class="public-inner d-flex align-items-center gap-3">
+        <a asp-controller="Careers" asp-action="Index" class="d-flex align-items-center gap-2 text-reset text-decoration-none">
+            <span class="brand-mark">G</span>
+            <span>
+                <span class="fw-bold d-block lh-sm">GREL Careers</span>
+                <span class="small text-body-secondary">Ghana Rubber Estates Limited</span>
+            </span>
+        </a>
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <button type="button" class="icon-btn" data-theme-toggle aria-label="Switch light or dark mode">
+                <i data-theme-icon class="fa-solid fa-moon"></i>
+            </button>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-controller="Home" asp-action="Index" class="btn btn-sm btn-outline-secondary">Back to GRSMS</a>
+            }
+            else
+            {
+                <a asp-controller="Account" asp-action="Login" class="btn btn-sm btn-outline-secondary">Sign in</a>
+            }
+        </div>
+    </div>
+</header>
+<main class="public-inner py-4">
+    @RenderBody()
+</main>
+<footer class="public-inner pb-4 small text-body-secondary">© @DateTime.UtcNow.Year GREL · Recruitment &amp; Selection Management System</footer>
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

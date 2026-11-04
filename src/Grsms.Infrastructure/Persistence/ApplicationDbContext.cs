@@ -2,7 +2,10 @@ using System.Linq.Expressions;
 using Grsms.Application.Common.Interfaces;
 using Grsms.Domain.Auditing;
 using Grsms.Domain.Common;
+using Grsms.Domain.Documents;
 using Grsms.Domain.Organization;
+using Grsms.Domain.Recruitment;
+using Grsms.Domain.Vacancies;
 using Grsms.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -22,10 +25,48 @@ namespace Grsms.Infrastructure.Persistence;
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole, string>(options), IUnitOfWork
 {
+    public DbSet<Division> Divisions => Set<Division>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Unit> Units => Set<Unit>();
     public DbSet<Site> Sites => Set<Site>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    // Phase 2
+    public DbSet<RecruitmentRequest> RecruitmentRequests => Set<RecruitmentRequest>();
+    public DbSet<RecruitmentRequestAction> RecruitmentRequestActions => Set<RecruitmentRequestAction>();
+    public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<NumberSequence> NumberSequences => Set<NumberSequence>();
+
+    // Phase 3
+    public DbSet<Vacancy> Vacancies => Set<Vacancy>();
+    public DbSet<VacancyRequirement> VacancyRequirements => Set<VacancyRequirement>();
+    public DbSet<VacancyActionEntry> VacancyActions => Set<VacancyActionEntry>();
+
+    // Phase 4: job adverts
+    public DbSet<Domain.Advertisements.JobAdvert> JobAdverts => Set<Domain.Advertisements.JobAdvert>();
+    public DbSet<Domain.Advertisements.AdvertChannelPost> AdvertChannels => Set<Domain.Advertisements.AdvertChannelPost>();
+    public DbSet<Domain.Advertisements.AdvertActionEntry> AdvertActions => Set<Domain.Advertisements.AdvertActionEntry>();
+
+    // Phase 5: candidate profiles and applications
+    public DbSet<Domain.Applications.CandidateProfile> CandidateProfiles => Set<Domain.Applications.CandidateProfile>();
+    public DbSet<Domain.Applications.JobApplication> JobApplications => Set<Domain.Applications.JobApplication>();
+    public DbSet<Domain.Applications.ApplicationActionEntry> ApplicationActions => Set<Domain.Applications.ApplicationActionEntry>();
+
+    // Phase 7: interviews, assessments and scorecards
+    public DbSet<Domain.Interviews.Interview> Interviews => Set<Domain.Interviews.Interview>();
+    public DbSet<Domain.Interviews.InterviewPanelMember> InterviewPanelMembers => Set<Domain.Interviews.InterviewPanelMember>();
+    public DbSet<Domain.Interviews.InterviewCriterion> InterviewCriteria => Set<Domain.Interviews.InterviewCriterion>();
+    public DbSet<Domain.Interviews.Scorecard> Scorecards => Set<Domain.Interviews.Scorecard>();
+    public DbSet<Domain.Interviews.ScorecardRating> ScorecardRatings => Set<Domain.Interviews.ScorecardRating>();
+
+    // Phase 8: background checks, hiring recommendations and offers
+    public DbSet<Domain.Hiring.BackgroundCheck> BackgroundChecks => Set<Domain.Hiring.BackgroundCheck>();
+    public DbSet<Domain.Hiring.HiringRecommendation> HiringRecommendations => Set<Domain.Hiring.HiringRecommendation>();
+    public DbSet<Domain.Hiring.Offer> Offers => Set<Domain.Hiring.Offer>();
+
+    // Phase 9: appointment letters and onboarding
+    public DbSet<Domain.Onboarding.OnboardingRecord> Onboardings => Set<Domain.Onboarding.OnboardingRecord>();
+    public DbSet<Domain.Onboarding.OnboardingTask> OnboardingTasks => Set<Domain.Onboarding.OnboardingTask>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -51,6 +92,23 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         }
     }
 
-    /// <inheritdoc />
-    Task<int> IUnitOfWork.SaveChangesAsync(CancellationToken ct) => SaveChangesAsync(ct);
+    /// <summary>
+    /// The unit-of-work save used by services. If another user changed the same record in the meantime
+    /// (a concurrency token such as RecruitmentRequest.Version no longer matches), EF's own exception is
+    /// translated into <see cref="ConcurrencyConflictException"/> so the Application layer can handle it
+    /// without knowing about Entity Framework.
+    /// </summary>
+    async Task<int> IUnitOfWork.SaveChangesAsync(CancellationToken ct)
+    {
+        try
+        {
+            return await SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Forget the failed changes so the same request can continue cleanly.
+            ChangeTracker.Clear();
+            throw new ConcurrencyConflictException(ex);
+        }
+    }
 }

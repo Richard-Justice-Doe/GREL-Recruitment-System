@@ -32,6 +32,15 @@ public class WebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFactory>
     }
 
     [Fact]
+    public async Task Stylesheets_scripts_and_fonts_load_before_signing_in()
+    {
+        // Otherwise the login page would appear without any styling.
+        var client = factory.NewClient();
+        foreach (var path in new[] { "/css/site.css", "/js/site.js", "/lib/bootstrap/dist/css/bootstrap.min.css", "/lib/fontawesome/webfonts/fa-solid-900.woff2" })
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(path)).StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_can_sign_in_and_manage_departments()
     {
         var client = factory.NewClient();
@@ -45,6 +54,7 @@ public class WebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFactory>
         {
             ["Name"] = "Plantation Operations",
             ["Code"] = "PLANT",
+            ["DivisionId"] = "2",
             ["IsActive"] = "true"
         });
         Assert.Equal(HttpStatusCode.Redirect, create.StatusCode);

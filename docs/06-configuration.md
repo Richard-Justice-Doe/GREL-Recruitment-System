@@ -15,7 +15,7 @@ The environment is chosen by the `ASPNETCORE_ENVIRONMENT` variable: `Development
 | Setting | Default | Meaning |
 |---|---|---|
 | `ConnectionStrings:DefaultConnection` | *(empty: required)* | MySQL connection, e.g. `server=localhost;port=3306;database=grsms;user=grsms;password=...` |
-| `Database:ApplyMigrationsOnStartup` | `false` (`true` in Development) | Create or update the tables automatically at start-up. Keep `false` in production and use the SQL scripts. |
+| `Database:ApplyMigrationsOnStartup` | `false` (`true` in Development and in the `deploy/` production set-up) | Create or update the tables automatically at start-up. When `false`, a DBA runs the SQL scripts in `database/`; GRSMS then **refuses to start** while any update is missing and names it in the log (Phase 13). |
 
 ### First administrator
 | Setting | Default | Meaning |
@@ -28,6 +28,7 @@ The environment is chosen by the `ASPNETCORE_ENVIRONMENT` variable: `Development
 | Setting | Default | Meaning |
 |---|---|---|
 | `Security:SessionTimeoutMinutes` | `20` | Minutes of inactivity before automatic sign-out |
+| `Security:SignInAttemptsPerMinute` | `10` | Posts per minute from one network address to the sign-in, registration and password forms; more get *Too many attempts* (Phase 12). Behind a reverse proxy, set up forwarded headers first (Phase 13) or every user shares the proxy's address. |
 | `DataProtection:KeysFolder` | `App_Data/keys` | Where the keys that protect cookies and reset links are kept. Relative paths are inside the web app folder. **This folder holds secrets:** keep it out of source control, back it up, and let only the app's account read it. |
 
 ### Microsoft 365 sign-in (optional)
@@ -73,10 +74,44 @@ dotnet user-secrets --project src/Grsms.Web set "Email:FromAddress" "recruitment
 
 > If GRSMS ever runs on **several servers at once**, leave `AutoClose` on for only one of them.
 
+### Reminders and surveys (Phase 10)
+They run in the same hourly job, so they also stop when `Vacancies:AutoClose` is `false`.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `Reminders:Enabled` | `true` | Send automatic reminders and survey invitations, and remove read notifications older than 6 months |
+| `Reminders:FromHourGmt` | `7` | Nothing is sent before this hour (GMT, Ghana's time), so nobody is messaged at night |
+| `Reminders:ApprovalWaitingDays` | `3` | A request, vacancy or hiring decision waiting this many days at one stage is reminded, then weekly |
+
+### Text messages (SMS, Phase 10)
+**Switched off by default.** Until `Sms:Enabled` is `true`, each message is only written as a `.txt` file in `Sms:PickupDirectory`, so you can see what would have been sent.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `Sms:Enabled` | `false` | `true` sends real text messages through the provider |
+| `Sms:Provider` | `Hubtel` | The only provider built in |
+| `Sms:SenderId` | `GREL` | Name shown on the phone (up to 11 characters, registered with the provider) |
+| `Sms:ClientId` / `Sms:ClientSecret` | empty | The provider account's API keys. **Secret: put them in user-secrets or environment variables, never in appsettings.json.** |
+| `Sms:ApiUrl` | `https://smsc.hubtel.com/v1/messages/send` | The provider's send address |
+| `Sms:PickupDirectory` | `App_Data/sms` | Where messages are saved while SMS is off |
+
+> **Before switching SMS on:** the Hubtel connection was written from Hubtel's published "quick send" format but has **not been tested against a real Hubtel account**. Check `Sms:ApiUrl` and the parameters against Hubtel's current documentation, then send one test message (e.g. schedule an interview for a test applicant with your own phone number). Messages cost money per text.
+
 ### Links in emails
 | Setting | Default | Meaning |
 |---|---|---|
-| `App:BaseUrl` | *(empty)* | The site's public address, e.g. `https://recruitment.grel.example`. Emails normally use the address the user is browsing on; this is the fallback for emails sent without a browser request (later phases). |
+| `App:BaseUrl` | *(empty)* | The site's public address, e.g. `https://recruitment.grel.example`. Emails normally use the address the user is browsing on; this is the fallback for emails sent by the background job (reminders, survey invitations, expired offers). **Set it in production** (the production compose file does this from `GRSMS_DOMAIN`). |
+
+### Behind a reverse proxy (Phase 13)
+| Setting | Default | Meaning |
+|---|---|---|
+| `ReverseProxy:Enabled` | `false` | `true` when GRSMS sits behind a proxy that ends HTTPS (Caddy in `deploy/`, nginx, a load balancer). GRSMS then takes the visitor's address and "this was HTTPS" from `X-Forwarded-For` / `X-Forwarded-Proto`. Leave `false` under IIS or when browsers connect directly. |
+| `ReverseProxy:KnownNetworks` | *(empty)* | The proxy's network(s), e.g. `172.29.13.0/24` (comma-separated). Forwarded headers from anywhere else are ignored, so nobody can fake their address. Required (or `KnownProxies`) when enabled; GRSMS refuses to start otherwise. |
+| `ReverseProxy:KnownProxies` | *(empty)* | Alternatively, the proxy's exact address(es), e.g. `10.0.5.20` |
+| `AllowedHosts` | `*` | In production, the site's name (e.g. `recruitment.grel.example`): requests for any other host name are refused |
+
+### Health check (Phase 13)
+`/health` needs no sign-in and answers `Healthy` (200) when GRSMS can reach its database, `Unhealthy` (503) otherwise. For uptime monitoring.
 
 ### Logging (Serilog)
 | Setting | Default | Meaning |

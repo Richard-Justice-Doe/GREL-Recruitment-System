@@ -91,6 +91,18 @@
         @{
             var sessions = (IReadOnlyList<ApplicantInterviewDto>?)ViewBag.Interviews ?? [];
         }
+        @* ---- Phase 10: feedback surveys waiting for an answer *@
+        @foreach (var s in (IReadOnlyList<MySurveyDto>?)ViewBag.Surveys ?? [])
+        {
+            <div class="card glass mb-3 border border-info">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-regular fa-star-half-stroke me-1"></i>Tell us what you think</h2>
+                    <p class="small mb-2">@(s.Type == SurveyType.CandidateExperience ? "How was your experience of applying to GREL?" : "How was your start at GREL?")
+                        Two minutes, confidential, open until @s.ExpiresOn.ToString("d MMMM").</p>
+                    <a asp-controller="Surveys" asp-action="Take" asp-route-id="@s.InvitationId" class="btn btn-sm btn-outline-primary">Answer the survey</a>
+                </div>
+            </div>
+        }
         @* ---- Phase 9: the appointment letter and the first day *@
         @if (ViewBag.Appointment is MyAppointmentDto appt)
         {

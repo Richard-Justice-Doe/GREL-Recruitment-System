@@ -67,6 +67,7 @@ public sealed class TestDatabase : IDisposable
                 ["ConnectionStrings:DefaultConnection"] = "unused",
                 ["Storage:RootFolder"] = Path.Combine(TempFolder, "uploads"),
                 ["Email:PickupDirectory"] = MailFolder,
+                ["Sms:PickupDirectory"] = Path.Combine(TempFolder, "sms"),
                 ["Uploads:MaxFileSizeMb"] = maxUploadMb.ToString()
             })
             .Build();
@@ -128,6 +129,13 @@ public sealed class TestDatabase : IDisposable
     public IReadOnlyList<string> SentEmails() =>
         Directory.Exists(MailFolder) ? Directory.GetFiles(MailFolder, "*.eml").Select(File.ReadAllText).ToList() : [];
 
+    /// <summary>The text messages saved so far (SMS is switched off in tests, so they are written to files).</summary>
+    public IReadOnlyList<string> SentTexts()
+    {
+        var folder = Path.Combine(TempFolder, "sms");
+        return Directory.Exists(folder) ? Directory.GetFiles(folder, "*.txt").Select(File.ReadAllText).ToList() : [];
+    }
+
     public void Dispose()
     {
         Services.Dispose();
@@ -149,5 +157,6 @@ public class TestAppLinks : IAppLinks
     public string Interview(int id) => $"https://grsms.test/Interviews/Details/{id}";
     public string HiringCase(int applicationId) => $"https://grsms.test/Hiring/Case/{applicationId}";
     public string Onboarding(int id) => $"https://grsms.test/Onboarding/Details/{id}";
+    public string Survey(int invitationId) => $"https://grsms.test/Surveys/Take/{invitationId}";
     public string CareersJob(string advertNumber) => $"https://grsms.test/Careers/Details/{advertNumber}";
 }

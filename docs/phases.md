@@ -197,11 +197,89 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 * The application stays **Hired**; onboarding has its own status.
 * The migration was applied to the Docker MySQL before this phase was reported done.
 
-## ⏭ Phase 10: Messaging, notifications and surveys (next)
-Scope to be confirmed with GREL. Candidates from earlier phases: in-app notifications for the bell (Phases 2 and 7 use email only) and reminders, e.g. onboarding items coming due or offers about to expire.
+## ✅ Phase 10: Notifications, reminders and surveys (November 2026)
 
-## Later phases
-11 Reports and dashboards · 12 Security hardening · 13 Production deployment
+**Scope agreed on 4 November 2026:** in-app notifications, automatic reminders, feedback surveys, and SMS prepared but switched off. Message threads between HR and candidates were **not** included.
+
+**Delivered**
+* **Notification bell for everyone** (staff and candidates) with an unread count, a list page, click-through and *Mark all as read*. Every workflow email from Phases 2-9 now also creates a notification with the same title and link, because the hook is in the one shared mailer. Links are stored as paths inside GRSMS only; read notifications are removed after 6 months.
+* **Automatic reminders**, each sent once (recorded by key), by email and the bell, from 07:00 GMT: offer reply-by date tomorrow; interview or assessment tomorrow (applicant and panel); first day tomorrow (new employee and the person meeting them); onboarding items due tomorrow or overdue (one daily summary per owner); requests, vacancies and hiring recommendations waiting 3+ days at one stage (then weekly)
+* **Text messages (SMS)** to applicants for interview invitations, reschedules and cancellations, offers, appointment letters and the reminders above. Ghanaian numbers are converted to international form. **Switched off**: messages are written to `App_Data/sms` until `Sms:Enabled` is set; a Hubtel connection is included but untested
+* **Feedback surveys**: *candidate experience* (the day after an application ends not successful, offer declined or hired) and *new employee onboarding* (the day after onboarding is completed); 1-5 ratings with *not applicable* and a comment, 30 days to answer, on the bell, by email and on the application page. Invitations store the division, department and requesting HOD.
+* **Survey results** for the HR Manager, Recruitment Officers and MD: response rate, averages, spread and comments, filtered by division, department and period, without names and only from 3 responses
+* Notifications, reminder keys and survey answers are **not copied into the audit trail** (new `INotAudited` marker)
+* MySQL script `database/13_phase10_notifications_surveys.sql`: Notifications, SentReminders, SurveyInvitations, SurveyAnswers
+* 5 new automated tests (100 in total), including the bell and a survey through the web pages
+* New [Notifications, reminders and surveys guide](19-notifications-and-surveys.md); configuration and the other docs updated
+
+**Decisions recorded**
+* **The bell shows notifications, not tasks.** Before Phase 10 it counted pending approvals for some roles; those stay in *My tasks* on the Home page and the sidebar counts.
+* **One hook, not one per module:** notifications are created by `WorkflowMailer`, so every past and future workflow email gets one automatically. They are saved in their own database context, so they never save a service's unfinished changes.
+* **Reminders are sent once per key**, not on a fixed schedule, so the hourly job can safely run any number of times.
+* **Surveys use fixed questions** defined in code (no survey designer) so results stay comparable over time. New questions get new keys; old keys are never reused.
+* **Survey confidentiality:** no names on the results page, nothing shown under 3 responses, answers kept out of the audit trail, and results not shown to HODs.
+* **SMS is ready but off.** Turning it on needs a GREL account with an SMS provider (Hubtel is built in; mNotify or others would need a small addition), a registered sender ID, and one live test. Each text costs money.
+* The migration was applied to the Docker MySQL, and the reminder and survey job was run against it, before this phase was reported done.
+
+## ✅ Phase 11: Reports and dashboards (November 2026)
+
+**Delivered**
+* **Reports page** (menu *Reports*) with eight reports sharing one filter bar: **division, department, vacancy, recruitment status and recruitment period** (GREL requirement), the status list being that report's own statuses and the period applying to its main date
+* **Overview (executive dashboard):** requests raised, positions approved, vacancies published, applications, hires, offer acceptance rate, average time to hire, positions still open; the recruitment funnel; applications and hires per month (12 months); divisions compared
+* **Recruitment requests**, **Vacancies** (applications at each stage, filled, open), **Applications** (source, score, furthest stage), **Application sources**, **Offers** (acceptance rate, salaries, reply times), **Time to hire** (request → approval → published → accepted, by department), **Onboarding** (letters, checklists, overdue items); a link to the Phase 10 survey results
+* **CSV download** of every report with the same filters, protected against spreadsheet formulas
+* Visibility as everywhere else: HR, the MD and the HR Administrator see all departments; a HOD sees only theirs
+* One-colour bar and column charts with value labels, hover details and a table view
+* 6 new automated tests (106 in total), including every report through the web pages and the CSV download
+* New [Reports guide](20-reports.md); the other docs updated
+* No database change (no new script)
+
+**Decisions recorded**
+* **Live figures, no stored statistics.** Every report reads the current records, so it is never out of date and needs no overnight job. Fine for GREL's volumes; the slowest reports could be pre-calculated later without changing the pages.
+* **"Reached a stage" comes from the history**, so an applicant turned down after an interview still counts as interviewed. This makes the funnel honest.
+* **CSV rather than an Excel file**, so no extra library is needed; Excel opens it directly.
+* **The Home dashboard stays as it is** (personal tasks and short trends); the executive view is the *Overview* report.
+* The HR Administrator can read reports (but, as before, not survey results).
+
+**Problem found and fixed while running it:** signing in to the Docker app and opening the reports gave *"Unable to cast DateTime to DateOnly"* on every report, and the same error was found on **Vacancies → All** (there since Phase 3, unseen until the Docker database held a vacancy). The Oracle MySQL provider returns `DATE`/`TIME` columns as `DateTime`/`TimeSpan` and cannot turn them into `DateOnly`/`TimeOnly`; SQLite (the tests) has no such problem. `ApplicationDbContext.ConfigureConventions` now converts every `DateOnly`/`TimeOnly` through `DateTime`/`TimeSpan` with the same column types (no database change; EF confirms no pending model changes). All reports, the vacancy list and the CSV download were then checked against MySQL, and the charts were screenshotted. **Lesson:** besides applying each migration, open the new pages against the Docker MySQL with real rows before calling a phase done.
+
+## ✅ Phase 12: Security hardening (November 2026)
+
+**Delivered**
+* **Content-Security-Policy** on every response: scripts, styles, fonts and images only from GRSMS itself, no plug-ins, no framing, forms only to GRSMS and Microsoft's sign-in page. The three inline `onchange` handlers were moved to `site.js`, so the policy breaks nothing (checked in a real browser against the Docker app: no violations).
+* Extra headers: `Cross-Origin-Opener-Policy`, `X-Permitted-Cross-Domain-Policies`, a wider `Permissions-Policy`; the `Server` header removed; the anti-forgery cookie hardened (HttpOnly, SameSite=Strict, Secure outside development)
+* **Rate limiting** on the sign-in, registration, resend-confirmation, forgot-password and reset-password forms: 10 posts a minute per network address (`Security:SignInAttemptsPerMinute`), then a *Too many attempts* page (HTTP 429) and a log warning
+* **Security review** of the whole system ([04 Security → Security review](04-security-and-roles.md#security-review-phase-12-4-november-2026)). **Fixed:** the sign-in page revealed with a *wrong* password that an account existed and was deactivated or unconfirmed, and such attempts did not count towards the lockout. No vulnerable packages; no secrets in source; tokens never logged.
+* 3 new automated tests (109 in total): the headers, **no inline script on any main page** (a guard for the policy), sign-in that reveals nothing with a wrong password, and the rate limit
+* Security, configuration and testing docs updated; no database change
+
+**Decisions recorded**
+* **Inline `style="..."` attributes stay allowed** (`style-src 'unsafe-inline'`). They cannot run code; the stricter attribute-only rule is not supported by every browser, and charts and progress bars rely on them.
+* **The rate limit is per network address, on the forms that send emails or check passwords only**, not on every page; the per-account lockout (5 wrong passwords) stays as it was.
+* Production settings (Production mode, HTTPS, forwarded headers for the real client address) belong to Phase 13 and are listed there.
+
+## ✅ Phase 13: Production deployment (November 2026)
+
+**Delivered**
+* **Production set-up** in `deploy/`: `docker-compose.prod.yml` with MySQL, GRSMS in **Production** mode, a **Caddy** HTTPS front end (automatic Let's Encrypt, GREL's own certificate, or an internal one; HTTP → HTTPS; no `Server` header) and a **backup** container; only ports 80/443 open; all settings in `deploy/.env` (template `.env.production.example`; real file, backups and certificates git-ignored)
+* **Forwarded headers**: behind the proxy GRSMS takes the visitor's address and HTTPS from `X-Forwarded-For` / `-Proto`, trusted **only from the proxy's network** (`ReverseProxy:*`), so the audit trail and the sign-in rate limit see real addresses
+* **`/health`** endpoint for uptime monitoring (database reachable or not, no details)
+* **Nightly backups**: database dump plus uploads and keys, 30 days kept, one-command backup on demand; restore procedure written and tested
+* **Safe start-up**: with automatic database updates off, GRSMS refuses to start while an update is missing and names it, instead of failing later on a page
+* `.gitattributes` keeps Unix line endings for the scripts run inside Linux containers
+* New [Production deployment guide](21-production-deployment.md) for GREL IT, with updates, rollback, restore, monitoring and the **go-live checklist**; configuration, security and Docker docs updated
+* 1 new automated test (110 in total). The production stack was also run end to end on a PC: Production mode, HTTPS redirect, secure cookies, CSP, sign-in, the visitor's address in the audit trail, `/health`, backup **and restore** (40 tables), and the refusal to start on a missing update.
+
+**Decisions recorded**
+* **Docker with Caddy** as the recommended production set-up: it works on Linux and Windows Server, matches the developer set-up, and Caddy handles certificates and renewal itself. IIS remains possible (guide, section 9).
+* **Database updates are applied automatically at start-up** in the production set-up, after a backup taken as the first step of every update. GREL can switch to DBA-run scripts with `APPLY_MIGRATIONS=false`.
+* **phpMyAdmin is not part of production.** Database access is for administrators on the server only.
+* Backups stay on the server for 30 days; **copying them off the server is GREL IT's responsibility** (on the go-live checklist).
+
+**Not tested here** (needs GREL's environment): a real domain and Let's Encrypt certificate, GREL's SMTP server, Microsoft 365 sign-in, an SMS account.
+
+## 🎉 All 13 phases delivered
+Next steps are GREL's: work through the [go-live checklist](21-production-deployment.md#8-go-live-checklist), then gather users' feedback for improvements.
 
 **Rules every later phase must follow** (from the GREL requirements, 4 November 2026; see [12 Divisions and departments](12-divisions-and-departments.md#what-later-phases-must-do)):
 * Every candidate application, interview panel, hiring report, dashboard KPI and onboarding record stores its **division, department and requesting HOD** (copied from the vacancy, the same way vacancies copy them from the request).

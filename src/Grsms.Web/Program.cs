@@ -68,6 +68,8 @@ builder.Services.AddHostedService<VacancyAutoCloseWorker>();
 // inside the application folder.
 builder.Services.PostConfigure<EmailOptions>(o =>
     o.PickupDirectory = Path.GetFullPath(o.PickupDirectory, builder.Environment.ContentRootPath));
+builder.Services.PostConfigure<Grsms.Infrastructure.Notifications.SmsOptions>(o =>
+    o.PickupDirectory = Path.GetFullPath(o.PickupDirectory, builder.Environment.ContentRootPath)); // Phase 10: SMS saved to files while switched off
 builder.Services.PostConfigure<StorageOptions>(o =>
     o.RootFolder = Path.GetFullPath(o.RootFolder, builder.Environment.ContentRootPath));
 
@@ -158,35 +160,86 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add<MustChangePasswordFilter>();
 });
 
+// The anti-forgery cookie gets the same protection as the sign-in cookie.
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.Name = "grsms.af";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+});
+
+// Phase 12: rate limiting. The sign-in, registration, "resend confirmation", "forgot password" and "reset password"
+// forms accept at most Security:SignInAttemptsPerMinute posts per minute from one network address (default 10).
+// This slows password guessing across many accounts (account lockout only protects one account at a time) and
+// stops the email-sending pages being used to flood mailboxes. Behind a reverse proxy, the real address comes from
+// the forwarded headers set up in Phase 13.
+builder.Services.AddRateLimiter(options =>
+{
+    var perMinute = Math.Max(1, builder.Configuration.GetValue("Security:SignInAttemptsPerMinute", 10));
+    options.AddPolicy(RateLimits.SignIn, http => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.OnRejected = RateLimits.OnRejectedAsync;
+});
+
+// No "Server: Kestrel" header: there is no need to tell visitors what the site runs on.
+builder.WebHost.ConfigureKestrel(k => k.AddServerHeader = false);
+
+// Phase 13: behind a reverse proxy (deploy/docker-compose.prod.yml uses Caddy), the proxy tells GRSMS the visitor's
+// real address and that the original request was HTTPS. Those headers are ONLY believed when they come from the
+// networks / addresses listed in ReverseProxy:KnownNetworks / KnownProxies; otherwise anyone could fake an address
+// in the audit trail or dodge the sign-in rate limit.
+var reverseProxy = builder.Configuration.GetValue("ReverseProxy:Enabled", false);
+if (reverseProxy)
+{
+    builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+        o.ForwardLimit = 1;
+        o.KnownIPNetworks.Clear();
+        o.KnownProxies.Clear();
+        foreach (var cidr in (builder.Configuration["ReverseProxy:KnownNetworks"] ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries))
+            o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(cidr));
+        foreach (var ip in (builder.Configuration["ReverseProxy:KnownProxies"] ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries))
+            o.KnownProxies.Add(System.Net.IPAddress.Parse(ip));
+        if (o.KnownIPNetworks.Count == 0 && o.KnownProxies.Count == 0)
+            throw new InvalidOperationException("ReverseProxy:Enabled is true, but neither ReverseProxy:KnownNetworks nor ReverseProxy:KnownProxies is set.");
+    });
+}
+
+// Phase 13: "/health" answers Healthy (200) when the app can reach its database, Unhealthy (503) otherwise.
+// For uptime monitoring; it shows no details.
+builder.Services.AddHealthChecks().AddCheck<Grsms.Web.Helpers.DatabaseHealthCheck>("database");
+
 var app = builder.Build();
 
 // ---------------------------------------------------------------- 5. HTTP pipeline
+// First, so every later step (HTTPS redirect, secure cookies, audit IP, rate limit) sees the real visitor (Phase 13).
+if (reverseProxy) app.UseForwardedHeaders();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts(); // tell browsers to always use HTTPS for this site
 }
 
-// Basic security headers on every response. A full Content-Security-Policy is added in Phase 12.
-app.Use(async (context, next) =>
-{
-    var h = context.Response.Headers;
-    h["X-Content-Type-Options"] = "nosniff";
-    h["X-Frame-Options"] = "DENY";
-    h["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
-    await next();
-});
+// Security headers on every response, including the Content-Security-Policy (Security/SecurityHeaders.cs, Phase 12).
+app.UseGrsmsSecurityHeaders();
 
 app.UseHttpsRedirection();
-app.UseSerilogRequestLogging(); // one log line per request, with timing
+// One log line per request, with timing. It logs the path only, never the query string, so tokens in emailed links
+// (password reset, email confirmation) never reach the log files.
+app.UseSerilogRequestLogging();
 app.UseRouting();
+app.UseRateLimiter(); // Phase 12: limits on the sign-in, registration and password pages (see section 4)
 app.UseAuthentication();
 app.UseAuthorization();
 
 // CSS, JavaScript, fonts and images are public, so the sign-in page itself is styled.
 // (Without this, the "sign-in required" fallback policy would block them too.)
 app.MapStaticAssets().AllowAnonymous();
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllerRoute(
         name: "default",
         pattern: "{controller=Home}/{action=Index}/{id?}")

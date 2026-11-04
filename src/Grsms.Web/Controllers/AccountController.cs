@@ -51,6 +51,7 @@ public class AccountController(
 
     [AllowAnonymous]
     [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)] // Phase 12
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         await LoadExternalProvidersAsync();
@@ -70,6 +71,17 @@ public class AccountController(
         {
             await audit.LogAsync(AuditActions.LockedOut, user?.Id, model.Email);
             ModelState.AddModelError("", "This account is locked after too many wrong passwords. Try again in 15 minutes or ask HR to unlock it.");
+            return View(model);
+        }
+
+        // Identity checks "may this account sign in?" (active, email confirmed) BEFORE the password, so "not allowed" says
+        // nothing about the password. Only explain the reason when the password is right; otherwise answer exactly as for
+        // a wrong password and count the failure, so nobody can find out whether an email has an account (Phase 12 review).
+        if (result.IsNotAllowed && user is not null && !await userManager.CheckPasswordAsync(user, model.Password))
+        {
+            await userManager.AccessFailedAsync(user);
+            await audit.LogAsync(AuditActions.SignInFailed, user.Id, model.Email);
+            ModelState.AddModelError("", "Incorrect email or password.");
             return View(model);
         }
 
@@ -191,6 +203,7 @@ public class AccountController(
 
     [AllowAnonymous]
     [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)] // Phase 12
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -247,6 +260,7 @@ public class AccountController(
 
     [AllowAnonymous]
     [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)] // Phase 12
     public async Task<IActionResult> ResendConfirmation(EmailOnlyViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -267,6 +281,7 @@ public class AccountController(
 
     [AllowAnonymous]
     [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)] // Phase 12
     public async Task<IActionResult> ForgotPassword(EmailOnlyViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -304,6 +319,7 @@ public class AccountController(
 
     [AllowAnonymous]
     [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)] // Phase 12
     public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
     {
         if (!ModelState.IsValid) return View(model);

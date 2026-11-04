@@ -242,6 +242,49 @@ body {
     width: 0.6rem; height: 0.6rem; border-radius: 50%;
     background: #e5484d; border: 2px solid var(--grsms-surface);
 }
+/* SweetAlert2 dialogs and corner notices in GRSMS colours, in light and dark mode. */
+.swal2-popup.grsms-swal {
+    background: var(--bs-body-bg); color: var(--bs-body-color);
+    border: 1px solid var(--grsms-glass-border); border-radius: 1rem; font-family: inherit;
+}
+.swal2-popup.grsms-swal .swal2-title { color: var(--bs-emphasis-color); font-size: 1.25rem; }
+.swal2-popup.grsms-swal .swal2-html-container { color: var(--bs-body-color); font-size: 0.95rem; }
+.swal2-popup.grsms-swal.swal2-toast { box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.2); }
+.swal2-popup.grsms-swal.swal2-toast .swal2-title { font-size: 0.9rem; font-weight: 500; }
+.swal2-popup.grsms-swal .swal2-close { color: var(--bs-secondary-color); }
+.swal2-popup.grsms-swal .swal2-timer-progress-bar { background: var(--bs-primary); }
+div:where(.swal2-container).swal2-backdrop-show { background: rgba(0, 0, 0, 0.45); }
+
+/* Phase 11: report charts. One colour (the theme's primary), thin marks, 4px rounded data ends, text in text colours. */
+.report-bars { display: grid; gap: 0.45rem; }
+.report-bar-row { display: grid; grid-template-columns: minmax(7rem, 14rem) 1fr minmax(5rem, auto); align-items: center; gap: 0.75rem; font-size: 0.875rem; }
+.report-bar-label { color: var(--bs-body-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-bar-track { height: 0.75rem; }
+.report-bar { display: block; height: 100%; min-width: 2px; background: var(--bs-primary); border-radius: 0 4px 4px 0; }
+.report-bar-value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.report-columns { display: flex; gap: 2px; height: 11rem; }
+.report-column { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; min-width: 0; height: 100%; }
+/* Bar heights are a percentage of this fixed plot area; the top padding leaves room for the value label. */
+.report-column-plot { box-sizing: border-box; height: calc(100% - 1.25rem); width: 100%; padding-top: 1.2rem;
+    display: flex; align-items: flex-end; justify-content: center; }
+.report-column-bar { position: relative; display: block; width: min(70%, 1.6rem); min-height: 2px; background: var(--bs-primary); border-radius: 4px 4px 0 0; }
+.report-column-value { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); padding-bottom: 0.15rem;
+    font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--bs-body-color); white-space: nowrap; }
+.report-column-label { font-size: 0.7rem; color: var(--bs-secondary-color); margin-top: 0.25rem; white-space: nowrap; }
+.report-column:hover .report-column-bar, .report-bar-row:hover .report-bar { filter: brightness(1.15); }
+@media (max-width: 575.98px) {
+    .report-bar-row { grid-template-columns: 1fr auto; }
+    .report-bar-track { grid-column: 1 / -1; order: 3; }
+    .report-column-label { font-size: 0.6rem; }
+}
+
+/* Phase 10: unread notifications on the bell */
+.icon-btn .bell-count {
+    position: absolute; top: -0.4rem; right: -0.45rem;
+    min-width: 1.15rem; height: 1.15rem; padding: 0 0.3rem; border-radius: 999px;
+    background: #e5484d; color: #fff; font-size: 0.68rem; font-weight: 700; line-height: 1.15rem; text-align: center;
+    border: 2px solid var(--grsms-surface);
+}
 
 .app-content { padding: 1.5rem; flex: 1 1 auto; }
 .app-footer { padding: 1rem 1.5rem; color: var(--bs-secondary-color); font-size: 0.8rem; }

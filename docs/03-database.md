@@ -371,6 +371,20 @@ Applications gain the status `OfferDeclined` and the history actions `CheckRecor
 
 Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `OnboardingCompleted`, `OnboardingCancelled`. The application stays **Hired** throughout.
 
+## Phase 10 tables
+
+### Notifications (the bell)
+`Id` BIGINT, `UserId` (**FK → Users**, cascade), `Title` VARCHAR(200), `Body` VARCHAR(500), `Link` VARCHAR(500) (a path inside GRSMS only), `CreatedAt`, `ReadAt`. No soft delete and no audit rows: read notifications older than 6 months are deleted by the hourly job. Indexes on `UserId, ReadAt` (unread count) and `UserId, Id`.
+
+### SentReminders
+`Id` BIGINT, `Key` VARCHAR(200) **unique** (e.g. `offer-expiring:12`, `onboarding-tasks:<user>:20261105`), `SentAt`. One row per reminder sent, so none is sent twice.
+
+### SurveyInvitations
+`Type` (`CandidateExperience`, `NewEmployee`), `UserId` (FK), `JobApplicationId` (FK; **unique with Type**), `OnboardingRecordId` (FK, new-employee survey), `VacancyId`, `DivisionId`, `DepartmentId`, `RequestingHodUserId` (FKs), `Outcome` (the application status when invited), `SentAt`, `ExpiresOn`, `CompletedAt`, plus the standard columns.
+
+### SurveyAnswers
+`SurveyInvitationId` (FK), `QuestionKey` VARCHAR(30) (**unique per invitation**), `Rating` 1-5 (null = not applicable), `Text` TEXT, plus the standard columns. **Not copied into AuditLogs** (confidential).
+
 ## Relationship diagram (Phases 1-8)
 
 ```
@@ -412,6 +426,7 @@ Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `
 | `10_phase07_interviews.sql` | 7 | Interviews, InterviewPanelMembers, InterviewCriteria, Scorecards, ScorecardRatings |
 | `11_phase08_hiring.sql` | 8 | BackgroundChecks, HiringRecommendations, Offers |
 | `12_phase09_onboarding.sql` | 9 | Onboardings, OnboardingTasks |
+| `13_phase10_notifications_surveys.sql` | 10 | Notifications, SentReminders, SurveyInvitations, SurveyAnswers |
 
 Each script:
 * runs **once**, in number order, against an empty database (or one that already has the earlier scripts applied);

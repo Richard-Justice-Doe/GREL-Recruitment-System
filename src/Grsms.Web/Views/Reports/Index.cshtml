@@ -1,0 +1,220 @@
+@* Reports (Module 11). One page for every report: the shared filters (division, department, vacancy, status, period),
+   headline figures, simple one-colour charts (each with a table view) and the report's table, downloadable as CSV. *@
+@model ReportResult
+@{
+    ViewData["Title"] = $"Reports: {Model.Title}";
+    var f = (ReportFilter)ViewBag.Filter;
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    string Show(object? v) => v switch
+    {
+        null => "—",
+        DateOnly d => d.ToString("dd MMM yyyy", gb),
+        DateTime t => t.ToString("dd MMM yyyy", gb),
+        decimal m => m.ToString("N0", gb),
+        int i => i.ToString("N0", gb),
+        _ => v.ToString() ?? ""
+    };
+    var exportQuery = new Dictionary<string, string?>
+    {
+        ["Report"] = f.Report, ["DivisionId"] = f.DivisionId?.ToString(), ["DepartmentId"] = f.DepartmentId?.ToString(),
+        ["VacancyId"] = f.VacancyId?.ToString(), ["Status"] = f.Status, ["From"] = f.From?.ToString("yyyy-MM-dd"), ["To"] = f.To?.ToString("yyyy-MM-dd")
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Reports</h1>
+        <p>@Model.Description@(Model.LimitedToMyDepartments ? " Showing the departments you head." : "")</p>
+    </div>
+    <a asp-action="Export" asp-all-route-data="exportQuery" class="btn btn-outline-secondary"><i class="fa-solid fa-file-csv me-1"></i>Download CSV</a>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-nowrap overflow-auto pb-1">
+    @foreach (var (key, title, _) in ReportKeys.All)
+    {
+        <li class="nav-item"><a class="nav-link text-nowrap @(f.Report == key ? "active" : "")" asp-action="Index" asp-route-report="@key"
+                                asp-route-divisionId="@f.DivisionId" asp-route-departmentId="@f.DepartmentId" asp-route-vacancyId="@f.VacancyId"
+                                asp-route-from="@f.From?.ToString("yyyy-MM-dd")" asp-route-to="@f.To?.ToString("yyyy-MM-dd")">@title</a></li>
+    }
+    @if (User.IsInRole(Roles.HrManager) || User.IsInRole(Roles.RecruitmentOfficer) || User.IsInRole(Roles.ManagingDirector))
+    {
+        <li class="nav-item"><a class="nav-link text-nowrap" asp-controller="Surveys" asp-action="Results">Survey results <i class="fa-solid fa-arrow-up-right-from-square small"></i></a></li>
+    }
+</ul>
+
+<form method="get" class="card glass mb-3">
+    <input type="hidden" name="Report" value="@f.Report" />
+    <div class="card-body row g-2 align-items-end">
+        <partial name="_ReportFilters" model="(f.DivisionId, f.DepartmentId, f.From, f.To)" />
+        <div class="col-sm-6 col-lg-3">
+            <label class="form-label small" for="VacancyId">Vacancy</label>
+            <select id="VacancyId" name="VacancyId" class="form-select">
+                <option value="">All vacancies</option>
+                @foreach (var v in Model.VacancyOptions)
+                {
+                    <option value="@v.Value" selected="@(v.Value == f.VacancyId?.ToString())">@v.Text</option>
+                }
+            </select>
+        </div>
+        @if (Model.StatusOptions.Count > 0)
+        {
+            <div class="col-sm-6 col-lg-2">
+                <label class="form-label small" for="Status">Status</label>
+                <select id="Status" name="Status" class="form-select">
+                    <option value="">Any status</option>
+                    @foreach (var s in Model.StatusOptions)
+                    {
+                        <option value="@s.Value" selected="@(s.Value == f.Status)">@s.Text</option>
+                    }
+                </select>
+            </div>
+        }
+        <div class="col-sm-6 col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            <a asp-action="Index" asp-route-report="@f.Report" class="btn btn-outline-secondary">Clear</a>
+        </div>
+        <div class="col-12 small text-body-secondary">The period applies to @Model.PeriodAppliesTo.</div>
+    </div>
+</form>
+
+@* ---- Headline figures *@
+<div class="row g-3 mb-3">
+    @foreach (var k in Model.Kpis)
+    {
+        <div class="col-6 col-md-4 col-xl-3">
+            <div class="card glass h-100" title="@k.Hint">
+                <div class="card-body">
+                    <div class="small text-body-secondary">@k.Label</div>
+                    <div class="fs-4 fw-semibold">@k.Value</div>
+                    @if (k.Hint is not null) { <div class="small text-body-secondary d-none d-xl-block">@k.Hint</div> }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@* ---- Charts: one colour, value labels, hover titles, and a table view for each *@
+@if (Model.Charts.Count > 0)
+{
+    <div class="row g-3 mb-3">
+        @foreach (var chart in Model.Charts)
+        {
+            var max = Math.Max(1m, chart.Bars.Count == 0 ? 1m : chart.Bars.Max(b => b.Value));
+            var columns = chart.Bars.Count == 12 && chart.Unit is "applications" or "hires" && chart.Title.Contains("month");
+            <div class="@(columns ? "col-xl-6" : "col-12")">
+                <figure class="card glass h-100 mb-0">
+                    <div class="card-body p-4">
+                        <figcaption class="h6 text-uppercase text-body-secondary mb-3">@chart.Title</figcaption>
+                        @if (chart.Bars.Count == 0 || chart.Bars.All(b => b.Value == 0))
+                        {
+                            <p class="small text-body-secondary mb-0">No data for these filters.</p>
+                        }
+                        else if (columns)
+                        {
+                            var peak = chart.Bars.Select((b, i) => (b, i)).MaxBy(x => x.b.Value).i;
+                            <div class="report-columns" role="img" aria-label="@chart.Title: @string.Join(", ", chart.Bars.Select(b => $"{b.Label} {b.Value:0}"))">
+                                @for (var i = 0; i < chart.Bars.Count; i++)
+                                {
+                                    var b = chart.Bars[i];
+                                    <div class="report-column" title="@b.Label: @b.Value.ToString("0", gb) @chart.Unit">
+                                        <div class="report-column-plot">
+                                            <span class="report-column-bar" style="height: @((b.Value * 100 / max).ToString("0.#", inv))%">
+                                                <span class="report-column-value">@(i == peak || i == chart.Bars.Count - 1 ? b.Value.ToString("0", gb) : "")</span>
+                                            </span>
+                                        </div>
+                                        <span class="report-column-label">@b.Label</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="report-bars">
+                                @foreach (var b in chart.Bars)
+                                {
+                                    <div class="report-bar-row" title="@b.Label: @b.Value.ToString("0", gb) @chart.Unit@(b.Note is null ? "" : $" ({b.Note})")">
+                                        <span class="report-bar-label">@b.Label</span>
+                                        <span class="report-bar-track"><span class="report-bar" style="width: @((b.Value * 100 / max).ToString("0.#", inv))%"></span></span>
+                                        <span class="report-bar-value">@b.Value.ToString("0", gb)@(chart.Unit == "days" ? " days" : "")<small class="text-body-secondary">@(b.Note is null ? "" : $" · {b.Note}")</small></span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <details class="mt-2 small">
+                            <summary class="text-body-secondary">Show as a table</summary>
+                            <table class="table table-sm mt-2 mb-0">
+                                <thead><tr><th></th><th class="text-end">@chart.Unit</th><th></th></tr></thead>
+                                <tbody>
+                                @foreach (var b in chart.Bars)
+                                {
+                                    <tr><td>@b.Label</td><td class="text-end">@b.Value.ToString("0", gb)</td><td class="text-body-secondary">@b.Note</td></tr>
+                                }
+                                </tbody>
+                            </table>
+                        </details>
+                    </div>
+                </figure>
+            </div>
+        }
+    </div>
+}
+
+@* ---- The report table *@
+<div class="card glass">
+    <div class="card-body">
+        @if (f.Report == ReportKeys.Overview)
+        {
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Divisions compared</h2>
+        }
+        <div class="table-responsive">
+            <table class="table table-hover table-sm align-middle">
+                <thead>
+                <tr>
+                    @foreach (var c in Model.Table.Columns)
+                    {
+                        <th class="@(c.Numeric ? "text-end" : "") text-nowrap">@c.Header</th>
+                    }
+                </tr>
+                </thead>
+                <tbody>
+                @if (Model.Table.Rows.Count == 0)
+                {
+                    <tr><td colspan="@Model.Table.Columns.Count" class="text-center text-body-secondary py-4">Nothing matches these filters.</td></tr>
+                }
+                @foreach (var row in Model.Table.Rows)
+                {
+                    <tr>
+                        @for (var i = 0; i < row.Cells.Count; i++)
+                        {
+                            var numeric = Model.Table.Columns[i].Numeric;
+                            <td class="@(numeric ? "text-end" : "") @(i == 0 ? "text-nowrap" : "")">
+                                @if (i == 0 && row.Link is { } link)
+                                {
+                                    <a asp-controller="@link.Controller" asp-action="@link.Action" asp-route-id="@link.Id" class="fw-semibold text-decoration-none">@Show(row.Cells[i])</a>
+                                }
+                                else
+                                {
+                                    @Show(row.Cells[i])
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+                </tbody>
+                @if (Model.Table.Totals is { } totals && Model.Table.Rows.Count > 1)
+                {
+                    <tfoot>
+                    <tr class="fw-semibold">
+                        @for (var i = 0; i < totals.Count; i++)
+                        {
+                            <td class="@(Model.Table.Columns[i].Numeric ? "text-end" : "")">@(totals[i] is null ? "" : Show(totals[i]))</td>
+                        }
+                    </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+        <p class="small text-body-secondary mb-0">@Model.Table.Rows.Count row(s). Download CSV gives the same rows, ready for Excel.</p>
+    </div>
+</div>

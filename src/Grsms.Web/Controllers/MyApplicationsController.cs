@@ -11,7 +11,8 @@ namespace Grsms.Web.Controllers;
 /// </summary>
 [Authorize]
 public class MyApplicationsController(ApplicationService applications, Application.Interviews.InterviewService interviews,
-    Application.Hiring.HiringService hiring, Application.Onboarding.OnboardingService onboarding) : AppController
+    Application.Hiring.HiringService hiring, Application.Onboarding.OnboardingService onboarding,
+    Application.Surveys.SurveyService surveys) : AppController
 {
     public async Task<IActionResult> Index(CancellationToken ct) => View(await applications.MyApplicationsAsync(ct));
 
@@ -22,6 +23,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         ViewBag.Interviews = await interviews.ForMyApplicationAsync(id, ct); // Phase 7: date, place and instructions only
         ViewBag.Offer = await hiring.GetMyOfferAsync(id, ct); // Phase 8
         ViewBag.Appointment = await onboarding.GetMyAppointmentAsync(id, ct); // Phase 9
+        ViewBag.Surveys = await surveys.OpenForApplicationAsync(id, ct); // Phase 10
         return View(model);
     }
 

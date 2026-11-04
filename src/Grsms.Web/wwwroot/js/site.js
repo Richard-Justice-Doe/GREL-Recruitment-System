@@ -2,14 +2,28 @@
 // GRSMS page behaviour (loaded on every page, after jQuery and Bootstrap).
 //   1. Light / dark mode toggle (choice remembered in this browser)
 //   2. Mobile sidebar open/close
-//   3. "Are you sure?" confirmation for buttons marked data-confirm
+//   3. "Are you sure?" confirmation for buttons marked data-confirm, and the messages after an action,
+//      both shown with SweetAlert2 (wwwroot/lib/sweetalert2, served locally for the Content-Security-Policy)
 //   4. DataTables (search, sort, paging) on any <table class="datatable">
 //   5. "Copy" buttons: <button data-copy-target="id-of-textarea"> (job advert texts)
 //   6. Print buttons: <button data-print> (offer letters)
+//   7. Filters that submit on change: <select data-auto-submit>
+// No inline scripts or onclick="..." anywhere: the Content-Security-Policy (Phase 12) only runs files from /js and /lib.
 // =========================================================================
 
 (function () {
     "use strict";
+
+    function escapeHtml(s) {
+        return s.replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+    }
+
+    // SweetAlert2 with GRSMS's look: Bootstrap buttons, and the page's own light / dark colours (see site.css).
+    var GrsmsSwal = window.Swal ? window.Swal.mixin({
+        buttonsStyling: false,
+        reverseButtons: true,
+        customClass: { popup: "grsms-swal", confirmButton: "btn btn-primary", cancelButton: "btn btn-outline-secondary", actions: "gap-2" }
+    }) : null;
 
     // ---- 1. Theme toggle ------------------------------------------------
     // The saved theme is applied by a tiny script in <head> before the page
@@ -37,13 +51,58 @@
             btn.addEventListener("click", function () { document.body.classList.toggle("sidebar-open"); });
         });
 
-        // ---- 3. Confirmation prompts ------------------------------------
-        // <button data-confirm="Deactivate this department?"> asks before submitting its form.
+        // ---- 3. Confirmation prompts (SweetAlert2) -----------------------
+        // <button data-confirm="Deactivate this department?"> asks before submitting its form. The form is sent with the
+        // same button, so name="decision" value="Approve" style buttons keep working. A red (danger) button gets a red
+        // "Yes" in the dialog. Without SweetAlert (script blocked) the browser's own confirm box is used.
         document.addEventListener("submit", function (e) {
+            var form = e.target;
             var btn = e.submitter;
-            var message = (btn && btn.getAttribute("data-confirm")) || e.target.getAttribute("data-confirm");
-            if (message && !window.confirm(message)) e.preventDefault();
+            var message = (btn && btn.getAttribute("data-confirm")) || form.getAttribute("data-confirm");
+            if (!message) return;
+            if (form.dataset.confirmed === "yes") { delete form.dataset.confirmed; return; } // the user already said yes
+
+            e.preventDefault();
+            if (!window.Swal) {
+                if (window.confirm(message)) { form.dataset.confirmed = "yes"; form.requestSubmit(btn || undefined); }
+                return;
+            }
+            var danger = !!btn && /\bbtn(-outline)?-danger\b/.test(btn.className);
+            GrsmsSwal.fire({
+                icon: danger ? "warning" : "question",
+                title: "Are you sure?",
+                text: message,
+                showCancelButton: true,
+                // Button texts are HTML in SweetAlert, so the label copied from the page is escaped first.
+                confirmButtonText: btn && btn.textContent.trim() ? escapeHtml(btn.textContent.trim()) : "Yes, continue",
+                cancelButtonText: "Cancel",
+                focusCancel: danger,
+                // customClass replaces the shared one (not merged), so it is given in full.
+                customClass: { popup: "grsms-swal", actions: "gap-2", confirmButton: danger ? "btn btn-danger" : "btn btn-primary", cancelButton: "btn btn-outline-secondary" }
+            }).then(function (answer) {
+                if (answer.isConfirmed) { form.dataset.confirmed = "yes"; form.requestSubmit(btn || undefined); }
+            });
         });
+
+        // ---- 3b. Messages after an action (SweetAlert2) -------------------
+        // _Alerts.cshtml marks each message with data-flash="success|info|error". Success and info appear as a small
+        // notice in the top corner that closes itself; errors open a dialog that must be closed, so they are not missed.
+        if (window.Swal) {
+            document.querySelectorAll("[data-flash]").forEach(function (banner) {
+                var kind = banner.getAttribute("data-flash");
+                var text = banner.getAttribute("data-flash-message");
+                banner.classList.add("d-none");
+                if (kind === "error") {
+                    GrsmsSwal.fire({ icon: "error", title: "That didn't work", text: text, confirmButtonText: "OK" });
+                } else {
+                    GrsmsSwal.fire({
+                        // titleText, never title: SweetAlert treats "title" as HTML, and messages can contain names people typed.
+                        toast: true, position: "top-end", icon: kind, titleText: text,
+                        showConfirmButton: false, showCloseButton: true, timer: 5000, timerProgressBar: true
+                    });
+                }
+            });
+        }
 
         // ---- 4. DataTables ----------------------------------------------
         if (window.DataTable) {
@@ -60,6 +119,12 @@
         // ---- 6. Print buttons ---------------------------------------------
         document.querySelectorAll("[data-print]").forEach(function (btn) {
             btn.addEventListener("click", function () { window.print(); });
+        });
+
+        // ---- 7. Drop-downs that apply a filter as soon as they change -----
+        // (Phase 12: replaces inline onchange="..." handlers, which the Content-Security-Policy does not allow.)
+        document.querySelectorAll("[data-auto-submit]").forEach(function (field) {
+            field.addEventListener("change", function () { if (field.form) field.form.submit(); });
         });
 
         // ---- 5. Copy buttons --------------------------------------------

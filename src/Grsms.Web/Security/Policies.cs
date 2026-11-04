@@ -37,6 +37,12 @@ public static class Policies
     /// <summary>Open the Job adverts screens (what each person may do there is decided by AdvertService).</summary>
     public const string Adverts = nameof(Adverts);
 
+    /// <summary>Read survey results (Phase 10): HR Manager, Recruitment Officers and the Managing Director.</summary>
+    public const string SurveyResults = nameof(SurveyResults);
+
+    /// <summary>Open the Reports (Phase 11). HODs see only their own departments (decided by ReportService).</summary>
+    public const string Reports = nameof(Reports);
+
     /// <summary>Registers the policies above. Called from Program.cs.</summary>
     public static AuthorizationBuilder AddGrsmsPolicies(this AuthorizationBuilder builder) => builder
         .AddPolicy(MasterData, p => p.RequireRole(Roles.HrAdministrator))
@@ -49,6 +55,9 @@ public static class Policies
         .AddPolicy(Vacancies, p => p.RequireRole(
             Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
         .AddPolicy(Adverts, p => p.RequireRole(
+            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
+        .AddPolicy(SurveyResults, p => p.RequireRole(Roles.HrManager, Roles.RecruitmentOfficer, Roles.ManagingDirector))
+        .AddPolicy(Reports, p => p.RequireRole(
             Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
         .AddPolicy(Applications, p => p.RequireRole(
             Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator));

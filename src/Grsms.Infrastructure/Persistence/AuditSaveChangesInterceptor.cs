@@ -191,6 +191,9 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
                 };
             }
 
+            // Notifications, reminder keys and confidential survey answers are not copied into the audit trail.
+            if (entry.Entity is INotAudited) continue;
+
             var audit = Capture(entry, action);
             if (audit is not null) _pending.Add(audit);
         }

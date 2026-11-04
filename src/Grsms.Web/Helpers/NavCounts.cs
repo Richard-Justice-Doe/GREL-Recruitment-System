@@ -16,7 +16,9 @@ public class NavCounts(
     RecruitmentRequestService requests,
     VacancyService vacancies,
     Application.Interviews.InterviewService interviews,
-    Application.Onboarding.OnboardingService onboarding)
+    Application.Onboarding.OnboardingService onboarding,
+    Application.Notifications.INotificationCenter notifications,
+    Application.Common.Interfaces.ICurrentUserService me)
 {
     private Task<Counts>? counts;
 
@@ -25,9 +27,13 @@ public class NavCounts(
     private async Task<Counts> LoadAsync()
     {
         var user = http.HttpContext?.User;
-        if (user?.Identity?.IsAuthenticated != true || user.IsInRole(Roles.Candidate)) return new Counts(null, null, null, null, null);
+        if (user?.Identity?.IsAuthenticated != true || me.UserId is null) return new Counts(null, null, null, null, null, 0);
 
         var ct = http.HttpContext!.RequestAborted;
+        // Phase 10: the bell shows unread notifications, for everyone (candidates too).
+        var unread = await notifications.CountUnreadAsync(me.UserId, ct);
+        if (user.IsInRole(Roles.Candidate)) return new Counts(null, null, null, null, null, unread);
+
         int? awaitingMe = null, open = null, toApprove = null;
 
         if ((await auth.AuthorizeAsync(user, Policies.RecruitmentRequests)).Succeeded)
@@ -43,7 +49,7 @@ public class NavCounts(
         var scorecards = await interviews.CountMyPendingScorecardsAsync(ct);
         // Phase 9: onboarding checklist items can be given to any staff member (e.g. IT).
         var onboardingTasks = await onboarding.CountMyTasksAsync(ct);
-        return new Counts(awaitingMe, open, toApprove, scorecards, onboardingTasks);
+        return new Counts(awaitingMe, open, toApprove, scorecards, onboardingTasks, unread);
     }
 
     /// <param name="RequestsAwaitingMe">Requests waiting for my decision (null: cannot see requests).</param>
@@ -51,9 +57,7 @@ public class NavCounts(
     /// <param name="VacanciesToApprove">Vacancies waiting for my approval (HR Manager only).</param>
     /// <param name="ScorecardsToDo">Interviews that have started and still need my scorecard.</param>
     /// <param name="OnboardingTasksToDo">Open onboarding checklist items assigned to me.</param>
-    public record Counts(int? RequestsAwaitingMe, int? OpenVacancies, int? VacanciesToApprove, int? ScorecardsToDo, int? OnboardingTasksToDo)
-    {
-        /// <summary>Total for the notification bell.</summary>
-        public int Notifications => (RequestsAwaitingMe ?? 0) + (VacanciesToApprove ?? 0) + (ScorecardsToDo ?? 0) + (OnboardingTasksToDo ?? 0);
-    }
+    /// <param name="UnreadNotifications">Unread notifications (the bell).</param>
+    public record Counts(int? RequestsAwaitingMe, int? OpenVacancies, int? VacanciesToApprove, int? ScorecardsToDo, int? OnboardingTasksToDo,
+        int UnreadNotifications);
 }

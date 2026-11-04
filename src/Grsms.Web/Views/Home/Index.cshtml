@@ -49,10 +49,10 @@
             {
                 <input type="hidden" name="month" value="@d.Month.ToString("yyyy-MM")" />
             }
-            <select name="divisionId" asp-items="Model.DivisionList" class="form-select form-select-sm" aria-label="Division" onchange="this.form.submit()">
+            <select name="divisionId" asp-items="Model.DivisionList" class="form-select form-select-sm" aria-label="Division" data-auto-submit>
                 <option value="">All divisions</option>
             </select>
-            <select name="departmentId" asp-items="Model.DepartmentList" class="form-select form-select-sm" aria-label="Department" onchange="this.form.submit()">
+            <select name="departmentId" asp-items="Model.DepartmentList" class="form-select form-select-sm" aria-label="Department" data-auto-submit>
                 <option value="">All departments</option>
             </select>
             <noscript><button type="submit" class="btn btn-sm btn-primary">Apply</button></noscript>

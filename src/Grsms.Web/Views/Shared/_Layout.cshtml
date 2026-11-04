@@ -24,6 +24,7 @@
     <script src="~/js/theme-init.js"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="~/lib/sweetalert2/dist/sweetalert2.min.css" />
     <link rel="stylesheet" href="~/lib/datatables/dataTables.bootstrap5.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
@@ -60,20 +61,16 @@
             }
 
             <div class="ms-auto d-flex align-items-center gap-2">
-                @if (counts.RequestsAwaitingMe is not null || counts.VacanciesToApprove is not null)
-                {
-                    var bellTarget = counts.RequestsAwaitingMe is > 0 || counts.VacanciesToApprove is not > 0
-                        ? Url.Action("Index", "RecruitmentRequests", new { tab = "awaiting" })
-                        : Url.Action("Index", "Vacancies", new { tab = "pending" });
-                    <a href="@bellTarget" class="icon-btn" title="@counts.Notifications item(s) waiting for you"
-                       aria-label="@counts.Notifications item(s) waiting for you">
-                        <i class="fa-regular fa-bell"></i>
-                        @if (counts.Notifications > 0)
-                        {
-                            <span class="dot"></span>
-                        }
-                    </a>
-                }
+                @* Phase 10: the bell lists my notifications (everyone, candidates too). Tasks stay on the Home page. *@
+                <a asp-controller="Notifications" asp-action="Index" class="icon-btn position-relative"
+                   title="@(counts.UnreadNotifications == 0 ? "Notifications" : $"{counts.UnreadNotifications} unread notification(s)")"
+                   aria-label="@(counts.UnreadNotifications == 0 ? "Notifications" : $"{counts.UnreadNotifications} unread notifications")">
+                    <i class="fa-regular fa-bell"></i>
+                    @if (counts.UnreadNotifications > 0)
+                    {
+                        <span class="bell-count">@(counts.UnreadNotifications > 99 ? "99+" : counts.UnreadNotifications.ToString())</span>
+                    }
+                </a>
                 <button type="button" class="icon-btn" data-theme-toggle title="Switch light / dark mode" aria-label="Switch light or dark mode">
                     <i data-theme-icon class="fa-solid fa-moon"></i>
                 </button>
@@ -113,6 +110,7 @@
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="~/lib/datatables/dataTables.min.js"></script>
 <script src="~/lib/datatables/dataTables.bootstrap5.min.js"></script>
+<script src="~/lib/sweetalert2/dist/sweetalert2.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>

@@ -1,0 +1,59 @@
+@* A feedback survey, answered by the person invited. Every rating can be left as "not applicable" except the overall one. *@
+@model SurveyFormDto
+@{
+    ViewData["Title"] = Model.Type == SurveyType.CandidateExperience ? "Your experience of applying" : "Your start at GREL";
+    var labels = new[] { "Poor", "Fair", "Good", "Very good", "Excellent" };
+}
+
+<div class="page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        <p>@Model.JobTitle · about two minutes · your answers are confidential: results are shown to HR without names, and only in groups of at least @SurveyQuestions.MinimumResponsesToShow.</p>
+    </div>
+</div>
+
+@if (Model.IsCompleted)
+{
+    <div class="alert alert-success">You have already answered this survey. Thank you!</div>
+}
+else if (Model.IsExpired)
+{
+    <div class="alert alert-secondary">This survey closed on @Model.ExpiresOn.ToString("d MMMM yyyy").</div>
+}
+else
+{
+    <form asp-action="Take" asp-route-id="@Model.InvitationId" method="post">
+        <div class="card glass">
+            <div class="card-body p-4">
+                @foreach (var q in Model.Questions)
+                {
+                    <fieldset class="mb-4">
+                        <legend class="fs-6 fw-semibold">@q.Text@(q.Required ? " *" : "")</legend>
+                        @if (q.IsRating)
+                        {
+                            <div class="d-flex flex-wrap gap-2">
+                                @for (var n = 1; n <= 5; n++)
+                                {
+                                    var id = $"r_{q.Key}_{n}";
+                                    <input type="radio" class="btn-check" name="rating_@q.Key" id="@id" value="@n" required="@q.Required" />
+                                    <label class="btn btn-outline-primary btn-sm" for="@id">@n · @labels[n - 1]</label>
+                                }
+                                @if (!q.Required)
+                                {
+                                    <input type="radio" class="btn-check" name="rating_@q.Key" id="r_@(q.Key)_na" value="" checked />
+                                    <label class="btn btn-outline-secondary btn-sm" for="r_@(q.Key)_na">Not applicable</label>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <textarea name="text_@q.Key" class="form-control" rows="3" maxlength="4000" aria-label="@q.Text"></textarea>
+                        }
+                    </fieldset>
+                }
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane me-1"></i>Send my answers</button>
+                <span class="small text-body-secondary ms-2">Open until @Model.ExpiresOn.ToString("d MMMM yyyy").</span>
+            </div>
+        </div>
+    </form>
+}

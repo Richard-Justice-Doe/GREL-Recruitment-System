@@ -1,6 +1,41 @@
 # GREL Recruitment & Selection Management System (GRSMS)
 
-A web application that moves GREL's whole recruitment process online, from a department's request for a new hire through to the new employee's onboarding. It is built in **13 phases**. This repository currently contains **Phases 1–9**: foundation, recruitment requests, vacancies, job adverts, the candidate portal with applications, CV screening with shortlisting, interviews with scorecards, hiring with offers, and appointment letters with onboarding. See the [phase log](docs/phases.md).
+A web application that moves GREL's whole recruitment process online, from a department's request for a new hire through to the new employee's onboarding. It was built in **13 phases**, all delivered: foundation, recruitment requests, vacancies, job adverts, the candidate portal with applications, CV screening with shortlisting, interviews with scorecards, hiring with offers, appointment letters with onboarding, notifications with reminders and surveys, reports, security hardening, and production deployment. See the [phase log](docs/phases.md).
+
+**Putting it live:** follow [21 Production deployment](docs/21-production-deployment.md) and its go-live checklist.
+
+## What Phase 13 adds
+
+| Area | What works today |
+|---|---|
+| **Production set-up** | `deploy/`: HTTPS front end with automatic certificates, Production mode, only ports 80/443 open |
+| **Backups** | Nightly database and files backups, 30 days kept; tested restore procedure |
+| **Monitoring** | `/health` for uptime checks; safe start-up that refuses an out-of-date database |
+
+## What Phase 12 adds
+
+| Area | What works today |
+|---|---|
+| **Content-Security-Policy** | Browsers run scripts and load styles, fonts and images only from GRSMS itself |
+| **Rate limiting** | At most 10 sign-in / password-form posts per minute from one address |
+| **Security review** | Whole system reviewed; sign-in no longer reveals whether an account exists ([details](docs/04-security-and-roles.md#security-review-phase-12-4-november-2026)) |
+
+## What Phase 11 adds
+
+| Area | What works today |
+|---|---|
+| **Overview** | Executive dashboard: headline figures, recruitment funnel, monthly trend, divisions compared |
+| **Reports** | Requests, vacancies, applications, sources, offers, time to hire and onboarding, all filtered by division, department, vacancy, status and period |
+| **Export** | Every report downloads as CSV for Excel |
+
+## What Phase 10 adds
+
+| Area | What works today |
+|---|---|
+| **Notification bell** | For everyone, candidates included: every email is also a notification, with an unread count |
+| **Reminders** | Offers about to expire, interviews and first days tomorrow, onboarding items due, approvals waiting 3+ days |
+| **Surveys** | Candidate-experience and new-employee surveys, with confidential results for HR |
+| **SMS** | Text messages to applicants, ready but switched off until GREL has an SMS provider account |
 
 ## What Phase 9 adds
 
@@ -138,6 +173,9 @@ dotnet test
 | [16 Interviews guide](docs/16-interviews.md) | schedule interviews and assessments, score them and review the results (non-technical) |
 | [17 Hiring guide](docs/17-hiring.md) | background checks, the hiring recommendation and its approvals, offers (non-technical) |
 | [18 Onboarding guide](docs/18-onboarding.md) | start onboarding, the checklist, the appointment letter and the first day (non-technical) |
+| [19 Notifications and surveys guide](docs/19-notifications-and-surveys.md) | the bell, automatic reminders, text messages and feedback surveys (non-technical) |
+| [20 Reports guide](docs/20-reports.md) | every report, its filters, how the figures are worked out, CSV download (non-technical) |
+| [21 Production deployment](docs/21-production-deployment.md) | install on GREL's server, certificates, updates and rollback, backups and restore, monitoring, go-live checklist (for IT) |
 | [Phase log](docs/phases.md) | see what each phase delivered and what comes next |
 | [Change log](docs/changelog.md) | see work done between phases, with reasons and checks |
 

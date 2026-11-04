@@ -57,6 +57,11 @@ public static class DependencyInjection
         services.Configure<EmailOptions>(config.GetSection("Email"));
         services.AddScoped<IEmailService, EmailService>();
 
+        // Phase 10: the bell, reminder keys, and text messages (written to files until "Sms:Enabled" is true)
+        services.AddScoped<Application.Notifications.INotificationCenter, Notifications.NotificationCenter>();
+        services.Configure<Notifications.SmsOptions>(config.GetSection("Sms"));
+        services.AddScoped<Application.Notifications.ISmsSender, Notifications.SmsSender>();
+
         // Phase 2: recruitment requests, reference numbers, file storage
         services.AddScoped<IRecruitmentRequestRepository, RecruitmentRequestRepository>();
         services.AddScoped<INumberGenerator, NumberGenerator>();

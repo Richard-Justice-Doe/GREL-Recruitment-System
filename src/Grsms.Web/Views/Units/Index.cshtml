@@ -16,7 +16,7 @@
 <form method="get" class="row g-2 align-items-end mb-3">
     <div class="col-sm-6 col-lg-4">
         <label class="form-label small" for="departmentId">Department</label>
-        <select id="departmentId" name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select" onchange="this.form.submit()">
+        <select id="departmentId" name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select" data-auto-submit>
             <option value="">All departments</option>
         </select>
     </div>

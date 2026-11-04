@@ -337,6 +337,8 @@ public class HiringService(
             $"Congratulations! GREL is pleased to offer you the position of <b>{WorkflowMailer.Enc(v.JobTitle)}</b>, starting " +
             $"{start.ToString("d MMMM yyyy", Gb)}. Please read your offer letter and accept or decline it by <b>{expiry.ToString("d MMMM yyyy", Gb)}</b>.",
             links.MyApplication(app.Id), "Read my offer", ct);
+        await mailer.TextAsync(app.Phone, $"GREL: congratulations! We have sent you an offer for {v.JobTitle}. Please sign in to GRSMS to reply by " +
+            $"{expiry.ToString("d MMM", Gb)}.", ct);
         return Result.Success(offer.Id);
     }
 

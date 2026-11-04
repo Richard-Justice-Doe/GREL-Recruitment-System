@@ -142,6 +142,7 @@ public class InterviewService(
             (interview.CandidateInstructions is null ? "" : $"<p>{WorkflowMailer.Enc(interview.CandidateInstructions)}</p>") +
             "<p>If you cannot attend, please reply to this email as soon as possible.</p>",
             links.MyApplication(app.Id), "View my application", ct);
+        await mailer.TextAsync(app.Phone, $"GREL: you are invited to a {what.ToLowerInvariant()} for {v?.JobTitle} on {when} GMT, {interview.Location}. Details: sign in to GRSMS.", ct);
         foreach (var member in interview.Panel)
             await mailer.ToUserAsync(member.UserId, $"Panel: {what} with {app.FullName}, {interview.StartsAt:dd MMM HH:mm}",
                 $"You are {(member.IsChair ? "the <b>chair</b> of" : "on")} the panel for a {WorkflowMailer.Enc(what.ToLowerInvariant())} with " +
@@ -171,7 +172,10 @@ public class InterviewService(
             var text = $"The {WorkflowMailer.Enc(EnumText.Label(i.Type).ToLowerInvariant())} has moved to <b>{when.ToString("dddd d MMMM yyyy, HH:mm", Gb)} GMT</b> " +
                        $"at {WorkflowMailer.Enc(location)}.";
             if (app is not null)
+            {
                 await mailer.ToUserAsync(app.ApplicantUserId, "Your interview has been rescheduled", text, links.MyApplication(app.Id), "View my application", ct);
+                await mailer.TextAsync(app.Phone, $"GREL: your {EnumText.Label(i.Type).ToLowerInvariant()} has moved to {when.ToString("ddd d MMM HH:mm", Gb)} GMT, {location}.", ct);
+            }
             foreach (var m in i.Panel)
                 await mailer.ToUserAsync(m.UserId, $"Rescheduled: {app?.FullName}", text, links.Interview(i.Id), "Open the interview", ct);
         }
@@ -252,6 +256,7 @@ public class InterviewService(
             await mailer.ToUserAsync(app.ApplicantUserId, "Your interview has been cancelled",
                 $"The {WorkflowMailer.Enc(EnumText.Label(i.Type).ToLowerInvariant())} on {i.StartsAt.ToString("d MMMM yyyy, HH:mm", Gb)} has been cancelled. " +
                 "We will contact you if it is rearranged.", links.MyApplication(app.Id), "View my application", ct);
+            await mailer.TextAsync(app.Phone, $"GREL: your {EnumText.Label(i.Type).ToLowerInvariant()} on {i.StartsAt.ToString("ddd d MMM HH:mm", Gb)} has been cancelled. We will contact you.", ct);
             foreach (var m in i.Panel)
                 await mailer.ToUserAsync(m.UserId, $"Cancelled: {app.FullName}, {i.StartsAt:dd MMM HH:mm}",
                     $"The session has been cancelled: {WorkflowMailer.Enc(reason)}", links.Interview(i.Id), "Open the interview", ct);

@@ -1,5 +1,7 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using Grsms.Application.Common.Interfaces;
+using Grsms.Application.Notifications;
 using Grsms.Application.Users;
 using Microsoft.Extensions.Logging;
 
@@ -14,9 +16,27 @@ namespace Grsms.Application.Common;
 ///     still appears in the right people's lists.
 ///
 /// The message text passed in is HTML. Encode any user-typed values with <see cref="Enc"/>.
+///
+/// Phase 10: every email also becomes an in-app notification (the bell) for the same person, with the same title and
+/// link, so the two never disagree. <see cref="TextAsync"/> sends the short text messages (SMS) used for applicants.
 /// </summary>
-public class WorkflowMailer(IUserDirectory users, IEmailService email, ICurrentUserService me, ILogger<WorkflowMailer> logger)
+public class WorkflowMailer(IUserDirectory users, IEmailService email, ICurrentUserService me, ILogger<WorkflowMailer> logger,
+    INotificationCenter notifications, ISmsSender sms)
 {
+    /// <summary>Sends a text message (SMS) to a phone number as typed by the applicant; does nothing if it is not usable.</summary>
+    public async Task TextAsync(string? phone, string text, CancellationToken ct = default)
+    {
+        if (PhoneNumbers.ToInternational(phone) is not { } number) return;
+        try
+        {
+            await sms.SendAsync(number, text.Length > 300 ? text[..297] + "..." : text, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not send a text message to {Phone}", number);
+        }
+    }
+
     /// <summary>Emails every active holder of <paramref name="role"/>, except the current user and <paramref name="skipUserIds"/>.</summary>
     public async Task ToRoleAsync(string role, IEnumerable<string?> skipUserIds, string subject, string html,
         string link, string linkText, CancellationToken ct = default)
@@ -61,5 +81,23 @@ public class WorkflowMailer(IUserDirectory users, IEmailService email, ICurrentU
         {
             logger.LogWarning(ex, "Could not send '{Subject}' to {Email}", subject, to.Email);
         }
+
+        try
+        {
+            await notifications.AddAsync(to.Id, subject, PlainText(html), link, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not save the notification '{Subject}' for {UserId}", subject, to.Id);
+        }
+    }
+
+    /// <summary>The email text without HTML, on one line, at most 500 characters.</summary>
+    public static string PlainText(string html)
+    {
+        var text = Regex.Replace(html, "<[^>]+>", " ");
+        text = Regex.Replace(WebUtility.HtmlDecode(text), @"\s+", " ").Trim();
+        text = Regex.Replace(text, @"\s+([.,:;!?)])", "$1");
+        return text.Length > 500 ? text[..497] + "..." : text;
     }
 }

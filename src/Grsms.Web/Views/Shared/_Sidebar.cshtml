@@ -16,6 +16,8 @@
     var canVacancies = (await Auth.AuthorizeAsync(User, Policies.Vacancies)).Succeeded;
     var canAdverts = (await Auth.AuthorizeAsync(User, Policies.Adverts)).Succeeded;
     var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
+    var canSurveyResults = (await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded;
+    var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
     var isCandidate = User.IsInRole(Roles.Candidate);
     var isStaff = !isCandidate && Roles.Staff.Any(User.IsInRole);
     var counts = await Nav.GetAsync();
@@ -92,6 +94,19 @@
                 {
                     <span class="nav-count attention" title="Onboarding tasks waiting for you">@counts.OnboardingTasksToDo</span>
                 }
+            </a>
+        }
+        @if (canReports)
+        {
+            @* Phase 11 *@
+            <a class="nav-link @Active("Reports")" asp-controller="Reports" asp-action="Index">
+                <i class="fa-solid fa-chart-column"></i> Reports
+            </a>
+        }
+        @if (canSurveyResults)
+        {
+            <a class="nav-link @Active("Surveys")" asp-controller="Surveys" asp-action="Results">
+                <i class="fa-regular fa-star-half-stroke"></i> Survey results
             </a>
         }
 

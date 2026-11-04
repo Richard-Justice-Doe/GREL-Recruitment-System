@@ -1,0 +1,26 @@
+# Caddy: the HTTPS front end for GRSMS (Phase 13). Settings come from deploy/.env.
+#   * Redirects http:// to https:// and gets / renews the certificate itself (unless GRSMS_TLS says otherwise).
+#   * Passes the visitor's address and "https" to GRSMS in X-Forwarded-For / X-Forwarded-Proto
+#     (GRSMS only believes them from this network; see ReverseProxy in docker-compose.prod.yml).
+#   * Caddy renews certificates itself, well before they expire; no email address is needed for that.
+
+{$GRSMS_DOMAIN} {
+	{$GRSMS_TLS}
+
+	encode gzip
+
+	# Do not advertise the server software (GRSMS removes its own Server header too).
+	header -Server
+
+	# Uploads are limited to 10 MB by GRSMS; allow a little more for the form around them.
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy web:8080
+
+	log {
+		output stdout
+		format console
+	}
+}

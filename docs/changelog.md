@@ -4,6 +4,22 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 4 November 2026 (22:00): SweetAlert2 for confirmations and messages
+
+**Why:** the user asked to use SweetAlert instead of the browser's plain boxes.
+
+**Changed**
+* **Confirmations** (all 35 `data-confirm` buttons: approve, reject, withdraw, deactivate, send offer, ...) now open a SweetAlert2 dialog: *Are you sure?*, the message, **Cancel** and a button named like the one clicked (red for red buttons, with Cancel focused). On *yes* the form is sent with the same button, so `name="decision" value="Approve"` buttons keep working. Without the library (script blocked) the browser's own box is used.
+* **Messages after an action** (TempData success / info / error) appear as SweetAlert2 pop-ups: success and info as a notice in the top corner that closes itself after 5 seconds; errors as a dialog with **OK**, so they are not missed. Without JavaScript the old banner shows instead.
+* Styled for GRSMS in light and dark mode (Bootstrap buttons, page colours) in `site.css`.
+* Files: SweetAlert2 **11.14.5** (MIT licence) in `wwwroot/lib/sweetalert2/`, **served by GRSMS itself**, not from a CDN, because the Content-Security-Policy (Phase 12) only allows the site's own scripts; added to the three layouts; logic in `js/site.js` (section 3); `Views/Shared/_Alerts.cshtml` marks each message with `data-flash`.
+
+**Security:** SweetAlert2 treats `title` and button texts as HTML. Messages can contain names people typed, so they are passed as plain text (`text`, `titleText`) and button labels copied from the page are escaped. The library contains a `new Function` call, used only by a feature GRSMS does not use (dialogs declared in HTML `<template>`); the policy would block it anyway.
+
+**Checked:** 111/111 tests (new: every layout loads SweetAlert2 from `/lib`, and the file is served). In a real browser (headless Edge): the error dialog (dark), the success notice (light), the confirmation for a red *Withdraw offer* button (light and dark), and that answering *yes* submits the form with the clicked button's value and the hidden fields.
+
+---
+
 ## 4 November 2026 (12:20): Demo mode removed; local app uses the real database
 
 **Why:** the user asked to remove the demo site and use the actual database and web app.

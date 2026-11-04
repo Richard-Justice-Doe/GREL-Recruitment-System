@@ -1,0 +1,93 @@
+@* Survey results for HR: response rate, average and spread per question, and comments, never with names.
+   Nothing is shown until at least SurveyQuestions.MinimumResponsesToShow responses match the filters. *@
+@model SurveyResultsDto
+@{
+    ViewData["Title"] = "Survey results";
+    var f = (SurveyResultsFilter)ViewBag.Filter;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+
+<div class="page-header">
+    <div>
+        <h1>Survey results</h1>
+        <p>Feedback from applicants (after their application ends) and new employees (after onboarding). Answers are confidential: no names are shown.</p>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var t in Enum.GetValues<SurveyType>())
+    {
+        <li class="nav-item"><a class="nav-link @(f.Type == t ? "active" : "")" asp-action="Results" asp-route-type="@t">@t.DisplayName()</a></li>
+    }
+</ul>
+
+<form method="get" class="card glass mb-3">
+    <input type="hidden" name="Type" value="@f.Type" />
+    <div class="card-body row g-2 align-items-end">
+        <partial name="_ReportFilters" model="(f.DivisionId, f.DepartmentId, f.From, f.To)" />
+        <div class="col-sm-6 col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            <a asp-action="Results" asp-route-type="@f.Type" class="btn btn-outline-secondary">Clear</a>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-3">
+    <div class="col-sm-4"><div class="card glass"><div class="card-body"><div class="small text-body-secondary">Invited</div><div class="fs-3 fw-semibold">@Model.Invited</div></div></div></div>
+    <div class="col-sm-4"><div class="card glass"><div class="card-body"><div class="small text-body-secondary">Answered</div><div class="fs-3 fw-semibold">@Model.Responded</div></div></div></div>
+    <div class="col-sm-4"><div class="card glass"><div class="card-body"><div class="small text-body-secondary">Response rate</div><div class="fs-3 fw-semibold">@Model.ResponseRate%</div></div></div></div>
+</div>
+
+@if (!Model.EnoughToShow)
+{
+    <div class="alert alert-secondary">Results appear once at least @SurveyQuestions.MinimumResponsesToShow people matching these filters have answered, so nobody can be identified.</div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-xl-7">
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Ratings (1 = poor, 5 = excellent)</h2>
+                    @foreach (var q in Model.Questions)
+                    {
+                        var max = Math.Max(1, q.Distribution.Max());
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between gap-3">
+                                <span class="small">@q.Text</span>
+                                <span class="fw-semibold text-nowrap">@(q.Average?.ToString("0.0") ?? "—")</span>
+                            </div>
+                            <div class="small text-body-secondary mb-1">@q.Answers answer(s)</div>
+                            <div class="d-flex align-items-end gap-1" style="height: 2.5rem" aria-label="Spread of answers 1 to 5: @string.Join(", ", q.Distribution)">
+                                @for (var n = 0; n < 5; n++)
+                                {
+                                    <div class="flex-fill text-center">
+                                        <div class="bg-primary rounded-1 mx-auto" style="height: @((q.Distribution[n] * 2.4 / max).ToString("0.##", inv))rem; min-height: 2px; opacity: @((0.4 + n * 0.15).ToString("0.##", inv))" title="@(n + 1): @q.Distribution[n]"></div>
+                                    </div>
+                                }
+                            </div>
+                            <div class="d-flex gap-1 small text-body-secondary">
+                                @for (var n = 0; n < 5; n++) { <div class="flex-fill text-center">@(n + 1) <span class="opacity-75">(@q.Distribution[n])</span></div> }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-5">
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Comments (@Model.Comments.Count)</h2>
+                    @if (Model.Comments.Count == 0) { <p class="small text-body-secondary mb-0">No comments.</p> }
+                    @foreach (var c in Model.Comments)
+                    {
+                        <figure class="border-start border-3 ps-3 mb-3">
+                            <blockquote class="mb-1 small" style="white-space: pre-wrap">@c.Text</blockquote>
+                            <figcaption class="small text-body-secondary">@c.AnsweredAt.ToString("MMM yyyy") · @c.DepartmentName · @c.Outcome.DisplayName()</figcaption>
+                        </figure>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}

@@ -70,6 +70,27 @@ public class VacancyAutoCloseWorker(IServiceScopeFactory scopes, IConfiguration 
                 logger.LogError(ex, "Offer expiry failed; will retry in {Interval}", interval);
             }
 
+            // Phase 10: reminders and survey invitations, only from the morning (GMT) so nobody is messaged at night;
+            // each one is sent once, whatever the interval. Read notifications older than 6 months are removed.
+            if (config.GetValue("Reminders:Enabled", true) && DateTime.UtcNow.Hour >= config.GetValue("Reminders:FromHourGmt", 7))
+            {
+                try
+                {
+                    using var scope = scopes.CreateScope();
+                    var sp = scope.ServiceProvider;
+                    var reminders = await sp.GetRequiredService<Application.Notifications.ReminderService>()
+                        .RunAsync(DateTime.UtcNow, config.GetValue("Reminders:ApprovalWaitingDays", 3), stoppingToken);
+                    var invited = await sp.GetRequiredService<Application.Surveys.SurveyService>().InviteDueAsync(DateTime.UtcNow, stoppingToken);
+                    var purged = await sp.GetRequiredService<Application.Notifications.INotificationCenter>().PurgeAsync(DateTime.UtcNow.AddMonths(-6), stoppingToken);
+                    if (reminders + invited + purged > 0)
+                        logger.LogInformation("Reminders sent: {Reminders}; survey invitations: {Invited}; old notifications removed: {Purged}", reminders, invited, purged);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogError(ex, "Reminders / surveys failed; will retry in {Interval}", interval);
+                }
+            }
+
             await Task.Delay(interval, stoppingToken);
         }
     }

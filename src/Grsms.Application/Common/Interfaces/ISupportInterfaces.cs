@@ -50,6 +50,9 @@ public interface IAppLinks
     /// <summary>An onboarding (checklist, appointment letter, first day) for staff.</summary>
     string Onboarding(int id);
 
+    /// <summary>A survey invitation, for the person invited to answer it.</summary>
+    string Survey(int invitationId);
+
     /// <summary>The public careers page of one advert (used in copy-ready advert text).</summary>
     string CareersJob(string advertNumber);
 }

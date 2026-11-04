@@ -491,3 +491,8 @@ App_Data/
 logs/
 # Uploaded documents (CVs, certificates) once file storage is added
 uploads/
+
+# Phase 13: production deployment folder (passwords, backups and certificates stay on the server)
+deploy/.env
+deploy/backups/
+deploy/certs/

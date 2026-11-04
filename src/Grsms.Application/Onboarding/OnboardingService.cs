@@ -322,6 +322,8 @@ public class OnboardingService(
             "Please read it and sign it in your portal. It also tells you when and where to report on your first day " +
             $"(<b>{o.StartDate.ToString("dddd d MMMM yyyy", Gb)}</b>) and what to bring.",
             links.MyApplication(o.JobApplicationId), "Read my appointment letter", ct);
+        if (!revised)
+            await mailer.TextAsync(app.Phone, $"GREL: your appointment letter for {o.JobTitle} is ready. Please sign in to GRSMS to read and sign it.", ct);
         return saved;
     }
 

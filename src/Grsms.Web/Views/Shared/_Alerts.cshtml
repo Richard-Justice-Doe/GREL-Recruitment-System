@@ -1,18 +1,20 @@
-@* Coloured banners for one-off messages set by controllers (TempData["Success"], ["Error"], ["Info"]).
-   They appear once on the next page and then disappear. *@
+@* One-off messages set by controllers (TempData["Success"], ["Error"], ["Info"]), shown once on the next page.
+   site.js turns each into a SweetAlert pop-up (success / info: a small notice in the corner that closes itself;
+   error: a dialog with an OK button) and hides the banner. If the script cannot run, the banner below is shown instead. *@
 @{
-    var alerts = new (string Key, string Css, string Icon)[]
+    var alerts = new (string Key, string Css, string Icon, string Kind)[]
     {
-        ("Success", "success", "fa-circle-check"),
-        ("Error", "danger", "fa-circle-exclamation"),
-        ("Info", "info", "fa-circle-info"),
+        ("Success", "success", "fa-circle-check", "success"),
+        ("Error", "danger", "fa-circle-exclamation", "error"),
+        ("Info", "info", "fa-circle-info", "info"),
     };
 }
-@foreach (var (key, css, icon) in alerts)
+@foreach (var (key, css, icon, kind) in alerts)
 {
     if (TempData[key] is string message)
     {
-        <div class="alert alert-@css alert-dismissible fade show d-flex gap-2 align-items-start" role="alert">
+        <div class="alert alert-@css alert-dismissible fade show d-flex gap-2 align-items-start" role="alert"
+             data-flash="@kind" data-flash-message="@message">
             <i class="fa-solid @icon mt-1"></i>
             <div>@message</div>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>

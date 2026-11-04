@@ -1,6 +1,6 @@
 # 4. Security and roles
 
-## Who can do what (Phases 1-9)
+## Who can do what (Phases 1-11)
 
 | Screen / action | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member | Employee | Candidate |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -45,6 +45,10 @@
 | Issue / revise the appointment letter (until signed) | | ✅ not their own | | | | | | |
 | Tick off a checklist item | | ✅ any | | ✅ any | ✅ department items and their own | their own | their own | |
 | Read and sign own appointment letter; see own first-day information | | | | | | | ✅ own | ✅ own |
+| Own notifications (the bell) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Answer own feedback surveys | | | | | | | ✅ own (internal applicants) | ✅ own |
+| Survey results (no names, from 3 responses) | | ✅ | ✅ | ✅ | | | | |
+| Reports and the overview; CSV download | all | all | all | all | own departments | | | |
 
 ### Workflow controls (recruitment requests)
 * **Segregation of duties:** nobody can decide on a request they raised, even if they also hold the approver role.
@@ -95,7 +99,8 @@ The rules are defined once in `src/Grsms.Web/Security/Policies.cs` and **checked
 | **Deactivated accounts** | Cannot sign in by password or Microsoft 365. An existing session ends within 5 minutes. |
 | **Role changes** | Take effect within 5 minutes (the session is re-checked against the database) |
 | **Email confirmation** | Candidates must click the link in their confirmation email before they can sign in |
-| **No account "fishing"** | Forgot-password and registration pages give the same answer whether or not the email has an account |
+| **No account "fishing"** | Forgot-password and registration pages give the same answer whether or not the email has an account. On the sign-in page, *deactivated* or *please confirm your email* is only shown when the password is right; with a wrong password every account, and every non-existent email, gets the same *Incorrect email or password* (Phase 12) |
+| **Rate limiting** (Phase 12) | The sign-in, registration, resend-confirmation, forgot-password and reset-password forms accept at most **10 posts per minute from one network address** (`Security:SignInAttemptsPerMinute`); more get *Too many attempts* (HTTP 429) and are logged. This slows password guessing spread over many accounts, which the per-account lockout cannot catch, and stops the email pages being used to flood inboxes. |
 
 ### Safety rules for administrators
 
@@ -110,8 +115,13 @@ To stop anyone being locked out of the system:
 | Threat | Protection |
 |---|---|
 | Cross-site request forgery (a malicious site submitting forms as you) | Every form carries an anti-forgery token, checked automatically on every POST |
-| Cookie theft | Sign-in cookie is HttpOnly (JavaScript cannot read it), SameSite=Lax, and Secure (HTTPS only) outside development |
-| Click-jacking | `X-Frame-Options: DENY` |
+| Cookie theft | Sign-in cookie is HttpOnly (JavaScript cannot read it), SameSite=Lax, and Secure (HTTPS only) outside development. The anti-forgery cookie is HttpOnly, SameSite=Strict and Secure outside development. |
+| Injected scripts running in the browser | **Content-Security-Policy** (Phase 12): scripts, styles, fonts and images load only from GRSMS itself; no inline scripts or `onclick="..."` exist anywhere (behaviour lives in `js/site.js`), so an injected script would not run. Plug-ins are blocked, forms may only post to GRSMS (and Microsoft's sign-in page), and the `<base>` address cannot be changed. Inline `style="..."` attributes are allowed: they cannot run code. See `Security/SecurityHeaders.cs`. |
+| Click-jacking | `frame-ancestors 'none'` in the policy, plus `X-Frame-Options: DENY` for older browsers |
+| Other sites' windows reaching into GRSMS | `Cross-Origin-Opener-Policy: same-origin`; `X-Permitted-Cross-Domain-Policies: none` |
+| Advertising the server software | No `Server` header |
+| Spreadsheet formulas in report downloads | CSV values typed by users that start with `=`, `+`, `-` or `@` get a leading `'` (Phase 11) |
+| Tokens in log files | Request logs record the path only, never the query string, so password-reset and confirmation links never reach the logs |
 | Content-type sniffing | `X-Content-Type-Options: nosniff` |
 | Leaking addresses to other sites | `Referrer-Policy: strict-origin-when-cross-origin` |
 | Unencrypted traffic | HTTPS redirection, plus HSTS in production |
@@ -121,7 +131,22 @@ To stop anyone being locked out of the system:
 | Malicious uploads | Only PDF, Word, Excel, PowerPoint, PNG and JPG are accepted, up to 10 MB. The first bytes must match the file type, so a renamed program is refused. Files are stored **outside** the website folder under random names, are only reachable through a permission-checked download page, and are always sent as downloads (never opened inside the site). Each file's SHA-256 fingerprint is recorded. |
 | Path tricks in file names | Folder parts of an uploaded name (`C:\fakepath\..\`) are stripped. Stored names are generated by the system and checked to stay inside the storage folder. |
 
-Phase 12 (Security hardening) adds a full Content-Security-Policy, rate limiting on the sign-in page, and a review of all of the above.
+### Security review (Phase 12, 4 November 2026)
+
+Everything above was reviewed, and the code was checked for the usual web weaknesses. Results:
+
+| Checked | Result |
+|---|---|
+| Sign-in messages | **Fixed:** a wrong password on a deactivated or unconfirmed account showed *deactivated* / *confirm your email*, revealing that the account existed (ASP.NET Identity checks those rules before the password), and did not count towards the lockout. Now answered and counted like any wrong password. |
+| Pages open without sign-in | Only the sign-in, registration, password and email-confirmation pages, the public careers pages and the error page. Everything else needs sign-in (fallback policy), and every service checks the role and department again. |
+| Inline scripts (needed for a strict CSP) | Three `onchange="..."` handlers moved to `site.js`. An automated test now fails if any main page gains an inline script or handler. |
+| Redirects | After sign-in and from notifications, only addresses inside GRSMS are followed (`LocalRedirect` / `Url.IsLocalUrl`). |
+| Downloads | Permission-checked, sent as attachments with `nosniff`; CSV export protected against formulas. |
+| Packages | `dotnet list package --vulnerable --include-transitive`: no known vulnerable packages. |
+| Secrets | Passwords and keys live in `.env`, user-secrets or environment variables (all git-ignored); none in source. Password hashes and tokens never reach the audit trail or logs. |
+| Uploads, SQL injection, XSS, CSRF | As in the table above; no change needed. |
+
+**Done in Phase 13 (production deployment):** the production set-up (`deploy/`) runs in **Production** mode (no detailed error pages) behind an HTTPS proxy, with only ports 80/443 open. The visitor's real address is read from the proxy's forwarded headers, **trusted only from the proxy's own network**, so the audit trail and the sign-in rate limit see real addresses and nobody can fake one. The developer Docker set-up stays in Development mode and must never be exposed to the network. See [21 Production deployment](21-production-deployment.md).
 
 ## Audit trail
 

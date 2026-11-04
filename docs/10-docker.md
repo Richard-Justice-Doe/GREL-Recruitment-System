@@ -91,7 +91,7 @@ Table names keep their capitals (`Users`, `Departments`, `RecruitmentRequests`, 
 * In `Production` the sign-in cookie is marked **Secure** (HTTPS only). The container serves plain HTTP, so in `Production` the browser would drop the cookie and **nobody could sign in**.
 * `Development` also turns on automatic migrations (`Database:ApplyMigrationsOnStartup`).
 
-Running the container in `Production` needs an HTTPS front end (a reverse proxy with a certificate) and forwarded-headers set-up. That is part of Phase 13.
+For the real server, use the **production set-up** in `deploy/` instead: Production mode behind an HTTPS proxy with forwarded headers, no open database ports and nightly backups. See [21 Production deployment](21-production-deployment.md).
 
 ## Backups
 

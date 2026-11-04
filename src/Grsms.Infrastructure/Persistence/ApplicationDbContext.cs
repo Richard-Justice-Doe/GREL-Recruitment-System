@@ -68,6 +68,32 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Onboarding.OnboardingRecord> Onboardings => Set<Domain.Onboarding.OnboardingRecord>();
     public DbSet<Domain.Onboarding.OnboardingTask> OnboardingTasks => Set<Domain.Onboarding.OnboardingTask>();
 
+    // Phase 10: notifications, reminders and surveys
+    public DbSet<Domain.Notifications.Notification> Notifications => Set<Domain.Notifications.Notification>();
+    public DbSet<Domain.Notifications.SentReminder> SentReminders => Set<Domain.Notifications.SentReminder>();
+    public DbSet<Domain.Surveys.SurveyInvitation> SurveyInvitations => Set<Domain.Surveys.SurveyInvitation>();
+    public DbSet<Domain.Surveys.SurveyAnswer> SurveyAnswers => Set<Domain.Surveys.SurveyAnswer>();
+
+    /// <summary>
+    /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and
+    /// written through DateTime / TimeSpan. The Oracle MySQL provider hands back DATE and TIME columns as DateTime /
+    /// TimeSpan and cannot turn them into DateOnly / TimeOnly itself ("Unable to cast DateTime to DateOnly", found on
+    /// 4 November 2026). The column types stay DATE and TIME, so the database does not change.
+    /// </summary>
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateOnly>().HaveConversion<DateOnlyConverter>().HaveColumnType("date");
+        configurationBuilder.Properties<DateOnly?>().HaveConversion<DateOnlyConverter>().HaveColumnType("date");
+        configurationBuilder.Properties<TimeOnly>().HaveConversion<TimeOnlyConverter>().HaveColumnType("time");
+        configurationBuilder.Properties<TimeOnly?>().HaveConversion<TimeOnlyConverter>().HaveColumnType("time");
+    }
+
+    private sealed class DateOnlyConverter() : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateOnly, DateTime>(
+        d => d.ToDateTime(TimeOnly.MinValue), t => DateOnly.FromDateTime(t));
+
+    private sealed class TimeOnlyConverter() : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<TimeOnly, TimeSpan>(
+        t => t.ToTimeSpan(), s => TimeOnly.FromTimeSpan(s));
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         // Identity must configure its tables first; our configuration then renames/extends them.

@@ -27,6 +27,8 @@ public class AppLinks(IHttpContextAccessor accessor, LinkGenerator linkGenerator
 
     public string Onboarding(int id) => Build("Details", "Onboarding", new { id });
 
+    public string Survey(int invitationId) => Build("Take", "Surveys", new { id = invitationId });
+
     public string CareersJob(string advertNumber) => Build("Details", "Careers", new { id = advertNumber });
 
     private string Build(string action, string controller, object values)

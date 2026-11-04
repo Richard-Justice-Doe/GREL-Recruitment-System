@@ -224,6 +224,30 @@ Grsms.Web/Views/Onboarding/          ← Index, Start, Details, Letter;  Views/M
     Views/Shared/_AppointmentLetter (one letter for the new employee and the staff preview)
 ```
 
+**Added in Phase 10:**
+
+```
+Grsms.Domain/Common/INotAudited.cs   ← marker: rows the audit interceptor skips (notifications, reminder keys, survey answers)
+Grsms.Domain/Notifications/          ← Notification, SentReminder (plain tables: no soft delete)
+Grsms.Domain/Surveys/                ← SurveyInvitation, SurveyAnswer, SurveyQuestions (fixed questions, by key)
+Grsms.Application/Notifications/     ← INotificationCenter, ISmsSender, ReminderService
+Grsms.Application/Surveys/           ← SurveyService (invitations, answers, results)
+Grsms.Application/Common/            ← WorkflowMailer now also adds a notification per email and sends SMS (TextAsync); PhoneNumbers
+Grsms.Infrastructure/Notifications/  ← NotificationCenter (writes in its own scope), SmsSender (files when off, Hubtel when on)
+Grsms.Web/Controllers/NotificationsController.cs, SurveysController.cs;  Views/Notifications, Views/Surveys
+Grsms.Web/Workers/VacancyAutoCloseWorker.cs ← now also runs reminders, survey invitations and the notification clean-up
+```
+
+**Added in Phase 11:**
+
+```
+Grsms.Application/Reports/           ← ReportDtos (filter, generic table, KPIs, charts), ReportService (all reports, live from the records)
+Grsms.Web/Controllers/ReportsController.cs (Reports policy; CSV export with formula protection)
+Grsms.Web/Views/Reports/Index.cshtml ← one page renders every report (generic table + one-colour charts)
+```
+
+Each report is a method returning the same `ReportResult` shape, so a new report needs one method in `ReportService` and one line in `ReportKeys`; the page and the CSV export need no change.
+
 ## How to add a new feature (worked example)
 
 Say Phase 2 needs **Recruitment Requests**. Follow the same five steps every module uses:

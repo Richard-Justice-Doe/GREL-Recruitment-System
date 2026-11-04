@@ -40,6 +40,16 @@ public static class DbInitializer
             logger.LogInformation("Applying database migrations...");
             await db.Database.MigrateAsync();
         }
+        else if (db.Database.ProviderName?.Contains("MySql", StringComparison.OrdinalIgnoreCase) == true && // the migrations are written for MySQL
+                 (await db.Database.GetPendingMigrationsAsync()).ToList() is { Count: > 0 } pending)
+        {
+            // Phase 13: the tables are older than this version of GRSMS. Stop now with a clear message, rather than start
+            // and fail on the first page that needs a new table.
+            logger.LogCritical("The database is missing {Count} update(s): {Migrations}. Run the matching scripts in the database folder " +
+                               "(see docs/03-database.md) or set Database:ApplyMigrationsOnStartup to true, then start GRSMS again.",
+                pending.Count, string.Join(", ", pending));
+            throw new InvalidOperationException($"The database needs {pending.Count} update(s) before this version of GRSMS can start: {string.Join(", ", pending)}.");
+        }
 
         await CreateFirstAdministratorAsync(sp, config, logger);
 

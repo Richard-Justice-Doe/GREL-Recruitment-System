@@ -36,6 +36,9 @@ public sealed class GrsmsWebFactory : WebApplicationFactory<Program>
         builder.UseSetting("SeedAdmin:Password", AdminPassword);
         builder.UseSetting("SeedAdmin:FullName", "Test Admin");
         builder.UseSetting("Email:PickupDirectory", MailFolder);
+        builder.UseSetting("Sms:PickupDirectory", Path.Combine(MailFolder, "sms"));
+        // Every test client signs in from the same (empty) address; the limit itself is tested in SecurityWebTests.
+        builder.UseSetting("Security:SignInAttemptsPerMinute", "10000");
         // Keep test logs and key files out of the source folder.
         builder.UseSetting("Logs:Folder", Path.Combine(Path.GetTempPath(), "grsms-test-logs"));
         builder.UseSetting("DataProtection:KeysFolder", Path.Combine(MailFolder, "keys"));

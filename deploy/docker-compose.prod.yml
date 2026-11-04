@@ -1,0 +1,126 @@
+# GRSMS production set-up (Phase 13). See docs/21-production-deployment.md.
+#
+#   Internet / GREL network ──HTTPS──► proxy (Caddy: certificates, HTTP→HTTPS) ──► web (GRSMS, Production) ──► db (MySQL 8.4)
+#                                                                                   backup (nightly dump + files)
+#
+# Only the proxy is reachable from outside. The app and the database have no published ports.
+# All settings and passwords come from deploy/.env (copy .env.production.example; never commit it).
+#
+#   cd deploy
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+name: grsms
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: grsms
+      MYSQL_USER: grsms
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+    # utf8mb4 + case-insensitive collation: the duplicate-name checks depend on it.
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks: [grsms]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: grsms-web:${GRSMS_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "server=db;port=3306;database=grsms;user=grsms;password=${MYSQL_PASSWORD}"
+      # Tables are updated at start-up. Take a backup before every update (docs/21-production-deployment.md).
+      Database__ApplyMigrationsOnStartup: "${APPLY_MIGRATIONS:-true}"
+      # Trust X-Forwarded-For / -Proto only from the proxy's network (below).
+      ReverseProxy__Enabled: "true"
+      ReverseProxy__KnownNetworks: "${GRSMS_SUBNET:-172.29.13.0/24}"
+      App__BaseUrl: "https://${GRSMS_DOMAIN:?set GRSMS_DOMAIN in .env}"
+      AllowedHosts: "${GRSMS_DOMAIN}"
+      SeedAdmin__Email: ${SEED_ADMIN_EMAIL:?set SEED_ADMIN_EMAIL in .env}
+      SeedAdmin__Password: ${SEED_ADMIN_PASSWORD:-}
+      SeedAdmin__FullName: ${SEED_ADMIN_FULLNAME:-System Administrator}
+      # Email (leave SMTP_HOST empty to keep saving emails as files in the app-data volume)
+      Email__FromAddress: ${EMAIL_FROM:-noreply@grel.example}
+      Email__FromName: ${EMAIL_FROM_NAME:-GREL Recruitment}
+      Email__SmtpHost: ${SMTP_HOST:-}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__EnableSsl: ${SMTP_SSL:-true}
+      Email__UserName: ${SMTP_USER:-}
+      Email__Password: ${SMTP_PASSWORD:-}
+      # Microsoft 365 sign-in (optional)
+      AzureAd__TenantId: ${AZUREAD_TENANT_ID:-}
+      AzureAd__ClientId: ${AZUREAD_CLIENT_ID:-}
+      AzureAd__ClientSecret: ${AZUREAD_CLIENT_SECRET:-}
+      # Text messages (off until GREL has an SMS account)
+      Sms__Enabled: ${SMS_ENABLED:-false}
+      Sms__SenderId: ${SMS_SENDER_ID:-GREL}
+      Sms__ClientId: ${SMS_CLIENT_ID:-}
+      Sms__ClientSecret: ${SMS_CLIENT_SECRET:-}
+    volumes:
+      - app-data:/app/App_Data   # uploads, data-protection keys, saved emails / texts
+      - app-logs:/app/logs
+    networks: [grsms]
+
+  proxy:
+    image: caddy:2.8
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      GRSMS_DOMAIN: ${GRSMS_DOMAIN}
+      # Empty = automatic certificate from Let's Encrypt (public name). "tls internal" = Caddy's own certificate
+      # (testing / intranet). "tls /certs/grsms.crt /certs/grsms.key" = GREL's certificate in deploy/certs.
+      GRSMS_TLS: ${GRSMS_TLS:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy-data:/data       # certificates: keep this volume
+      - caddy-config:/config
+    networks: [grsms]
+
+  backup:
+    image: mysql:8.4
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["bash", "/backup.sh"]
+    environment:
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      BACKUP_HOUR_GMT: ${BACKUP_HOUR_GMT:-1}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+    volumes:
+      - ./backup.sh:/backup.sh:ro
+      - ${BACKUP_FOLDER:-./backups}:/backups
+      - app-data:/app-data:ro
+    networks: [grsms]
+
+networks:
+  grsms:
+    ipam:
+      config:
+        - subnet: ${GRSMS_SUBNET:-172.29.13.0/24}
+
+volumes:
+  mysql-data:
+  app-data:
+  app-logs:
+  caddy-data:
+  caddy-config:

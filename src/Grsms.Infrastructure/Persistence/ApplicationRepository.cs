@@ -10,7 +10,7 @@ namespace Grsms.Infrastructure.Persistence;
 public class ApplicationRepository(ApplicationDbContext context) : Repository<JobApplication>(context), IApplicationRepository
 {
     public Task<JobApplication?> GetWithHistoryAsync(int id, CancellationToken ct = default) =>
-        Db.JobApplications.Include(a => a.Actions).FirstOrDefaultAsync(a => a.Id == id, ct);
+        Db.JobApplications.Include(a => a.Actions).Include(a => a.KnockoutAnswers).AsSplitQuery().FirstOrDefaultAsync(a => a.Id == id, ct);
 
     /// <summary>Applications the user may see as staff: all for "see all" roles, otherwise their departments'.</summary>
     private IQueryable<JobApplication> Visible(RequestVisibility visibility)
@@ -60,7 +60,7 @@ public class ApplicationRepository(ApplicationDbContext context) : Repository<Jo
             select new { App = a, v.VacancyNumber, v.JobTitle, DepartmentName = d.Name, DivisionName = dv.Name };
 
         // New and under review: oldest first (first come, first served). All: newest first.
-        rows = filter.Status is ApplicationStatus.Submitted or ApplicationStatus.UnderReview
+        rows = filter.Status is ApplicationStatus.Submitted or ApplicationStatus.UnderReview or ApplicationStatus.AutoRejected
             ? rows.OrderBy(x => x.App.SubmittedAt).ThenBy(x => x.App.Id)
             : rows.OrderByDescending(x => x.App.Id);
 
@@ -82,7 +82,7 @@ public class ApplicationRepository(ApplicationDbContext context) : Repository<Jo
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync(ct);
         int Of(ApplicationStatus s) => byStatus.FirstOrDefault(x => x.Status == s)?.Count ?? 0;
-        return new ApplicationCounts(Of(ApplicationStatus.Submitted), Of(ApplicationStatus.UnderReview), byStatus.Sum(x => x.Count));
+        return new ApplicationCounts(Of(ApplicationStatus.Submitted), Of(ApplicationStatus.UnderReview), byStatus.Sum(x => x.Count), Of(ApplicationStatus.AutoRejected));
     }
 
     public async Task<IReadOnlyList<MyApplicationDto>> ListForApplicantAsync(string userId, CancellationToken ct = default) =>

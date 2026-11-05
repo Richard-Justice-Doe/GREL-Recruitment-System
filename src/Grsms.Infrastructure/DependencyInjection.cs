@@ -76,6 +76,11 @@ public static class DependencyInjection
         services.AddScoped<Application.Interviews.IInterviewRepository, InterviewRepository>();
         services.AddScoped<IVacancyLookup>(sp => sp.GetRequiredService<IVacancyRepository>());
 
+        // Phase 15: ATS. CV text is read on this server; the Claude reader is optional and off without Ats:Ai:ApiKey.
+        services.AddSingleton<Application.Applications.ICvTextExtractor, Ats.CvTextExtractor>();
+        services.Configure<Ats.AtsAiOptions>(config.GetSection("Ats:Ai"));
+        services.AddSingleton<Application.Applications.IAiCvReader, Ats.ClaudeCvReader>();
+
         return services;
     }
 }

@@ -8,6 +8,7 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 * The 4 November clean-up (unused demo mode code and two methods nothing called) was committed on branch `feature/ats-and-super-admin`. The `_removed-for-review/` copies are still on disk (git-ignored) until they are deleted.
 * Phase 14 (Super Admin and permissions) is recorded in the [phase log](phases.md#-phase-14-super-admin-and-granular-permissions-5-november-2026).
+* Phase 15 (ATS screening engine) is recorded in the [phase log](phases.md#-phase-15-ats-screening-engine-5-november-2026). New packages: PdfPig 0.1.16 (PDF text) and Anthropic 13.5.0 (official SDK, used only by the optional AI reader); no known vulnerabilities.
 
 ---
 

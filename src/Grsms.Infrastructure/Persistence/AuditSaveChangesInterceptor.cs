@@ -44,6 +44,8 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         nameof(BaseEntity.UpdatedBy),
         nameof(BaseEntity.DeletedAt),
         nameof(BaseEntity.DeletedBy),
+        // Phase 15: the full text of a CV (it is in the CV file itself; the audit trail records what the ATS decided).
+        nameof(Domain.Applications.JobApplication.CvText),
     ];
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };

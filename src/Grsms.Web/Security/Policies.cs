@@ -50,6 +50,9 @@ public static class Policies
     /// <summary>Phase 14: manage roles and permissions (Super Admin only).</summary>
     public const string RolesAndPermissions = nameof(RolesAndPermissions);
 
+    /// <summary>Phase 15: change the ATS weights, bands and automatic-rejection rules (Super Admin only).</summary>
+    public const string AtsConfiguration = nameof(AtsConfiguration);
+
     /// <summary>Registers the policies above. Called from Program.cs.</summary>
     public static AuthorizationBuilder AddGrsmsPolicies(this AuthorizationBuilder builder)
     {
@@ -66,6 +69,7 @@ public static class Policies
             .AddPermissionPolicy(SurveyResults, Permissions.ViewSurveyResults)
             .AddPermissionPolicy(Reports, Permissions.ViewReports)
             .AddPermissionPolicy(RolesAndPermissions, Permissions.ManagePermissions)
+            .AddPermissionPolicy(AtsConfiguration, Permissions.ConfigureAts)
             // Staff = signed in with any role other than Candidate (built-in or custom).
             .AddPolicy(Staff, p => p.RequireAuthenticatedUser().RequireAssertion(c =>
                 !c.User.IsInRole(Roles.Candidate) &&

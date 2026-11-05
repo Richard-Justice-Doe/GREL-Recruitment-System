@@ -38,7 +38,7 @@ public class VacancyService(
     private const string ConflictMessage = "Someone else updated this vacancy at the same moment. Please reload the page and try again.";
 
     /// <summary>Most skills/certifications allowed in one list, and the longest single entry.</summary>
-    private const int MaxListItems = 30, MaxItemLength = 100;
+    private const int MaxListItems = 30, MaxItemLength = 100, MaxKnockoutQuestions = 10, MaxQuestionLength = 300;
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -121,6 +121,8 @@ public class VacancyService(
                 .OrderBy(r => r.Type).ThenByDescending(r => r.IsEssential).ThenBy(r => r.Id)
                 .Select(r => new VacancyRequirementDto(r.Type, r.Name, r.IsEssential))
                 .ToList(),
+            KnockoutQuestions = v.KnockoutQuestions.OrderBy(q => q.Id).Select(q => q.Text)
+                .ToList(),
             SalaryMin = v.SalaryMin,
             SalaryMax = v.SalaryMax,
             ShowSalary = v.ShowSalary,
@@ -193,6 +195,7 @@ public class VacancyService(
             DesirableSkills = Lines(v, RequirementType.Skill, essential: false),
             EssentialCertifications = Lines(v, RequirementType.Certification, essential: true),
             DesirableCertifications = Lines(v, RequirementType.Certification, essential: false),
+            KnockoutQuestions = string.Join("\n", v.KnockoutQuestions.OrderBy(q => q.Id).Select(q => q.Text)),
             SalaryMin = v.SalaryMin,
             SalaryMax = v.SalaryMax,
             ShowSalary = v.ShowSalary,
@@ -496,6 +499,12 @@ public class VacancyService(
             if (items.Any(i => i.Length > MaxItemLength)) errors.Add($"Each of the {label} must be {MaxItemLength} characters or fewer.");
         }
 
+        // Phase 15: knockout questions are longer sentences, and a short list keeps the apply page usable.
+        var questions = SplitLines(form.KnockoutQuestions);
+        if (questions.Count > MaxKnockoutQuestions) errors.Add($"Ask at most {MaxKnockoutQuestions} knockout questions.");
+        if (questions.Any(q => q.Length is < 10 or > MaxQuestionLength))
+            errors.Add($"Each knockout question must be 10 to {MaxQuestionLength} characters, written so that \"Yes\" is the answer you need.");
+
         return errors;
     }
 
@@ -522,6 +531,11 @@ public class VacancyService(
         v.Requirements.Clear();
         AddRequirements(v, RequirementType.Skill, form.EssentialSkills, form.DesirableSkills);
         AddRequirements(v, RequirementType.Certification, form.EssentialCertifications, form.DesirableCertifications);
+
+        // Phase 15: knockout questions, replaced as a set. Applications keep their own copy of what was asked.
+        v.KnockoutQuestions.Clear();
+        foreach (var q in SplitLines(form.KnockoutQuestions))
+            v.KnockoutQuestions.Add(new VacancyKnockoutQuestion { Text = q });
     }
 
     private static void AddRequirements(Vacancy v, RequirementType type, string? essential, string? desirable)

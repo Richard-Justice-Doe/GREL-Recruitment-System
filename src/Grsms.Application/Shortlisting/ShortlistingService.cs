@@ -12,7 +12,7 @@ namespace Grsms.Application.Shortlisting;
 /// <summary>
 /// CV screening and shortlisting (Module 6).
 ///
-///   1. Screening   : every application is scored against its vacancy when it is submitted (see <see cref="CvScreening"/>);
+///   1. Screening   : every application is scored by the ATS when it is submitted (Phase 15, see <see cref="AtsService"/>);
 ///                    reviewers can re-run it for a whole vacancy.
 ///   2. Recommend   : a Recruitment Officer or HR Manager recommends "shortlist" or "do not shortlist" (with a note),
 ///                    then sends the recommendations to the department's Head of Department.
@@ -32,7 +32,8 @@ public class ShortlistingService(
     ICurrentUserService me,
     AccessScope scope,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    AtsService ats)
 {
     private const string ConflictMessage = "Someone else updated this application at the same moment. Please reload the page and try again.";
 
@@ -59,7 +60,7 @@ public class ShortlistingService(
             {
                 var own = a.ApplicantUserId == me.UserId;
                 return new ShortlistRowDto(a.Id, a.ApplicationNumber, a.FullName, a.IsInternal, a.Status, a.ScreeningScore, a.MeetsMinimum,
-                    a.ReadScreening()?.MissingEssential ?? [], a.HighestEducation, a.YearsExperience,
+                    a.ReadScreening()?.AllMissingRequired ?? [], a.HighestEducation, a.YearsExperience,
                     a.RecruiterRecommendation, a.RecruiterNote, a.HodRecommendation, a.HodNote, own,
                     CanRecommend: IsReviewer && !own && ApplicationWorkflow.CanRecommend(a.Status),
                     CanHodReview: isHod && !own && ApplicationWorkflow.CanHodReview(a),
@@ -93,23 +94,8 @@ public class ShortlistingService(
 
     // ===================================================================== Screening
 
-    /// <summary>Scores one application against its vacancy (used when it is submitted). Does not save.</summary>
-    public static void Screen(JobApplication a, Vacancy v, DateTime now) => a.ApplyScreening(CvScreening.Score(v, a), now);
-
-    /// <summary>Re-runs screening for every active application of a vacancy. Returns how many were scored.</summary>
-    public async Task<Result<int>> ScreenVacancyAsync(int vacancyId, CancellationToken ct = default)
-    {
-        if (!IsReviewer) return Result.Failure<int>("Only a Recruitment Officer or HR Manager can run screening.");
-        var v = await vacancies.GetWithDetailsAsync(vacancyId, ct);
-        if (v is null) return Result.Failure<int>("Vacancy not found.");
-
-        var apps = await applications.ListAsync(a => a.VacancyId == vacancyId &&
-            (a.Status == ApplicationStatus.Submitted || a.Status == ApplicationStatus.UnderReview), ct);
-        var now = DateTime.UtcNow;
-        foreach (var a in apps) Screen(a, v, now);
-        await unitOfWork.SaveChangesAsync(ct);
-        return Result.Success(apps.Count);
-    }
+    /// <summary>Re-runs the ATS (Phase 15) for the vacancy's applications still at the screening stage. Returns how many were scored.</summary>
+    public Task<Result<int>> ScreenVacancyAsync(int vacancyId, CancellationToken ct = default) => ats.RescreenVacancyAsync(vacancyId, ct);
 
     // ===================================================================== Steps
 

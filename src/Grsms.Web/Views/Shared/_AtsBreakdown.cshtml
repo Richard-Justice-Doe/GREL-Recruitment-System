@@ -1,0 +1,55 @@
+@* Phase 15: an ATS score breakdown: the overall match as a headline, then the four sub-scores as one-colour bars
+   (0-100 %) with their weights and value labels, then what was found and missing. Model: AtsResult. *@
+@model Grsms.Domain.Applications.AtsResult
+@{
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var parts = new (string Label, int Score, int Weight, string Detail)[]
+    {
+        ("Education", Model.Education, Model.EducationWeight,
+            $"{Model.EducationFound.DisplayName()} (needs {Model.MinimumEducation.DisplayName()}){(Model.FieldOfStudyMatched == false ? "; field of study not found" : "")}"),
+        ("Experience", Model.Experience, Model.ExperienceWeight,
+            $"{Model.YearsFound} year(s) (needs {Model.MinYearsExperience}){(Model.CvYears is int cy ? $"; CV dates suggest {cy}" : "")}"),
+        ("Skills", Model.Skills, Model.SkillsWeight,
+            $"{Model.MatchedRequiredSkills.Count}/{Model.MatchedRequiredSkills.Count + Model.MissingRequiredSkills.Count} required, {Model.MatchedPreferredSkills.Count}/{Model.MatchedPreferredSkills.Count + Model.MissingPreferredSkills.Count} preferred"),
+        ("Certifications", Model.Certifications, Model.CertificationWeight,
+            $"{Model.MatchedRequiredCertifications.Count}/{Model.MatchedRequiredCertifications.Count + Model.MissingRequiredCertifications.Count} required, {Model.MatchedPreferredCertifications.Count}/{Model.MatchedPreferredCertifications.Count + Model.MissingPreferredCertifications.Count} preferred"),
+    };
+}
+<div class="d-flex align-items-baseline flex-wrap gap-2 mb-3">
+    <span class="fs-2 fw-semibold">@Model.Overall%</span>
+    <span class="text-body-secondary small">overall match</span>
+    <partial name="_AtsClassification" model="(AtsClassification?)Model.Classification" />
+    @if (Model.MeetsMinimum)
+    {
+        <span class="badge rounded-pill badge-soft-success"><i class="fa-solid fa-circle-check me-1"></i>Meets every requirement</span>
+    }
+</div>
+<div class="report-bars mb-3" role="table" aria-label="ATS score breakdown">
+    @foreach (var p in parts)
+    {
+        <div class="report-bar-row" role="row" title="@p.Label: @p.Score% (weight @p.Weight%) - @p.Detail">
+            <span class="report-bar-label" role="rowheader">@p.Label <small class="text-body-secondary">×@p.Weight%</small></span>
+            <span class="report-bar-track" aria-hidden="true"><span class="report-bar" style="width: @p.Score.ToString(inv)%"></span></span>
+            <span class="report-bar-value" role="cell">@p.Score%</span>
+        </div>
+        <div class="small text-body-secondary ats-bar-detail">@p.Detail</div>
+    }
+</div>
+@if (Model.FailedKnockouts.Count > 0)
+{
+    <div class="small mb-1"><i class="fa-solid fa-circle-xmark text-danger me-1"></i><strong>Answered No:</strong> @string.Join("; ", Model.FailedKnockouts)</div>
+}
+@if (Model.AllMissingRequired.Count > 0)
+{
+    <div class="small mb-1"><i class="fa-solid fa-triangle-exclamation text-warning me-1"></i><strong>Required, not found:</strong> @string.Join(", ", Model.AllMissingRequired)</div>
+}
+@{ var preferredMissing = Model.MissingPreferredSkills.Concat(Model.MissingPreferredCertifications).ToList(); }
+@if (preferredMissing.Count > 0)
+{
+    <div class="small text-body-secondary mb-1"><strong>Preferred, not found:</strong> @string.Join(", ", preferredMissing)</div>
+}
+@{ var found = Model.MatchedRequiredSkills.Concat(Model.MatchedRequiredCertifications).Concat(Model.MatchedPreferredSkills).Concat(Model.MatchedPreferredCertifications).ToList(); }
+@if (found.Count > 0)
+{
+    <div class="small text-body-secondary"><strong>Found:</strong> @string.Join(", ", found)</div>
+}

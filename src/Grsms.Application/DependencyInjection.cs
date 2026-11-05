@@ -47,6 +47,9 @@ public static class DependencyInjection
         // Phase 6: CV screening and shortlisting
         services.AddScoped<Shortlisting.ShortlistingService>();
 
+        // Phase 15: the ATS screening engine (CV reading, scores, automatic rejection held for HR)
+        services.AddScoped<Applications.AtsService>();
+
         // Phase 7: interviews, assessments and scorecards
         services.AddScoped<Interviews.InterviewService>();
 

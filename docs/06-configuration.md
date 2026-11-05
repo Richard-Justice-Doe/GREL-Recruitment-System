@@ -97,6 +97,15 @@ They run in the same hourly job, so they also stop when `Vacancies:AutoClose` is
 
 > **Before switching SMS on:** the Hubtel connection was written from Hubtel's published "quick send" format but has **not been tested against a real Hubtel account**. Check `Sms:ApiUrl` and the parameters against Hubtel's current documentation, then send one test message (e.g. schedule an interview for a test applicant with your own phone number). Messages cost money per text.
 
+### ATS CV screening (Phase 15)
+The ATS weights, bands and rejection rules are **not** settings here: the Super Admin sets them on **ATS settings**, and they are stored in the database. Only the optional Claude AI CV reader is configured here.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `Ats:Ai:ApiKey` | *(empty)* | Anthropic API key for the optional Claude CV reader. Empty = not available (GRSMS's own reader is always used). **Secret: user-secrets or environment variable (`Ats__Ai__ApiKey`), never appsettings.json.** Setting it does not switch the reader on; the Super Admin does that on ATS settings, and only after GREL has approved sending CV text to Anthropic. |
+| `Ats:Ai:Model` | `claude-opus-5-5` | The Claude model used |
+| `Ats:Ai:TimeoutSeconds` | `60` | How long to wait for one CV before falling back to GRSMS's own reader |
+
 ### Links in emails
 | Setting | Default | Meaning |
 |---|---|---|

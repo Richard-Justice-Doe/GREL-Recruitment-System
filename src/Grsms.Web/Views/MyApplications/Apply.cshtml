@@ -63,6 +63,27 @@
                     </select>
                     <span asp-validation-for="Source" class="text-danger small"></span>
                 </div>
+                @if (Model.Questions.Count > 0)
+                {
+                    @* Phase 15: the vacancy's knockout questions *@
+                    <fieldset class="mb-3">
+                        <legend class="form-label fs-6">Questions about the requirements</legend>
+                        @foreach (var (id, text) in Model.Questions)
+                        {
+                            var answer = Model.Answers.GetValueOrDefault(id);
+                            <div class="mb-2">
+                                <div class="small mb-1">@text</div>
+                                <div class="btn-group btn-group-sm" role="radiogroup" aria-label="@text">
+                                    <input type="radio" class="btn-check" name="Answers[@id]" id="q-@id-yes" value="true" checked="@(answer == true)" required />
+                                    <label class="btn btn-outline-primary" for="q-@id-yes">Yes</label>
+                                    <input type="radio" class="btn-check" name="Answers[@id]" id="q-@id-no" value="false" checked="@(answer == false)" />
+                                    <label class="btn btn-outline-primary" for="q-@id-no">No</label>
+                                </div>
+                            </div>
+                        }
+                        <div class="form-text">Answer honestly: your answers are checked against your documents.</div>
+                    </fieldset>
+                }
                 <div class="mb-3">
                     <label asp-for="CoverLetter" class="form-label"></label>
                     <textarea asp-for="CoverLetter" class="form-control" rows="7" maxlength="4000"

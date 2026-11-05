@@ -93,6 +93,12 @@ public class ApplyFormDto
     public string? VacancyNumber { get; set; }
     public DateOnly ClosingDate { get; set; }
     public ProfileFormDto? Profile { get; set; }
+
+    /// <summary>Phase 15: the vacancy's knockout questions (id, text), shown with Yes / No buttons.</summary>
+    public IReadOnlyList<(int Id, string Text)> Questions { get; set; } = [];
+
+    /// <summary>Phase 15: the answers, by question id (true = Yes). Every question must be answered.</summary>
+    public Dictionary<int, bool?> Answers { get; set; } = [];
 }
 
 // ===================================================================== The applicant's own view
@@ -211,8 +217,16 @@ public record ApplicationDetailsDto
     public IReadOnlyList<AttachmentDto> Documents { get; init; } = [];
     public IReadOnlyList<ApplicationHistoryDto> History { get; init; } = [];
 
-    // Phase 6: screening and shortlisting
-    public ScreeningResult? Screening { get; init; }
+    // Phase 6: shortlisting; Phase 15: the ATS result, what was read from the CV, knockout answers and the HR decision
+    public AtsResult? Screening { get; init; }
+    public ParsedCv? Cv { get; init; }
+    public IReadOnlyList<KnockoutAnswerInput> KnockoutAnswers { get; init; } = [];
+    public AtsDecision AtsDecision { get; init; }
+    public string? AtsRejectionReason { get; init; }
+    public string? AtsDecisionNote { get; init; }
+    public string? AtsDecisionByName { get; init; }
+    public DateTime? AtsDecisionAt { get; init; }
+    public bool CanDecideAts { get; init; }
     public ShortlistRecommendation RecruiterRecommendation { get; init; }
     public string? RecruiterNote { get; init; }
     public ShortlistRecommendation HodRecommendation { get; init; }
@@ -226,7 +240,7 @@ public record ApplicationDetailsDto
 }
 
 /// <summary>Counts per tab on the Applications list.</summary>
-public record ApplicationCounts(int New, int UnderReview, int Total);
+public record ApplicationCounts(int New, int UnderReview, int Total, int AutoRejected = 0);
 
 /// <summary>Data access for applications beyond the generic repository.</summary>
 public interface IApplicationRepository : IRepository<JobApplication>

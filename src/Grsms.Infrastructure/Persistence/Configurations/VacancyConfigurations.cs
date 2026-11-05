@@ -52,12 +52,24 @@ internal class VacancyConfiguration : IEntityTypeConfiguration<Vacancy>
 
         // Requirement rows belong to the vacancy and are replaced on every edit (CASCADE removes orphans).
         b.HasMany(v => v.Requirements).WithOne().HasForeignKey(r => r.VacancyId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(v => v.KnockoutQuestions).WithOne().HasForeignKey(q => q.VacancyId).OnDelete(DeleteBehavior.Cascade); // Phase 15
         b.HasMany(v => v.Actions).WithOne().HasForeignKey(a => a.VacancyId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(v => v.Status);
         b.HasIndex(v => new { v.DepartmentId, v.Status });
         b.HasIndex(v => new { v.DivisionId, v.Status }); // reports by division
         b.HasIndex(v => new { v.Status, v.ClosingDate }); // the automatic-closing query
+    }
+}
+
+/// <summary>Phase 15: table "VacancyKnockoutQuestions".</summary>
+internal class VacancyKnockoutQuestionConfiguration : IEntityTypeConfiguration<VacancyKnockoutQuestion>
+{
+    public void Configure(EntityTypeBuilder<VacancyKnockoutQuestion> b)
+    {
+        b.ToTable("VacancyKnockoutQuestions");
+        b.HasKey(q => q.Id);
+        b.Property(q => q.Text).HasMaxLength(300).IsRequired();
     }
 }
 

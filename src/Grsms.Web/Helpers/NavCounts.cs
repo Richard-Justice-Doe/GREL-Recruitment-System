@@ -18,7 +18,8 @@ public class NavCounts(
     Application.Interviews.InterviewService interviews,
     Application.Onboarding.OnboardingService onboarding,
     Application.Notifications.INotificationCenter notifications,
-    Application.Common.Interfaces.ICurrentUserService me)
+    Application.Common.Interfaces.ICurrentUserService me,
+    Application.Applications.AtsService ats)
 {
     private Task<Counts>? counts;
 
@@ -27,12 +28,12 @@ public class NavCounts(
     private async Task<Counts> LoadAsync()
     {
         var user = http.HttpContext?.User;
-        if (user?.Identity?.IsAuthenticated != true || me.UserId is null) return new Counts(null, null, null, null, null, 0);
+        if (user?.Identity?.IsAuthenticated != true || me.UserId is null) return new Counts(null, null, null, null, null, 0, null);
 
         var ct = http.HttpContext!.RequestAborted;
         // Phase 10: the bell shows unread notifications, for everyone (candidates too).
         var unread = await notifications.CountUnreadAsync(me.UserId, ct);
-        if (user.IsInRole(Roles.Candidate)) return new Counts(null, null, null, null, null, unread);
+        if (user.IsInRole(Roles.Candidate)) return new Counts(null, null, null, null, null, unread, null);
 
         int? awaitingMe = null, open = null, toApprove = null;
 
@@ -49,7 +50,9 @@ public class NavCounts(
         var scorecards = await interviews.CountMyPendingScorecardsAsync(ct);
         // Phase 9: onboarding checklist items can be given to any staff member (e.g. IT).
         var onboardingTasks = await onboarding.CountMyTasksAsync(ct);
-        return new Counts(awaitingMe, open, toApprove, scorecards, onboardingTasks, unread);
+        // Phase 15: ATS rejections waiting for a reviewer to confirm or override.
+        int? atsAwaiting = (await auth.AuthorizeAsync(user, Policies.Applications)).Succeeded ? await ats.AwaitingHrCountAsync(ct) : null;
+        return new Counts(awaitingMe, open, toApprove, scorecards, onboardingTasks, unread, atsAwaiting);
     }
 
     /// <param name="RequestsAwaitingMe">Requests waiting for my decision (null: cannot see requests).</param>
@@ -58,6 +61,7 @@ public class NavCounts(
     /// <param name="ScorecardsToDo">Interviews that have started and still need my scorecard.</param>
     /// <param name="OnboardingTasksToDo">Open onboarding checklist items assigned to me.</param>
     /// <param name="UnreadNotifications">Unread notifications (the bell).</param>
+    /// <param name="AtsAwaitingHr">Phase 15: held ATS rejections I could decide (null: cannot see applications).</param>
     public record Counts(int? RequestsAwaitingMe, int? OpenVacancies, int? VacanciesToApprove, int? ScorecardsToDo, int? OnboardingTasksToDo,
-        int UnreadNotifications);
+        int UnreadNotifications, int? AtsAwaitingHr);
 }

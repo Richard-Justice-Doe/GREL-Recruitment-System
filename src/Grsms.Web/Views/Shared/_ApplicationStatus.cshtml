@@ -6,7 +6,7 @@
         ApplicationStatus.Submitted => "badge-soft-primary",
         ApplicationStatus.UnderReview => "badge-soft-warning",
         ApplicationStatus.Shortlisted or ApplicationStatus.Interview or ApplicationStatus.Offer or ApplicationStatus.Hired => "badge-soft-success",
-        ApplicationStatus.NotSuccessful => "badge-soft-danger",
+        ApplicationStatus.NotSuccessful or ApplicationStatus.AutoRejected => "badge-soft-danger", // Phase 15: held ATS rejection
         _ => "badge-soft-secondary"
     };
 }

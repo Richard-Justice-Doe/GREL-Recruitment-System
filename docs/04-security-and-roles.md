@@ -20,6 +20,7 @@ GRSMS uses **role-based access control with permissions**:
 | See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | | | |
 | Manage roles and permissions | 🔒 only | | | | | | | |
 | Create privileged accounts | 🔒 only | | | | | | | |
+| Configure the ATS (weights, bands, auto-rejection rules, AI reader; Phase 15) | 🔒 only | | | | | | | |
 
 🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission.
 
@@ -71,6 +72,8 @@ The **Super Admin** can open every screen below and sees every department. For t
 | Start review, mark not successful | | ✅ not their own | | ✅ not their own | | | | |
 | Shortlisting board and scores | all | all | all | all | own departments | | | |
 | Re-run screening, recommend, ask the HOD | | ✅ not their own | | ✅ not their own | | | | |
+| ATS overview and dashboards (Phase 15) | all | all | all | all | own departments | | | |
+| Confirm or override an ATS rejection (held for HR) | | ✅ not their own | | ✅ not their own | | | | |
 | Agree / disagree with a shortlist recommendation | | | | | ✅ own departments | | | |
 | Shortlist (HOD agreed) | | ✅ | | ✅ | | | | |
 | Shortlist without the HOD's agreement (with reason) | | ✅ | | | | | | |
@@ -202,6 +205,10 @@ Recorded automatically, with no developer action needed:
 * the user and IP address for each of these.
 
 Passwords, password hashes and security stamps are never written to the trail.
+
+**ATS decisions (Phase 15)** are in the trail like any other change. The score, band and rejection are stored on the application, and its history names *ATS (automatic screening)* as the actor; the trail row shows the applicant's own request, during which the screening ran. HR's confirm or override is recorded with the reviewer's name and note, and every ATS settings change is an `AtsSettings` row. The **full text of a CV is not copied into the trail**: it is already in the CV file, and copying it would spread personal data further. The trail records what the ATS read from it (`CvParsed`) and what it decided.
+
+**Data protection (Phase 15).** Automatic rejections never reach the applicant without a person's decision, so no one is turned down by a machine alone. CV text stays on GREL's server unless the Super Admin switches on the optional Claude AI reader, which sends CV text to Anthropic and should be switched on only after GREL has approved that.
 
 ## Turning on "Sign in with Microsoft 365"
 

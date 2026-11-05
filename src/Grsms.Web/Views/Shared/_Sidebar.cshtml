@@ -19,6 +19,7 @@
     var canSurveyResults = (await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded;
     var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
     var canRoles = (await Auth.AuthorizeAsync(User, Policies.RolesAndPermissions)).Succeeded; // Phase 14: Super Admin
+    var canAtsSettings = (await Auth.AuthorizeAsync(User, Policies.AtsConfiguration)).Succeeded; // Phase 15: Super Admin
     var isCandidate = User.IsInRole(Roles.Candidate);
     var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
     var counts = await Nav.GetAsync();
@@ -68,6 +69,14 @@
         {
             <a class="nav-link @Active("Applications")" asp-controller="Applications" asp-action="Index">
                 <i class="fa-solid fa-inbox"></i> Applications
+            </a>
+            @* Phase 15 *@
+            <a class="nav-link @Active("Ats")" asp-controller="Ats" asp-action="Index">
+                <i class="fa-solid fa-filter"></i> ATS screening
+                @if (counts.AtsAwaitingHr is > 0)
+                {
+                    <span class="nav-count attention" title="ATS rejections waiting for HR">@counts.AtsAwaitingHr</span>
+                }
             </a>
             <a class="nav-link @Active("Hiring")" asp-controller="Hiring" asp-action="Index">
                 <i class="fa-solid fa-user-tie"></i> Hiring and offers
@@ -140,7 +149,7 @@
             </a>
         }
 
-        @if (canUsers || canAudit || canRoles)
+        @if (canUsers || canAudit || canRoles || canAtsSettings)
         {
             <div class="nav-section">Management</div>
             @if (canUsers)
@@ -153,6 +162,12 @@
             {
                 <a class="nav-link @Active("Roles")" asp-controller="Roles" asp-action="Index">
                     <i class="fa-solid fa-user-shield"></i> Roles &amp; permissions
+                </a>
+            }
+            @if (canAtsSettings)
+            {
+                <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Settings" ? "active" : "")" asp-controller="Ats" asp-action="Settings">
+                    <i class="fa-solid fa-sliders"></i> ATS settings
                 </a>
             }
             @if (canAudit)

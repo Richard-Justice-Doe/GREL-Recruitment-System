@@ -60,6 +60,12 @@ public class Vacancy : BaseEntity
     /// <summary>Skills and certifications, each marked essential or desirable.</summary>
     public ICollection<VacancyRequirement> Requirements { get; set; } = new List<VacancyRequirement>();
 
+    /// <summary>
+    /// Phase 15: mandatory knockout questions, e.g. "Do you have a valid driver's licence?". Applicants must answer each
+    /// "Yes"; a "No" makes the ATS reject the application (held for HR to confirm). Replaced as a set on every edit.
+    /// </summary>
+    public ICollection<VacancyKnockoutQuestion> KnockoutQuestions { get; set; } = new List<VacancyKnockoutQuestion>();
+
     // ---------------------------------------------------------------- Salary and dates
 
     /// <summary>Monthly salary range in GHS. Both optional, but if both are set, min ≤ max.</summary>
@@ -120,6 +126,16 @@ public class VacancyRequirement
 
     /// <summary>True = must have; false = nice to have.</summary>
     public bool IsEssential { get; set; }
+}
+
+/// <summary>Phase 15: one knockout question of a vacancy (the passing answer is always "Yes").</summary>
+public class VacancyKnockoutQuestion
+{
+    public int Id { get; set; }
+    public int VacancyId { get; set; }
+
+    /// <summary>The question as applicants see it, e.g. "Are you willing to relocate to Apemanim?".</summary>
+    public string Text { get; set; } = string.Empty;
 }
 
 /// <summary>One line of a vacancy's history. Never edited.</summary>

@@ -13,6 +13,7 @@ public class VacancyRepository(ApplicationDbContext context) : Repository<Vacanc
     public Task<Vacancy?> GetWithDetailsAsync(int id, CancellationToken ct = default) =>
         Db.Vacancies
             .Include(v => v.Requirements)
+            .Include(v => v.KnockoutQuestions) // Phase 15
             .Include(v => v.Actions)
             .AsSplitQuery() // two small queries instead of one wide join of requirements × history
             .FirstOrDefaultAsync(v => v.Id == id, ct);

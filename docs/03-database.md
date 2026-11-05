@@ -390,6 +390,29 @@ Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `
 ### SurveyAnswers
 `SurveyInvitationId` (FK), `QuestionKey` VARCHAR(30) (**unique per invitation**), `Rating` 1-5 (null = not applicable), `Text` TEXT, plus the standard columns. **Not copied into AuditLogs** (confidential).
 
+## Phase 15 tables and columns (ATS)
+
+### New columns on JobApplications
+| Column | Meaning |
+|---|---|
+| `AtsClassification` | The band of the overall match (`HighlyRecommended`, `Recommended`, `ReviewRequired`, `LowMatch`, `AutoReject`) |
+| `CvText` (MEDIUMTEXT) | The CV's plain text (up to 100,000 characters), used to match requirements. **Not copied into the audit trail.** |
+| `CvParsed` (MEDIUMTEXT) | What the ATS read from the CV, as JSON (name, email, phone, education, jobs with dates, skills, certifications, warnings, which reader) |
+| `AtsDecision` | `None`, `AutoRejected` (held for HR), `Confirmed`, `Overridden` or `Cleared` |
+| `AtsRejectionReason` (TEXT) | Why the ATS rejected it, one reason per line |
+| `AtsDecisionByUserId`, `AtsDecisionAt`, `AtsDecisionNote` | Who confirmed or overrode it, when, and their note or reason |
+
+The Phase 6 columns stay: `ScreeningScore` is now the overall match %, `MeetsMinimum` means every requirement and knockout question passed, and `ScreeningDetails` holds the ATS breakdown as JSON (`"Version":2`; older Phase 6 breakdowns are ignored until screening is re-run). The value `AutoRejected` was added to `Status`.
+
+### VacancyKnockoutQuestions
+A vacancy's mandatory questions (`VacancyId`, `Text` up to 300 characters). Replaced as a set when the vacancy is edited; deleted with it.
+
+### JobApplicationKnockoutAnswers
+The applicant's answers (`JobApplicationId`, `Question` = the wording as asked, `Answer` 1 = Yes). Never edited.
+
+### AtsSettings
+One row: the four weights, the four band limits, the six automatic-rejection switches and `UseAiReader`. It is created the first time the Super Admin saves **ATS settings**; until then the defaults in code apply (25 % each; bands 90 / 80 / 70 / 50; every rule on except "required skill"; AI reader off).
+
 ## Relationship diagram (Phases 1-8)
 
 ```
@@ -433,6 +456,7 @@ Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `
 | `12_phase09_onboarding.sql` | 9 | Onboardings, OnboardingTasks |
 | `13_phase10_notifications_surveys.sql` | 10 | Notifications, SentReminders, SurveyInvitations, SurveyAnswers |
 | `14_phase14_super_admin_permissions.sql` | 14 | KnownPermissions; the Super Admin role; RoleClaims text columns shortened (the table was empty) and a unique index. The default permissions and the first Super Admin are added by GRSMS at start-up, not by the script. |
+| `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:
 * runs **once**, in number order, against an empty database (or one that already has the earlier scripts applied);

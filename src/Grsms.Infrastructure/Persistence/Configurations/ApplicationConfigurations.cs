@@ -82,6 +82,18 @@ internal class JobApplicationConfiguration : IEntityTypeConfiguration<JobApplica
         b.HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.HodRecommendedByUserId).OnDelete(DeleteBehavior.Restrict);
         b.Property(a => a.Version).IsConcurrencyToken();
 
+        // Phase 15: ATS. The CV text and what was read from it can be long, so they are MEDIUMTEXT (up to 16 MB).
+        b.Property(a => a.AtsClassification).HasConversion<string>().HasMaxLength(30);
+        b.Property(a => a.CvParsed).HasColumnType("mediumtext");
+        b.Property(a => a.CvText).HasColumnType("mediumtext");
+        b.Property(a => a.AtsDecision).HasConversion<string>().HasMaxLength(20);
+        b.Property(a => a.AtsRejectionReason).HasColumnType("text");
+        b.Property(a => a.AtsDecisionByUserId).HasMaxLength(255);
+        b.Property(a => a.AtsDecisionNote).HasColumnType("text");
+        b.HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.AtsDecisionByUserId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(a => a.KnockoutAnswers).WithOne().HasForeignKey(k => k.JobApplicationId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(a => new { a.VacancyId, a.AtsDecision });   // "awaiting HR" lists
+
         b.HasOne<Vacancy>().WithMany().HasForeignKey(a => a.VacancyId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<JobAdvert>().WithMany().HasForeignKey(a => a.JobAdvertId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<Division>().WithMany().HasForeignKey(a => a.DivisionId).OnDelete(DeleteBehavior.Restrict);
@@ -97,6 +109,27 @@ internal class JobApplicationConfiguration : IEntityTypeConfiguration<JobApplica
         b.HasIndex(a => a.ApplicantUserId);                 // "My applications"
         b.HasIndex(a => a.SubmittedAt);                     // reports by period
         b.HasIndex(a => new { a.VacancyId, a.ScreeningScore });   // the ranked shortlisting board
+    }
+}
+
+/// <summary>Phase 15: table "JobApplicationKnockoutAnswers".</summary>
+internal class KnockoutAnswerConfiguration : IEntityTypeConfiguration<KnockoutAnswer>
+{
+    public void Configure(EntityTypeBuilder<KnockoutAnswer> b)
+    {
+        b.ToTable("JobApplicationKnockoutAnswers");
+        b.HasKey(k => k.Id);
+        b.Property(k => k.Question).HasMaxLength(300).IsRequired();
+    }
+}
+
+/// <summary>Phase 15: table "AtsSettings" (one row).</summary>
+internal class AtsSettingsConfiguration : IEntityTypeConfiguration<AtsSettings>
+{
+    public void Configure(EntityTypeBuilder<AtsSettings> b)
+    {
+        b.ToTable("AtsSettings");
+        b.ConfigureBase();
     }
 }
 

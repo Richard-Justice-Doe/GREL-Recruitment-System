@@ -331,6 +331,88 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("JobApplicationActions", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Applications.AtsSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("CertificationWeight")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("EducationWeight")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ExperienceWeight")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HighlyRecommendedFrom")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("LowMatchFrom")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RecommendedFrom")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RejectBelowLowMatch")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("RejectBelowMinimumEducation")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("RejectBelowMinimumExperience")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("RejectMissingRequiredCertification")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("RejectMissingRequiredSkill")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("RejectOnKnockout")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("ReviewRequiredFrom")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SkillsWeight")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("UseAiReader")
+                        .HasColumnType("tinyint(1)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.ToTable("AtsSettings", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Applications.CandidateProfile", b =>
                 {
                     b.Property<int>("Id")
@@ -436,6 +518,28 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("varchar(40)");
 
+                    b.Property<string>("AtsClassification")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("AtsDecision")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("AtsDecisionAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AtsDecisionByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("AtsDecisionNote")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AtsRejectionReason")
+                        .HasColumnType("text");
+
                     b.Property<string>("Certifications")
                         .HasColumnType("text");
 
@@ -456,6 +560,12 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<string>("CurrentPosition")
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
+
+                    b.Property<string>("CvParsed")
+                        .HasColumnType("mediumtext");
+
+                    b.Property<string>("CvText")
+                        .HasColumnType("mediumtext");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
@@ -607,6 +717,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasIndex("ApplicationNumber")
                         .IsUnique();
 
+                    b.HasIndex("AtsDecisionByUserId");
+
                     b.HasIndex("HodRecommendedByUserId");
 
                     b.HasIndex("IsDeleted");
@@ -626,11 +738,37 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasIndex("VacancyId", "ApplicantUserId")
                         .IsUnique();
 
+                    b.HasIndex("VacancyId", "AtsDecision");
+
                     b.HasIndex("VacancyId", "ScreeningScore");
 
                     b.HasIndex("VacancyId", "Status");
 
                     b.ToTable("JobApplications", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.KnockoutAnswer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Answer")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("JobApplicationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobApplicationId");
+
+                    b.ToTable("JobApplicationKnockoutAnswers", (string)null);
                 });
 
             modelBuilder.Entity("Grsms.Domain.Auditing.AuditLog", b =>
@@ -3118,6 +3256,27 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("VacancyActions", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyKnockoutQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VacancyId");
+
+                    b.ToTable("VacancyKnockoutQuestions", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyRequirement", b =>
                 {
                     b.Property<int>("Id")
@@ -3558,6 +3717,11 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AtsDecisionByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Grsms.Domain.Organization.Department", null)
                         .WithMany()
                         .HasForeignKey("DepartmentId")
@@ -3594,6 +3758,15 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
                         .WithMany()
                         .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.KnockoutAnswer", b =>
+                {
+                    b.HasOne("Grsms.Domain.Applications.JobApplication", null)
+                        .WithMany("KnockoutAnswers")
+                        .HasForeignKey("JobApplicationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -4102,6 +4275,15 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyKnockoutQuestion", b =>
+                {
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany("KnockoutQuestions")
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyRequirement", b =>
                 {
                     b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
@@ -4185,6 +4367,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Grsms.Domain.Applications.JobApplication", b =>
                 {
                     b.Navigation("Actions");
+
+                    b.Navigation("KnockoutAnswers");
                 });
 
             modelBuilder.Entity("Grsms.Domain.Interviews.Interview", b =>
@@ -4219,6 +4403,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Grsms.Domain.Vacancies.Vacancy", b =>
                 {
                     b.Navigation("Actions");
+
+                    b.Navigation("KnockoutQuestions");
 
                     b.Navigation("Requirements");
                 });

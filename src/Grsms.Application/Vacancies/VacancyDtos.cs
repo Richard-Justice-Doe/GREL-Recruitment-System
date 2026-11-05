@@ -84,6 +84,10 @@ public class VacancyFormDto
     [Display(Name = "Desirable certifications (one per line)")]
     public string? DesirableCertifications { get; set; }
 
+    /// <summary>Phase 15: mandatory knockout questions, one per line. Applicants must answer "Yes" to each.</summary>
+    [Display(Name = "Knockout questions (one per line; applicants must answer Yes)")]
+    public string? KnockoutQuestions { get; set; }
+
     // ---- salary and dates
     [Range(typeof(decimal), "0", "10000000")]
     [Display(Name = "Monthly salary from (GHS)")]
@@ -179,6 +183,7 @@ public record VacancyDetailsDto
     public int MinYearsExperience { get; init; }
     public string? ExperienceNotes { get; init; }
     public IReadOnlyList<VacancyRequirementDto> Requirements { get; init; } = [];
+    public IReadOnlyList<string> KnockoutQuestions { get; init; } = []; // Phase 15
 
     public decimal? SalaryMin { get; init; }
     public decimal? SalaryMax { get; init; }

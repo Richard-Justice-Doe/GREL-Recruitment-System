@@ -1,0 +1,258 @@
+@* Phase 15: a vacancy's ATS recruiter dashboard.
+     1. Counts per band (stat tiles)          2. Top ranked candidates
+     3. Rejections waiting for HR (confirm one, confirm all, or override with a reason)
+     4. Ranking table with each candidate's score breakdown   5. Missing skill analysis
+   Scores are magnitudes, so they use one colour; bands are always shown as words with an icon. *@
+@model AtsBoardDto
+@{
+    ViewData["Title"] = $"ATS: {Model.JobTitle}";
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var s = Model.Settings;
+    var bands = new (AtsClassification Band, string Range)[]
+    {
+        (AtsClassification.HighlyRecommended, $"{s.HighlyRecommendedFrom}-100%"),
+        (AtsClassification.Recommended, $"{s.RecommendedFrom}-{s.HighlyRecommendedFrom - 1}%"),
+        (AtsClassification.ReviewRequired, $"{s.ReviewRequiredFrom}-{s.RecommendedFrom - 1}%"),
+        (AtsClassification.LowMatch, $"{s.LowMatchFrom}-{s.ReviewRequiredFrom - 1}%"),
+        (AtsClassification.AutoReject, $"below {s.LowMatchFrom}%"),
+    };
+    var top = Model.Rows.Where(r => r.Overall is not null && r.Status is not (ApplicationStatus.AutoRejected or ApplicationStatus.NotSuccessful)).Take(5).ToList();
+    var held = Model.Rows.Where(r => r.Status == ApplicationStatus.AutoRejected).ToList();
+    var rejectedOther = Model.Rows.Where(r => r.Status == ApplicationStatus.NotSuccessful && r.Decision == AtsDecision.Confirmed).ToList();
+}
+
+<div class="page-header">
+    <div>
+        <h1>ATS: @Model.JobTitle</h1>
+        <p><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> · @Model.DepartmentName · @Model.VacancyStatus.DisplayName()
+            · needs @Model.MinimumEducation.DisplayName(), @Model.MinYearsExperience+ years</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@Model.VacancyId" class="btn btn-outline-secondary">Shortlisting board</a>
+        @if (Model.IsReviewer)
+        {
+            <form asp-action="Rescreen" method="post">
+                <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+                <button type="submit" class="btn btn-outline-primary" data-confirm="Re-run the ATS for every application still at the screening stage, with the current settings?"><i class="fa-solid fa-rotate me-1"></i>Re-run screening</button>
+            </form>
+        }
+    </div>
+</div>
+
+@* ---- 1. Counts per band *@
+<div class="row g-2 mb-3">
+    @foreach (var (band, range) in bands)
+    {
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="ats-tile h-100">
+                <div class="ats-tile-value">@Model.ByBand.GetValueOrDefault(band)</div>
+                <div class="ats-tile-label"><partial name="_AtsClassification" model="(AtsClassification?)band" /> <span class="ms-1">@range</span></div>
+            </div>
+        </div>
+    }
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="ats-tile h-100 @(Model.AwaitingHr > 0 ? "border-danger" : "")">
+            <div class="ats-tile-value">@Model.AwaitingHr</div>
+            <div class="ats-tile-label"><i class="fa-solid fa-hourglass-half me-1"></i>Rejections awaiting HR@(Model.NotScreened > 0 ? $" · {Model.NotScreened} not screened" : "")</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-8">
+        @* ---- 2. Top ranked *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Top ranked candidates</h2>
+                @if (top.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0">No screened candidates in the running yet.</p>
+                }
+                else
+                {
+                    <ol class="list-unstyled mb-0">
+                        @foreach (var (r, i) in top.Select((r, i) => (r, i)))
+                        {
+                            <li class="d-flex align-items-center flex-wrap gap-2 py-2 @(i > 0 ? "border-top" : "")">
+                                <span class="fw-semibold text-body-secondary" style="width: 1.5rem">@(i + 1)</span>
+                                <a asp-controller="Applications" asp-action="Details" asp-route-id="@r.ApplicationId" class="fw-semibold me-auto">@r.FullName</a>
+                                @if (r.IsInternal) { <span class="badge rounded-pill badge-soft-primary">GREL staff</span> }
+                                <span class="fs-5 fw-semibold">@r.Overall%</span>
+                                <partial name="_AtsClassification" model="r.Classification" />
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </div>
+
+        @* ---- 3. Rejections waiting for HR *@
+        <div class="card glass mb-3 @(held.Count > 0 ? "border border-danger" : "")">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Rejected by the ATS: awaiting HR (@held.Count)</h2>
+                    @if (Model.IsReviewer && held.Any(r => r.CanDecide))
+                    {
+                        <form asp-action="ConfirmAll" method="post">
+                            <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                    data-confirm="Confirm all @held.Count(r => r.CanDecide) held rejection(s)? Each becomes Not successful and the applicants are emailed.">Confirm all</button>
+                        </form>
+                    }
+                </div>
+                <p class="small text-body-secondary">The applicants have not been told: they see "Under review". Open an application to read the CV before deciding.</p>
+                @if (held.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0">None.</p>
+                }
+                @foreach (var r in held)
+                {
+                    <div class="border-top py-2">
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            <a asp-controller="Applications" asp-action="Details" asp-route-id="@r.ApplicationId" class="fw-semibold me-auto">@r.FullName</a>
+                            <span class="small">@(r.Overall is int o ? $"{o}%" : "—")</span>
+                            <partial name="_AtsClassification" model="r.Classification" />
+                        </div>
+                        <div class="small" style="white-space: pre-line">@r.RejectionReason</div>
+                        @if (r.CanDecide)
+                        {
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <form asp-action="Confirm" asp-route-id="@r.ApplicationId" method="post">
+                                    <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            data-confirm="Confirm the ATS rejection of @r.FullName? The applicant will be emailed.">Confirm rejection</button>
+                                </form>
+                                <form asp-action="Override" asp-route-id="@r.ApplicationId" method="post" class="d-flex gap-2 flex-grow-1">
+                                    <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
+                                    <input type="text" name="reason" class="form-control form-control-sm" maxlength="2000" required minlength="5"
+                                           placeholder="Why should it be reviewed?" aria-label="Reason for overriding the ATS for @r.FullName" />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">Override</button>
+                                </form>
+                            </div>
+                        }
+                        else if (r.IsOwn)
+                        {
+                            <div class="small text-body-secondary mt-1">Your own application: another reviewer must decide.</div>
+                        }
+                    </div>
+                }
+                @if (rejectedOther.Count > 0)
+                {
+                    <p class="small text-body-secondary mt-2 mb-0">Plus @rejectedOther.Count ATS rejection(s) already confirmed by HR.</p>
+                }
+            </div>
+        </div>
+
+        @* ---- 4. Ranking table with score breakdown *@
+        <div class="card glass mb-3">
+            <div class="card-body">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3 px-2 pt-2">Candidate ranking and score breakdown</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle datatable" data-order='[]'>
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Applicant</th>
+                            <th class="text-end">Overall</th>
+                            <th>Band</th>
+                            <th class="text-end" title="Education (weight @s.EducationWeight%)">Edu.</th>
+                            <th class="text-end" title="Experience (weight @s.ExperienceWeight%)">Exp.</th>
+                            <th class="text-end" title="Skills (weight @s.SkillsWeight%)">Skills</th>
+                            <th class="text-end" title="Certifications (weight @s.CertificationWeight%)">Certs</th>
+                            <th>Missing required</th>
+                            <th>Status</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var (r, i) in Model.Rows.Select((r, i) => (r, i)))
+                        {
+                            <tr>
+                                <td class="text-body-secondary" data-order="@i">@(i + 1)</td>
+                                <td>
+                                    <a asp-controller="Applications" asp-action="Details" asp-route-id="@r.ApplicationId">@r.FullName</a>
+                                    <div class="small text-body-secondary">@r.ApplicationNumber · CV read by @r.CvReader</div>
+                                </td>
+                                <td class="text-end fw-semibold" data-order="@(r.Overall ?? -1)">@(r.Overall is int o ? $"{o}%" : "—")</td>
+                                <td><partial name="_AtsClassification" model="r.Classification" /></td>
+                                <td class="text-end">@(r.Education?.ToString() ?? "—")</td>
+                                <td class="text-end">@(r.Experience?.ToString() ?? "—")</td>
+                                <td class="text-end">@(r.Skills?.ToString() ?? "—")</td>
+                                <td class="text-end">@(r.Certifications?.ToString() ?? "—")</td>
+                                <td class="small">@(r.MissingRequired.Count + r.FailedKnockouts.Count == 0 ? "—" : string.Join(", ", r.MissingRequired.Concat(r.FailedKnockouts.Select(k => $"No to: {k}"))))</td>
+                                <td><partial name="_ApplicationStatus" model="r.Status" /></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small text-body-secondary px-2 mb-2 mt-2">Sub-scores are percentages. Overall = Education × @s.EducationWeight% + Experience × @s.ExperienceWeight% + Skills × @s.SkillsWeight% + Certifications × @s.CertificationWeight%. Open an application for its full breakdown.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        @* ---- 5. Missing skill analysis *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-2">Missing skill analysis</h2>
+                @if (Model.Coverage.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0">The vacancy lists no skills or certifications.</p>
+                }
+                else
+                {
+                    <div class="small mb-3">
+                        <span class="me-3"><span class="ats-legend-swatch ats-have"></span>Have it</span>
+                        <span><span class="ats-legend-swatch ats-missing"></span>Missing</span>
+                    </div>
+                    <div class="report-bars" role="table" aria-label="How many screened applicants have each requirement">
+                        @foreach (var c in Model.Coverage)
+                        {
+                            var total = Math.Max(1, c.Have + c.Missing);
+                            <div class="report-bar-row" role="row" title="@c.Name: @c.Have have it, @c.Missing missing">
+                                <span class="report-bar-label" role="rowheader">
+                                    @if (c.IsRequired) { <i class="fa-solid fa-star small me-1" title="Required"></i> }@c.Name
+                                </span>
+                                <span class="ats-stack" aria-hidden="true">
+                                    @if (c.Have > 0) { <span class="ats-have" style="width: @((c.Have * 100.0 / total).ToString("0.#", inv))%"></span> }
+                                    @if (c.Missing > 0) { <span class="ats-missing" style="width: @((c.Missing * 100.0 / total).ToString("0.#", inv))%"></span> }
+                                </span>
+                                <span class="report-bar-value" role="cell">@c.Have / @(c.Have + c.Missing)</span>
+                            </div>
+                        }
+                    </div>
+                    <p class="small text-body-secondary mt-2 mb-0"><i class="fa-solid fa-star me-1"></i>= required. A requirement counts as found when all its words appear in the profile or the CV.</p>
+                }
+            </div>
+        </div>
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-2">Knockout questions</h2>
+                @if (Model.KnockoutQuestions.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0">None. They can be added on the vacancy (while it is a draft).</p>
+                }
+                else
+                {
+                    <ol class="small mb-0">@foreach (var q in Model.KnockoutQuestions) { <li>@q</li> }</ol>
+                }
+            </div>
+        </div>
+
+        <div class="card glass">
+            <div class="card-body p-4 small">
+                <h2 class="h6 text-uppercase text-body-secondary mb-2">Automatic rejection rules in force</h2>
+                <ul class="mb-0">
+                    @if (s.RejectOnKnockout) { <li>A knockout question answered No</li> }
+                    @if (s.RejectBelowMinimumEducation) { <li>Education below the minimum</li> }
+                    @if (s.RejectBelowMinimumExperience) { <li>Experience below the minimum</li> }
+                    @if (s.RejectMissingRequiredCertification) { <li>A required certification not found</li> }
+                    @if (s.RejectMissingRequiredSkill) { <li>A required skill not found</li> }
+                    @if (s.RejectBelowLowMatch) { <li>Overall match below @s.LowMatchFrom%</li> }
+                </ul>
+                <p class="text-body-secondary mt-2 mb-0">Set by the Super Admin. Every rejection is held for HR.</p>
+            </div>
+        </div>
+    </div>
+</div>

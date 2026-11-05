@@ -41,6 +41,9 @@ public interface IAppLinks
     /// <summary>A vacancy's shortlisting board.</summary>
     string Shortlist(int vacancyId);
 
+    /// <summary>Phase 15: a vacancy's ATS screening dashboard.</summary>
+    string AtsVacancy(int vacancyId);
+
     /// <summary>An interview or assessment session.</summary>
     string Interview(int id);
 

@@ -206,15 +206,21 @@ public class AccountController(
 
     // ================================================================= Candidate registration
 
+    /// <summary>True unless the Super Admin closed self-registration on System settings.</summary>
+    private bool RegistrationOpen => settings.GetBool(Domain.Settings.SettingCatalogue.AllowSelfRegistration);
+
     [AllowAnonymous]
     [HttpGet]
-    public IActionResult Register() => View(new RegisterViewModel());
+    public IActionResult Register() =>
+        RegistrationOpen ? View(new RegisterViewModel()) : LoginError("New accounts are created by GREL's recruitment team. Please contact them for access.");
 
     [AllowAnonymous]
     [HttpPost]
     [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)] // Phase 12
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
+        // Checked on the post too, so a saved form or a script can't get round a closed registration.
+        if (!RegistrationOpen) return LoginError("New accounts are created by GREL's recruitment team. Please contact them for access.");
         if (!ModelState.IsValid) return View(model);
 
         var user = new ApplicationUser

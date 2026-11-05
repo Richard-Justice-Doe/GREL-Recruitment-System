@@ -1,5 +1,6 @@
 @* Sign-in page for everyone: staff and candidates.
    The "Sign in with Microsoft 365" button only appears once IT has configured the AzureAd settings. *@
+@inject Grsms.Application.Settings.ISettingsStore Settings
 @model LoginViewModel
 @{
     ViewData["Title"] = "Sign in";
@@ -53,7 +54,8 @@
 </form>
 
 <p class="text-center small mt-4 mb-0">
-    Looking for a job at GREL? See <a asp-controller="Careers" asp-action="Index">current vacancies</a> or <a asp-action="Register">create a candidate account</a>
+    Looking for a job at GREL? See <a asp-controller="Careers" asp-action="Index">current vacancies</a>@if (Settings.GetBool(Grsms.Domain.Settings.SettingCatalogue.AllowSelfRegistration))
+    {<text> or <a asp-action="Register">create a candidate account</a></text>}
 </p>
 
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

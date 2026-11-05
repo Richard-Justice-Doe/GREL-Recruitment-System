@@ -1,0 +1,32 @@
+# =====================================================================================================================
+#  Share this PC's GRSMS with a few testers through a temporary public HTTPS link (Cloudflare quick tunnel).
+#
+#    Start / restart:  docker compose -f docker-compose.yml -f docker-compose.share.yml up -d --build
+#    The link:         docker compose -f docker-compose.yml -f docker-compose.share.yml logs tunnel | grep trycloudflare
+#    Stop sharing:     docker compose up -d   (then: docker compose rm -sf tunnel)
+#
+#  What this changes, compared with the normal developer set-up:
+#    * the app runs in Production mode: no technical error pages for visitors, secure cookies (the visitor uses HTTPS);
+#    * it trusts the tunnel's X-Forwarded-For / -Proto headers ONLY from this Docker network, so the audit trail and the
+#      sign-in rate limit see each visitor's real address;
+#    * a "tunnel" container (cloudflared) connects OUT to Cloudflare and gets a random https://...trycloudflare.com link.
+#      No router or firewall change. The link changes every time the tunnel restarts: put the new one in APP_BASE_URL
+#      in .env (so emailed links use it) and run the start command again.
+#
+#  Not for production: it runs on this PC only while the PC and Docker are on. See docs/10-docker.md ("Sharing a trial
+#  link") and, for the real thing, docs/21-production-deployment.md.
+# =====================================================================================================================
+
+services:
+  web:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Database__ApplyMigrationsOnStartup: "true"
+      ReverseProxy__Enabled: "true"
+      ReverseProxy__KnownNetworks: ${SHARE_PROXY_SUBNET:-172.18.0.0/16}
+
+  tunnel:
+    image: cloudflare/cloudflared:2024.12.2
+    restart: unless-stopped
+    depends_on: [web]
+    command: tunnel --no-autoupdate --url http://web:8080

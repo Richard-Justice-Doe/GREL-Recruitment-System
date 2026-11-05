@@ -126,6 +126,31 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
         return Result.Success(user.Id);
     }
 
+    public async Task<Result<string>> CreateCandidateAsync(string fullName, string email, CancellationToken ct = default)
+    {
+        fullName = (fullName ?? "").Trim();
+        email = (email ?? "").Trim();
+        if (fullName.Length is < 2 or > 150) return Result.Failure<string>("Enter the person's full name (2 to 150 characters).");
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out _) || email.Length > 256) return Result.Failure<string>("Enter a valid email address.");
+
+        var user = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true,   // created by HR for a known person; the welcome email proves the address works
+            FullName = fullName,
+            IsCandidate = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var created = await userManager.CreateAsync(user); // no password: they choose one through the emailed link
+        if (!created.Succeeded) return Result.Failure<string>(Describe(created));
+        var role = await userManager.AddToRoleAsync(user, Roles.Candidate);
+        if (!role.Succeeded) return Result.Failure<string>(Describe(role));
+        await tx.CommitAsync(ct);
+        return Result.Success(user.Id);
+    }
+
     public async Task<Result> UpdateAsync(UserFormDto form, string actingUserId, CancellationToken ct = default)
     {
         var user = await userManager.FindByIdAsync(form.Id ?? "");

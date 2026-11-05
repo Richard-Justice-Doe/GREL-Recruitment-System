@@ -28,6 +28,43 @@ public class SystemSettingsWebTests(GrsmsWebFactory factory) : IClassFixture<Grs
         r.StatusCode == HttpStatusCode.Redirect && r.Headers.Location!.ToString().Contains("/Account/AccessDenied");
 
     [Fact]
+    public async Task Closing_self_registration_blocks_the_register_page_and_hr_creates_candidate_accounts_instead()
+    {
+        var admin = await SignedInAsync(GrsmsWebFactory.AdminEmail, GrsmsWebFactory.AdminPassword);
+        // Saving the workflow card with the switch unticked closes registration.
+        Assert.Equal(HttpStatusCode.Redirect, (await admin.PostFormAsync("/SystemSettings", "/SystemSettings/Save",
+            new() { ["group"] = SettingCatalogue.Workflow })).StatusCode);
+
+        var visitor = factory.NewClient();
+        Assert.Contains("/Account/Login", (await visitor.GetAsync("/Account/Register")).Headers.Location!.ToString());
+        Assert.DoesNotContain("create a candidate account", await visitor.GetStringAsync("/Account/Login"));
+        // A post (e.g. a saved form) is refused too, and no account is made.
+        var post = await visitor.PostFormAsync("/Account/Login", "/Account/Register", new()
+            { ["FullName"] = "Sneaky", ["Email"] = "sneaky@mail.test", ["Password"] = "Sneak#Pass2026", ["ConfirmPassword"] = "Sneak#Pass2026" });
+        Assert.Contains("/Account/Login", post.Headers.Location!.ToString());
+        using (var scope = factory.Services.CreateScope())
+            Assert.Null(await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().FindByEmailAsync("sneaky@mail.test"));
+
+        // HR creates the candidate account; the person is emailed a link to choose a password, and can then sign in.
+        var created = await admin.PostFormAsync("/Users/CreateCandidate", "/Users/CreateCandidate",
+            new() { ["fullName"] = "Abena Trial", ["email"] = "abena.trial@mail.test" });
+        Assert.Contains("candidates=True", created.Headers.Location!.ToString(), StringComparison.OrdinalIgnoreCase);
+        var mail = Directory.GetFiles(factory.MailFolder, "*.eml").Select(File.ReadAllText).Single(m => m.Contains("To: abena.trial@mail.test"));
+        Assert.Contains("Your GREL careers account", mail);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var user = (await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().FindByEmailAsync("abena.trial@mail.test"))!;
+            Assert.True(user.IsCandidate);
+            Assert.True(await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().IsInRoleAsync(user, Roles.Candidate));
+        }
+
+        // Back on again for any other test.
+        await admin.PostFormAsync("/SystemSettings", "/SystemSettings/Save",
+            new() { ["group"] = SettingCatalogue.Workflow, [SettingCatalogue.AllowSelfRegistration] = "true" });
+        Assert.Equal(HttpStatusCode.OK, (await visitor.GetAsync("/Account/Register")).StatusCode);
+    }
+
+    [Fact]
     public async Task Super_admin_changes_settings_and_templates_microsoft_sign_in_appears_and_admin_is_read_only()
     {
         var anonymous = factory.NewClient();

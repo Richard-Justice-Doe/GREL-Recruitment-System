@@ -32,6 +32,7 @@ public static partial class EmailTemplateCatalogue
     public const string InterviewReminder = "reminder.interview";
     public const string AccountCreated = "account.created";
     public const string AccountCreatedMicrosoft = "account.created-microsoft";
+    public const string AccountCreatedCandidate = "account.created-candidate";
 
     private const string MyApplication = "View my application";
 
@@ -87,6 +88,10 @@ public static partial class EmailTemplateCatalogue
             "Your account for the {{Organisation}} recruitment system",
             "An account has been created for you in GRSMS, the {{Organisation}} recruitment and selection system, by {{CreatedBy}}.\n\nSign in with: {{SignInEmail}}\nYour roles: {{Roles}}\n\nUse the link below to choose your password. It works for 24 hours; after that, use \"Forgot password\" on the sign-in page. You can also sign in with the temporary password HR gave you; you will then be asked to choose your own.",
             ["SignInEmail", "Roles", "CreatedBy"], "Choose my password"),
+        new(AccountCreatedCandidate, "New candidate account", "When HR creates a candidate account for someone (e.g. while self-registration is closed)",
+            "Your {{Organisation}} careers account",
+            "An account has been created for you on the {{Organisation}} careers portal, so you can see our vacancies and apply.\n\nSign in with: {{SignInEmail}}\n\nUse the link below to choose your password. It works for 24 hours; after that, use \"Forgot password\" on the sign-in page.",
+            ["SignInEmail"], "Choose my password"),
         new(AccountCreatedMicrosoft, "New account (Microsoft 365)", "When someone signs in with Microsoft 365 for the first time and GRSMS creates their account",
             "Welcome to the {{Organisation}} recruitment system",
             "Your GRSMS account was created when you first signed in with Microsoft 365 ({{SignInEmail}}).\n\nYour roles: {{Roles}}. If you need more access, for example to raise recruitment requests, ask HR.",

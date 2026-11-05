@@ -4,6 +4,18 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 5 November 2026 (13:50): Public trial link, closed registration, candidate accounts by HR
+
+**Why:** the user wants a public link for specific people to try GRSMS, with only accounts the user creates (choices: Cloudflare quick tunnel; self-registration off).
+
+* **`docker-compose.share.yml`**: Production mode, forwarded headers trusted only from the Docker network, and a `cloudflared` 2024.12.2 quick tunnel giving a public `https://...trycloudflare.com` link to this PC. See [10 Docker → Sharing a trial link](10-docker.md#sharing-a-trial-link-5-november-2026).
+* **Self-registration switch** (System settings → Recruitment workflow, default on). When off, the Register page and its post send people to sign-in, and the "create a candidate account" links are hidden.
+* **Add candidate account** on Users & roles: no password is set; the person is emailed (template *New candidate account*) a 24-hour link to choose one.
+* 1 new test (136 in total).
+* **Done on this PC:** self-registration switched off, then the share stack started. Link at the time: `https://handhelds-levy-receives-accompanied.trycloudflare.com`, also set as `APP_BASE_URL` in `.env`. Checked through the public link: `/health`, sign-in page over HTTPS with secure cookies, HSTS and the security policy, Register refused, Super Admin sign-in, the app seeing its public HTTPS address (so emailed links use it), and the audit trail recording the visitor's real address.
+
+---
+
 ## 5 November 2026 (13:30): Welcome email for every new account
 
 **Why:** the user asked that every user receive an email when an account is created for them.

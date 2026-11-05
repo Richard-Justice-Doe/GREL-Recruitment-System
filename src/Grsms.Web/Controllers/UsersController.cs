@@ -111,17 +111,47 @@ public class UsersController(
     /// </summary>
     private async Task SendWelcomeAsync(string userId, UserFormDto form, CancellationToken ct)
     {
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return;
-        var token = await userManager.GeneratePasswordResetTokenAsync(user);
-        var code = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(token));
-        var link = Url.Action("ResetPassword", "Account", new { code, email = user.Email }, Request.Scheme)!;
+        if (await ChoosePasswordLinkAsync(userId) is not { } choose) return;
+        var (email, link) = choose;
         await mailer.TemplateToUserAsync(userId, Domain.Settings.EmailTemplateCatalogue.AccountCreated, new Dictionary<string, string?>
         {
-            ["SignInEmail"] = user.Email,
+            ["SignInEmail"] = email,
             ["Roles"] = string.Join(", ", form.SelectedRoles),
             ["CreatedBy"] = User.FindFirst(AppClaimsPrincipalFactory.FullNameClaim)?.Value ?? User.Identity?.Name
         }, link, ct: ct);
+    }
+
+    /// <summary>The 24-hour "choose your password" link (the same as "Forgot password") for a new account.</summary>
+    private async Task<(string? Email, string Link)?> ChoosePasswordLinkAsync(string userId)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return null;
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var code = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(token));
+        return (user.Email, Url.Action("ResetPassword", "Account", new { code, email = user.Email }, Request.Scheme)!);
+    }
+
+    // ================================================================= Candidate accounts (5 November 2026)
+
+    /// <summary>Add a candidate account for someone (useful while self-registration is closed).</summary>
+    public IActionResult CreateCandidate() => View();
+
+    [HttpPost]
+    public async Task<IActionResult> CreateCandidate(string? fullName, string? email, CancellationToken ct)
+    {
+        var result = await users.CreateCandidateAsync(fullName ?? "", email ?? "", ct);
+        if (!result.Succeeded)
+        {
+            AddErrors(result);
+            ViewBag.FullName = fullName;
+            ViewBag.Email = email;
+            return View();
+        }
+        if (await ChoosePasswordLinkAsync(result.Value!) is { } choose)
+            await mailer.TemplateToUserAsync(result.Value!, Domain.Settings.EmailTemplateCatalogue.AccountCreatedCandidate,
+                new Dictionary<string, string?> { ["SignInEmail"] = choose.Email }, choose.Link, ct: ct);
+        Success($"Candidate account for {fullName} was created and {email} has been emailed a link to choose their password.");
+        return RedirectToAction(nameof(Index), new { candidates = true });
     }
 
     /// <summary>

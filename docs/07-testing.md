@@ -10,7 +10,7 @@ No MySQL server is needed. The tests use an in-memory **SQLite** database, and e
 
 ## What is tested (Phases 1-13)
 
-**135 tests** in total (the welcome email 1, Phase 16 added 6, the animation 1, the Admin role and My audit trail 4, Phase 15 added 6, Phase 14 added 6, the SweetAlert change added 1). The production set-up (`deploy/`) was also run end to end by hand; see [21 Production deployment → What was tested](21-production-deployment.md#what-was-tested-4-november-2026).
+**136 tests** in total (closed registration and candidate accounts 1, the welcome email 1, Phase 16 added 6, the animation 1, the Admin role and My audit trail 4, Phase 15 added 6, Phase 14 added 6, the SweetAlert change added 1). The production set-up (`deploy/`) was also run end to end by hand; see [21 Production deployment → What was tested](21-production-deployment.md#what-was-tested-4-november-2026).
 
 > **Not yet covered:** the home dashboard (`DashboardService`), including its Division / Department filter. The web tests load `/` as staff, which proves the page renders, but its numbers, per-role visibility and task lists are not asserted. See the [change log](changelog.md).
 

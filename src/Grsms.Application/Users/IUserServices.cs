@@ -63,6 +63,12 @@ public interface IUserAdminService
     /// <summary>Phase 14: every role a staff account can be given (built-in staff roles, then custom roles).</summary>
     Task<IReadOnlyList<string>> GetAssignableRolesAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// Creates a CANDIDATE account for someone (e.g. while self-registration is closed for a trial). It has no password:
+    /// the person chooses one through the welcome email's link. Returns the new user id.
+    /// </summary>
+    Task<Result<string>> CreateCandidateAsync(string fullName, string email, CancellationToken ct = default);
+
     /// <summary>Loads a staff account into the edit form, or null if not found.</summary>
     Task<UserFormDto?> GetForEditAsync(string id, CancellationToken ct = default);
 

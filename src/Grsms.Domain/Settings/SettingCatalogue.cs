@@ -42,6 +42,7 @@ public static class SettingCatalogue
     public const string OfferReplyMaxDays = "Workflow:OfferReplyMaxDays";
     public const string ApprovalWaitingDays = "Reminders:ApprovalWaitingDays";
     public const string DefaultKnockoutQuestions = "Workflow:DefaultKnockoutQuestions";
+    public const string AllowSelfRegistration = "Accounts:AllowSelfRegistration";
 
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
@@ -75,6 +76,9 @@ public static class SettingCatalogue
         new(DefaultKnockoutQuestions, Workflow, "Knockout questions suggested for every new vacancy",
             "One per line, worded so that Yes is the answer needed. The Recruitment Officer can change them per vacancy.",
             SettingKind.MultiLine, MaxLength: 3000),
+        new(AllowSelfRegistration, Workflow, "Job seekers can create their own candidate account",
+            "Off = the \"Create a candidate account\" page is closed and only accounts created on Users & roles exist (e.g. while a trial link is shared).",
+            SettingKind.Switch, "true"),
     ];
 
     public static SettingDefinition? Find(string key) => All.FirstOrDefault(s => s.Key == key);

@@ -34,13 +34,10 @@ public static class DependencyInjection
         // The audit interceptor is scoped because it needs the current user of THIS web request.
         services.AddScoped<AuditSaveChangesInterceptor>();
 
-        // MySQL normally. "Database:Provider" = "Sqlite" is the demo mode (a single local file, no server),
-        // for trying the system out and for training only. See docs/01-getting-started.md.
-        var useSqlite = IsSqlite(config);
+        // MySQL. (The automated tests swap in SQLite themselves; see tests/Grsms.Tests/Infrastructure/TestDatabase.cs.)
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
         {
-            if (useSqlite) options.UseSqlite(connectionString);
-            else options.UseMySQL(connectionString);
+            options.UseMySQL(connectionString);
             options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
         });
 
@@ -78,8 +75,4 @@ public static class DependencyInjection
 
         return services;
     }
-
-    /// <summary>True when the demo database (SQLite) is selected instead of MySQL.</summary>
-    public static bool IsSqlite(IConfiguration config) =>
-        string.Equals(config["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
 }

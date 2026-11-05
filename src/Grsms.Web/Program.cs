@@ -43,16 +43,6 @@ builder.Host.UseSerilog((context, logger) => logger
         retainedFileCountLimit: 30));
 
 // ---------------------------------------------------------------- 2. Layers
-// Demo mode (SQLite file instead of MySQL; see docs/01-getting-started.md): a relative file path is
-// placed inside the application folder, and the folder is created if needed.
-if (Grsms.Infrastructure.DependencyInjection.IsSqlite(builder.Configuration))
-{
-    var csb = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=App_Data/grsms-demo.db");
-    csb.DataSource = Path.GetFullPath(csb.DataSource, builder.Environment.ContentRootPath);
-    Directory.CreateDirectory(Path.GetDirectoryName(csb.DataSource)!);
-    builder.Configuration["ConnectionStrings:DefaultConnection"] = csb.ToString();
-}
-
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
@@ -246,7 +236,7 @@ app.MapControllerRoute(
     .WithStaticAssets();
 
 // ---------------------------------------------------------------- 6. Database start-up
-await DbInitializer.InitializeAsync(app.Services, app.Configuration, app.Environment.IsDevelopment());
+await DbInitializer.InitializeAsync(app.Services, app.Configuration);
 
 app.Run();
 

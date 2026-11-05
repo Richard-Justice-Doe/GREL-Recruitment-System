@@ -14,28 +14,20 @@ namespace Grsms.Infrastructure.Persistence;
 ///      In production a DBA usually runs the SQL scripts in /database instead, and this stays false.
 ///   2. Creates the FIRST HR Administrator account if none exists yet, using the "SeedAdmin" settings.
 ///      Without this, nobody could sign in to a brand-new installation.
-///   3. Demo mode only (Database:Provider = Sqlite, Development environment, Demo:SeedSampleData = true):
-///      creates the demo database file and fills it with sample users and records (DemoDataSeeder).
+///   3. Otherwise refuses to start if the database is missing an update (Phase 13).
 ///
 /// Roles, departments and the Head Office site are created by the migration itself (seed data).
 /// </summary>
 public static class DbInitializer
 {
-    /// <param name="isDevelopment">Demo sample data is only ever created in the Development environment.</param>
-    public static async Task InitializeAsync(IServiceProvider services, IConfiguration config, bool isDevelopment = false)
+    public static async Task InitializeAsync(IServiceProvider services, IConfiguration config)
     {
         using var scope = services.CreateScope();
         var sp = scope.ServiceProvider;
         var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DbInitializer));
         var db = sp.GetRequiredService<ApplicationDbContext>();
 
-        if (DependencyInjection.IsSqlite(config))
-        {
-            // Demo mode: the migrations are written for MySQL, so the SQLite file is created straight from the model.
-            logger.LogWarning("DEMO MODE: using the local SQLite database file instead of MySQL. Do not use this for real data.");
-            await db.Database.EnsureCreatedAsync();
-        }
-        else if (config.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
+        if (config.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
         {
             logger.LogInformation("Applying database migrations...");
             await db.Database.MigrateAsync();
@@ -52,9 +44,6 @@ public static class DbInitializer
         }
 
         await CreateFirstAdministratorAsync(sp, config, logger);
-
-        if (isDevelopment && config.GetValue<bool>("Demo:SeedSampleData"))
-            await DemoDataSeeder.SeedAsync(sp, config, logger);
     }
 
     /// <summary>Creates the first HR Administrator from the SeedAdmin settings, if none exists yet.</summary>

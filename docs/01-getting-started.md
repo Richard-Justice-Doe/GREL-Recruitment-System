@@ -26,7 +26,7 @@ dotnet user-secrets --project src/Grsms.Web set "ConnectionStrings:DefaultConnec
 
 So http://localhost:5014 and http://localhost:8080 show the same data. Start Docker first (`docker compose up -d`). Sign in with the administrator from `.env`.
 
-> The old **demo mode** (a separate SQLite file filled with made-up people and records) was switched off on 4 November 2026: its `demo` launch profile and demo database were removed. The demo code (`DemoDataSeeder.cs`) is still in the project, but nothing starts it.
+> The old **demo mode** (a separate SQLite file filled with made-up people and records) was switched off on 4 November 2026: its `demo` launch profile and demo database were removed. The leftover demo code (`DemoDataSeeder.cs` and the SQLite start-up option) was taken out on 4 November 2026; GRSMS always uses MySQL (the automated tests use their own in-memory SQLite).
 
 ## Step 1: Create the database and a database user
 

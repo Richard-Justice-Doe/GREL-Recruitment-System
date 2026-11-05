@@ -50,9 +50,6 @@ public static class RecruitmentWorkflow
     public static bool IsEditable(RecruitmentRequestStatus status) =>
         status is RecruitmentRequestStatus.Draft or RecruitmentRequestStatus.Returned;
 
-    /// <summary>True while the request waits for an approver.</summary>
-    public static bool IsAwaitingApproval(RecruitmentRequestStatus status) => ApproverRole(status) is not null;
-
     /// <summary>True once nothing more can happen in this workflow.</summary>
     public static bool IsFinal(RecruitmentRequestStatus status) =>
         status is RecruitmentRequestStatus.Approved or RecruitmentRequestStatus.Rejected or RecruitmentRequestStatus.Cancelled;

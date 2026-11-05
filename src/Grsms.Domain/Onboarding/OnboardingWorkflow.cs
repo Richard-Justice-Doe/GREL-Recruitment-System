@@ -51,6 +51,4 @@ public static class OnboardingWorkflow
         new(OnboardingTeam.NewEmployee, "Original certificates", 0),
         new(OnboardingTeam.NewEmployee, "Two passport photographs", 0)
     ];
-
-    public static bool IsFinished(OnboardingTaskStatus s) => s != OnboardingTaskStatus.Open;
 }

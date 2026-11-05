@@ -93,6 +93,24 @@ Table names keep their capitals (`Users`, `Departments`, `RecruitmentRequests`, 
 
 For the real server, use the **production set-up** in `deploy/` instead: Production mode behind an HTTPS proxy with forwarded headers, no open database ports and nightly backups. See [21 Production deployment](21-production-deployment.md).
 
+## Sending real email (5 November 2026)
+
+By default the Docker app saves emails as files (`App_Data/mail` in the `app-data` volume). To send real email, add the mailbox to `.env` (git-ignored, never commit it):
+
+```
+EMAIL_FROM=jobmaster@grelghana.com
+EMAIL_FROM_NAME=Grel Job Master
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=587
+SMTP_SSL=true
+SMTP_USER=jobmaster@grelghana.com
+SMTP_PASSWORD=...
+```
+
+Then `docker compose up -d web`, and check with **System settings → Send test**. Port 587 with encryption (STARTTLS) is required: GRSMS cannot use port 465.
+
+**Links in emails** use `APP_BASE_URL` (default `http://localhost:8080`), which only works on this computer. People on other computers need an address they can reach; see [21 Production deployment](21-production-deployment.md).
+
 ## Backups
 
 ```powershell

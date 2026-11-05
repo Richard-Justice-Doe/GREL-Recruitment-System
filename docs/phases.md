@@ -278,7 +278,37 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 
 **Not tested here** (needs GREL's environment): a real domain and Let's Encrypt certificate, GREL's SMTP server, Microsoft 365 sign-in, an SMS account.
 
-## 🎉 All 13 phases delivered
+## ✅ Phase 14: Super Admin and granular permissions (5 November 2026)
+
+**Asked for** (5 November 2026): a Super Admin role with full access; only Super Admins create HR Managers, Recruiters and HOD accounts and configure system-wide permissions; granular RBAC; every action in the audit trail. Part of a larger request that also covers the ATS screening engine (Phase 15) and system settings (Phase 16). The order was swapped so that the ATS settings can be protected by the new permissions from the start.
+
+**Delivered**
+* **Super Admin** role: holds every permission (it can't be taken away), sees every department, and is the only role that can create privileged accounts or change permissions. The `SeedAdmin` account is a Super Admin. On an existing installation, the first start-up gives that account the role (it keeps its other roles); a brand-new installation creates it as Super Admin + Employee.
+* **Permissions** (13, in `Domain/Security/Permissions.cs`): every screen policy is now a permission held by roles, stored in `RoleClaims`. The defaults reproduce exactly what each role could open before, so nobody gained or lost access. New permissions get their defaults once (table `KnownPermissions`), so the Super Admin's later choices are never overwritten. "See all departments" replaces the fixed role list used by every module's visibility rule.
+* **Roles & permissions** screen (Super Admin): a tick-box grid of roles × permissions grouped by area, with the Super Admin column and the two "Super Admin only" permissions locked. Changes apply **straight away** without signing anyone out (an in-memory copy refreshed on save, and at most a minute old otherwise).
+* **Custom roles:** add (readable id `custom-...`), describe, rename, tick permissions, delete when nobody holds them. Built-in roles can't be renamed or deleted.
+* **Privileged accounts:** only a Super Admin can give or remove any role other than Employee and Interview Panel Member, or edit, reset the password of, or deactivate an account holding one. The Users screen shows a 🔒 *Super Admin* label instead of the buttons, and the user form locks those roles. The "last active HR Administrator" rule became "last active Super Admin"; you can't remove your own Super Admin role.
+* Audit trail: permission grants are `RoleClaim` rows (new friendly name), roles are `Role` rows, role assignments `UserRole` rows, so every change records who, when and from where.
+* MySQL script `database/14_phase14_super_admin_permissions.sql`; migration `Phase14_SuperAdminAndPermissions`
+* 6 new automated tests (117 in total), including taking a permission from a signed-in HOD through the real pages
+* Security, admin, database, getting-started, configuration, deployment and testing docs updated
+
+**Decisions recorded**
+* **Permissions open screens; workflow steps stay with the role.** Who raises, reviews, approves and gives final approval is separation of duties written in each workflow class, so no setting can switch it off. A Super Admin who must approve as the MD also needs the Managing Director role, and the "not your own request" rules still apply.
+* **Privileged = every role except Employee and Interview Panel Member**, including HR Administrator, the MD and custom roles. The request named HR Managers, Recruiters and HODs; HR Administrator and MD were added because giving them would also raise access, and custom roles because they can carry any permission.
+* **Permission list in code, assignments in the database.** Each permission is checked by code, so new ones come with a new version; which roles hold them is GREL's choice.
+* **Live permission check instead of copying permissions into the sign-in cookie**, so a removed permission stops working at once.
+* Custom-role descriptions are stored as a `RoleClaims` row (`grsms:description`) rather than changing the Identity role table.
+
+**Problem found and fixed while checking against MySQL:** an empty tick-box value in a posted grid arrived as *null* and gave an error page (500). Empty values are now ignored. While checking, a test script of mine that read the grid wrongly saved it with most boxes empty, which removed 37 default grants from the **local Docker database**. The defaults were re-applied by clearing the `grsms:permission` rows and `KnownPermissions` and restarting (now described in [03 Database](03-database.md#roleclaims-and-knownpermissions-phase-14)). The app had done exactly what was posted. **Lesson:** a "save the whole grid" form saves what it is sent, so check the posted fields before trusting a hand-made post.
+
+## ⏳ Phase 15: ATS screening engine (planned)
+CV text reading on GREL's server (PDF and DOCX) with an optional Claude AI reader that stays off until GREL approves it; extracted details (name, email, phone, education, experience, certifications, skills, employment history); configurable criteria per vacancy; mandatory knockout questions; education / experience / skills / certification scores and an overall match % (weights configurable, 25% each by default); classification bands (Highly Recommended ≥ 90, Recommended ≥ 80, Review Required ≥ 70, Low Match ≥ 50, Auto Reject < 50); **Automatically Rejected** status with the reason recorded, **held for HR**: the applicant is told only after HR confirms, and HR can override; recruiter dashboard (top ranked, rejected, missing skills, ranking table, score breakdown); ATS settings and auto-rejection rules for Super Admins only; every decision stored and audited.
+
+## ⏳ Phase 16: System settings (planned)
+Email templates, recruitment workflow settings, AI scoring thresholds, Microsoft 365 settings, backups (list, run now, download; restore stays a server procedure), audit-log monitoring.
+
+## 🎉 All 13 original phases delivered
 Next steps are GREL's: work through the [go-live checklist](21-production-deployment.md#8-go-live-checklist), then gather users' feedback for improvements.
 
 **Rules every later phase must follow** (from the GREL requirements, 4 November 2026; see [12 Divisions and departments](12-divisions-and-departments.md#what-later-phases-must-do)):

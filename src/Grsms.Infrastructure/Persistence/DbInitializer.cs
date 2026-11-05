@@ -12,9 +12,10 @@ namespace Grsms.Infrastructure.Persistence;
 /// Runs once when the application starts:
 ///   1. Optionally applies pending database migrations (setting "Database:ApplyMigrationsOnStartup").
 ///      In production a DBA usually runs the SQL scripts in /database instead, and this stays false.
-///   2. Creates the FIRST HR Administrator account if none exists yet, using the "SeedAdmin" settings.
-///      Without this, nobody could sign in to a brand-new installation.
-///   3. Otherwise refuses to start if the database is missing an update (Phase 13).
+///   2. Otherwise refuses to start if the database is missing an update (Phase 13).
+///   3. Gives permissions that are new in this version to their default roles, once (Phase 14).
+///   4. Makes sure a Super Admin exists, using the "SeedAdmin" settings (until Phase 14 this created the first
+///      HR Administrator). Without this, nobody could sign in to a brand-new installation.
 ///
 /// Roles, departments and the Head Office site are created by the migration itself (seed data).
 /// </summary>
@@ -43,22 +44,40 @@ public static class DbInitializer
             throw new InvalidOperationException($"The database needs {pending.Count} update(s) before this version of GRSMS can start: {string.Join(", ", pending)}.");
         }
 
-        await CreateFirstAdministratorAsync(sp, config, logger);
+        await PermissionSeeder.ApplyNewDefaultsAsync(db, logger);
+        await EnsureSuperAdminAsync(sp, config, logger);
     }
 
-    /// <summary>Creates the first HR Administrator from the SeedAdmin settings, if none exists yet.</summary>
-    private static async Task CreateFirstAdministratorAsync(IServiceProvider sp, IConfiguration config, ILogger logger)
+    /// <summary>
+    /// Makes sure at least one active Super Admin exists (Phase 14), using the SeedAdmin settings:
+    ///   * a brand-new installation: creates the SeedAdmin account as Super Admin (and Employee);
+    ///   * an installation from before Phase 14: the existing SeedAdmin account (until then the first HR Administrator)
+    ///     is given the Super Admin role and keeps its other roles.
+    /// Does nothing once an active Super Admin exists.
+    /// </summary>
+    private static async Task EnsureSuperAdminAsync(IServiceProvider sp, IConfiguration config, ILogger logger)
     {
         var userManager = sp.GetRequiredService<UserManager<ApplicationUser>>();
-        if ((await userManager.GetUsersInRoleAsync(Roles.HrAdministrator)).Count > 0)
+        if ((await userManager.GetUsersInRoleAsync(Roles.SuperAdmin)).Any(u => u.IsActive))
             return; // already set up
 
         var email = config["SeedAdmin:Email"];
         var password = config["SeedAdmin:Password"];
+        if (!string.IsNullOrWhiteSpace(email) && await userManager.FindByEmailAsync(email) is { IsCandidate: false } existing)
+        {
+            await userManager.AddToRoleAsync(existing, Roles.SuperAdmin);
+            if (!existing.IsActive)
+            {
+                existing.IsActive = true;
+                await userManager.UpdateAsync(existing);
+            }
+            logger.LogInformation("Gave the Super Admin role to the existing administrator account {Email}", email);
+            return;
+        }
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
         {
             logger.LogWarning(
-                "No HR Administrator exists and SeedAdmin:Email / SeedAdmin:Password are not set. " +
+                "No Super Admin exists and SeedAdmin:Email / SeedAdmin:Password are not set. " +
                 "Set them (see docs/01-getting-started.md) and restart to create the first administrator.");
             return;
         }
@@ -77,12 +96,12 @@ public static class DbInitializer
         var result = await userManager.CreateAsync(admin, password);
         if (!result.Succeeded)
         {
-            logger.LogError("Could not create the first HR Administrator: {Errors}",
+            logger.LogError("Could not create the first Super Admin: {Errors}",
                 string.Join(" ", result.Errors.Select(e => e.Description)));
             return;
         }
 
-        await userManager.AddToRolesAsync(admin, [Roles.HrAdministrator, Roles.Employee]);
-        logger.LogInformation("Created the first HR Administrator account {Email}", email);
+        await userManager.AddToRolesAsync(admin, [Roles.SuperAdmin, Roles.Employee]);
+        logger.LogInformation("Created the first Super Admin account {Email}", email);
     }
 }

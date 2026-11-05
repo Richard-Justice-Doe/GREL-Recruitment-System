@@ -57,7 +57,7 @@ public class HiringService(
         var app = await applications.GetByIdAsync(applicationId, ct);
         if (app is null) return null;
         var isHod = await IsHodOfAsync(app.DepartmentId, ct);
-        if (!AccessScope.SeeAllRoles.Any(me.IsInRole) && !isHod) return null;
+        if (!me.HasPermission(Permissions.SeeAllDepartments) && !isHod) return null;
 
         var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
         var appChecks = await checks.ListAsync(c => c.JobApplicationId == app.Id, ct);

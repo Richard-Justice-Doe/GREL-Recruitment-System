@@ -10,8 +10,9 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 namespace Grsms.Web.Controllers;
 
 /// <summary>
-/// User account screens (HR Administrator only): list staff and candidates, create staff accounts,
-/// edit roles, deactivate, unlock, and reset passwords.
+/// User account screens (permission "Manage user accounts": the Super Admin and, by default, the HR Administrator):
+/// list staff and candidates, create staff accounts, edit roles, deactivate, unlock, and reset passwords.
+/// Phase 14: privileged roles and accounts can only be changed by a Super Admin (enforced in UserAdminService).
 /// </summary>
 [Authorize(Policy = Policies.UserAdmin)]
 public class UsersController(
@@ -117,6 +118,8 @@ public class UsersController(
     {
         ViewBag.DepartmentList = new SelectList(await departments.GetActiveLookupAsync(ct), nameof(LookupItem.Value), nameof(LookupItem.Text));
         ViewBag.SiteList = new SelectList(await sites.GetActiveLookupAsync(ct), nameof(LookupItem.Value), nameof(LookupItem.Text));
-        ViewBag.AllRoles = Roles.Staff;
+        ViewBag.AllRoles = await users.GetAssignableRolesAsync(ct);
+        // Phase 14: only a Super Admin may tick roles other than Employee / Interview Panel Member (checked again by the service).
+        ViewBag.IsSuperAdmin = User.IsInRole(Roles.SuperAdmin);
     }
 }

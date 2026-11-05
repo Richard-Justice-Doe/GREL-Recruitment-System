@@ -10,16 +10,16 @@ namespace Grsms.Application.Common;
 /// Works out which departments' records the current user may see. Shared by every departmental module
 /// (recruitment requests, vacancies, ...), so the rule is written once:
 ///
-///   * Recruitment Officers, HR Manager, Managing Director and HR Administrator see every department.
+///   * Holders of the "See all departments" permission see every department. By default (Phase 14) that is the
+///     Recruitment Officers, HR Manager, Managing Director, HR Administrator, and always the Super Admin.
 ///   * A Head of Department sees the departments they head: those where they are set as HOD,
 ///     plus their own home department.
 ///   * Everyone always sees records they created themselves (checked by each module).
 /// </summary>
 public class AccessScope(ICurrentUserService me, IRepository<Department> departments, IUserDirectory users)
 {
-    /// <summary>Roles that see all departments.</summary>
-    public static readonly IReadOnlyList<string> SeeAllRoles =
-        [Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator];
+    /// <summary>True when the current user sees every department's records (permission "data.all-departments").</summary>
+    public bool SeesAllDepartments => me.HasPermission(Permissions.SeeAllDepartments);
 
     public string UserId => me.UserId ?? throw new InvalidOperationException("No signed-in user.");
     public string UserName => me.FullName ?? me.UserName ?? "Unknown";
@@ -37,7 +37,7 @@ public class AccessScope(ICurrentUserService me, IRepository<Department> departm
 
     /// <summary>The current user's visibility, for queries.</summary>
     public async Task<RequestVisibility> VisibilityAsync(CancellationToken ct = default) =>
-        new(SeeAllRoles.Any(me.IsInRole), UserId, await HodDepartmentIdsAsync(ct));
+        new(SeesAllDepartments, UserId, await HodDepartmentIdsAsync(ct));
 
     /// <summary>True if a record in <paramref name="departmentId"/> created by <paramref name="ownerUserId"/> is visible.</summary>
     public static bool CanSee(RequestVisibility v, int departmentId, string? ownerUserId) =>

@@ -1,13 +1,56 @@
 # 4. Security and roles
 
-## Who can do what (Phases 1-11)
+## Super Admin, permissions and custom roles (Phase 14)
+
+GRSMS uses **role-based access control with permissions**:
+
+* A **permission** opens a screen or a function, for example *Open vacancies* or *Maintain organisation data*. The list of permissions is fixed in code (`src/Grsms.Domain/Security/Permissions.cs`), because the code checks each one.
+* **Which roles hold which permission** is stored in the database (table `RoleClaims`). A **Super Admin** changes it on **Management → Roles & permissions** by ticking boxes. A change applies straight away: nobody has to sign out.
+* The defaults reproduce exactly what each role could open before Phase 14, so nobody gained or lost access when permissions were introduced. Each new permission gets its defaults **once**, at the first start-up of the version that adds it. After that, only the Super Admin's choices count.
+
+| Permission | Super Admin | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member / Employee | Candidate |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Manage user accounts | 🔒 | ✅ | | | | | | |
+| Maintain organisation data (divisions, departments, units, sites) | 🔒 | ✅ | | | | | | |
+| Read the audit trail | 🔒 | ✅ | ✅ | | | | | |
+| Open recruitment requests | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | |
+| Raise recruitment requests | 🔒 | | | | | ✅ | | |
+| Open vacancies / job adverts / applications / reports | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | |
+| Read survey results | 🔒 | | ✅ | ✅ | ✅ | | | |
+| See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | | | |
+| Manage roles and permissions | 🔒 only | | | | | | | |
+| Create privileged accounts | 🔒 only | | | | | | | |
+
+🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission.
+
+### Rules that are not permissions (on purpose)
+
+These are separation of duties, so no setting can switch them off:
+
+* **Who acts at each workflow step stays with the role:** the HOD raises, the Recruitment Officer reviews, the HR Manager approves, the MD gives final approval, the HOD gives their view on shortlists. A permission only opens the screen; the workflow decides what each person may do there. A Super Admin who wants to approve as the MD must also hold the Managing Director role, and the "not your own request" rules still apply.
+* **Only a Super Admin can give or remove any role other than Employee and Interview Panel Member.** That covers HR Manager, Recruitment Officer, Head of Department, HR Administrator, Managing Director, Super Admin and every custom role. Only a Super Admin can **edit, reset the password of, or deactivate** an account that holds one of them. Otherwise an HR Administrator could raise their own access, or take over an HR Manager's account by resetting its password. HR Administrators can still **unlock** any account, because that gives no new access.
+* **Permissions marked "Super Admin only"** (manage roles and permissions, create privileged accounts) can never be ticked for another role.
+* **Built-in roles** cannot be renamed or deleted, because the workflows check them by name.
+
+### Custom roles
+
+A Super Admin can add a role such as *Recruitment Auditor*, tick its permissions, and give it to people. A custom role opens only what is ticked for it, and has no part in any workflow step. Give its holders the **Employee** role too, so they can see internal vacancies. A custom role can be renamed, and deleted once nobody holds it.
+
+### Everything is audited
+
+Each permission ticked or unticked is a `RoleClaim` row created or deleted. Each new custom role is a `Role` row. Each role given to a user is a `UserRole` row. All of them are in the audit trail with who did it, when, and from which address. Grants made automatically at start-up appear as made by *system*.
+
+## Who can do what (Phases 1-11, with the default permissions)
+
+The **Super Admin** can open every screen below and sees every department. For the workflow actions they need the matching role, like anyone else.
 
 | Screen / action | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member | Employee | Candidate |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Sign in, change own password | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Home page | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (candidate home) |
 | Divisions, Departments, Units, Sites | ✅ | | | | | | | |
-| Users & roles | ✅ | | | | | | | |
+| Users & roles | ✅ Employee and Panel Member accounts only | | | | | | | |
+| Roles & permissions | | | | | | | | |
 | Audit trail (read only) | ✅ | ✅ | | | | | | |
 | See recruitment requests | all | all | all | all | own departments | | | |
 | Raise / edit / submit / cancel a request | | | | | ✅ own departments, own requests | | | |
@@ -66,13 +109,14 @@
 
 A person can hold several roles. For example, a Head of Department is usually also an Employee. Each new phase adds its own rows to this table (raising requests, approvals, interviews, ...).
 
-The rules are defined once in `src/Grsms.Web/Security/Policies.cs` and **checked on the server for every request**. Hiding a menu link is only for tidiness: typing the address directly still gives *Access denied*.
+The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each policy is a permission since Phase 14) and **checked on the server for every request**. Hiding a menu link is only for tidiness: typing the address directly still gives *Access denied*.
 
 ### The roles
 
 | Role | Purpose (from the specification) |
 |---|---|
-| **HR Administrator** | Maintains departments, units, sites and user accounts. Views the audit trail. |
+| **Super Admin** (Phase 14) | Full access to the whole system. The only role that creates HR Managers, Recruitment Officers, HODs and other privileged accounts, and sets permissions. The first administrator account (`SeedAdmin`) is a Super Admin. |
+| **HR Administrator** | Maintains divisions, departments, units and sites, and everyday staff accounts (Employee, Interview Panel Member). Views the audit trail. |
 | **HR Manager** | Approves requests, validates budgets, reviews candidates, authorises hiring. |
 | **Managing Director** | Final vacancy and hiring approval, executive dashboard. |
 | **Recruitment Officer** | Manages vacancies, candidates, adverts and interview schedules, and communicates with candidates. |
@@ -93,11 +137,11 @@ The rules are defined once in `src/Grsms.Web/Security/Policies.cs` and **checked
 | Protection | Setting |
 |---|---|
 | **Password policy** | At least 10 characters with upper case, lower case, a digit and a symbol, and at least 4 different characters |
-| **Account lockout** | 5 wrong passwords lock the account for 15 minutes. An HR Administrator can unlock it early on the Users screen. |
+| **Account lockout** | 5 wrong passwords lock the account for 15 minutes. A Super Admin or HR Administrator can unlock it early on the Users screen. |
 | **Session timeout** | Signed out after 20 minutes without activity (`Security:SessionTimeoutMinutes`) |
 | **Forced password change** | Accounts created or reset by an administrator must choose a new password at their next sign-in |
 | **Deactivated accounts** | Cannot sign in by password or Microsoft 365. An existing session ends within 5 minutes. |
-| **Role changes** | Take effect within 5 minutes (the session is re-checked against the database) |
+| **Role changes** | Take effect within 5 minutes (the session is re-checked against the database). **Permission changes** (Phase 14) take effect at once. |
 | **Email confirmation** | Candidates must click the link in their confirmation email before they can sign in |
 | **No account "fishing"** | Forgot-password and registration pages give the same answer whether or not the email has an account. On the sign-in page, *deactivated* or *please confirm your email* is only shown when the password is right; with a wrong password every account, and every non-existent email, gets the same *Incorrect email or password* (Phase 12) |
 | **Rate limiting** (Phase 12) | The sign-in, registration, resend-confirmation, forgot-password and reset-password forms accept at most **10 posts per minute from one network address** (`Security:SignInAttemptsPerMinute`); more get *Too many attempts* (HTTP 429) and are logged. This slows password guessing spread over many accounts, which the per-account lockout cannot catch, and stops the email pages being used to flood inboxes. |
@@ -105,8 +149,9 @@ The rules are defined once in `src/Grsms.Web/Security/Policies.cs` and **checked
 ### Safety rules for administrators
 
 To stop anyone being locked out of the system:
-* you cannot deactivate your own account or remove your own HR Administrator role;
-* there must always be at least one active HR Administrator;
+* you cannot deactivate your own account or remove your own Super Admin role;
+* there must always be at least one active Super Admin (if none is left, the next start-up gives the role back to the `SeedAdmin` account);
+* the Super Admin always holds every permission, so it can always repair a permission change;
 * a user who is a department's HOD keeps the HOD role, and stays active, until another HOD is chosen for that department;
 * only users with the Head of Department role can be chosen as a department's HOD.
 

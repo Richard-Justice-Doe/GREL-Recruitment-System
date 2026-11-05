@@ -18,8 +18,9 @@
     var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
     var canSurveyResults = (await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded;
     var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
+    var canRoles = (await Auth.AuthorizeAsync(User, Policies.RolesAndPermissions)).Succeeded; // Phase 14: Super Admin
     var isCandidate = User.IsInRole(Roles.Candidate);
-    var isStaff = !isCandidate && Roles.Staff.Any(User.IsInRole);
+    var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
     var counts = await Nav.GetAsync();
 }
 <aside class="sidebar" aria-label="Main menu">
@@ -139,13 +140,19 @@
             </a>
         }
 
-        @if (canUsers || canAudit)
+        @if (canUsers || canAudit || canRoles)
         {
             <div class="nav-section">Management</div>
             @if (canUsers)
             {
                 <a class="nav-link @Active("Users")" asp-controller="Users" asp-action="Index">
                     <i class="fa-solid fa-users-gear"></i> Users &amp; roles
+                </a>
+            }
+            @if (canRoles)
+            {
+                <a class="nav-link @Active("Roles")" asp-controller="Roles" asp-action="Index">
+                    <i class="fa-solid fa-user-shield"></i> Roles &amp; permissions
                 </a>
             }
             @if (canAudit)

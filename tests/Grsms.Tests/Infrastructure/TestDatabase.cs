@@ -29,6 +29,11 @@ public class TestCurrentUser : ICurrentUserService
 
     public bool IsInRole(string role) => Roles.Contains(role);
 
+    /// <summary>Service tests use each role's default permissions (the web tests use the real database grants).</summary>
+    public bool HasPermission(string permission) =>
+        UserId is not null && Grsms.Domain.Security.Permissions.Holds(Roles, permission,
+            r => Grsms.Domain.Security.Permissions.Defaults.GetValueOrDefault(r) ?? []);
+
     /// <summary>Switches the pretend signed-in user (id, name and roles) in one call.</summary>
     public void SignInAs(string userId, string name, params string[] roles)
     {

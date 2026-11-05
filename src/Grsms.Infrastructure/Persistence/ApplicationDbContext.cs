@@ -74,6 +74,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Surveys.SurveyInvitation> SurveyInvitations => Set<Domain.Surveys.SurveyInvitation>();
     public DbSet<Domain.Surveys.SurveyAnswer> SurveyAnswers => Set<Domain.Surveys.SurveyAnswer>();
 
+    // Phase 14: permissions whose default grants have been applied (the grants themselves are in RoleClaims)
+    public DbSet<Domain.Security.KnownPermission> KnownPermissions => Set<Domain.Security.KnownPermission>();
+
     /// <summary>
     /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and
     /// written through DateTime / TimeSpan. The Oracle MySQL provider hands back DATE and TIME columns as DateTime /

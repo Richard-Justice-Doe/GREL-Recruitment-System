@@ -1,6 +1,6 @@
 # 5. Administrator guide
 
-For **HR Administrators**: how to use the Phase 1 screens. No technical knowledge needed.
+For **Super Admins and HR Administrators**: how to use the administration screens. No technical knowledge needed.
 
 All screens are in the left-hand menu. On a phone, tap the ☰ button at the top left to open the menu. The 🌙 / ☀️ button at the top right switches between light and dark mode.
 
@@ -81,10 +81,11 @@ Two tabs:
 ### Create a staff account
 1. Click **Add staff account**.
 2. Fill in name, email (this is what they sign in with), phone, staff number, department and site.
-3. Tick their **roles**. Most people have *Employee* plus one more:
+3. Tick their **roles**. Most people have *Employee* plus one more. Since Phase 14, **only a Super Admin** can tick the locked (🔒) roles: everything except Employee and Interview Panel Member. An HR Administrator creates the everyday accounts; a Super Admin creates the HR Managers, the MD, Recruitment Officers, HODs and other administrators:
 
    | Person | Tick |
    |---|---|
+   | Another Super Admin | Super Admin, Employee |
    | HR Manager | HR Manager, Employee |
    | Managing Director | Managing Director, Employee |
    | Recruiter | Recruitment Officer, Employee |
@@ -109,9 +110,31 @@ After 5 wrong passwords an account is locked for 15 minutes and shows a red **Lo
 Click the deactivate button. They can no longer sign in, and any open session ends within 5 minutes. Their history is kept. **Don't** delete people: their approvals and interview scores must stay on record.
 
 ### Things the system will stop you doing (on purpose)
-* Deactivating yourself or removing your own HR Administrator role.
-* Leaving the system with no active HR Administrator.
+* Deactivating yourself or removing your own Super Admin role.
+* Leaving the system with no active Super Admin.
 * Removing the HOD role from someone who is still a department's Head. Choose a new HOD for that department first.
+* As an HR Administrator: giving or removing a privileged role, or editing, resetting the password of, or deactivating an account that holds one. These accounts show a 🔒 **Super Admin** label instead of the buttons. You can still unlock them.
+
+---
+
+## Roles & permissions (Super Admin only)
+
+**Menu → Management → Roles & permissions**
+
+### Change what a role may open
+1. Tick or untick boxes in the grid: permissions down the side, roles across the top. Each permission says what it opens.
+2. Click **Save permissions**. The change applies straight away to everyone holding that role, without signing out, and is recorded in the audit trail.
+
+The **Super Admin** column is always ticked and cannot be changed. The two **Super Admin only** permissions cannot be given to anyone else. Candidates never get staff permissions.
+
+> A permission opens a screen. It does not change who approves what: the HR Manager still approves at HR stage, the MD at final stage, and so on. See [04 Security → Rules that are not permissions](04-security-and-roles.md#rules-that-are-not-permissions-on-purpose).
+
+### Add a custom role
+1. Click **Add custom role**, give it a name (e.g. *Recruitment Auditor*) and say what it is for.
+2. Tick its permissions in the grid and click **Save permissions**.
+3. On **Users & roles**, give it to people (with **Employee** too).
+
+A custom role can be renamed (✏️) and deleted (🗑) once nobody holds it. Built-in roles can't be renamed or deleted.
 
 ---
 

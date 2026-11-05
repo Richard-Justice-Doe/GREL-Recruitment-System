@@ -92,7 +92,12 @@ The standard Identity columns (`Email`, `PasswordHash`, `LockoutEnd`, `AccessFai
 Passwords are stored only as a salted hash (PBKDF2), never as readable text.
 
 ### Roles, UserRoles
-`Roles` holds the 8 roles, with readable ids such as `hr-manager` and `head-of-department`. `UserRoles` links users to roles (many-to-many). The other Identity tables are `UserClaims`, `UserLogins` (Microsoft 365 links), `UserTokens` and `RoleClaims`.
+`Roles` holds the 9 built-in roles (Super Admin added in Phase 14), with readable ids such as `hr-manager` and `head-of-department`, plus any custom roles a Super Admin adds (ids `custom-...`). `UserRoles` links users to roles (many-to-many). The other Identity tables are `UserClaims`, `UserLogins` (Microsoft 365 links), `UserTokens` and `RoleClaims`.
+
+### RoleClaims and KnownPermissions (Phase 14)
+`RoleClaims` holds **which permissions each role has**: one row per role and permission, `ClaimType` = `grsms:permission`, `ClaimValue` = the permission name (e.g. `vacancies.view`). A custom role's description is a row with `ClaimType` = `grsms:description`. A unique index on (RoleId, ClaimType, ClaimValue) stops duplicates. The Super Admin holds every permission without rows.
+
+`KnownPermissions` (Name, AddedAt) lists the permissions whose default grants have already been applied. At start-up GRSMS gives any permission **not** listed here to its default roles, then lists it, so a permission the Super Admin removed is never given back. To re-apply every default (for example after a mistake), delete the `grsms:permission` rows of the built-in roles and every `KnownPermissions` row, then restart GRSMS.
 
 ### AuditLogs
 Append-only, never edited or deleted. It does **not** inherit the standard columns.
@@ -427,6 +432,7 @@ Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `
 | `11_phase08_hiring.sql` | 8 | BackgroundChecks, HiringRecommendations, Offers |
 | `12_phase09_onboarding.sql` | 9 | Onboardings, OnboardingTasks |
 | `13_phase10_notifications_surveys.sql` | 10 | Notifications, SentReminders, SurveyInvitations, SurveyAnswers |
+| `14_phase14_super_admin_permissions.sql` | 14 | KnownPermissions; the Super Admin role; RoleClaims text columns shortened (the table was empty) and a unique index. The default permissions and the first Super Admin are added by GRSMS at start-up, not by the script. |
 
 Each script:
 * runs **once**, in number order, against an empty database (or one that already has the earlier scripts applied);

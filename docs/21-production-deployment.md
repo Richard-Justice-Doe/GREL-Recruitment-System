@@ -37,7 +37,7 @@ docker compose -f docker-compose.prod.yml logs -f web     # wait for "Now listen
 In `.env`:
 * **GRSMS_DOMAIN**: the name users will type.
 * **MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD**: long random passwords (e.g. `openssl rand -base64 24`). They are fixed when the database is first created.
-* **SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD**: the first HR Administrator.
+* **SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD**: the first Super Admin (Phase 14; before that, the first HR Administrator).
 * **SMTP_*** from IT. Until SMTP is set, emails are only saved as files in the app-data volume, and nobody receives them.
 
 Open `https://<GRSMS_DOMAIN>`, sign in as the first administrator, then:
@@ -132,7 +132,7 @@ docker compose -f docker-compose.prod.yml start web
 - [ ] `http://<domain>` redirects to https
 - [ ] Only ports 80/443 reachable from outside (check from another machine: 3306, 8080 and 8081 closed)
 - [ ] `deploy/.env` readable only by administrators; `SEED_ADMIN_PASSWORD` removed after the first sign-in
-- [ ] Administrator password changed; at least two HR Administrators exist
+- [ ] Administrator password changed; at least two Super Admins exist (so one can stand in for the other)
 - [ ] Server operating system updates switched on
 
 **Email and integrations**

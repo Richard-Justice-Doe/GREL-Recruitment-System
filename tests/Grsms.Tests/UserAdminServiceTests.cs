@@ -9,17 +9,20 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Grsms.Tests;
 
-/// <summary>The account-management safety rules in UserAdminService.</summary>
+/// <summary>The account-management safety rules in UserAdminService (Phase 14: Super Admin and privileged roles).</summary>
 public class UserAdminServiceTests : IDisposable
 {
     private const string Password = "Temp#Pass2026";
     private readonly TestDatabase _db = new();
     public void Dispose() => _db.Dispose();
 
-    private async Task<string> CreateAsync(string email, params string[] roles)
+    // Most tests act as a Super Admin, who may give any staff role.
+    public UserAdminServiceTests() => _db.CurrentUser.SignInAs("super-id", "Super Admin", Roles.SuperAdmin);
+
+    private async Task<Grsms.Application.Common.Result<string>> TryCreateAsync(string email, params string[] roles)
     {
         using var scope = _db.NewScope();
-        var result = await scope.ServiceProvider.GetRequiredService<IUserAdminService>().CreateAsync(new UserFormDto
+        return await scope.ServiceProvider.GetRequiredService<IUserAdminService>().CreateAsync(new UserFormDto
         {
             FullName = email.Split('@')[0],
             Email = email,
@@ -27,6 +30,11 @@ public class UserAdminServiceTests : IDisposable
             SelectedRoles = [.. roles],
             TemporaryPassword = Password
         });
+    }
+
+    private async Task<string> CreateAsync(string email, params string[] roles)
+    {
+        var result = await TryCreateAsync(email, roles);
         Assert.True(result.Succeeded, string.Join(" ", result.Errors));
         return result.Value!;
     }
@@ -53,37 +61,71 @@ public class UserAdminServiceTests : IDisposable
     [Fact]
     public async Task Staff_cannot_be_given_the_candidate_role()
     {
-        using var scope = _db.NewScope();
-        var result = await scope.ServiceProvider.GetRequiredService<IUserAdminService>().CreateAsync(new UserFormDto
-        {
-            FullName = "X", Email = "x@grel.test", SelectedRoles = [Roles.Candidate], TemporaryPassword = Password
-        });
-        Assert.False(result.Succeeded);
+        Assert.False((await TryCreateAsync("x@grel.test", Roles.Candidate)).Succeeded);
     }
 
     [Fact]
-    public async Task The_last_active_hr_administrator_cannot_be_deactivated()
+    public async Task The_last_active_super_admin_cannot_be_deactivated_or_lose_the_role()
     {
-        var admin = await CreateAsync("admin@grel.test", Roles.HrAdministrator);
+        var admin = await CreateAsync("admin@grel.test", Roles.SuperAdmin);
         var other = await CreateAsync("other@grel.test", Roles.Employee);
 
         using var scope = _db.NewScope();
         var service = scope.ServiceProvider.GetRequiredService<IUserAdminService>();
 
-        // "other" is not an HR admin, but tries to deactivate the only one.
         var result = await service.SetActiveAsync(admin, false, actingUserId: other);
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Errors, e => e.Contains("last active HR Administrator"));
+        Assert.Contains(result.Errors, e => e.Contains("last active Super Admin"));
 
-        // Nobody can deactivate themselves.
+        // Nobody can deactivate themselves, or remove their own Super Admin role.
         Assert.False((await service.SetActiveAsync(other, false, actingUserId: other)).Succeeded);
+        var form = (await service.GetForEditAsync(admin))!;
+        form.SelectedRoles = [Roles.Employee];
+        var own = await service.UpdateAsync(form, actingUserId: admin);
+        Assert.Contains(own.Errors, e => e.Contains("your own Super Admin role"));
+    }
+
+    [Fact]
+    public async Task Hr_administrator_gives_everyday_roles_only_and_cannot_touch_privileged_accounts()
+    {
+        var hrm = await CreateAsync("hrm@grel.test", Roles.HrManager, Roles.Employee);
+        var hrAdmin = await CreateAsync("hradmin@grel.test", Roles.HrAdministrator, Roles.Employee);
+        _db.CurrentUser.SignInAs(hrAdmin, "HR Admin", Roles.HrAdministrator, Roles.Employee);
+
+        // Everyday accounts: fine.
+        var employee = await CreateAsync("plain@grel.test", Roles.Employee, Roles.PanelMember);
+
+        // Privileged roles: refused, whether creating or adding to an existing account.
+        foreach (var role in new[] { Roles.HrManager, Roles.RecruitmentOfficer, Roles.HeadOfDepartment, Roles.HrAdministrator, Roles.ManagingDirector, Roles.SuperAdmin })
+        {
+            var refused = await TryCreateAsync($"try-{role.Replace(' ', '-')}@grel.test", Roles.Employee, role);
+            Assert.False(refused.Succeeded);
+            Assert.Contains(refused.Errors, e => e.Contains("Only a Super Admin"));
+        }
+
+        using var scope = _db.NewScope();
+        var service = scope.ServiceProvider.GetRequiredService<IUserAdminService>();
+        var promote = (await service.GetForEditAsync(employee))!;
+        promote.SelectedRoles = [Roles.Employee, Roles.RecruitmentOfficer];
+        Assert.False((await service.UpdateAsync(promote, hrAdmin)).Succeeded);
+
+        // A privileged account cannot be edited (e.g. a password reset to take it over) or deactivated.
+        var takeover = (await service.GetForEditAsync(hrm))!;
+        takeover.TemporaryPassword = "Taken#Over2026";
+        var edit = await service.UpdateAsync(takeover, hrAdmin);
+        Assert.False(edit.Succeeded);
+        Assert.Contains(edit.Errors, e => e.Contains("only a Super Admin can change this account"));
+        Assert.False((await service.SetActiveAsync(hrm, false, hrAdmin)).Succeeded);
+
+        // Unlocking stays allowed: it gives no new access.
+        Assert.True((await service.UnlockAsync(hrm)).Succeeded);
     }
 
     [Fact]
     public async Task A_hod_assigned_to_a_department_keeps_the_hod_role_until_replaced()
     {
         var hod = await CreateAsync("hod@grel.test", Roles.HeadOfDepartment, Roles.Employee);
-        var admin = await CreateAsync("admin@grel.test", Roles.HrAdministrator);
+        var admin = await CreateAsync("admin@grel.test", Roles.SuperAdmin);
 
         using (var scope = _db.NewScope())
         {

@@ -40,7 +40,7 @@ public class InterviewService(
 
     private string MyId => me.UserId ?? throw new InvalidOperationException("No signed-in user.");
     private bool IsScheduler => InterviewWorkflow.SchedulerRoles.Any(me.IsInRole);
-    private bool SeesEverything => AccessScope.SeeAllRoles.Any(me.IsInRole);
+    private bool SeesEverything => me.HasPermission(Permissions.SeeAllDepartments);
 
     // ===================================================================== Scheduling
 

@@ -1,0 +1,118 @@
+@* Phase 14: Roles & permissions (Super Admin only). One tick-box grid: permissions down the side, roles across the top.
+   The Super Admin column is always ticked and locked; "Super Admin only" permissions cannot be given to other roles;
+   the Candidate role gets no staff permissions. *@
+@model IReadOnlyList<RoleSummaryDto>
+@{
+    ViewData["Title"] = "Roles & permissions";
+    var columns = Model.Where(r => r.Name != Roles.Candidate).ToList();
+}
+
+<div class="page-header">
+    <div>
+        <h1>Roles &amp; permissions</h1>
+        <p>Decide what each role may open. Changes apply straight away and are recorded in the audit trail.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add custom role</a>
+</div>
+
+<div class="alert alert-info small">
+    <i class="fa-solid fa-circle-info me-1"></i>
+    Permissions open screens and functions. <b>Who acts at each workflow step</b> (the HOD raises a request, the HR Manager approves,
+    the Managing Director gives final approval, ...) stays with the role and cannot be changed here, so approvals stay separated.
+    The <b>Super Admin</b> always holds every permission.
+</div>
+
+<form asp-action="Save" method="post">
+    <div class="card glass mb-3">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle permission-grid">
+                    <thead>
+                    <tr>
+                        <th style="min-width: 260px">Permission</th>
+                        @foreach (var r in columns)
+                        {
+                            <th class="text-center small" style="min-width: 90px">
+                                <input type="hidden" name="roleNames" value="@r.Name" />
+                                @r.Name
+                                @if (!r.IsBuiltIn) { <div><span class="badge rounded-pill badge-soft-secondary">custom</span></div> }
+                                <div class="text-body-secondary fw-normal">@r.ActiveUsers user@(r.ActiveUsers == 1 ? "" : "s")</div>
+                            </th>
+                        }
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var group in Permissions.Catalogue.GroupBy(p => p.Group))
+                    {
+                        <tr class="table-group-row">
+                            <th colspan="@(columns.Count + 1)" class="text-uppercase small text-body-secondary pt-3">@group.Key</th>
+                        </tr>
+                        @foreach (var p in group)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">@p.Label</div>
+                                    <div class="small text-body-secondary">@p.Description</div>
+                                </td>
+                                @foreach (var r in columns)
+                                {
+                                    var isSuper = r.Name == Roles.SuperAdmin;
+                                    var locked = isSuper || p.SuperAdminOnly;
+                                    var id = $"g-{r.Id}-{p.Name}".Replace('.', '-');
+                                    <td class="text-center">
+                                        <input class="form-check-input" type="checkbox" id="@id" name="grant" value="@($"{r.Name}|{p.Name}")"
+                                               checked="@r.Permissions.Contains(p.Name)" disabled="@locked"
+                                               aria-label="@p.Label for @r.Name" />
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save permissions</button>
+</form>
+
+<h2 class="h5 mt-5 mb-3">Roles</h2>
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr><th>Role</th><th>What it is for</th><th class="text-end">Active users</th><th class="text-end">Actions</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold text-nowrap">
+                            @r.Name
+                            @if (r.IsBuiltIn) { <span class="badge rounded-pill badge-soft-primary ms-1">built-in</span> }
+                            else { <span class="badge rounded-pill badge-soft-secondary ms-1">custom</span> }
+                        </td>
+                        <td class="small">@r.Description</td>
+                        <td class="text-end">@r.ActiveUsers</td>
+                        <td class="text-end text-nowrap">
+                            @if (!r.IsBuiltIn)
+                            {
+                                <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-sm btn-outline-secondary" title="Rename / describe"><i class="fa-solid fa-pen"></i></a>
+                                <form asp-action="Delete" asp-route-id="@r.Id" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"
+                                            data-confirm="Delete the role @r.Name? Its permissions are removed too."><i class="fa-solid fa-trash"></i></button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-body-secondary mb-0">
+            Built-in roles cannot be renamed or deleted, because the workflows check them by name. A custom role only opens the screens
+            you tick for it; give its holders the <b>Employee</b> role too, so they can see internal vacancies.
+        </p>
+    </div>
+</div>

@@ -4,6 +4,13 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 5 November 2026: Clean-up committed; Phase 14 started
+
+* The 4 November clean-up (unused demo mode code and two methods nothing called) was committed on branch `feature/ats-and-super-admin`. The `_removed-for-review/` copies are still on disk (git-ignored) until they are deleted.
+* Phase 14 (Super Admin and permissions) is recorded in the [phase log](phases.md#-phase-14-super-admin-and-granular-permissions-5-november-2026).
+
+---
+
 ## 4 November 2026 (22:00): SweetAlert2 for confirmations and messages
 
 **Why:** the user asked to use SweetAlert instead of the browser's plain boxes.

@@ -53,12 +53,15 @@ public record CandidateSummary(string Id, string FullName, string Email, DateTim
 public record UserContact(string Id, string FullName, string Email);
 
 /// <summary>
-/// User account management for the HR Administrator (Users screen).
+/// User account management for the Super Admin and HR Administrator (Users screen).
 /// </summary>
 public interface IUserAdminService
 {
     /// <summary>All users. Staff only by default; set <paramref name="includeCandidates"/> to also list portal candidates.</summary>
     Task<IReadOnlyList<UserListItemDto>> GetAllAsync(bool includeCandidates, CancellationToken ct = default);
+
+    /// <summary>Phase 14: every role a staff account can be given (built-in staff roles, then custom roles).</summary>
+    Task<IReadOnlyList<string>> GetAssignableRolesAsync(CancellationToken ct = default);
 
     /// <summary>Loads a staff account into the edit form, or null if not found.</summary>
     Task<UserFormDto?> GetForEditAsync(string id, CancellationToken ct = default);

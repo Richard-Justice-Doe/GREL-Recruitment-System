@@ -149,7 +149,7 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         foreach (var entry in db.ChangeTracker.Entries().ToList())
         {
             // Audit rows themselves, and the technical reference-number counters, are not audited.
-            if (entry.Entity is AuditLog or NumberSequence) continue;
+            if (entry.Entity is AuditLog or NumberSequence or Domain.Security.KnownPermission) continue;
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
 
             string action;
@@ -254,6 +254,7 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         IdentityUserClaim<string> => "UserClaim",
         IdentityUserToken<string> => "UserToken",
         IdentityRole => "Role",
+        IdentityRoleClaim<string> => "RoleClaim", // Phase 14: a role's permissions (and a custom role's description)
         _ => entry.Metadata.ClrType.Name
     };
 

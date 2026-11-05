@@ -356,7 +356,7 @@ public class ApplicationService(
 
     private async Task<bool> CanStaffSeeAsync(JobApplication a, CancellationToken ct) =>
         Roles.Staff.Any(me.IsInRole) && !me.IsInRole(Roles.Candidate) &&
-        (AccessScope.SeeAllRoles.Any(me.IsInRole) || me.IsInRole(Roles.HeadOfDepartment)) &&
+        (me.HasPermission(Permissions.SeeAllDepartments) || me.IsInRole(Roles.HeadOfDepartment)) &&
         AccessScope.CanSee(await scope.VisibilityAsync(ct), a.DepartmentId, null);
 
     private async Task<(JobApplication? Application, string? Error)> LoadForReviewerAsync(int id, Func<ApplicationStatus, bool> allowed,

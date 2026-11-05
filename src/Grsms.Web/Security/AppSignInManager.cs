@@ -41,6 +41,11 @@ public class AppClaimsPrincipalFactory(
     protected override async Task<System.Security.Claims.ClaimsIdentity> GenerateClaimsAsync(ApplicationUser user)
     {
         var identity = await base.GenerateClaimsAsync(user);
+        // Phase 14: Identity copies every role claim into the sign-in cookie. Permissions are looked up live instead
+        // (IPermissionStore), so a change applies at once; drop the copies to keep the cookie small and never stale.
+        foreach (var c in identity.Claims.Where(c => c.Type is Grsms.Domain.Security.Permissions.ClaimType
+                     or Grsms.Infrastructure.Identity.RoleAdminService.DescriptionClaimType).ToList())
+            identity.RemoveClaim(c);
         identity.AddClaim(new(FullNameClaim, user.FullName));
         if (user.MustChangePassword)
             identity.AddClaim(new(MustChangePasswordClaim, "true"));

@@ -1,3 +1,4 @@
+using Grsms.Application.Common.Interfaces;
 using Grsms.Domain.Security;
 using Microsoft.AspNetCore.Authorization;
 
@@ -5,12 +6,15 @@ namespace Grsms.Web.Security;
 
 /// <summary>
 /// Named authorization policies. A controller says <c>[Authorize(Policy = Policies.MasterData)]</c>
-/// instead of listing role names, so who may do what is decided in ONE place (this file).
+/// instead of listing role names, so who may do what is decided in ONE place.
+///
+/// Phase 14: most policies are now a PERMISSION (Domain/Security/Permissions.cs). Which roles hold each permission is
+/// set by the Super Admin on the Roles &amp; permissions screen; the defaults reproduce what each role could do before.
 /// The full permission matrix is documented in docs/04-security-and-roles.md.
 /// </summary>
 public static class Policies
 {
-    /// <summary>Maintain departments, units and sites.</summary>
+    /// <summary>Maintain divisions, departments, units and sites.</summary>
     public const string MasterData = nameof(MasterData);
 
     /// <summary>Create and manage user accounts.</summary>
@@ -37,28 +41,51 @@ public static class Policies
     /// <summary>Open the Job adverts screens (what each person may do there is decided by AdvertService).</summary>
     public const string Adverts = nameof(Adverts);
 
-    /// <summary>Read survey results (Phase 10): HR Manager, Recruitment Officers and the Managing Director.</summary>
+    /// <summary>Read survey results (Phase 10).</summary>
     public const string SurveyResults = nameof(SurveyResults);
 
     /// <summary>Open the Reports (Phase 11). HODs see only their own departments (decided by ReportService).</summary>
     public const string Reports = nameof(Reports);
 
+    /// <summary>Phase 14: manage roles and permissions (Super Admin only).</summary>
+    public const string RolesAndPermissions = nameof(RolesAndPermissions);
+
     /// <summary>Registers the policies above. Called from Program.cs.</summary>
-    public static AuthorizationBuilder AddGrsmsPolicies(this AuthorizationBuilder builder) => builder
-        .AddPolicy(MasterData, p => p.RequireRole(Roles.HrAdministrator))
-        .AddPolicy(UserAdmin, p => p.RequireRole(Roles.HrAdministrator))
-        .AddPolicy(AuditTrail, p => p.RequireRole(Roles.HrAdministrator, Roles.HrManager))
-        .AddPolicy(Staff, p => p.RequireRole(Roles.Staff))
-        .AddPolicy(RecruitmentRequests, p => p.RequireRole(
-            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
-        .AddPolicy(RaiseRecruitmentRequest, p => p.RequireRole(Roles.HeadOfDepartment))
-        .AddPolicy(Vacancies, p => p.RequireRole(
-            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
-        .AddPolicy(Adverts, p => p.RequireRole(
-            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
-        .AddPolicy(SurveyResults, p => p.RequireRole(Roles.HrManager, Roles.RecruitmentOfficer, Roles.ManagingDirector))
-        .AddPolicy(Reports, p => p.RequireRole(
-            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator))
-        .AddPolicy(Applications, p => p.RequireRole(
-            Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector, Roles.HrAdministrator));
+    public static AuthorizationBuilder AddGrsmsPolicies(this AuthorizationBuilder builder)
+    {
+        builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+        return builder
+            .AddPermissionPolicy(MasterData, Permissions.ManageMasterData)
+            .AddPermissionPolicy(UserAdmin, Permissions.ManageUsers)
+            .AddPermissionPolicy(AuditTrail, Permissions.ViewAuditTrail)
+            .AddPermissionPolicy(RecruitmentRequests, Permissions.ViewRecruitmentRequests)
+            .AddPermissionPolicy(RaiseRecruitmentRequest, Permissions.RaiseRecruitmentRequests)
+            .AddPermissionPolicy(Vacancies, Permissions.ViewVacancies)
+            .AddPermissionPolicy(Adverts, Permissions.ViewAdverts)
+            .AddPermissionPolicy(Applications, Permissions.ViewApplications)
+            .AddPermissionPolicy(SurveyResults, Permissions.ViewSurveyResults)
+            .AddPermissionPolicy(Reports, Permissions.ViewReports)
+            .AddPermissionPolicy(RolesAndPermissions, Permissions.ManagePermissions)
+            // Staff = signed in with any role other than Candidate (built-in or custom).
+            .AddPolicy(Staff, p => p.RequireAuthenticatedUser().RequireAssertion(c =>
+                !c.User.IsInRole(Roles.Candidate) &&
+                c.User.FindAll(System.Security.Claims.ClaimTypes.Role).Any()));
+    }
+
+    private static AuthorizationBuilder AddPermissionPolicy(this AuthorizationBuilder builder, string policy, string permission) =>
+        builder.AddPolicy(policy, p => p.RequireAuthenticatedUser().AddRequirements(new PermissionRequirement(permission)));
+}
+
+/// <summary>Phase 14: "the user must hold this permission".</summary>
+public sealed record PermissionRequirement(string Permission) : IAuthorizationRequirement;
+
+/// <summary>Phase 14: checks a <see cref="PermissionRequirement"/> against the roles the Super Admin has given it to.</summary>
+public sealed class PermissionHandler(IPermissionStore store) : AuthorizationHandler<PermissionRequirement>
+{
+    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
+    {
+        if (CurrentUserService.HasPermission(context.User, requirement.Permission, store))
+            context.Succeed(requirement);
+        return Task.CompletedTask;
+    }
 }

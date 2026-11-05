@@ -31,7 +31,7 @@ internal class ApplicationUserConfiguration : IEntityTypeConfiguration<Applicati
     }
 }
 
-/// <summary>Table "Roles", seeded with the eight GRSMS roles.</summary>
+/// <summary>Table "Roles", seeded with the built-in GRSMS roles (Super Admin added in Phase 14). Custom roles are added by a Super Admin.</summary>
 internal class RoleConfiguration : IEntityTypeConfiguration<IdentityRole>
 {
     public void Configure(EntityTypeBuilder<IdentityRole> b)
@@ -63,7 +63,15 @@ internal class IdentityTableNames :
 {
     public void Configure(EntityTypeBuilder<IdentityUserRole<string>> b) => b.ToTable("UserRoles");
     public void Configure(EntityTypeBuilder<IdentityUserClaim<string>> b) => b.ToTable("UserClaims");
-    public void Configure(EntityTypeBuilder<IdentityRoleClaim<string>> b) => b.ToTable("RoleClaims");
+    // Phase 14: a role's permissions are rows here (ClaimType "grsms:permission"). The index makes the
+    // "does this role already hold it?" check and the duplicate guard cheap.
+    public void Configure(EntityTypeBuilder<IdentityRoleClaim<string>> b)
+    {
+        b.ToTable("RoleClaims");
+        b.Property(c => c.ClaimType).HasMaxLength(100);
+        b.Property(c => c.ClaimValue).HasMaxLength(300);
+        b.HasIndex(c => new { c.RoleId, c.ClaimType, c.ClaimValue }).IsUnique();
+    }
 
     // These two tables have multi-column text primary keys. MySQL limits an index to 3072 bytes
     // (each utf8mb4 character can take 4 bytes), so the key columns are kept to 128 characters.
@@ -79,6 +87,17 @@ internal class IdentityTableNames :
         b.ToTable("UserTokens");
         b.Property(t => t.LoginProvider).HasMaxLength(128);
         b.Property(t => t.Name).HasMaxLength(128);
+    }
+}
+
+/// <summary>Phase 14: table "KnownPermissions" (see <see cref="KnownPermission"/>).</summary>
+internal class KnownPermissionConfiguration : IEntityTypeConfiguration<KnownPermission>
+{
+    public void Configure(EntityTypeBuilder<KnownPermission> b)
+    {
+        b.ToTable("KnownPermissions");
+        b.HasKey(k => k.Name);
+        b.Property(k => k.Name).HasMaxLength(100);
     }
 }
 

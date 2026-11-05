@@ -5,6 +5,7 @@
     var isNew = Model.Id is null;
     ViewData["Title"] = isNew ? "Add staff account" : $"Edit {Model.FullName}";
     var allRoles = (IReadOnlyList<string>)ViewBag.AllRoles;
+    var isSuperAdmin = ViewBag.IsSuperAdmin == true;
 }
 
 <div class="page-header">
@@ -78,13 +79,22 @@
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-3">Roles</h2>
                     <p class="small text-body-secondary">Tick every role this person needs. Changes take effect within 5 minutes.</p>
+                    @if (!isSuperAdmin)
+                    {
+                        <p class="small text-body-secondary"><i class="fa-solid fa-lock me-1"></i>Roles with a lock can only be given by a Super Admin.</p>
+                    }
                     @foreach (var role in allRoles)
                     {
                         var id = "role-" + role.Replace(' ', '-');
+                        var locked = !isSuperAdmin && Roles.NeedsSuperAdmin([role]);
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="checkbox" name="SelectedRoles" value="@role" id="@id"
-                                   checked="@Model.SelectedRoles.Contains(role)" />
-                            <label class="form-check-label" for="@id">@role</label>
+                                   checked="@Model.SelectedRoles.Contains(role)" disabled="@locked" />
+                            <label class="form-check-label" for="@id">
+                                @role
+                                @if (locked) { <i class="fa-solid fa-lock small text-body-secondary ms-1" title="Super Admin only"></i> }
+                                @if (!Roles.IsBuiltIn(role)) { <span class="badge rounded-pill badge-soft-secondary ms-1">custom</span> }
+                            </label>
                         </div>
                     }
                 </div>

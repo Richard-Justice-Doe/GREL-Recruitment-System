@@ -66,7 +66,7 @@ dotnet user-secrets --project src/Grsms.Web set "SeedAdmin:Password" "Choose#A-S
 dotnet user-secrets --project src/Grsms.Web set "SeedAdmin:FullName" "Your Name"
 ```
 
-The **SeedAdmin** account is created only once, the first time the app starts and finds no HR Administrator. After that these two settings are ignored and you can remove them:
+The **SeedAdmin** account is created only once, the first time the app starts and finds no active Super Admin (until Phase 14: no HR Administrator). It is a **Super Admin**. After that these two settings are ignored and you can remove them, though keeping them lets GRSMS give the Super Admin role back to that account if no active Super Admin is ever left:
 
 ```powershell
 dotnet user-secrets --project src/Grsms.Web remove "SeedAdmin:Password"
@@ -109,7 +109,7 @@ Double-click a `.eml` file to open it in Outlook, then click the link inside. To
 
 `src/Grsms.Web/logs/grsms-YYYYMMDD.log`, with one file per day, kept for 30 days. The console window shows the same lines.
 
-## Step 6: First things to do as the HR Administrator
+## Step 6: First things to do as the Super Admin
 
 1. **Sites:** GREL's 12 sites are pre-loaded; fill in the missing site types and locations.
 2. **Units:** open each department and add its units.
@@ -125,6 +125,6 @@ The [Administrator guide](05-admin-guide.md) walks through each screen.
 | `ConnectionStrings:DefaultConnection is not set` | Step 3 was skipped, or user-secrets were set for a different project. Run `dotnet user-secrets --project src/Grsms.Web list` to check. |
 | `Unable to connect to any of the specified MySQL hosts` | MySQL is not running, or the host/port is wrong. On Windows check *Services → MySQL84*. |
 | `Access denied for user 'grsms'@'localhost'` | Wrong password in the connection string, or step 1's `GRANT` was not run. |
-| The console warns *No HR Administrator exists and SeedAdmin… are not set* | Set `SeedAdmin:Email` and `SeedAdmin:Password` (step 3) and restart. |
-| *Could not create the first HR Administrator: Passwords must have…* | The SeedAdmin password is too weak. Choose a stronger one and restart. |
+| The console warns *No Super Admin exists and SeedAdmin… are not set* | Set `SeedAdmin:Email` and `SeedAdmin:Password` (step 3) and restart. |
+| *Could not create the first Super Admin: Passwords must have…* | The SeedAdmin password is too weak. Choose a stronger one and restart. |
 | Sign-in says *Please confirm your email address first* | That account is a candidate account that has not clicked its confirmation link. Open the `.eml` file (see above). |

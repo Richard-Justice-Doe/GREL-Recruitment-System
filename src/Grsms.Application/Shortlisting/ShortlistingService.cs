@@ -48,7 +48,7 @@ public class ShortlistingService(
         var v = await vacancies.GetWithDetailsAsync(vacancyId, ct);
         if (v is null) return null;
         var isHod = await IsHodOfAsync(v.DepartmentId, ct);
-        if (!IsReviewer && !isHod && !AccessScope.SeeAllRoles.Any(me.IsInRole)) return null;
+        if (!IsReviewer && !isHod && !me.HasPermission(Permissions.SeeAllDepartments)) return null;
 
         var apps = await applications.ListAsync(a => a.VacancyId == vacancyId && a.Status != ApplicationStatus.Withdrawn, ct);
         var rows = apps

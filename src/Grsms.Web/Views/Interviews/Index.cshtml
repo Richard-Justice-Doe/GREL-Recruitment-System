@@ -4,11 +4,12 @@
      Upcoming          - all scheduled sessions I may see (reviewers, HODs for their departments)
      All               - everything I may see, newest first *@
 @model PagedResult<InterviewListItemDto>
+@inject AccessScope Scope
 @{
     ViewData["Title"] = "Interviews";
     var f = (InterviewFilter)ViewBag.Filter;
     var pending = (int)ViewBag.PendingScorecards;
-    var seesOthers = AccessScope.SeeAllRoles.Any(User.IsInRole) || User.IsInRole(Roles.HeadOfDepartment);
+    var seesOthers = Scope.SeesAllDepartments || User.IsInRole(Roles.HeadOfDepartment);
 
     Dictionary<string, string> Route(int page)
     {

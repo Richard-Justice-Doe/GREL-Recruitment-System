@@ -20,7 +20,7 @@ The environment is chosen by the `ASPNETCORE_ENVIRONMENT` variable: `Development
 ### First administrator
 | Setting | Default | Meaning |
 |---|---|---|
-| `SeedAdmin:Email` | *(empty)* | Email of the first HR Administrator, created only if none exists |
+| `SeedAdmin:Email` | *(empty)* | Email of the first Super Admin, created only if no active Super Admin exists (an existing account with this email is given the role instead, Phase 14) |
 | `SeedAdmin:Password` | *(empty)* | Their password. Remove the setting after first start-up. |
 | `SeedAdmin:FullName` | `System Administrator` | Their display name |
 

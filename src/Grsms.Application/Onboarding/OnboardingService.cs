@@ -183,7 +183,7 @@ public class OnboardingService(
         if (o is null) return null;
         var list = (await tasks.ListAsync(t => t.OnboardingRecordId == o.Id, ct)).OrderBy(t => t.SortOrder).ThenBy(t => t.Id).ToList();
         var isHod = await IsHodOfAsync(o.DepartmentId, ct);
-        if (!AccessScope.SeeAllRoles.Any(me.IsInRole) && !isHod && !list.Any(t => t.AssignedToUserId == me.UserId) && o.ContactPersonUserId != me.UserId)
+        if (!me.HasPermission(Permissions.SeeAllDepartments) && !isHod && !list.Any(t => t.AssignedToUserId == me.UserId) && o.ContactPersonUserId != me.UserId)
             return null;
 
         var app = (await applications.GetByIdAsync(o.JobApplicationId, ct))!;

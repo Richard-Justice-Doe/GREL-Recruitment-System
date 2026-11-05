@@ -18,6 +18,7 @@ namespace Grsms.Web.Controllers;
 public class HomeController(
     DashboardService dashboard,
     IAuthorizationService auth,
+    AccessScope scope,
     IDivisionService divisionService,
     IDepartmentService departmentService) : AppController
 {
@@ -34,7 +35,7 @@ public class HomeController(
         var access = new DashboardAccess(
             Requests: (await auth.AuthorizeAsync(User, Security.Policies.RecruitmentRequests)).Succeeded,
             Vacancies: (await auth.AuthorizeAsync(User, Security.Policies.Vacancies)).Succeeded,
-            Candidates: AccessScope.SeeAllRoles.Any(User.IsInRole));
+            Candidates: scope.SeesAllDepartments);
 
         var filter = new DashboardFilter(divisionId, departmentId);
         var showFilter = access.Requests || access.Vacancies;

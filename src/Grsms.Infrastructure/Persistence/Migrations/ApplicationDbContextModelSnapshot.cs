@@ -181,7 +181,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("DivisionId")
                         .HasColumnType("int");
 
-                    b.Property<DateOnly>("EndDate")
+                    b.Property<DateTime>("EndDate")
                         .HasColumnType("date");
 
                     b.Property<string>("HowToApply")
@@ -200,7 +200,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<DateOnly>("StartDate")
+                    b.Property<DateTime>("StartDate")
                         .HasColumnType("date");
 
                     b.Property<string>("Status")
@@ -929,7 +929,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateOnly>("ProposedStartDate")
+                    b.Property<DateTime>("ProposedStartDate")
                         .HasColumnType("date");
 
                     b.Property<string>("RequestingHodUserId")
@@ -1012,7 +1012,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("DivisionId")
                         .HasColumnType("int");
 
-                    b.Property<DateOnly>("ExpiresOn")
+                    b.Property<DateTime>("ExpiresOn")
                         .HasColumnType("date");
 
                     b.Property<int>("HiringRecommendationId")
@@ -1057,7 +1057,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<DateOnly>("StartDate")
+                    b.Property<DateTime>("StartDate")
                         .HasColumnType("date");
 
                     b.Property<string>("Status")
@@ -1537,7 +1537,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("varchar(300)");
 
-                    b.Property<TimeOnly>("ReportTime")
+                    b.Property<TimeSpan>("ReportTime")
                         .HasColumnType("time");
 
                     b.Property<string>("RequestingHodUserId")
@@ -1548,7 +1548,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("SiteId")
                         .HasColumnType("int");
 
-                    b.Property<DateOnly>("StartDate")
+                    b.Property<DateTime>("StartDate")
                         .HasColumnType("date");
 
                     b.Property<string>("Status")
@@ -1643,7 +1643,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
-                    b.Property<DateOnly?>("DueDate")
+                    b.Property<DateTime?>("DueDate")
                         .HasColumnType("date");
 
                     b.Property<bool>("IsDeleted")
@@ -2708,6 +2708,20 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("RecruitmentRequestActions", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Security.KnownPermission", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Name");
+
+                    b.ToTable("KnownPermissions", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Surveys.SurveyAnswer", b =>
                 {
                     b.Property<int>("Id")
@@ -2791,7 +2805,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("DivisionId")
                         .HasColumnType("int");
 
-                    b.Property<DateOnly>("ExpiresOn")
+                    b.Property<DateTime>("ExpiresOn")
                         .HasColumnType("date");
 
                     b.Property<bool>("IsDeleted")
@@ -2869,7 +2883,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<DateOnly>("ClosingDate")
+                    b.Property<DateTime>("ClosingDate")
                         .HasColumnType("date");
 
                     b.Property<DateTime>("CreatedAt")
@@ -3280,6 +3294,13 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasData(
                         new
                         {
+                            Id = "super-admin",
+                            ConcurrencyStamp = "super-admin",
+                            Name = "Super Admin",
+                            NormalizedName = "SUPER ADMIN"
+                        },
+                        new
+                        {
                             Id = "hr-administrator",
                             ConcurrencyStamp = "hr-administrator",
                             Name = "HR Administrator",
@@ -3343,10 +3364,12 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
 
                     b.Property<string>("RoleId")
                         .IsRequired()
@@ -3354,7 +3377,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RoleId");
+                    b.HasIndex("RoleId", "ClaimType", "ClaimValue")
+                        .IsUnique();
 
                     b.ToTable("RoleClaims", (string)null);
                 });

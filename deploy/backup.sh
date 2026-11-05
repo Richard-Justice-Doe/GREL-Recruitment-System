@@ -50,6 +50,9 @@ if [ "${1:-}" = "now" ]; then
     exit $?
 fi
 
+# Phase 16: GRSMS (running as the non-root "app" user, uid 1654) leaves "back up now" requests in this folder only.
+mkdir -p /backups/requests && chown 1654:1654 /backups/requests && chmod 700 /backups/requests
+
 echo "$(date -u +%FT%TZ) GRSMS backup service started: daily after ${HOUR}:00 GMT, keeping ${KEEP} days"
 last=""
 while true; do
@@ -57,5 +60,10 @@ while true; do
     if [ "$(date -u +%-H)" -ge "$HOUR" ] && [ "$last" != "$today" ]; then
         backup && last=$today
     fi
-    sleep 300
+    # "Back up now" on GRSMS's Backups screen (Super Admin) leaves this file; it is removed once the backup is made.
+    if [ -f /backups/requests/backup-request ]; then
+        echo "$(date -u +%FT%TZ) backup requested from GRSMS"
+        backup && rm -f /backups/requests/backup-request
+    fi
+    sleep 30
 done

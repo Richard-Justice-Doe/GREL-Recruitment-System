@@ -33,7 +33,8 @@ public class VacancyService(
     IUnitOfWork unitOfWork,
     AccessScope scope,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    Settings.ISettingsStore settings)
 {
     private const string ConflictMessage = "Someone else updated this vacancy at the same moment. Please reload the page and try again.";
 
@@ -162,7 +163,9 @@ public class VacancyService(
             UnitId = request.UnitId,
             SiteId = request.SiteId,
             ReportingManagerUserId = dept?.HeadOfDepartmentUserId,
-            ClosingDate = Today.AddDays(14) // a common two-week advertising window; change as needed
+            // Phase 16: the advertising window and suggested knockout questions come from System settings.
+            ClosingDate = Today.AddDays(settings.GetInt(Domain.Settings.SettingCatalogue.VacancyClosingDays)),
+            KnockoutQuestions = settings.Get(Domain.Settings.SettingCatalogue.DefaultKnockoutQuestions)
         };
         FillReadOnlyFields(form, request, dept);
         return Result.Success(form);

@@ -57,10 +57,9 @@ public class ReminderService(
             if (!await notifications.ClaimReminderAsync($"offer-expiring:{o.Id}", ct)) continue;
             var app = await applications.GetByIdAsync(o.JobApplicationId, ct);
             if (app is null) continue;
-            await mailer.ToUserAsync(app.ApplicantUserId, $"Reminder: please reply to your offer by {o.ExpiresOn.ToString("d MMMM", Gb)}",
-                $"Your offer for the position of <b>{WorkflowMailer.Enc(o.JobTitle)}</b> is waiting for your reply. " +
-                $"Please accept or decline it by <b>{o.ExpiresOn.ToString("dddd d MMMM yyyy", Gb)}</b>.",
-                links.MyApplication(app.Id), "Read my offer", ct);
+            await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.OfferReminder,
+                new Dictionary<string, string?> { ["JobTitle"] = o.JobTitle, ["ReplyBy"] = o.ExpiresOn.ToString("dddd d MMMM yyyy", Gb) },
+                links.MyApplication(app.Id), ct: ct);
             await mailer.TextAsync(app.Phone,
                 $"GREL: please reply to your offer for {o.JobTitle} by {o.ExpiresOn.ToString("d MMM", Gb)}. Sign in to GRSMS to accept or decline.", ct);
             sent++;
@@ -81,9 +80,9 @@ public class ReminderService(
                 if (app is null) continue;
                 var when = $"{i.StartsAt.ToString("dddd d MMMM 'at' HH:mm", Gb)} GMT";
                 var kind = EnumText.Label(i.Type).ToLowerInvariant();
-                await mailer.ToUserAsync(app.ApplicantUserId, $"Reminder: your {kind} is tomorrow",
-                    $"This is a reminder of your {kind} on <b>{when}</b>, {WorkflowMailer.Enc(i.Location)}.",
-                    links.MyApplication(app.Id), "See the details", ct);
+                await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.InterviewReminder,
+                    new Dictionary<string, string?> { ["Kind"] = kind, ["When"] = when, ["Location"] = i.Location },
+                    links.MyApplication(app.Id), ct: ct);
                 await mailer.TextAsync(app.Phone, $"GREL: reminder of your {kind} on {i.StartsAt.ToString("ddd d MMM HH:mm", Gb)} GMT, {i.Location}.", ct);
                 foreach (var member in panels.GetValueOrDefault(i.Id) ?? [])
                     await mailer.ToUserAsync(member, $"Reminder: {kind} with {app.FullName} tomorrow",

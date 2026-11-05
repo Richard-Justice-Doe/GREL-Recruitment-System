@@ -20,6 +20,7 @@
     var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
     var canRoles = (await Auth.AuthorizeAsync(User, Policies.SystemSettings)).Succeeded; // Super Admin; Admin read-only
     var canAtsSettings = canRoles; // Phase 15: Super Admin; Admin read-only
+    var canBackups = (await Auth.AuthorizeAsync(User, Policies.Backups)).Succeeded; // Phase 16: Super Admin
     var isCandidate = User.IsInRole(Roles.Candidate);
     var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
     var counts = await Nav.GetAsync();
@@ -152,7 +153,7 @@
             </a>
         }
 
-        @if (canUsers || canAudit || canRoles || canAtsSettings)
+        @if (canUsers || canAudit || canRoles || canAtsSettings || canBackups)
         {
             <div class="nav-section">Management</div>
             @if (canUsers)
@@ -173,8 +174,27 @@
                     <i class="fa-solid fa-sliders"></i> ATS settings
                 </a>
             }
+            @if (canRoles)
+            {
+                @* Phase 16: Super Admin changes; Admin reads *@
+                <a class="nav-link @Active("SystemSettings")" asp-controller="SystemSettings" asp-action="Index">
+                    <i class="fa-solid fa-gear"></i> System settings
+                </a>
+                <a class="nav-link @Active("EmailTemplates")" asp-controller="EmailTemplates" asp-action="Index">
+                    <i class="fa-regular fa-envelope"></i> Email templates
+                </a>
+            }
+            @if (canBackups)
+            {
+                <a class="nav-link @Active("Backups")" asp-controller="Backups" asp-action="Index">
+                    <i class="fa-solid fa-box-archive"></i> Backups
+                </a>
+            }
             @if (canAudit)
             {
+                <a class="nav-link @Active("AuditMonitor")" asp-controller="AuditMonitor" asp-action="Index">
+                    <i class="fa-solid fa-shield-heart"></i> Audit monitor
+                </a>
                 <a class="nav-link @Active("AuditLogs")" asp-controller="AuditLogs" asp-action="Index">
                     <i class="fa-solid fa-clock-rotate-left"></i> Audit trail
                 </a>

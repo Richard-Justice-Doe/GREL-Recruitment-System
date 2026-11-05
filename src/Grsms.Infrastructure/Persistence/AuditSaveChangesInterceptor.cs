@@ -236,6 +236,14 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         // e.g. a sign-in that only bumped LastSignInAt: nothing meaningful changed.
         if (action == AuditActions.Updated && newValues.Count == 0) return null;
 
+        // Phase 16: a secret setting (SMTP password, Microsoft 365 secret) shows only that it changed, never a value.
+        if (entry.Entity is Domain.Settings.SystemSetting { IsSecret: true })
+        {
+            const string field = nameof(Domain.Settings.SystemSetting.SettingValue);
+            if (oldValues.ContainsKey(field)) oldValues[field] = oldValues[field] is null ? null : "(secret)";
+            if (newValues.ContainsKey(field)) newValues[field] = newValues[field] is null ? null : "(secret, changed)";
+        }
+
         return new PendingAudit(
             entry,
             EntityNameOf(entry),

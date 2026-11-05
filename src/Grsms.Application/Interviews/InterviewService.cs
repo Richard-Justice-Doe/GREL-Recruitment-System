@@ -135,13 +135,13 @@ public class InterviewService(
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
 
         var v = await vacancies.GetByIdAsync(app.VacancyId, ct);
-        await mailer.ToUserAsync(app.ApplicantUserId, $"Invitation: {what} for {v?.JobTitle}",
-            $"You are invited to a <b>{WorkflowMailer.Enc(what.ToLowerInvariant())}</b> for <b>{WorkflowMailer.Enc(v?.JobTitle)}</b>." +
-            $"<p><b>When:</b> {when} GMT ({interview.DurationMinutes} minutes)<br/><b>How:</b> {EnumText.Label(interview.Mode)}<br/>" +
-            $"<b>Where:</b> {WorkflowMailer.Enc(interview.Location)}</p>" +
-            (interview.CandidateInstructions is null ? "" : $"<p>{WorkflowMailer.Enc(interview.CandidateInstructions)}</p>") +
-            "<p>If you cannot attend, please reply to this email as soon as possible.</p>",
-            links.MyApplication(app.Id), "View my application", ct);
+        await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.InterviewInvitation,
+            new Dictionary<string, string?>
+            {
+                ["Kind"] = what.ToLowerInvariant(), ["JobTitle"] = v?.JobTitle, ["When"] = when, ["Duration"] = interview.DurationMinutes.ToString(Gb),
+                ["Mode"] = EnumText.Label(interview.Mode), ["Location"] = interview.Location, ["Instructions"] = interview.CandidateInstructions
+            },
+            links.MyApplication(app.Id), ct: ct);
         await mailer.TextAsync(app.Phone, $"GREL: you are invited to a {what.ToLowerInvariant()} for {v?.JobTitle} on {when} GMT, {interview.Location}. Details: sign in to GRSMS.", ct);
         foreach (var member in interview.Panel)
             await mailer.ToUserAsync(member.UserId, $"Panel: {what} with {app.FullName}, {interview.StartsAt:dd MMM HH:mm}",
@@ -173,7 +173,12 @@ public class InterviewService(
                        $"at {WorkflowMailer.Enc(location)}.";
             if (app is not null)
             {
-                await mailer.ToUserAsync(app.ApplicantUserId, "Your interview has been rescheduled", text, links.MyApplication(app.Id), "View my application", ct);
+                await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.InterviewRescheduled,
+                    new Dictionary<string, string?>
+                    {
+                        ["Kind"] = EnumText.Label(i.Type).ToLowerInvariant(), ["When"] = when.ToString("dddd d MMMM yyyy, HH:mm", Gb), ["Location"] = location
+                    },
+                    links.MyApplication(app.Id), ct: ct);
                 await mailer.TextAsync(app.Phone, $"GREL: your {EnumText.Label(i.Type).ToLowerInvariant()} has moved to {when.ToString("ddd d MMM HH:mm", Gb)} GMT, {location}.", ct);
             }
             foreach (var m in i.Panel)
@@ -253,9 +258,9 @@ public class InterviewService(
         var saved = await SaveAsync(ct);
         if (saved.Succeeded && status == InterviewStatus.Cancelled)
         {
-            await mailer.ToUserAsync(app.ApplicantUserId, "Your interview has been cancelled",
-                $"The {WorkflowMailer.Enc(EnumText.Label(i.Type).ToLowerInvariant())} on {i.StartsAt.ToString("d MMMM yyyy, HH:mm", Gb)} has been cancelled. " +
-                "We will contact you if it is rearranged.", links.MyApplication(app.Id), "View my application", ct);
+            await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.InterviewCancelled,
+                new Dictionary<string, string?> { ["Kind"] = EnumText.Label(i.Type).ToLowerInvariant(), ["When"] = i.StartsAt.ToString("d MMMM yyyy, HH:mm", Gb) },
+                links.MyApplication(app.Id), ct: ct);
             await mailer.TextAsync(app.Phone, $"GREL: your {EnumText.Label(i.Type).ToLowerInvariant()} on {i.StartsAt.ToString("ddd d MMM HH:mm", Gb)} has been cancelled. We will contact you.", ct);
             foreach (var m in i.Panel)
                 await mailer.ToUserAsync(m.UserId, $"Cancelled: {app.FullName}, {i.StartsAt:dd MMM HH:mm}",

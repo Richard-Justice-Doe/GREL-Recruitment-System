@@ -41,6 +41,13 @@ Leave all three empty to switch it off. See [04 Security → Turning on Microsof
 | `AzureAd:ClientSecret` | Client secret value (a secret: set it via user-secrets or an environment variable) |
 | `AzureAd:CallbackPath` | Default `/signin-oidc`. Must match the redirect URI in Entra. |
 
+### Settings a Super Admin can change on screen (Phase 16)
+The **Email**, **AzureAd** (tenant, client, secret) and **Reminders:ApprovalWaitingDays** settings below can also be set on **Management → System settings**, along with the organisation name, the email greeting and signature, and the recruitment workflow settings (`Workflow:VacancyClosingDays` 14, `Workflow:OfferReplyMaxDays` 30, `Workflow:DefaultKnockoutQuestions`). **A value saved on screen wins; an empty one falls back to the value here**, then to the default. Secrets saved on screen are encrypted with the data-protection keys. See [23 System settings](23-system-settings.md).
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `Backups:Folder` | *(empty)* | Phase 16: the folder where the backup service writes its backups, as seen by GRSMS (`/app/backups` in the production set-up). Empty = the Backups screen shows *No backup folder*. |
+
 ### Email
 | Setting | Default | Meaning |
 |---|---|---|

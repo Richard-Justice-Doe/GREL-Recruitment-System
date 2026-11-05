@@ -288,10 +288,8 @@ public class AtsService(
     private async Task TellNotSuccessfulAsync(JobApplication a, CancellationToken ct)
     {
         if (await vacancies.GetByIdAsync(a.VacancyId, ct) is not { } v) return;
-        await mailer.ToUserAsync(a.ApplicantUserId, $"Your application for {v.JobTitle}",
-            $"Thank you for your interest in the <b>{WorkflowMailer.Enc(v.JobTitle)}</b> position at GREL. After careful consideration, " +
-            "we will not be taking your application further on this occasion. We encourage you to apply for future vacancies that match your profile.",
-            links.MyApplication(a.Id), "View my application", ct);
+        await mailer.TemplateToUserAsync(a.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.NotSuccessful,
+            new Dictionary<string, string?> { ["JobTitle"] = v.JobTitle }, links.MyApplication(a.Id), ct: ct);
     }
 
     // ===================================================================== Dashboards

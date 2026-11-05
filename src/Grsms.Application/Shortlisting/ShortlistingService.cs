@@ -204,10 +204,8 @@ public class ShortlistingService(
         a.RecordStep(action, ApplicationStatus.Shortlisted, MyId, scope.UserName, comments, now);
         var saved = await SaveAsync(ct);
         if (saved.Succeeded && await vacancies.GetByIdAsync(a.VacancyId, ct) is { } v)
-            await mailer.ToUserAsync(a.ApplicantUserId, $"You have been shortlisted: {v.JobTitle}",
-                $"Good news: your application for <b>{WorkflowMailer.Enc(v.JobTitle)}</b> has been <b>shortlisted</b>. " +
-                "We will contact you about the next step (assessment or interview).",
-                links.MyApplication(a.Id), "View my application", ct);
+            await mailer.TemplateToUserAsync(a.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.Shortlisted,
+                new Dictionary<string, string?> { ["JobTitle"] = v.JobTitle }, links.MyApplication(a.Id), ct: ct);
         return saved;
     }
 

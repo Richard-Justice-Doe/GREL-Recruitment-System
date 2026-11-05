@@ -30,7 +30,8 @@ public class AccountController(
     UserManager<ApplicationUser> userManager,
     IAuditLogService audit,
     IEmailService email,
-    ILogger<AccountController> logger) : Controller
+    ILogger<AccountController> logger,
+    Grsms.Application.Settings.ISettingsStore settings) : Controller
 {
     /// <summary>Internal name of the Microsoft 365 sign-in scheme (registered in Program.cs).</summary>
     public const string MicrosoftScheme = "Microsoft";
@@ -125,6 +126,9 @@ public class AccountController(
     [HttpPost]
     public IActionResult ExternalLogin(string provider, string? returnUrl = null)
     {
+        // Phase 16: the method is always registered, but only used once System settings (or AzureAd) are complete.
+        if (provider != MicrosoftScheme || !MicrosoftSignIn.IsConfigured(settings))
+            return LoginError("Sign-in with Microsoft 365 is not available.");
         var redirectUrl = Url.Action(nameof(ExternalLoginCallback), new { returnUrl });
         var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
         return Challenge(properties, provider);
@@ -433,7 +437,8 @@ public class AccountController(
 
     /// <summary>Fills ViewBag.ExternalProviders so the login page shows "Sign in with Microsoft 365" only when configured.</summary>
     private async Task LoadExternalProvidersAsync() =>
-        ViewBag.ExternalProviders = (await signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+        ViewBag.ExternalProviders = (await signInManager.GetExternalAuthenticationSchemesAsync())
+            .Where(s => s.Name != MicrosoftScheme || MicrosoftSignIn.IsConfigured(settings)).ToList();
 
     /// <summary>Back to the login page with an error message.</summary>
     private IActionResult LoginError(string message)

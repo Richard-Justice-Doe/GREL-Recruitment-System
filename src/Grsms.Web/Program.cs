@@ -117,25 +117,11 @@ builder.Services.ConfigureApplicationCookie(options =>
 // role changes take effect quickly instead of when the cookie expires.
 builder.Services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.FromMinutes(5));
 
-// Optional "Sign in with Microsoft 365" (Entra ID). Switched on only when IT has supplied all three
-// values in the AzureAd section; until then the button is simply not shown. See docs/04-security-and-roles.md.
-var azureAd = builder.Configuration.GetSection("AzureAd");
-if (!string.IsNullOrWhiteSpace(azureAd["TenantId"]) &&
-    !string.IsNullOrWhiteSpace(azureAd["ClientId"]) &&
-    !string.IsNullOrWhiteSpace(azureAd["ClientSecret"]))
-{
-    builder.Services.AddAuthentication().AddOpenIdConnect(AccountController.MicrosoftScheme, "Microsoft 365", options =>
-    {
-        options.SignInScheme = IdentityConstants.ExternalScheme; // hand the result to Identity
-        options.Authority = $"https://login.microsoftonline.com/{azureAd["TenantId"]}/v2.0";
-        options.ClientId = azureAd["ClientId"];
-        options.ClientSecret = azureAd["ClientSecret"];
-        options.ResponseType = "code";
-        options.CallbackPath = azureAd["CallbackPath"] ?? "/signin-oidc";
-        options.Scope.Add("email");
-        options.Scope.Add("profile");
-    });
-}
+// Optional "Sign in with Microsoft 365" (Entra ID). Phase 16: always registered, configured from System settings
+// (falling back to the AzureAd section), and only offered once the tenant ID, client ID and secret are all set.
+// See Security/MicrosoftSignIn.cs and docs/04-security-and-roles.md.
+builder.Services.AddAuthentication().AddOpenIdConnect(AccountController.MicrosoftScheme, "Microsoft 365", _ => { });
+builder.Services.AddSingleton<Microsoft.Extensions.Options.IConfigureOptions<Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions>, MicrosoftSignIn>();
 
 // ---------------------------------------------------------------- 4. Authorization + MVC
 builder.Services.AddAuthorizationBuilder()
@@ -203,6 +189,11 @@ if (reverseProxy)
 builder.Services.AddHealthChecks().AddCheck<Grsms.Web.Helpers.DatabaseHealthCheck>("database");
 
 var app = builder.Build();
+
+// Phase 16: when the Super Admin saves System settings, the Microsoft 365 sign-in rebuilds its options on next use.
+app.Services.GetRequiredService<Grsms.Application.Settings.ISettingsStore>().Changed += () =>
+    app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitorCache<Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions>>()
+        .TryRemove(AccountController.MicrosoftScheme);
 
 // ---------------------------------------------------------------- 5. HTTP pipeline
 // First, so every later step (HTTPS redirect, secure cookies, audit IP, rate limit) sees the real visitor (Phase 13).

@@ -79,7 +79,7 @@ public class VacancyAutoCloseWorker(IServiceScopeFactory scopes, IConfiguration 
                     using var scope = scopes.CreateScope();
                     var sp = scope.ServiceProvider;
                     var reminders = await sp.GetRequiredService<Application.Notifications.ReminderService>()
-                        .RunAsync(DateTime.UtcNow, config.GetValue("Reminders:ApprovalWaitingDays", 3), stoppingToken);
+                        .RunAsync(DateTime.UtcNow, sp.GetRequiredService<Application.Settings.ISettingsStore>().GetInt(Domain.Settings.SettingCatalogue.ApprovalWaitingDays), stoppingToken); // Phase 16: System settings (falls back to Reminders:ApprovalWaitingDays)
                     var invited = await sp.GetRequiredService<Application.Surveys.SurveyService>().InviteDueAsync(DateTime.UtcNow, stoppingToken);
                     var purged = await sp.GetRequiredService<Application.Notifications.INotificationCenter>().PurgeAsync(DateTime.UtcNow.AddMonths(-6), stoppingToken);
                     if (reminders + invited + purged > 0)

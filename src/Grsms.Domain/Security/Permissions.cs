@@ -60,6 +60,12 @@ public static class Permissions
     /// <summary>Phase 15: change the ATS weights, bands and automatic-rejection rules, and switch the AI CV reader on or off.</summary>
     public const string ConfigureAts = "ats.configure";
 
+    /// <summary>Phase 16: change system settings (email server, Microsoft 365, workflow) and email templates.</summary>
+    public const string ManageSystemSettings = "settings.manage";
+
+    /// <summary>Phase 16: see the backups, start one, and download one (a backup holds ALL of GREL's recruitment data).</summary>
+    public const string ManageBackups = "backups.manage";
+
     /// <summary>Every permission, in the order shown on screen.</summary>
     public static readonly IReadOnlyList<PermissionInfo> Catalogue =
     [
@@ -70,7 +76,7 @@ public static class Permissions
         new(ViewAuditTrail, "Administration", "Read the audit trail",
             "See every change and sign-in recorded by the system. (Everyone can always see their own audit trail.)"),
         new(ViewSystemSettings, "Administration", "See system settings (read-only)",
-            "Open Roles & permissions and the ATS settings without being able to change them."),
+            "Open Roles & permissions, ATS settings, System settings and Email templates without being able to change them (secrets are never shown)."),
 
         new(ViewRecruitmentRequests, "Recruitment", "Open recruitment requests",
             "See recruitment requests (which ones depends on the departments the person may see)."),
@@ -94,6 +100,11 @@ public static class Permissions
         new(ConfigureAts, "Super Admin only", "Configure the ATS",
             "Change the ATS score weights, classification bands and automatic-rejection rules, and switch the AI CV reader on or off.",
             SuperAdminOnly: true),
+        new(ManageSystemSettings, "Super Admin only", "Change system settings and email templates",
+            "Change the email server, Microsoft 365 sign-in, recruitment workflow settings and the wording of candidate emails.",
+            SuperAdminOnly: true),
+        new(ManageBackups, "Super Admin only", "Manage backups",
+            "See the database backups, start one now and download one. A backup holds all recruitment data.", SuperAdminOnly: true),
     ];
 
     /// <summary>

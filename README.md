@@ -177,6 +177,7 @@ dotnet test
 | [20 Reports guide](docs/20-reports.md) | every report, its filters, how the figures are worked out, CSV download (non-technical) |
 | [21 Production deployment](docs/21-production-deployment.md) | install on GREL's server, certificates, updates and rollback, backups and restore, monitoring, go-live checklist (for IT) |
 | [22 ATS screening](docs/22-ats-screening.md) | Phase 15: how the ATS reads CVs, scores and classifies, knockout questions, automatic rejections held for HR, the dashboard, ATS settings and the optional AI reader (non-technical) |
+| [23 System settings](docs/23-system-settings.md) | Phase 16: system settings (email server, Microsoft 365, workflow), email templates, backups and the audit monitor (non-technical) |
 | [Phase log](docs/phases.md) | see what each phase delivered and what comes next |
 | [Change log](docs/changelog.md) | see work done between phases, with reasons and checks |
 

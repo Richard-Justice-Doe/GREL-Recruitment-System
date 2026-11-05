@@ -390,6 +390,14 @@ Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `
 ### SurveyAnswers
 `SurveyInvitationId` (FK), `QuestionKey` VARCHAR(30) (**unique per invitation**), `Rating` 1-5 (null = not applicable), `Text` TEXT, plus the standard columns. **Not copied into AuditLogs** (confidential).
 
+## Phase 16 tables
+
+### SystemSettings
+One row per setting saved on the System settings screen: `Key` (e.g. `Email:SmtpHost`), `SettingValue` (TEXT; for secrets, encrypted with the data-protection keys) and `IsSecret`. A setting without a row, or with an empty value, uses the server configuration, then the built-in default. In the audit trail a secret shows only *(secret, changed)*.
+
+### EmailTemplates
+One row per candidate email reworded on the Email templates screen: `Key` (e.g. `offer.sent`), `Subject`, `Body` (plain text with placeholders). *Reset* soft-deletes the row, so the built-in wording applies again; editing again adds a new row.
+
 ## Phase 15 tables and columns (ATS)
 
 ### New columns on JobApplications
@@ -457,6 +465,8 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `13_phase10_notifications_surveys.sql` | 10 | Notifications, SentReminders, SurveyInvitations, SurveyAnswers |
 | `14_phase14_super_admin_permissions.sql` | 14 | KnownPermissions; the Super Admin role; RoleClaims text columns shortened (the table was empty) and a unique index. The default permissions and the first Super Admin are added by GRSMS at start-up, not by the script. |
 | `16_admin_role.sql` | — | The built-in **Admin** role (id `admin`). Its default permissions and the new permission `settings.view` are added by GRSMS at start-up. If someone already added a *custom* role called "Admin", rename it first (role names are unique). |
+| `17_phase16_system_settings.sql` | 16 | SystemSettings (values saved on the System settings screen; secrets encrypted) and EmailTemplates (reworded candidate emails). The new permissions `settings.manage` and `backups.manage` are added by GRSMS at start-up. |
+| `17_phase16_system_settings.sql` | 16 | SystemSettings (values saved on the System settings screen; secrets encrypted) and EmailTemplates (reworded candidate emails). The new permissions `settings.manage` and `backups.manage` are added by GRSMS at start-up. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

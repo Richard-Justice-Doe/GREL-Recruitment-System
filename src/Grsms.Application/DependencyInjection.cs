@@ -50,6 +50,9 @@ public static class DependencyInjection
         // Phase 15: the ATS screening engine (CV reading, scores, automatic rejection held for HR)
         services.AddScoped<Applications.AtsService>();
 
+        // Phase 16: System settings and email templates
+        services.AddScoped<Settings.SystemSettingsService>();
+
         // Phase 7: interviews, assessments and scorecards
         services.AddScoped<Interviews.InterviewService>();
 

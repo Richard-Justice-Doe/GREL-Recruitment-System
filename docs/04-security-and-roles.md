@@ -13,7 +13,7 @@ GRSMS uses **role-based access control with permissions**:
 | Manage user accounts | 🔒 | ✅ | ✅ | | | | | | |
 | Maintain organisation data (divisions, departments, units, sites) | 🔒 | ✅ | ✅ | | | | | | |
 | Read the (whole) audit trail | 🔒 | ✅ | ✅ | ✅ | | | | | |
-| See system settings, read-only (Roles & permissions, ATS settings) | 🔒 | ✅ | | | | | | | |
+| See system settings, read-only (Roles & permissions, ATS settings, System settings, Email templates) | 🔒 | ✅ | | | | | | | |
 | Open recruitment requests | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
 | Raise recruitment requests | 🔒 | | | | | | ✅ | | |
 | Open vacancies / job adverts / applications / reports | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
@@ -22,6 +22,8 @@ GRSMS uses **role-based access control with permissions**:
 | Manage roles and permissions | 🔒 only | | | | | | | | |
 | Create privileged accounts | 🔒 only | | | | | | | | |
 | Configure the ATS (weights, bands, auto-rejection rules, AI reader; Phase 15) | 🔒 only | | | | | | | | |
+| Change system settings and email templates (Phase 16) | 🔒 only | | | | | | | | |
+| Manage backups: see, back up now, download a database dump (Phase 16) | 🔒 only | | | | | | | | |
 
 🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission. **Everyone** (candidates included) can always open **My audit trail** (below); it is not a permission.
 

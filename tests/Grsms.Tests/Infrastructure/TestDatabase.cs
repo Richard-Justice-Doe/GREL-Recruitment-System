@@ -73,7 +73,9 @@ public sealed class TestDatabase : IDisposable
                 ["Storage:RootFolder"] = Path.Combine(TempFolder, "uploads"),
                 ["Email:PickupDirectory"] = MailFolder,
                 ["Sms:PickupDirectory"] = Path.Combine(TempFolder, "sms"),
-                ["Uploads:MaxFileSizeMb"] = maxUploadMb.ToString()
+                ["Uploads:MaxFileSizeMb"] = maxUploadMb.ToString(),
+                ["Email:FromName"] = "GREL Recruitment (tests)", // Phase 16: a server-configuration value, to test the fallback
+                ["Backups:Folder"] = Path.Combine(TempFolder, "backups")
             })
             .Build();
 

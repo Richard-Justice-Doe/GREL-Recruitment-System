@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Mail;
 using Grsms.Application.Common.Interfaces;
+using Grsms.Domain.Settings;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -26,6 +27,9 @@ public class EmailOptions
 
     public int SmtpPort { get; set; } = 587;
     public bool EnableSsl { get; set; } = true;
+
+    // Never put real credentials here: this file is in source control. Set them in user-secrets (development),
+    // deploy/.env (production) or on the System settings screen (stored encrypted). See docs/06-configuration.md.
     public string? UserName { get; set; }
     public string? Password { get; set; }
 
@@ -37,12 +41,11 @@ public class EmailOptions
 /// Sends emails through SMTP, or, when no SMTP host is configured, writes each email as a .eml file
 /// that can be opened in Outlook or any mail program. Business code only sees <see cref="IEmailService"/>.
 /// </summary>
-public class EmailService(IOptions<EmailOptions> options, ILogger<EmailService> logger) : IEmailService
+public class EmailService(IOptions<EmailOptions> options, ILogger<EmailService> logger, Grsms.Application.Settings.ISettingsStore settings) : IEmailService
 {
-    private readonly EmailOptions _options = options.Value;
-
     public async Task SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default)
     {
+        var _options = Effective();
         using var message = new MailMessage
         {
             From = new MailAddress(_options.FromAddress, _options.FromName),
@@ -73,5 +76,25 @@ public class EmailService(IOptions<EmailOptions> options, ILogger<EmailService> 
         }
 
         await client.SendMailAsync(message, ct);
+    }
+
+    /// <summary>
+    /// Phase 16: the server details in force: System settings first, then the "Email" configuration section, then the
+    /// defaults (the store does that order). The pickup folder for saved emails stays a server setting.
+    /// </summary>
+    private EmailOptions Effective()
+    {
+        var o = options.Value;
+        return new EmailOptions
+        {
+            FromAddress = settings.Get(SettingCatalogue.FromAddress) ?? o.FromAddress,
+            FromName = settings.Get(SettingCatalogue.FromName) ?? o.FromName,
+            SmtpHost = settings.Get(SettingCatalogue.SmtpHost),
+            SmtpPort = settings.GetInt(SettingCatalogue.SmtpPort),
+            EnableSsl = settings.GetBool(SettingCatalogue.SmtpSsl),
+            UserName = settings.Get(SettingCatalogue.SmtpUser),
+            Password = settings.Get(SettingCatalogue.SmtpPassword),
+            PickupDirectory = o.PickupDirectory
+        };
     }
 }

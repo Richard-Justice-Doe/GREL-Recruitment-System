@@ -9,6 +9,7 @@ using Grsms.Domain.Applications;
 using Grsms.Domain.Documents;
 using Grsms.Domain.Organization;
 using Grsms.Domain.Security;
+using Grsms.Domain.Settings;
 using Grsms.Domain.Vacancies;
 
 namespace Grsms.Application.Applications;
@@ -172,10 +173,9 @@ public class ApplicationService(
         // HELD for HR: the applicant is not told (their confirmation email below is the same either way).
         var screening = await ats.ScreenNewAsync(app.Id, ct);
 
-        await mailer.ToUserIncludingMeAsync(MyId, $"We received your application: {v.JobTitle}",
-            $"Thank you for applying for <b>{WorkflowMailer.Enc(v.JobTitle)}</b>. Your reference is <b>{app.ApplicationNumber}</b>." +
-            "<p>You can follow its progress at any time under <i>My applications</i>.</p>",
-            links.MyApplication(app.Id), "View my application", ct);
+        await mailer.TemplateToUserAsync(MyId, EmailTemplateCatalogue.ApplicationReceived,
+            new Dictionary<string, string?> { ["JobTitle"] = v.JobTitle, ["ApplicationNumber"] = app.ApplicationNumber },
+            links.MyApplication(app.Id), includeMe: true, ct);
         await mailer.ToUserAsync(v.RecruiterUserId, $"New application for {v.VacancyNumber}",
             $"{WorkflowMailer.Enc(contact.FullName)}{(app.IsInternal ? " (GREL staff)" : "")} applied for <b>{WorkflowMailer.Enc(v.JobTitle)}</b>." +
             (screening is null ? "" : $"<p>ATS match: <b>{screening.Overall}%</b> ({EnumText.Label(screening.Classification)}).</p>") +
@@ -355,10 +355,8 @@ public class ApplicationService(
         a.RecordStep(ApplicationAction.NotSuccessful, ApplicationStatus.NotSuccessful, MyId, scope.UserName, reason, DateTime.UtcNow);
         var saved = await SaveAsync(ct);
         if (saved.Succeeded && await vacancies.GetByIdAsync(a.VacancyId, ct) is { } v)
-            await mailer.ToUserAsync(a.ApplicantUserId, $"Your application for {v.JobTitle}",
-                $"Thank you for your interest in the <b>{WorkflowMailer.Enc(v.JobTitle)}</b> position at GREL. After careful consideration, " +
-                "we will not be taking your application further on this occasion. We encourage you to apply for future vacancies that match your profile.",
-                links.MyApplication(a.Id), "View my application", ct);
+            await mailer.TemplateToUserAsync(a.ApplicantUserId, EmailTemplateCatalogue.NotSuccessful,
+                new Dictionary<string, string?> { ["JobTitle"] = v.JobTitle }, links.MyApplication(a.Id), ct: ct);
         return saved;
     }
 

@@ -1,0 +1,124 @@
+@* Phase 16: Audit monitor: the audit trail summarised for a daily check. Alerts first, then 24-hour and 7-day figures,
+   failed sign-ins by account and address, the most active users, changes per record type, configuration changes and
+   recent security events. Every name links to the full audit trail, filtered. *@
+@model AuditMonitorDto
+@{
+    ViewData["Title"] = "Audit monitor";
+    var periods = new (string Label, AuditPeriodDto P)[] { ("Last 24 hours", Model.Last24Hours), ("Last 7 days", Model.Last7Days) };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Audit monitor</h1>
+        <p>A daily check of sign-ins, changes and settings, from the audit trail. Times are GMT.</p>
+    </div>
+    <a asp-controller="AuditLogs" asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-list me-1"></i>Full audit trail</a>
+</div>
+
+@if (Model.Alerts.Count == 0)
+{
+    <div class="alert alert-success small"><i class="fa-solid fa-circle-check me-1"></i>Nothing unusual in the last 24 hours.</div>
+}
+else
+{
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>Worth a look</div>
+        <ul class="mb-0 small">@foreach (var a in Model.Alerts) { <li>@a</li> }</ul>
+    </div>
+}
+
+@foreach (var (label, p) in periods)
+{
+    <h2 class="h6 text-uppercase text-body-secondary mt-3 mb-2">@label</h2>
+    <div class="row g-2 mb-2">
+        @foreach (var (name, value, icon, action, entity) in new (string, int, string, string?, string?)[]
+                 {
+                     ("Sign-ins", p.SignIns, "fa-right-to-bracket", "SignedIn", null),
+                     ("Failed sign-ins", p.FailedSignIns, "fa-user-xmark", "SignInFailed", null),
+                     ("Lockouts", p.Lockouts, "fa-lock", "LockedOut", null),
+                     ("Record changes", p.RecordChanges, "fa-pen-to-square", null, null),
+                     ("Permission / settings changes", p.SettingsChanges, "fa-sliders", null, null)
+                 })
+        {
+            <div class="col-6 col-md-4 col-xl">
+                <a class="ats-tile d-block h-100 text-decoration-none text-reset" asp-controller="AuditLogs" asp-action="Index" asp-route-Action="@action"
+                   asp-route-From="@(label == "Last 24 hours" ? DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd") : DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-dd"))">
+                    <div class="ats-tile-value">@value</div>
+                    <div class="ats-tile-label"><i class="fa-solid @icon me-1"></i>@name</div>
+                </a>
+            </div>
+        }
+    </div>
+}
+
+<div class="row g-3 mt-1">
+    @foreach (var (title, rows, hint, byUser) in new (string, IReadOnlyList<AuditCountDto>, string, bool)[]
+             {
+                 ("Failed sign-ins by account (7 days)", Model.FailedSignInsByAccount, "Five or more in a day raises an alert.", true),
+                 ("Failed sign-ins by network address (7 days)", Model.FailedSignInsByAddress, "Many accounts from one address can mean password guessing.", false),
+                 ("Most active users (7 days)", Model.MostActiveUsers, "Record changes made.", true),
+                 ("Changes by record type (7 days)", Model.ChangesByRecordType, "", false),
+             })
+    {
+        <div class="col-xl-6">
+            <div class="card glass h-100">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">@title</h2>
+                    @if (hint.Length > 0) { <p class="small text-body-secondary">@hint</p> }
+                    @if (rows.Count == 0)
+                    {
+                        <p class="small text-body-secondary mb-0">None.</p>
+                    }
+                    else
+                    {
+                        var max = Math.Max(1, rows.Max(r => r.Count));
+                        <div class="report-bars" role="table" aria-label="@title">
+                            @foreach (var r in rows)
+                            {
+                                <div class="report-bar-row" role="row" title="@r.Name: @r.Count (last @r.Last.ToString("dd MMM HH:mm"))">
+                                    <span class="report-bar-label" role="rowheader">
+                                        @if (byUser) { <a asp-controller="AuditLogs" asp-action="Index" asp-route-UserName="@r.Name">@r.Name</a> }
+                                        else if (title.StartsWith("Changes")) { <a asp-controller="AuditLogs" asp-action="Index" asp-route-EntityName="@r.Name">@r.Name</a> }
+                                        else { @r.Name }
+                                    </span>
+                                    <span class="report-bar-track" aria-hidden="true"><span class="report-bar" style="width: @((r.Count * 100.0 / max).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></span></span>
+                                    <span class="report-bar-value" role="cell">@r.Count</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<div class="row g-3 mt-1">
+    @foreach (var (title, rows) in new[] { ("Permission and settings changes (7 days)", Model.RecentSettingsChanges), ("Security events (7 days)", Model.RecentSecurityEvents) })
+    {
+        <div class="col-xl-6">
+            <div class="card glass h-100">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2">@title</h2>
+                    @if (rows.Count == 0)
+                    {
+                        <p class="small text-body-secondary mb-0">None.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-unstyled small mb-0">
+                            @foreach (var a in rows)
+                            {
+                                <li class="border-top py-1">
+                                    <span class="text-body-secondary">@a.Timestamp.ToString("dd MMM HH:mm")</span>
+                                    · <strong>@a.Action</strong> @a.EntityName @(a.EntityId is null ? "" : $"#{a.EntityId}")
+                                    · @(a.UserName ?? "system")@(a.IpAddress is null ? "" : $" · {a.IpAddress}")
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>

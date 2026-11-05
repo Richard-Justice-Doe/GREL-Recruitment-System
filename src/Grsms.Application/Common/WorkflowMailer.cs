@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Grsms.Application.Common.Interfaces;
 using Grsms.Application.Notifications;
 using Grsms.Application.Users;
+using Grsms.Domain.Settings;
 using Microsoft.Extensions.Logging;
 
 namespace Grsms.Application.Common;
@@ -21,7 +22,7 @@ namespace Grsms.Application.Common;
 /// link, so the two never disagree. <see cref="TextAsync"/> sends the short text messages (SMS) used for applicants.
 /// </summary>
 public class WorkflowMailer(IUserDirectory users, IEmailService email, ICurrentUserService me, ILogger<WorkflowMailer> logger,
-    INotificationCenter notifications, ISmsSender sms)
+    INotificationCenter notifications, ISmsSender sms, Settings.ISettingsStore settings, IRepository<Domain.Settings.EmailTemplate> templates)
 {
     /// <summary>Sends a text message (SMS) to a phone number as typed by the applicant; does nothing if it is not usable.</summary>
     public async Task TextAsync(string? phone, string text, CancellationToken ct = default)
@@ -65,16 +66,38 @@ public class WorkflowMailer(IUserDirectory users, IEmailService email, ICurrentU
     /// <summary>HTML-encodes user-typed text before it goes into an email.</summary>
     public static string Enc(string? text) => WebUtility.HtmlEncode(text ?? "");
 
-    private async Task SendAsync(UserContact to, string subject, string html, string link, string linkText, CancellationToken ct)
+    /// <summary>
+    /// Phase 16: sends one of the candidate emails from <see cref="EmailTemplateCatalogue"/>, in the wording the Super
+    /// Admin set on Email templates (or the built-in wording). <paramref name="values"/> fill its {{placeholders}}.
+    /// </summary>
+    public async Task TemplateToUserAsync(string? userId, string templateKey, IReadOnlyDictionary<string, string?> values, string link,
+        bool includeMe = false, CancellationToken ct = default)
+    {
+        if (userId is null || (!includeMe && userId == me.UserId)) return;
+        var definition = EmailTemplateCatalogue.Find(templateKey) ?? throw new ArgumentException($"Unknown email template {templateKey}");
+        var saved = (await templates.ListAsync(t => t.Key == templateKey, ct)).FirstOrDefault();
+        var all = new Dictionary<string, string?>(values) { ["Organisation"] = settings.Get(SettingCatalogue.OrganisationName) };
+        var subject = EmailTemplateCatalogue.RenderSubject(saved?.Subject ?? definition.DefaultSubject, all);
+        var html = EmailTemplateCatalogue.RenderBody(saved?.Body ?? definition.DefaultBody, all);
+        if (await users.GetContactAsync(userId, ct) is { } person)
+            await SendAsync(person, subject, html, link, definition.LinkText, ct, bodyIsParagraphs: true);
+    }
+
+    private async Task SendAsync(UserContact to, string subject, string html, string link, string linkText, CancellationToken ct,
+        bool bodyIsParagraphs = false)
     {
         try
         {
+            // Phase 16: the greeting and signature come from System settings ({{Name}} = the person's name).
+            var greeting = Enc((settings.Get(SettingCatalogue.EmailGreeting) ?? "Dear {{Name}},").Replace("{{Name}}", to.FullName));
+            var signature = string.Join("<br/>", (settings.Get(SettingCatalogue.EmailSignature) ?? "")
+                .Replace("\r", "").Split('\n').Select(Enc));
             await email.SendAsync(to.Email, subject,
                 $"""
-                <p>Dear {Enc(to.FullName)},</p>
-                <p>{html}</p>
+                <p>{greeting}</p>
+                {(bodyIsParagraphs ? html : $"<p>{html}</p>")}
                 <p><a href="{Enc(link)}">{Enc(linkText)}</a></p>
-                <p style="color:#888">GREL Recruitment &amp; Selection Management System</p>
+                <p style="color:#888">{signature}</p>
                 """, ct);
         }
         catch (Exception ex)

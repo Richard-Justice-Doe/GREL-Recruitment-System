@@ -92,6 +92,8 @@ Take one at any time:
 docker compose -f docker-compose.prod.yml exec backup bash /backup.sh now
 ```
 
+**From GRSMS (Phase 16):** a Super Admin sees the backups on **Management → Backups**, can press **Back up now**, and can download a database dump. The `web` container sees the backup folder at `/app/backups` (`Backups__Folder`). For *Back up now*, GRSMS writes `requests/backup-request` there. The backup service creates that `requests` folder at start-up, owned by the app's non-root user (uid 1654), and checks it every 30 seconds. The *files and keys* archive can't be downloaded through the web. Restoring stays the procedure below. See [23 System settings → Backups](23-system-settings.md#3-backups).
+
 ### Restoring
 ```bash
 docker compose -f docker-compose.prod.yml stop web

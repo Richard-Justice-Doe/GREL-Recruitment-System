@@ -40,7 +40,8 @@ public class HiringService(
     ICurrentUserService me,
     AccessScope scope,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    Settings.ISettingsStore settings)
 {
     private const string ConflictMessage = "Someone else updated this record at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
@@ -305,8 +306,9 @@ public class HiringService(
         terms = Clean(terms);
         if (pay <= 0 || pay > rec.ProposedSalary) return Result.Failure<int>($"The salary must be more than 0 and no more than the approved GHS {rec.ProposedSalary:N2}.");
         if (start < Today) return Result.Failure<int>("The start date cannot be in the past.");
-        if (expiry < Today || expiry > Today.AddDays(30) || expiry > start)
-            return Result.Failure<int>("The reply-by date must be within the next 30 days and no later than the start date.");
+        var maxDays = settings.GetInt(Domain.Settings.SettingCatalogue.OfferReplyMaxDays); // Phase 16: System settings
+        if (expiry < Today || expiry > Today.AddDays(maxDays) || expiry > start)
+            return Result.Failure<int>($"The reply-by date must be within the next {maxDays} days and no later than the start date.");
         if (terms?.Length > 8000) return Result.Failure<int>("The terms must be 8,000 characters or fewer.");
 
         var n = await numbers.NextAsync($"OFF-{DateTime.UtcNow.Year}", ct);
@@ -333,10 +335,12 @@ public class HiringService(
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
 
-        await mailer.ToUserAsync(app.ApplicantUserId, $"Offer of employment: {v.JobTitle}",
-            $"Congratulations! GREL is pleased to offer you the position of <b>{WorkflowMailer.Enc(v.JobTitle)}</b>, starting " +
-            $"{start.ToString("d MMMM yyyy", Gb)}. Please read your offer letter and accept or decline it by <b>{expiry.ToString("d MMMM yyyy", Gb)}</b>.",
-            links.MyApplication(app.Id), "Read my offer", ct);
+        await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.OfferSent,
+            new Dictionary<string, string?>
+            {
+                ["JobTitle"] = v.JobTitle, ["StartDate"] = start.ToString("d MMMM yyyy", Gb), ["ReplyBy"] = expiry.ToString("d MMMM yyyy", Gb)
+            },
+            links.MyApplication(app.Id), ct: ct);
         await mailer.TextAsync(app.Phone, $"GREL: congratulations! We have sent you an offer for {v.JobTitle}. Please sign in to GRSMS to reply by " +
             $"{expiry.ToString("d MMM", Gb)}.", ct);
         return Result.Success(offer.Id);
@@ -357,9 +361,8 @@ public class HiringService(
         app.RecordStep(ApplicationAction.OfferWithdrawn, HiringWorkflow.ApplicationStatusFor(OfferStatus.Withdrawn), MyId, scope.UserName, reason, DateTime.UtcNow);
         var saved = await SaveAsync(ct);
         if (saved.Succeeded)
-            await mailer.ToUserAsync(app.ApplicantUserId, $"Your offer for {offer.JobTitle}",
-                "We are sorry to tell you that the offer of employment has been withdrawn. The recruitment team will contact you.",
-                links.MyApplication(app.Id), "View my application", ct);
+            await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.OfferWithdrawn,
+                new Dictionary<string, string?> { ["JobTitle"] = offer.JobTitle }, links.MyApplication(app.Id), ct: ct);
         return saved;
     }
 
@@ -411,9 +414,9 @@ public class HiringService(
         foreach (var hod in await HodsAsync(app, ct))
             await mailer.ToUserAsync(hod, subject, text, link, "Open the hiring case", ct);
         if (accept)
-            await mailer.ToUserIncludingMeAsync(app.ApplicantUserId, $"Welcome to GREL: {offer.JobTitle}",
-                $"Thank you for accepting our offer. We look forward to welcoming you on {offer.StartDate.ToString("d MMMM yyyy", Gb)}. " +
-                "HR will contact you about your appointment letter and first day.", links.MyApplication(app.Id), "View my application", ct);
+            await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.OfferAccepted,
+                new Dictionary<string, string?> { ["JobTitle"] = offer.JobTitle, ["StartDate"] = offer.StartDate.ToString("d MMMM yyyy", Gb) },
+                links.MyApplication(app.Id), includeMe: true, ct);
         return saved;
     }
 

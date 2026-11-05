@@ -81,6 +81,12 @@ public static class DependencyInjection
         services.Configure<Ats.AtsAiOptions>(config.GetSection("Ats:Ai"));
         services.AddSingleton<Application.Applications.IAiCvReader, Ats.ClaudeCvReader>();
 
+        // Phase 16: system settings (database first, then configuration), backups folder. Both read the configuration
+        // given here (the web app has already registered it; the tests have not).
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton(services, config);
+        services.AddSingleton<Application.Settings.ISettingsStore, Settings.SettingsStore>();
+        services.AddSingleton<Application.Settings.IBackupStore, Settings.BackupStore>();
+
         return services;
     }
 }

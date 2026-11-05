@@ -4,6 +4,14 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 5 November 2026 (12:40): Phase 16 and the SMTP details
+
+* Phase 16 (system settings, email templates, backups, audit monitor) is recorded in the [phase log](phases.md#-phase-16-system-settings-email-templates-backups-and-audit-monitor-5-november-2026).
+* **SMTP:** the user's edit put the sender address and password for `jobmaster@grelghana.com` into `EmailService.cs`, which also stopped it compiling. At the user's choice the credentials were moved to **local user-secrets** (`Email:FromAddress`, `Email:FromName`, `Email:UserName`, `Email:Password`, `Email:SmtpHost` = `smtp.hostinger.com`, `Email:SmtpPort` = 587, `Email:EnableSsl` = true). These are plain text in the developer's Windows profile and never in the repository. `EmailService.cs` has no credentials and a comment saying where they belong. One test email to the jobmaster mailbox was sent successfully. The local `dotnet run` app now sends **real** email; the Docker app still saves emails as files (it reads `.env`). For production, put the same values in `deploy/.env` or on **System settings** (encrypted).
+* New package `Microsoft.AspNetCore.DataProtection` 10.0.14 in Infrastructure (encrypting saved secrets).
+
+---
+
 ## 5 November 2026 (11:10): Animation
 
 **Why:** the user asked for "nice and well designed animation". The request did not say where, so it was applied across the whole interface, kept subtle and consistent for a business tool.

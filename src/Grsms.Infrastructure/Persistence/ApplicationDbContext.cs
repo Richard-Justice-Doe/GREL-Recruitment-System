@@ -82,6 +82,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Applications.KnockoutAnswer> KnockoutAnswers => Set<Domain.Applications.KnockoutAnswer>();
     public DbSet<VacancyKnockoutQuestion> VacancyKnockoutQuestions => Set<VacancyKnockoutQuestion>();
 
+    // Phase 16: system settings and email templates
+    public DbSet<Domain.Settings.SystemSetting> SystemSettings => Set<Domain.Settings.SystemSetting>();
+    public DbSet<Domain.Settings.EmailTemplate> EmailTemplates => Set<Domain.Settings.EmailTemplate>();
+
     /// <summary>
     /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and
     /// written through DateTime / TimeSpan. The Oracle MySQL provider hands back DATE and TIME columns as DateTime /

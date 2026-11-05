@@ -334,8 +334,34 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 
 **Not done yet:** filling in a candidate's profile from their CV (the CV is read when they apply, not when they upload it); the AI reader has not been run against the real Anthropic API (no key here; its request shape compiles against the official SDK and its failures are handled).
 
-## ⏳ Phase 16: System settings (planned)
-Email templates, recruitment workflow settings, AI scoring thresholds, Microsoft 365 settings, backups (list, run now, download; restore stays a server procedure), audit-log monitoring.
+## ✅ Phase 16: System settings, email templates, backups and audit monitor (5 November 2026)
+
+**Asked for** (the Super Admin functions of the 5 November request): email template management, recruitment workflow configuration, vacancy configuration, system settings, Microsoft 365 integration settings, backup & restore management, audit log monitoring. The ATS configuration and AI thresholds were delivered in Phase 15; user, role, permission and organisation management in Phase 14.
+
+**Delivered**
+* **System settings** screen (Super Admin changes, Admin reads): organisation name, email greeting and signature; **email server** (sender, SMTP server, port, encryption, login, with **Send test**); **Microsoft 365 sign-in** (tenant, client, secret, and the redirect URI to register); **recruitment workflow** (vacancy advertising window, longest offer reply time, approver reminder days, knockout questions suggested for every new vacancy). A value saved on screen wins; an empty one falls back to the server configuration, then the default, and each field shows which applies. **Secrets are encrypted** with the data-protection keys, never shown again, and masked in the audit trail.
+* **Microsoft 365 sign-in without a restart:** the sign-in method is always registered, configured from the settings in force, offered and accepted only once complete, and rebuilt when the settings change.
+* **Email templates** for the 11 candidate emails (received, not successful, shortlisted, interview invitation / rescheduled / cancelled, offer sent / withdrawn / accepted, offer and interview reminders): plain text with checked `{{placeholders}}`, preview, reset. Nothing typed becomes HTML. Every email (staff ones too) uses the greeting and signature from settings.
+* **Backups** screen (Super Admin): the backups made by the backup service, latest-backup and stuck-request warnings, **Back up now** (a request file the backup service picks up within 30 seconds; `deploy/backup.sh` and the production compose file updated), **download** of database dumps; every request and download audited. Restore stays a server procedure.
+* **Audit monitor** (audit-trail readers): alerts (5+ failed sign-ins for an account or 10+ from one address in 24 h, lockouts, permission/settings changes), 24-hour and 7-day figures, failed sign-ins by account and address, most active users, changes by record type, recent settings changes and security events.
+* New permissions `settings.manage` and `backups.manage` (Super Admin only); the Admin's `settings.view` now also covers System settings and Email templates.
+* Migration `Phase16_SystemSettings`, script `database/17_phase16_system_settings.sql`; 6 new tests (134 in total); new [System settings guide](23-system-settings.md); configuration, production, security, database and testing docs updated.
+
+**Decisions recorded**
+* **Screen first, server configuration as fallback**, so GREL IT's existing set-up keeps working and nothing that needs a file or a restart (database, keys, folders) is on the screen.
+* **Only candidate emails are templates.** They are the ones GREL may want to word its own way; staff notifications stay built in, which keeps 40 internal messages accurate as the workflows change.
+* **Templates are plain text**, so no template can carry a harmful link or script.
+* **The files-and-keys backup archive can't be downloaded**: it holds the encryption keys, so IT copies it on the server. Database dumps can be downloaded by the Super Admin, with an audit row.
+* **No restore button**, as decided on 5 November: restoring replaces live data and stays with IT.
+* **"Vacancy configuration"** is the advertising window and the suggested knockout questions; everything else about a vacancy stays per vacancy.
+
+**Problems found and fixed while building**
+* The developer's own edit to `EmailService.cs` put the SMTP sender and password into the source code, and the file stopped compiling. The credentials were moved to the developer's local user-secrets (never committed); the code has no credentials. The real mailbox (Hostinger, `smtp.hostinger.com`, port 587 STARTTLS) was checked with one test email to itself.
+* The service tests' container had no configuration registered, which the settings store needs; `AddInfrastructure` now registers the configuration it is given.
+
+**Checked:** 134/134 tests. **Back up now** end to end, with the real `backup.sh` in a throwaway backup container against the local database: daily backup at start, request picked up within 30 seconds, backup made, request cleared. On the Docker MySQL (after a backup): migration applied, both new permissions seeded, every new screen opened, and a settings save and clear round-tripped with audit rows.
+
+**Not tested here:** Microsoft 365 sign-in against a real Entra tenant (no tenant available); the Backups screen inside the full production stack (the pieces were checked separately).
 
 ## 🎉 All 13 original phases delivered
 Next steps are GREL's: work through the [go-live checklist](21-production-deployment.md#8-go-live-checklist), then gather users' feedback for improvements.

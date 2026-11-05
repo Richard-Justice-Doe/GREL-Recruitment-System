@@ -1,0 +1,131 @@
+@* Phase 16: System settings. One card per group, each saved on its own. A value saved here wins over the server
+   configuration; an empty one falls back to it. Secrets are never shown, only whether one is set. *@
+@using Grsms.Application.Settings
+@using Grsms.Domain.Settings
+@model IReadOnlyList<SettingRowDto>
+@{
+    ViewData["Title"] = "System settings";
+    var canManage = ViewBag.CanManage == true;
+    string SourceBadge(string source) => source switch
+    {
+        "screen" => "badge-soft-primary",
+        "server configuration" => "badge-soft-success",
+        "default" => "badge-soft-secondary",
+        _ => "badge-soft-warning"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>System settings</h1>
+        <p>Values saved here apply straight away and are recorded in the audit trail. Leave a field empty to use the server configuration set by IT.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="EmailTemplates" asp-action="Index" class="btn btn-outline-secondary"><i class="fa-regular fa-envelope me-1"></i>Email templates</a>
+        <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="SystemSetting" class="btn btn-outline-secondary"><i class="fa-solid fa-clock-rotate-left me-1"></i>Change history</a>
+    </div>
+</div>
+
+@if (!canManage)
+{
+    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change system settings.</div>
+}
+
+<div class="row g-3">
+    @foreach (var group in Model.GroupBy(r => r.Definition.Group))
+    {
+        <div class="col-xl-6" id="@Grsms.Web.Controllers.SystemSettingsController.Anchor(group.Key)">
+            <form asp-action="Save" method="post" class="card glass h-100">
+                <div class="card-body p-4">
+                    <input type="hidden" name="group" value="@group.Key" />
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">@group.Key</h2>
+
+                    @if (group.Key == SettingCatalogue.Smtp)
+                    {
+                        <p class="small">
+                            @if (ViewBag.EmailSending == true) { <span class="badge rounded-pill badge-soft-success"><i class="fa-solid fa-paper-plane me-1"></i>Sending real email</span> }
+                            else { <span class="badge rounded-pill badge-soft-warning"><i class="fa-solid fa-inbox me-1"></i>Not sending: emails are saved as files on the server</span> }
+                        </p>
+                    }
+                    @if (group.Key == SettingCatalogue.Microsoft365)
+                    {
+                        <p class="small">
+                            @if (ViewBag.MicrosoftReady == true) { <span class="badge rounded-pill badge-soft-success"><i class="fa-brands fa-microsoft me-1"></i>"Sign in with Microsoft 365" is shown</span> }
+                            else { <span class="badge rounded-pill badge-soft-secondary">Off: all three values are needed</span> }
+                            <br /><span class="text-body-secondary">Redirect URI to register in Entra: <code>@ViewBag.MicrosoftCallback</code></span>
+                        </p>
+                    }
+
+                    <fieldset disabled="@(!canManage)">
+                        @foreach (var r in group)
+                        {
+                            var d = r.Definition;
+                            var id = "f-" + d.Key.Replace(':', '-');
+                            <div class="mb-3">
+                                @if (d.Kind == SettingKind.Switch)
+                                {
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="@id" name="@d.Key" value="true" checked="@(r.Value == "true")" />
+                                        <label class="form-check-label" for="@id">@d.Label</label>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <label class="form-label d-flex justify-content-between gap-2" for="@id">
+                                        <span>@d.Label</span>
+                                        <span class="badge rounded-pill @SourceBadge(r.Source) fw-normal" title="Where the value in force comes from">@r.Source</span>
+                                    </label>
+                                    @switch (d.Kind)
+                                    {
+                                        case SettingKind.MultiLine:
+                                            <textarea id="@id" name="@d.Key" class="form-control" rows="4" maxlength="@d.MaxLength">@r.Value</textarea>
+                                            break;
+                                        case SettingKind.Number:
+                                            <input id="@id" name="@d.Key" type="number" min="@d.Min" max="@d.Max" class="form-control" value="@r.Value" />
+                                            break;
+                                        case SettingKind.Secret:
+                                            <div class="input-group">
+                                                <input id="@id" name="@d.Key" type="password" class="form-control" autocomplete="new-password" maxlength="@d.MaxLength"
+                                                       placeholder="@(r.HasValue ? "•••••••• (set; type to replace)" : "Not set")" />
+                                                <span class="input-group-text">@(r.HasValue ? "set" : "empty")</span>
+                                            </div>
+                                            break;
+                                        case SettingKind.Email:
+                                            <input id="@id" name="@d.Key" type="email" class="form-control" maxlength="@d.MaxLength" value="@r.Value" />
+                                            break;
+                                        default:
+                                            <input id="@id" name="@d.Key" type="text" class="form-control" maxlength="@d.MaxLength" value="@r.Value" />
+                                            break;
+                                    }
+                                }
+                                <div class="form-text">@d.Help</div>
+                            </div>
+                        }
+                    </fieldset>
+                    @if (canManage)
+                    {
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+                    }
+                </div>
+            </form>
+            @if (canManage)
+            {
+                @* Outside the save form, so these never post the other fields. *@
+                foreach (var r in group.Where(r => r.Definition.Kind == SettingKind.Secret && r.Source == "screen"))
+                {
+                    <form asp-action="ClearSecret" method="post" class="mt-2">
+                        <input type="hidden" name="key" value="@r.Definition.Key" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Remove the saved @r.Definition.Label.ToLowerInvariant()?">Remove the saved @r.Definition.Label.ToLowerInvariant()</button>
+                    </form>
+                }
+                @if (group.Key == SettingCatalogue.Smtp)
+                {
+                    <form asp-action="TestEmail" method="post" class="d-flex gap-2 mt-2">
+                        <input type="email" name="to" class="form-control form-control-sm" placeholder="Send a test email to..." aria-label="Test email address" required />
+                        <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="fa-solid fa-paper-plane me-1"></i>Send test</button>
+                    </form>
+                }
+            }
+        </div>
+    }
+</div>

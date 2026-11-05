@@ -8,6 +8,7 @@
 //   5. "Copy" buttons: <button data-copy-target="id-of-textarea"> (job advert texts)
 //   6. Print buttons: <button data-print> (offer letters)
 //   7. Filters that submit on change: <select data-auto-submit>
+//   8. Numbers that count up on the dashboard tiles (the rest of the motion is CSS: css/motion.css)
 // No inline scripts or onclick="..." anywhere: the Content-Security-Policy (Phase 12) only runs files from /js and /lib.
 // =========================================================================
 
@@ -42,6 +43,12 @@
         document.querySelectorAll("[data-theme-toggle]").forEach(function (btn) {
             btn.addEventListener("click", function () {
                 var current = document.documentElement.getAttribute("data-bs-theme");
+                // Cross-fade the colours for a moment (motion.css, section 8), unless less motion was asked for.
+                var root = document.documentElement;
+                if (!reduceMotion()) {
+                    root.classList.add("theme-switching");
+                    setTimeout(function () { root.classList.remove("theme-switching"); }, 400);
+                }
                 setTheme(current === "dark" ? "light" : "dark");
             });
         });
@@ -146,5 +153,48 @@
                 }
             });
         });
+
+        // ---- 8. Numbers count up (motion.css has the rest of the motion) ---
+        // The figures on dashboard tiles count from 0 to their value when they first come into view. The text the
+        // server wrote is restored exactly at the end, prefixes and suffixes ("86%", "1,234") included.
+        // Skipped when the person asked their device for less motion.
+        if (!reduceMotion() && "IntersectionObserver" in window) {
+            var seen = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+                    seen.unobserve(entry.target);
+                    countUp(entry.target);
+                });
+            }, { threshold: 0.4 });
+            document.querySelectorAll(".kpi-value, .stat-value, .ats-tile-value").forEach(function (el) { seen.observe(el); });
+        }
     });
+
+    function reduceMotion() {
+        return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    function countUp(el) {
+        var original = el.textContent;
+        var m = /^(\s*[^\d\-]*)(-?[\d,]*\.?\d+)(.*)$/s.exec(original);
+        if (!m) return;
+        var target = parseFloat(m[2].replace(/,/g, ""));
+        if (!isFinite(target) || target === 0) return;
+        var decimals = (m[2].split(".")[1] || "").length;
+        var grouped = m[2].indexOf(",") >= 0;
+        var format = new Intl.NumberFormat("en-GB", { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: grouped });
+        var duration = 700, start = null, finished = false;
+        function finish() { finished = true; el.textContent = original; } // always end on exactly what the server wrote
+        function frame(now) {
+            if (finished) return;
+            if (start === null) start = now;
+            var t = Math.min(1, (now - start) / duration);
+            var eased = 1 - Math.pow(1 - t, 3); // ease-out
+            el.textContent = m[1] + format.format(target * eased) + m[3];
+            if (t < 1) requestAnimationFrame(frame); else finish();
+        }
+        requestAnimationFrame(frame);
+        // Browsers slow or pause animation frames (background tabs, battery saving): the real value still appears on time.
+        setTimeout(finish, duration + 150);
+    }
 })();

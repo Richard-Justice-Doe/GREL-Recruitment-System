@@ -4,6 +4,25 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 5 November 2026 (11:10): Animation
+
+**Why:** the user asked for "nice and well designed animation". The request did not say where, so it was applied across the whole interface, kept subtle and consistent for a business tool.
+
+**Changed**
+* New **`wwwroot/css/motion.css`**, loaded after `site.css` by all three layouts. Durations and easing are tokens at the top (`--motion-fast` 140 ms, `--motion-base` 240 ms, `--motion-slow` 520 ms), so the whole app can be sped up or slowed down in one place.
+  * **Page enter:** the page header, then each block, then the cards in each row rise 8 px and fade in, with a short stagger (all of it under about 0.4 s). Rows don't move themselves, so cards never rise twice. The sign-in card settles in.
+  * **Charts:** report bars, dashboard 7-day bars, ATS score bars, missing-skill bars and progress bars grow from their baseline, one after another.
+  * **Feedback:** clickable cards and dashboard tiles lift 2 px under the pointer; buttons press in; arrow / plus / refresh icons nudge on hover; links, tabs, form fields and table rows change colour smoothly; menus and alerts slide in.
+  * **Attention:** the current step of an applicant's tracker has a slow pulsing ring; the "needs you" counts in the menu pulse three times and then rest; the bell count pops in.
+  * **Light / dark switch:** colours cross-fade for a third of a second.
+* **`site.js` section 8:** numbers on dashboard and ATS tiles count up when they come into view. The text from the server is always restored exactly at the end, and a timer guarantees that even when the browser pauses animation (background tab, battery saving).
+* **Off for "reduce motion" and printing:** with the operating system's *reduce motion* setting, every animation and transition is effectively instant and nothing counts up; printed pages have no animation.
+* Only `transform` and `opacity` are animated, and every animation ends at `transform: none`, so nothing stays shifted. No inline scripts or styles were added, so the Content-Security-Policy is unchanged.
+
+**Checked:** 128/128 tests (new: every layout loads `motion.css`, and the file contains the reduce-motion and print rules). In a real browser (headless Edge, against the Docker app): the sign-in card mid-animation and settled; the careers page settled; a check page using the real `site.js` and `motion.css` mid-way (numbers counting, bars growing) and at the end (exact values 1,234 / 86% / 12.5, full-length bars). The first version of the count-up stalled when the browser slowed animation frames; the timer above fixes that. Signed-in pages were not screenshotted (headless Edge cannot sign in); they use the same classes as the check page.
+
+---
+
 ## 5 November 2026 (10:30): Admin role and "My audit trail"
 
 **Why:** the user asked for "admin and super admin" and for each user to see their own audit trail. Choices made: a **new Admin role** between HR Administrator and Super Admin, and a personal trail showing **what I did and what was done to my account**.

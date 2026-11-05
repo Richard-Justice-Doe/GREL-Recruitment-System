@@ -109,6 +109,20 @@ public partial class SecurityWebTests(GrsmsWebFactory factory) : IClassFixture<G
     }
 
     [Fact]
+    public async Task Motion_styles_load_on_every_layout_and_switch_off_for_reduced_motion_and_print()
+    {
+        var anonymous = factory.NewClient();
+        var admin = await AdminAsync();
+        foreach (var page in new[] { await anonymous.GetStringAsync("/Account/Login"), await anonymous.GetStringAsync("/Careers"), await admin.GetStringAsync("/") })
+            Assert.Contains("/css/motion.css", page);
+        var css = await anonymous.GetAsync("/css/motion.css");
+        Assert.Equal(HttpStatusCode.OK, css.StatusCode);
+        var text = await css.Content.ReadAsStringAsync();
+        Assert.Contains("prefers-reduced-motion: reduce", text);
+        Assert.Contains("@media print", text);
+    }
+
+    [Fact]
     public async Task The_health_check_answers_without_sign_in_and_shows_no_details()
     {
         var response = await factory.NewClient().GetAsync("/health");

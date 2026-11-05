@@ -20,7 +20,8 @@ public class UsersController(
     IDepartmentService departments,
     ISiteService sites,
     IPasswordValidator<Infrastructure.Identity.ApplicationUser> passwordValidator,
-    UserManager<Infrastructure.Identity.ApplicationUser> userManager) : AppController
+    UserManager<Infrastructure.Identity.ApplicationUser> userManager,
+    Application.Common.WorkflowMailer mailer) : AppController
 {
     /// <param name="candidates">True to show candidate (portal) accounts instead of staff.</param>
     public async Task<IActionResult> Index(bool candidates, CancellationToken ct)
@@ -45,7 +46,9 @@ public class UsersController(
             var result = await users.CreateAsync(form, ct);
             if (result.Succeeded)
             {
-                Success($"Account for {form.FullName} was created. Give them the temporary password; they must change it at first sign-in.");
+                await SendWelcomeAsync(result.Value!, form, ct);
+                Success($"Account for {form.FullName} was created and {form.Email} has been emailed a link to choose their password. " +
+                        "The temporary password also works; they must change it at first sign-in.");
                 return RedirectToAction(nameof(Index));
             }
             AddErrors(result);
@@ -100,6 +103,26 @@ public class UsersController(
     }
 
     private string CurrentUserId => userManager.GetUserId(User)!;
+
+    /// <summary>
+    /// Every new staff account gets a welcome email (template "New staff account"): how to sign in, their roles, and a
+    /// link to choose their own password (the same 24-hour link as "Forgot password"). The temporary password is never
+    /// emailed. A mail problem is logged by the mailer and never undoes the account.
+    /// </summary>
+    private async Task SendWelcomeAsync(string userId, UserFormDto form, CancellationToken ct)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return;
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var code = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(token));
+        var link = Url.Action("ResetPassword", "Account", new { code, email = user.Email }, Request.Scheme)!;
+        await mailer.TemplateToUserAsync(userId, Domain.Settings.EmailTemplateCatalogue.AccountCreated, new Dictionary<string, string?>
+        {
+            ["SignInEmail"] = user.Email,
+            ["Roles"] = string.Join(", ", form.SelectedRoles),
+            ["CreatedBy"] = User.FindFirst(AppClaimsPrincipalFactory.FullNameClaim)?.Value ?? User.Identity?.Name
+        }, link, ct: ct);
+    }
 
     /// <summary>
     /// Checks the temporary password against the password policy up front, so the administrator sees

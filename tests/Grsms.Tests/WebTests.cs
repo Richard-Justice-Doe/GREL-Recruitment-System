@@ -132,6 +132,46 @@ public class WebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFactory>
     }
 
     [Fact]
+    public async Task A_new_staff_account_is_emailed_a_link_to_choose_their_password_and_never_the_password_itself()
+    {
+        var admin = factory.NewClient();
+        await admin.SignInAsync(GrsmsWebFactory.AdminEmail, GrsmsWebFactory.AdminPassword);
+        var created = await admin.PostFormAsync("/Users/Create", "/Users/Create", new()
+        {
+            ["FullName"] = "Efua Welcome", ["Email"] = "efua.welcome@grel.test", ["DepartmentId"] = "1",
+            ["SelectedRoles"] = "Employee", ["TemporaryPassword"] = "Temp#Pass2026", ["IsActive"] = "true"
+        });
+        Assert.Equal(HttpStatusCode.Redirect, created.StatusCode);
+
+        var mail = Directory.GetFiles(factory.MailFolder, "*.eml").Select(File.ReadAllText).Single(m => m.Contains("To: efua.welcome@grel.test"));
+        var body = Decode(mail);
+        Assert.Contains("Subject: Your account for the GREL recruitment system", mail);
+        Assert.Contains("Sign in with: efua.welcome@grel.test", body);
+        Assert.Contains("Your roles: Employee", body);
+        Assert.DoesNotContain("Temp#Pass2026", body); // never the password
+
+        // The link lets them choose their own password, which then works for signing in (no forced change).
+        var link = System.Net.WebUtility.HtmlDecode(Regex.Match(body, "https://localhost(/Account/ResetPassword[^\"]+)").Groups[1].Value);
+        var person = factory.NewClient();
+        var reset = await person.PostFormAsync(link, "/Account/ResetPassword", new()
+        {
+            ["Email"] = "efua.welcome@grel.test",
+            ["Code"] = System.Web.HttpUtility.ParseQueryString(new Uri("https://localhost" + link).Query)["code"]!,
+            ["Password"] = "Efua#Own2026!", ["ConfirmPassword"] = "Efua#Own2026!"
+        });
+        Assert.Equal(HttpStatusCode.Redirect, reset.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await person.SignInAsync("efua.welcome@grel.test", "Efua#Own2026!")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await person.GetAsync("/")).StatusCode); // not sent to "change password"
+
+        static string Decode(string m)
+        {
+            if (!m.Contains("Content-Transfer-Encoding: base64")) return DecodeQuotedPrintable(m);
+            var split = m.IndexOf("\r\n\r\n", StringComparison.Ordinal) is var i and >= 0 ? i : m.IndexOf("\n\n", StringComparison.Ordinal);
+            return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(string.Concat(m[split..].Where(c => !char.IsWhiteSpace(c)))));
+        }
+    }
+
+    [Fact]
     public async Task Candidate_registers_confirms_email_and_cannot_open_staff_pages()
     {
         var client = factory.NewClient();

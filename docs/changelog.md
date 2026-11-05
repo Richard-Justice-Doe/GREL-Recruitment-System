@@ -4,6 +4,18 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 5 November 2026 (13:30): Welcome email for every new account
+
+**Why:** the user asked that every user receive an email when an account is created for them.
+
+* **Staff accounts created on Users & roles** (Super Admin, Admin or HR Administrator) are emailed at once (template *New staff account*): who created it, the sign-in address, the roles, and a **link to choose their own password**. It's the same 24-hour link as "Forgot password"; choosing a password through it also clears the "must change password" flag. **The temporary password is never emailed** (email is not a safe place for passwords); it still works if HR hands it over.
+* **Accounts created at a first Microsoft 365 sign-in** get a welcome email too (template *New account (Microsoft 365)*).
+* **Candidates** already received an email when they registered (the confirmation link), so nothing changed for them.
+* Both templates can be reworded on **Email templates** (now 13 templates).
+* 1 new test (135 in total): through the real pages, the Super Admin creates an account, the email has the address and roles but not the password, and the link lets the person choose a password and sign in.
+
+---
+
 ## 5 November 2026 (12:40): Phase 16 and the SMTP details
 
 * Phase 16 (system settings, email templates, backups, audit monitor) is recorded in the [phase log](phases.md#-phase-16-system-settings-email-templates-backups-and-audit-monitor-5-november-2026).

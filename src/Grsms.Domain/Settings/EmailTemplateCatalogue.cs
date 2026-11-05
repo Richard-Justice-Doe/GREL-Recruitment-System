@@ -30,6 +30,8 @@ public static partial class EmailTemplateCatalogue
     public const string OfferAccepted = "offer.accepted";
     public const string OfferReminder = "reminder.offer";
     public const string InterviewReminder = "reminder.interview";
+    public const string AccountCreated = "account.created";
+    public const string AccountCreatedMicrosoft = "account.created-microsoft";
 
     private const string MyApplication = "View my application";
 
@@ -79,6 +81,16 @@ public static partial class EmailTemplateCatalogue
             "Reminder: your {{Kind}} is tomorrow",
             "This is a reminder of your {{Kind}} on {{When}}, {{Location}}.",
             ["Kind", "When", "Location"], "See the details"),
+
+        // 5 November 2026: every new staff account gets a welcome email. The temporary password is never emailed.
+        new(AccountCreated, "New staff account", "When a Super Admin, Admin or HR Administrator creates a staff account",
+            "Your account for the {{Organisation}} recruitment system",
+            "An account has been created for you in GRSMS, the {{Organisation}} recruitment and selection system, by {{CreatedBy}}.\n\nSign in with: {{SignInEmail}}\nYour roles: {{Roles}}\n\nUse the link below to choose your password. It works for 24 hours; after that, use \"Forgot password\" on the sign-in page. You can also sign in with the temporary password HR gave you; you will then be asked to choose your own.",
+            ["SignInEmail", "Roles", "CreatedBy"], "Choose my password"),
+        new(AccountCreatedMicrosoft, "New account (Microsoft 365)", "When someone signs in with Microsoft 365 for the first time and GRSMS creates their account",
+            "Welcome to the {{Organisation}} recruitment system",
+            "Your GRSMS account was created when you first signed in with Microsoft 365 ({{SignInEmail}}).\n\nYour roles: {{Roles}}. If you need more access, for example to raise recruitment requests, ask HR.",
+            ["SignInEmail", "Roles"], "Open GRSMS"),
     ];
 
     public static EmailTemplateDefinition? Find(string key) => All.FirstOrDefault(t => t.Key == key);

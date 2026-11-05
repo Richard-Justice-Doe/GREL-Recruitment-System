@@ -59,7 +59,7 @@ Changes apply to what happens next; existing vacancies and offers are not change
 
 ## 2. Email templates
 
-**Menu → Management → Email templates.** These are the 11 emails **candidates and internal applicants** receive:
+**Menu → Management → Email templates.** These are the 11 emails **candidates and internal applicants** receive, plus the 2 welcome emails for **new staff accounts**:
 
 | Email | Sent |
 |---|---|
@@ -69,6 +69,8 @@ Changes apply to what happens next; existing vacancies and offers are not change
 | Interview or assessment invitation / rescheduled / cancelled | when an interview is scheduled, moved or cancelled |
 | Offer of employment / Offer withdrawn / Welcome (offer accepted) | at each step of the offer |
 | Reminder: reply to the offer / Reminder: interview tomorrow | the day before |
+| New staff account | when a Super Admin, Admin or HR Administrator creates a staff account: sign-in address, roles and a 24-hour link to choose a password (never the password itself) |
+| New account (Microsoft 365) | when someone signs in with Microsoft 365 for the first time and GRSMS creates their account |
 
 Staff notifications ("a request needs your approval", ...) keep their built-in wording.
 

@@ -94,6 +94,7 @@ Two tabs:
    | Someone who sits on interview panels | add Interview Panel Member |
 
 4. Type a **temporary password** (10+ characters with upper case, lower case, a number and a symbol). Give it to the person privately, never by email. They must change it the first time they sign in.
+   When you save, the person is **emailed automatically** (template *New staff account*): their sign-in address, their roles, and a link to choose their own password, valid for 24 hours. The temporary password is **never** emailed; it still works if you give it to them.
 5. Click **Save**.
 
 > If GREL has switched on **Sign in with Microsoft 365**, staff can simply click that button. An Employee account is then created for them automatically, and you only need to add their extra roles.

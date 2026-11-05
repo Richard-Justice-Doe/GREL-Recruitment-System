@@ -189,6 +189,11 @@ public class AccountController(
                 return LoginError(string.Join(" ", created.Errors.Select(e => e.Description)));
             await userManager.AddToRoleAsync(user, Roles.Employee);
             logger.LogInformation("Created staff account {Email} from first Microsoft 365 sign-in", mail);
+            // Every new account gets a welcome email (template "New account (Microsoft 365)").
+            await HttpContext.RequestServices.GetRequiredService<Application.Common.WorkflowMailer>().TemplateToUserAsync(
+                user.Id, Domain.Settings.EmailTemplateCatalogue.AccountCreatedMicrosoft,
+                new Dictionary<string, string?> { ["SignInEmail"] = mail, ["Roles"] = Roles.Employee },
+                Url.Action("Index", "Home", null, Request.Scheme)!, includeMe: true);
         }
 
         if (!user.IsActive) return LoginError("This account has been deactivated. Please contact HR.");

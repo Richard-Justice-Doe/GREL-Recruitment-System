@@ -1,0 +1,112 @@
+@* Phase 16: Backups (Super Admin). Lists what the backup service made; "Back up now"; download a database dump.
+   Restoring is deliberately not here: it replaces live data and is done on the server (docs/21-production-deployment.md). *@
+@using Grsms.Application.Settings
+@model BackupOverviewDto
+@{
+    ViewData["Title"] = "Backups";
+    string Size(long b) => b >= 1 << 20 ? $"{b / 1048576.0:0.0} MB" : $"{Math.Max(1, b / 1024)} KB";
+    var latest = Model.Files.FirstOrDefault(f => f.Kind == "Database");
+}
+
+<div class="page-header">
+    <div>
+        <h1>Backups</h1>
+        <p>The backup service saves the whole database and the uploaded files every night and keeps them for 30 days. Every request and download here is in the audit trail.</p>
+    </div>
+    @if (Model.Configured)
+    {
+        <form asp-action="RunNow" method="post">
+            <button type="submit" class="btn btn-primary" data-confirm="Ask the backup service to make a backup now?"><i class="fa-solid fa-floppy-disk me-1"></i>Back up now</button>
+        </form>
+    }
+</div>
+
+@if (!Model.Configured)
+{
+    <div class="alert alert-warning">
+        <i class="fa-solid fa-triangle-exclamation me-1"></i><strong>No backup folder on this server.</strong>
+        The production set-up (<code>deploy/docker-compose.prod.yml</code>) connects it automatically (<code>Backups:Folder</code>).
+        On a development PC there is no backup service, so there is nothing to show.
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="ats-tile h-100">
+                <div class="ats-tile-label">Latest database backup</div>
+                <div class="fs-5 fw-semibold">@(latest is null ? "None yet" : latest.CreatedAt.ToString("dd MMM yyyy HH:mm") + " GMT")</div>
+                @if (latest is not null && DateTime.UtcNow - latest.CreatedAt > TimeSpan.FromHours(30))
+                {
+                    <div class="small text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Older than a day: check the backup service.</div>
+                }
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="ats-tile h-100">
+                <div class="ats-tile-label">Backups kept</div>
+                <div class="ats-tile-value">@Model.Files.Count</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="ats-tile h-100">
+                <div class="ats-tile-label">"Back up now"</div>
+                @if (Model.RequestedAt is { } r)
+                {
+                    <div class="fw-semibold">Requested @r.ToString("HH:mm") GMT, waiting</div>
+                    @if (Model.RequestLooksStuck)
+                    {
+                        <div class="small text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Not picked up after 10 minutes: is the backup service running?</div>
+                    }
+                }
+                else
+                {
+                    <div class="fw-semibold">No request waiting</div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="card glass">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead><tr><th>File</th><th>Contains</th><th class="text-end">Size</th><th>Made</th><th class="text-end"></th></tr></thead>
+                    <tbody>
+                    @if (Model.Files.Count == 0)
+                    {
+                        <tr><td colspan="5" class="text-center text-body-secondary py-4">No backups yet.</td></tr>
+                    }
+                    @foreach (var f in Model.Files)
+                    {
+                        <tr>
+                            <td class="small font-monospace">@f.Name</td>
+                            <td>@f.Kind</td>
+                            <td class="text-end">@Size(f.SizeBytes)</td>
+                            <td class="small text-nowrap">@f.CreatedAt.ToString("dd MMM yyyy HH:mm") GMT</td>
+                            <td class="text-end">
+                                @if (f.Kind == "Database")
+                                {
+                                    <a asp-action="Download" asp-route-id="@f.Name" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-download me-1"></i>Download</a>
+                                }
+                                else
+                                {
+                                    <span class="small text-body-secondary" title="This archive holds the server's encryption keys, so it is copied by IT on the server, not through the web.">On the server only</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="alert alert-info small mt-3">
+    <i class="fa-solid fa-circle-info me-1"></i>
+    <strong>Keep a copy off the server.</strong> Backups that live only on this server are lost with it. A database dump holds all
+    recruitment data, including personal data: store downloads securely and delete them when no longer needed.
+    <strong>Restoring</strong> replaces the live data and is done by IT on the server, following
+    <em>Production deployment → Restore</em> (docs/21-production-deployment.md).
+</div>

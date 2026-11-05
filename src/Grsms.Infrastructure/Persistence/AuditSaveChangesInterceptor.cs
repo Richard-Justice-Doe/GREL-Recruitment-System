@@ -145,7 +145,8 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
     private void Prepare(DbContext db)
     {
         var now = DateTime.UtcNow;
-        var user = currentUser.UserName ?? "system";
+        // Work the system does on its own inside someone's request (e.g. ATS screening) is recorded as the system.
+        var user = Application.Common.SystemActor.Current ?? currentUser.UserName ?? "system";
         _pending = [];
 
         foreach (var entry in db.ChangeTracker.Entries().ToList())
@@ -241,9 +242,9 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
             action,
             oldValues.Count == 0 ? null : JsonSerializer.Serialize(oldValues, Json),
             newValues.Count == 0 ? null : JsonSerializer.Serialize(newValues, Json),
-            currentUser.UserId,
-            currentUser.UserName,
-            currentUser.IpAddress,
+            Application.Common.SystemActor.Current is null ? currentUser.UserId : null,
+            Application.Common.SystemActor.Current ?? currentUser.UserName,
+            Application.Common.SystemActor.Current is null ? currentUser.IpAddress : null,
             DateTime.UtcNow);
     }
 

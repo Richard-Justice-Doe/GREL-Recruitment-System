@@ -84,6 +84,33 @@ public class PermissionWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
     }
 
     [Fact]
+    public async Task Admin_sees_settings_read_only_and_everyone_sees_their_own_audit_trail()
+    {
+        var admin = await UserAsync("p.admin@grel.test", Roles.Admin, Roles.Employee);
+
+        // Roles & permissions and ATS settings open read-only: no save button, every box locked, saving refused.
+        var roles = await admin.GetStringAsync("/Roles");
+        Assert.Contains("Read-only.", roles);
+        Assert.DoesNotContain("Save permissions", roles);
+        Assert.True(Denied(await admin.PostFormAsync("/Roles", "/Roles/Save", new() { ["roleNames"] = Roles.Employee, ["grant"] = $"{Roles.Employee}|{Permissions.ViewReports}" })));
+        Assert.True(Denied(await admin.GetAsync("/Roles/Create")));
+        var ats = await admin.GetStringAsync("/Ats/Settings");
+        Assert.Contains("Read-only.", ats);
+        Assert.Contains("<fieldset disabled=\"disabled\">", ats);
+        // The Admin runs Users & roles, the audit trail and organisation data.
+        foreach (var page in new[] { "/Users", "/AuditLogs", "/Departments" })
+            Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync(page)).StatusCode);
+
+        // My audit trail: the Admin's own sign-in is there, with their address; an Employee sees theirs too.
+        var mine = await admin.GetStringAsync("/MyAuditTrail");
+        Assert.Contains("My audit trail", mine);
+        Assert.Contains("Signed in", mine);
+        var employee = await UserAsync("p.employee@grel.test", Roles.Employee);
+        Assert.Contains("Signed in", await employee.GetStringAsync("/MyAuditTrail"));
+        Assert.True(Denied(await employee.GetAsync("/AuditLogs"))); // but not everyone else's
+    }
+
+    [Fact]
     public async Task A_permission_taken_away_applies_at_once_and_a_custom_role_opens_what_it_is_given()
     {
         var admin = await SuperAdminAsync();

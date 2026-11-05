@@ -3460,6 +3460,13 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            Id = "admin",
+                            ConcurrencyStamp = "admin",
+                            Name = "Admin",
+                            NormalizedName = "ADMIN"
+                        },
+                        new
+                        {
                             Id = "hr-administrator",
                             ConcurrencyStamp = "hr-administrator",
                             Name = "HR Administrator",

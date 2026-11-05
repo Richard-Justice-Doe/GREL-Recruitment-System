@@ -86,6 +86,7 @@ Two tabs:
    | Person | Tick |
    |---|---|
    | Another Super Admin | Super Admin, Employee |
+   | A system administrator (manages all accounts except Admins and Super Admins; sees settings read-only) | Admin, Employee |
    | HR Manager | HR Manager, Employee |
    | Managing Director | Managing Director, Employee |
    | Recruiter | Recruitment Officer, Employee |
@@ -113,7 +114,8 @@ Click the deactivate button. They can no longer sign in, and any open session en
 * Deactivating yourself or removing your own Super Admin role.
 * Leaving the system with no active Super Admin.
 * Removing the HOD role from someone who is still a department's Head. Choose a new HOD for that department first.
-* As an HR Administrator: giving or removing a privileged role, or editing, resetting the password of, or deactivating an account that holds one. These accounts show a 🔒 **Super Admin** label instead of the buttons. You can still unlock them.
+* As an HR Administrator: giving or removing a privileged role, or editing, resetting the password of, or deactivating an account that holds one. These accounts show a 🔒 **Admin** label instead of the buttons. You can still unlock them.
+* As an **Admin**: giving or removing a privileged role (only a Super Admin does that), or touching another Admin's or a Super Admin's account (🔒 **Super Admin** label). You *can* edit, reset and deactivate HR Managers, Recruitment Officers, HODs, HR Administrators and the MD; their roles stay as they are.
 
 ---
 
@@ -140,7 +142,7 @@ A custom role can be renamed (✏️) and deleted (🗑) once nobody holds it. B
 
 ## Audit trail
 
-**Menu → Administration → Audit trail** (HR Administrators and HR Managers)
+**Menu → Administration → Audit trail** (Super Admin, Admin, HR Administrators and HR Managers). Everyone, candidates included, also has **Menu → My audit trail**: what they did, and what others did to their account (see [04 Security → My audit trail](04-security-and-roles.md#my-audit-trail-everyone)).
 
 Every change and every sign-in is recorded here. Use the filters to narrow it down:
 

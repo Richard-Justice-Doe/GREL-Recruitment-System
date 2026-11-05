@@ -7,17 +7,23 @@ using Microsoft.AspNetCore.Mvc;
 namespace Grsms.Web.Controllers;
 
 /// <summary>
-/// Phase 14: Roles &amp; permissions (Super Admin only). One grid of roles × permissions to tick, plus adding, renaming
+/// Phase 14: Roles &amp; permissions (Super Admin; the Admin sees it read-only). One grid of roles × permissions to tick, plus adding, renaming
 /// and deleting custom roles. The rules live in <see cref="IRoleAdminService"/>; every change is in the audit trail.
 /// </summary>
-[Authorize(Policy = Policies.RolesAndPermissions)]
+// Viewing needs "See system settings" (the Admin can look); every change also needs "Manage roles and permissions" (Super Admin).
+[Authorize(Policy = Policies.SystemSettings)]
 public class RolesController(IRoleAdminService roles) : AppController
 {
-    public async Task<IActionResult> Index(CancellationToken ct) => View(await roles.GetAllAsync(ct));
+    public async Task<IActionResult> Index(CancellationToken ct)
+    {
+        ViewBag.CanManage = (await HttpContext.RequestServices.GetRequiredService<IAuthorizationService>().AuthorizeAsync(User, Policies.RolesAndPermissions)).Succeeded;
+        return View(await roles.GetAllAsync(ct));
+    }
 
     /// <param name="roleNames">Every role column that was on the page (so unticked boxes mean "remove").</param>
     /// <param name="grant">The ticked boxes, each "role name|permission".</param>
     [HttpPost]
+    [Authorize(Policy = Policies.RolesAndPermissions)]
     public async Task<IActionResult> Save(List<string> roleNames, List<string> grant, CancellationToken ct)
     {
         // Empty fields arrive as nulls: ignore them rather than fail.
@@ -32,9 +38,11 @@ public class RolesController(IRoleAdminService roles) : AppController
         return RedirectToAction(nameof(Index));
     }
 
+    [Authorize(Policy = Policies.RolesAndPermissions)]
     public IActionResult Create() => View("Form", new RoleFormDto());
 
     [HttpPost]
+    [Authorize(Policy = Policies.RolesAndPermissions)]
     public async Task<IActionResult> Create(RoleFormDto form, CancellationToken ct)
     {
         if (ModelState.IsValid)
@@ -50,6 +58,7 @@ public class RolesController(IRoleAdminService roles) : AppController
         return View("Form", form);
     }
 
+    [Authorize(Policy = Policies.RolesAndPermissions)]
     public async Task<IActionResult> Edit(string id, CancellationToken ct)
     {
         var form = await roles.GetForEditAsync(id, ct);
@@ -57,6 +66,7 @@ public class RolesController(IRoleAdminService roles) : AppController
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.RolesAndPermissions)]
     public async Task<IActionResult> Edit(string id, RoleFormDto form, CancellationToken ct)
     {
         form.Id = id;
@@ -74,6 +84,7 @@ public class RolesController(IRoleAdminService roles) : AppController
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.RolesAndPermissions)]
     public async Task<IActionResult> Delete(string id, CancellationToken ct)
     {
         var result = await roles.DeleteAsync(id, ct);

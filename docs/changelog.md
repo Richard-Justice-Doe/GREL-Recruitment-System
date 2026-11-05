@@ -4,6 +4,22 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 5 November 2026 (10:30): Admin role and "My audit trail"
+
+**Why:** the user asked for "admin and super admin" and for each user to see their own audit trail. Choices made: a **new Admin role** between HR Administrator and Super Admin, and a personal trail showing **what I did and what was done to my account**.
+
+**Changed**
+* **Admin** (built-in role, id `admin`). Manages every user account except Admins and Super Admins: details, password resets, unlock, deactivate. Maintains organisation data and reads the whole audit trail. Sees Roles & permissions and ATS settings **read-only** (new permission `settings.view`). Like the HR Administrator, an Admin gives only the Employee and Interview Panel Member roles: the GREL requirement that **only a Super Admin creates HR Managers, Recruiters and HODs** still holds, and only a Super Admin creates Admins. When an Admin edits a HOD's account, its locked roles are kept automatically. Default permissions are given once at start-up (`Permissions.RolesAddedLater`, marker `role:Admin` in KnownPermissions); other roles keep the Super Admin's choices.
+* **My audit trail** (`/MyAuditTrail`, in everyone's menu, candidates too). It shows the user's own record changes, sign-ins, failed sign-ins and lockouts, and password changes (with their own IP address). It also shows changes others made to their account (details, roles, password resets, deactivation), naming who did it but **without that person's IP address**.
+* **System work is recorded as the system.** `SystemActor` marks work GRSMS does by itself inside someone's request. The ATS screening on submission now appears in the audit trail as *ATS (automatic screening)*, with no user and no IP, instead of under the applicant's name. This was needed so a rejection held for HR can never show in the applicant's own trail.
+* Migration `AdminRole`, script `database/16_admin_role.sql`; 4 new tests (127 in total); security, admin, database and testing docs updated.
+
+**Problem found and fixed:** the first version kept locked roles by quietly dropping privileged roles a non-Super-Admin tried to add, so such an attempt "succeeded" without doing anything. Now a missing locked role is kept, and adding a privileged role is refused with a message (found by the existing HR Administrator test).
+
+**Checked:** 127/127 tests. On the Docker MySQL (after a backup): the migration applied, the Admin role received its 11 default permissions, every other role kept exactly its grants, and My audit trail, Roles & permissions, Users, ATS settings and the audit trail all opened. Builds and tests ran in a separate output folder, because the user's own debug session (VS Code, port 5014) had the normal build folder open; it was left running.
+
+---
+
 ## 5 November 2026: Clean-up committed; Phase 14 started
 
 * The 4 November clean-up (unused demo mode code and two methods nothing called) was committed on branch `feature/ats-and-super-admin`. The `_removed-for-review/` copies are still on disk (git-ignored) until they are deleted.

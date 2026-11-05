@@ -120,7 +120,7 @@ What changed and why: [change log](docs/changelog.md).
 |---|---|
 | **Sign-in** | Email + password sign-in for staff and candidates, account lockout after 5 wrong passwords, a 20-minute idle timeout, forgot/reset password, change password, and a forced password change for new staff. The *Sign in with Microsoft 365* button appears once IT provides the Azure IDs. |
 | **Candidate registration** | Public "Create a candidate account" page with email confirmation |
-| **Roles** | 9 built-in roles: Super Admin (Phase 14), HR Administrator, HR Manager, Managing Director, Recruitment Officer, Head of Department, Interview Panel Member, Employee, Candidate; plus custom roles a Super Admin adds |
+| **Roles** | 10 built-in roles: Super Admin (Phase 14), Admin (5 November 2026), HR Administrator, HR Manager, Managing Director, Recruitment Officer, Head of Department, Interview Panel Member, Employee, Candidate; plus custom roles a Super Admin adds |
 | **Divisions and departments** | Two divisions (Corporate, Operations) and GREL's 17 departments (Finance, Transport, Factory APM, Factory TBU, ...) are pre-loaded. Departments can be added, edited, activated or deactivated, and each can have a Head of Department. |
 | **Units** | Sub-sections of departments (e.g. Finance → Payroll) |
 | **Sites** | Work locations, with a site type (GREL's 12 sites are pre-loaded) |

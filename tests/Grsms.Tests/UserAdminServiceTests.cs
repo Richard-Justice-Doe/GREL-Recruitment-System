@@ -114,11 +114,82 @@ public class UserAdminServiceTests : IDisposable
         takeover.TemporaryPassword = "Taken#Over2026";
         var edit = await service.UpdateAsync(takeover, hrAdmin);
         Assert.False(edit.Succeeded);
-        Assert.Contains(edit.Errors, e => e.Contains("only a Super Admin can change this account"));
+        Assert.Contains(edit.Errors, e => e.Contains("an Admin or Super Admin must change this account"));
         Assert.False((await service.SetActiveAsync(hrm, false, hrAdmin)).Succeeded);
 
         // Unlocking stays allowed: it gives no new access.
         Assert.True((await service.UnlockAsync(hrm)).Succeeded);
+    }
+
+    [Fact]
+    public async Task Admin_manages_every_account_except_admins_and_super_admins_but_gives_no_privileged_role()
+    {
+        var hod = await CreateAsync("hod@grel.test", Roles.HeadOfDepartment, Roles.Employee);
+        var hrm = await CreateAsync("hrm@grel.test", Roles.HrManager, Roles.Employee);
+        var otherAdmin = await CreateAsync("admin2@grel.test", Roles.Admin, Roles.Employee);
+        var super = await CreateAsync("super@grel.test", Roles.SuperAdmin);
+        var admin = await CreateAsync("admin@grel.test", Roles.Admin, Roles.Employee);
+        _db.CurrentUser.SignInAs(admin, "Admin", Roles.Admin, Roles.Employee);
+
+        using var scope = _db.NewScope();
+        var service = scope.ServiceProvider.GetRequiredService<IUserAdminService>();
+
+        // A HOD's account: details and a password reset are fine, and the HOD role stays (the form does not send locked roles).
+        var form = (await service.GetForEditAsync(hod))!;
+        form.FullName = "Kwesi Appiah";
+        form.TemporaryPassword = "Reset#Pass2026";
+        form.SelectedRoles = [Roles.Employee, Roles.PanelMember];
+        var edited = await service.UpdateAsync(form, admin);
+        Assert.True(edited.Succeeded, string.Join(" ", edited.Errors));
+        var hodForm = (await service.GetForEditAsync(hod))!;
+        Assert.Equal("Kwesi Appiah", hodForm.FullName);
+        Assert.Contains(Roles.HeadOfDepartment, hodForm.SelectedRoles);
+        Assert.Contains(Roles.PanelMember, hodForm.SelectedRoles);
+
+        // An HR Manager can be deactivated...
+        Assert.True((await service.SetActiveAsync(hrm, false, admin)).Succeeded);
+        // ...but no privileged role can be given, and Admin / Super Admin accounts are off limits.
+        var promote = (await service.GetForEditAsync(hrm))!;
+        promote.SelectedRoles = [Roles.Employee, Roles.HrManager, Roles.RecruitmentOfficer];
+        Assert.Contains((await service.UpdateAsync(promote, admin)).Errors, e => e.Contains("Only a Super Admin"));
+        Assert.False((await TryCreateAsync("new.admin@grel.test", Roles.Admin)).Succeeded);
+        Assert.False((await service.SetActiveAsync(otherAdmin, false, admin)).Succeeded);
+        var superForm = (await service.GetForEditAsync(super))!;
+        superForm.TemporaryPassword = "Taken#Over2026";
+        Assert.Contains((await service.UpdateAsync(superForm, admin)).Errors, e => e.Contains("a Super Admin must change this account"));
+    }
+
+    [Fact]
+    public async Task My_audit_trail_shows_what_i_did_and_what_others_did_to_my_account_without_their_ip()
+    {
+        var ama = await CreateAsync("ama@grel.test", Roles.Employee);       // created by the Super Admin
+        var kofi = await CreateAsync("kofi@grel.test", Roles.Employee);
+
+        // The Super Admin (IP 10.0.0.1) gives Ama a role and renames her.
+        using (var scope = _db.NewScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<IUserAdminService>();
+            var form = (await service.GetForEditAsync(ama))!;
+            form.FullName = "Ama Mensah";
+            form.SelectedRoles = [Roles.Employee, Roles.PanelMember];
+            Assert.True((await service.UpdateAsync(form, "super-id")).Succeeded);
+        }
+        // Ama does something herself, from her own address.
+        _db.CurrentUser.SignInAs(ama, "ama@grel.test", Roles.Employee);
+        _db.CurrentUser.IpAddress = "10.9.9.9";
+        using (var scope = _db.NewScope())
+            await scope.ServiceProvider.GetRequiredService<Grsms.Application.Auditing.IAuditLogService>().LogAsync(AuditActions.SignedIn, ama, "ama@grel.test");
+
+        using (var scope = _db.NewScope())
+        {
+            var audit = scope.ServiceProvider.GetRequiredService<Grsms.Application.Auditing.IAuditLogService>();
+            var mine = (await audit.SearchMineAsync(ama, "ama@grel.test", new Grsms.Application.Auditing.AuditLogQuery())).Items;
+
+            Assert.Contains(mine, x => x.Action == AuditActions.SignedIn && x.IpAddress == "10.9.9.9");             // mine, with my IP
+            Assert.Contains(mine, x => x.EntityName == "User" && x.Action == AuditActions.Updated && x.IpAddress is null); // done to me, no IP
+            Assert.Contains(mine, x => x.EntityName == "UserRole" && x.EntityId!.StartsWith(ama) && x.Action == AuditActions.Created);
+            Assert.DoesNotContain(mine, x => x.EntityId == kofi || (x.EntityId ?? "").StartsWith(kofi));               // not someone else's
+        }
     }
 
     [Fact]

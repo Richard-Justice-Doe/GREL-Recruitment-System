@@ -50,6 +50,9 @@ public static class Policies
     /// <summary>Phase 14: manage roles and permissions (Super Admin only).</summary>
     public const string RolesAndPermissions = nameof(RolesAndPermissions);
 
+    /// <summary>See Roles &amp; permissions and the ATS settings read-only (the Admin by default; the Super Admin always).</summary>
+    public const string SystemSettings = nameof(SystemSettings);
+
     /// <summary>Phase 15: change the ATS weights, bands and automatic-rejection rules (Super Admin only).</summary>
     public const string AtsConfiguration = nameof(AtsConfiguration);
 
@@ -69,6 +72,7 @@ public static class Policies
             .AddPermissionPolicy(SurveyResults, Permissions.ViewSurveyResults)
             .AddPermissionPolicy(Reports, Permissions.ViewReports)
             .AddPermissionPolicy(RolesAndPermissions, Permissions.ManagePermissions)
+            .AddPermissionPolicy(SystemSettings, Permissions.ViewSystemSettings)
             .AddPermissionPolicy(AtsConfiguration, Permissions.ConfigureAts)
             // Staff = signed in with any role other than Candidate (built-in or custom).
             .AddPolicy(Staff, p => p.RequireAuthenticatedUser().RequireAssertion(c =>

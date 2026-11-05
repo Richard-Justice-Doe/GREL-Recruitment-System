@@ -50,6 +50,9 @@ public static class Permissions
     /// <summary>See the records of every department (otherwise a HOD sees only their own departments).</summary>
     public const string SeeAllDepartments = "data.all-departments";
 
+    /// <summary>See Roles &amp; permissions and the ATS settings, read-only (added with the Admin role, 5 November 2026).</summary>
+    public const string ViewSystemSettings = "settings.view";
+
     // ---------------------------------------------------------------- Super Admin only
     public const string ManagePermissions = "permissions.manage";
     public const string ManagePrivilegedAccounts = "users.manage-privileged";
@@ -65,7 +68,9 @@ public static class Permissions
         new(ManageMasterData, "Administration", "Maintain organisation data",
             "Add and edit divisions, departments, units and sites, and choose each department's HOD."),
         new(ViewAuditTrail, "Administration", "Read the audit trail",
-            "See every change and sign-in recorded by the system."),
+            "See every change and sign-in recorded by the system. (Everyone can always see their own audit trail.)"),
+        new(ViewSystemSettings, "Administration", "See system settings (read-only)",
+            "Open Roles & permissions and the ATS settings without being able to change them."),
 
         new(ViewRecruitmentRequests, "Recruitment", "Open recruitment requests",
             "See recruitment requests (which ones depends on the departments the person may see)."),
@@ -97,6 +102,11 @@ public static class Permissions
     /// </summary>
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> Defaults = new Dictionary<string, IReadOnlyList<string>>
     {
+        [Roles.Admin] =
+        [
+            ManageUsers, ManageMasterData, ViewAuditTrail, ViewSystemSettings, ViewRecruitmentRequests, ViewVacancies, ViewAdverts,
+            ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments
+        ],
         [Roles.HrAdministrator] =
         [
             ManageUsers, ManageMasterData, ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts,
@@ -117,6 +127,13 @@ public static class Permissions
         [Roles.Employee] = [],
         [Roles.Candidate] = [],
     };
+
+    /// <summary>
+    /// Built-in roles added after permissions were introduced (Phase 14). At the first start-up that knows them, each gets
+    /// ALL its <see cref="Defaults"/> once (its permissions already existed, so the per-permission defaults never reached it).
+    /// Roles that existed before are not touched, so the Super Admin's choices for them stay.
+    /// </summary>
+    public static readonly IReadOnlyList<string> RolesAddedLater = [Roles.Admin];
 
     public static PermissionInfo? Find(string name) => Catalogue.FirstOrDefault(p => p.Name == name);
 

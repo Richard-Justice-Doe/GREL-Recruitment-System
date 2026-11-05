@@ -5,6 +5,7 @@
 @{
     ViewData["Title"] = "Roles & permissions";
     var columns = Model.Where(r => r.Name != Roles.Candidate).ToList();
+    var canManage = ViewBag.CanManage == true; // false = read-only (e.g. the Admin)
 }
 
 <div class="page-header">
@@ -12,9 +13,16 @@
         <h1>Roles &amp; permissions</h1>
         <p>Decide what each role may open. Changes apply straight away and are recorded in the audit trail.</p>
     </div>
-    <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add custom role</a>
+    @if (canManage)
+    {
+        <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add custom role</a>
+    }
 </div>
 
+@if (!canManage)
+{
+    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change roles and permissions.</div>
+}
 <div class="alert alert-info small">
     <i class="fa-solid fa-circle-info me-1"></i>
     Permissions open screens and functions. <b>Who acts at each workflow step</b> (the HOD raises a request, the HR Manager approves,
@@ -57,7 +65,7 @@
                                 @foreach (var r in columns)
                                 {
                                     var isSuper = r.Name == Roles.SuperAdmin;
-                                    var locked = isSuper || p.SuperAdminOnly;
+                                    var locked = isSuper || p.SuperAdminOnly || !canManage;
                                     var id = $"g-{r.Id}-{p.Name}".Replace('.', '-');
                                     <td class="text-center">
                                         <input class="form-check-input" type="checkbox" id="@id" name="grant" value="@($"{r.Name}|{p.Name}")"
@@ -73,7 +81,10 @@
             </div>
         </div>
     </div>
-    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save permissions</button>
+    @if (canManage)
+    {
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save permissions</button>
+    }
 </form>
 
 <h2 class="h5 mt-5 mb-3">Roles</h2>
@@ -96,7 +107,7 @@
                         <td class="small">@r.Description</td>
                         <td class="text-end">@r.ActiveUsers</td>
                         <td class="text-end text-nowrap">
-                            @if (!r.IsBuiltIn)
+                            @if (!r.IsBuiltIn && canManage)
                             {
                                 <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-sm btn-outline-secondary" title="Rename / describe"><i class="fa-solid fa-pen"></i></a>
                                 <form asp-action="Delete" asp-route-id="@r.Id" method="post" class="d-inline">

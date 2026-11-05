@@ -8,21 +8,43 @@ GRSMS uses **role-based access control with permissions**:
 * **Which roles hold which permission** is stored in the database (table `RoleClaims`). A **Super Admin** changes it on **Management → Roles & permissions** by ticking boxes. A change applies straight away: nobody has to sign out.
 * The defaults reproduce exactly what each role could open before Phase 14, so nobody gained or lost access when permissions were introduced. Each new permission gets its defaults **once**, at the first start-up of the version that adds it. After that, only the Super Admin's choices count.
 
-| Permission | Super Admin | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member / Employee | Candidate |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Manage user accounts | 🔒 | ✅ | | | | | | |
-| Maintain organisation data (divisions, departments, units, sites) | 🔒 | ✅ | | | | | | |
-| Read the audit trail | 🔒 | ✅ | ✅ | | | | | |
-| Open recruitment requests | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | |
-| Raise recruitment requests | 🔒 | | | | | ✅ | | |
-| Open vacancies / job adverts / applications / reports | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | |
-| Read survey results | 🔒 | | ✅ | ✅ | ✅ | | | |
-| See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | | | |
-| Manage roles and permissions | 🔒 only | | | | | | | |
-| Create privileged accounts | 🔒 only | | | | | | | |
-| Configure the ATS (weights, bands, auto-rejection rules, AI reader; Phase 15) | 🔒 only | | | | | | | |
+| Permission | Super Admin | Admin | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member / Employee | Candidate |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Manage user accounts | 🔒 | ✅ | ✅ | | | | | | |
+| Maintain organisation data (divisions, departments, units, sites) | 🔒 | ✅ | ✅ | | | | | | |
+| Read the (whole) audit trail | 🔒 | ✅ | ✅ | ✅ | | | | | |
+| See system settings, read-only (Roles & permissions, ATS settings) | 🔒 | ✅ | | | | | | | |
+| Open recruitment requests | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
+| Raise recruitment requests | 🔒 | | | | | | ✅ | | |
+| Open vacancies / job adverts / applications / reports | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
+| Read survey results | 🔒 | ✅ | | ✅ | ✅ | ✅ | | | |
+| See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | | |
+| Manage roles and permissions | 🔒 only | | | | | | | | |
+| Create privileged accounts | 🔒 only | | | | | | | | |
+| Configure the ATS (weights, bands, auto-rejection rules, AI reader; Phase 15) | 🔒 only | | | | | | | | |
 
-🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission.
+🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission. **Everyone** (candidates included) can always open **My audit trail** (below); it is not a permission.
+
+### The three administrator levels (5 November 2026)
+
+| | Super Admin | Admin | HR Administrator |
+|---|---|---|---|
+| Give or remove roles | any role | Employee, Interview Panel Member only | Employee, Interview Panel Member only |
+| Edit, reset the password of, deactivate an account | any account | any account **except Admins and Super Admins** (privileged roles on it stay as they are) | only accounts with everyday roles |
+| Unlock an account | ✅ | ✅ | ✅ |
+| Organisation data, whole audit trail | ✅ | ✅ | ✅ |
+| Roles & permissions, ATS settings | change | **read-only** | |
+| Workflow steps (approve, shortlist, ...) | only with the matching role | only with the matching role | only with the matching role |
+
+Only a Super Admin creates Admins, and only a Super Admin gives the HR Manager, Recruitment Officer, HOD, HR Administrator and MD roles (as the GREL requirements say). An Admin who looks after a HOD's account (new phone number, forgotten password, leaving GREL) keeps that account's HOD role untouched.
+
+### My audit trail (everyone)
+
+**Menu → My audit trail** shows each signed-in person, staff or candidate:
+* **what they did**: every record they created, changed or deleted, every sign-in and sign-out, failed sign-ins and lockouts on their account, and password changes, with the address they came from;
+* **what was done to their account by someone else**: changes to their account details, roles given or taken away, password resets by an administrator, deactivation. It shows who did it and when, but **not that person's IP address**.
+
+It never shows other people's records. Work the system does on its own inside someone's request is recorded as the **system**, not as that person. For example, the ATS screening an application while the applicant's "Apply" is still running is recorded that way, so a rejection waiting for HR never appears in the applicant's own trail.
 
 ### Rules that are not permissions (on purpose)
 
@@ -119,6 +141,7 @@ The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each 
 | Role | Purpose (from the specification) |
 |---|---|
 | **Super Admin** (Phase 14) | Full access to the whole system. The only role that creates HR Managers, Recruitment Officers, HODs and other privileged accounts, and sets permissions. The first administrator account (`SeedAdmin`) is a Super Admin. |
+| **Admin** (5 November 2026) | System administrator: manages every user account except Admins and Super Admins, organisation data and the audit trail; sees Roles & permissions and ATS settings read-only. Cannot give privileged roles. |
 | **HR Administrator** | Maintains divisions, departments, units and sites, and everyday staff accounts (Employee, Interview Panel Member). Views the audit trail. |
 | **HR Manager** | Approves requests, validates budgets, reviews candidates, authorises hiring. |
 | **Managing Director** | Final vacancy and hiring approval, executive dashboard. |

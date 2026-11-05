@@ -260,7 +260,7 @@ public class AtsServiceTests : IAsyncLifetime
         var a = await LoadAsync(id);
         Assert.Equal((ApplicationStatus.AutoRejected, AtsDecision.AutoRejected), (a.Status, a.AtsDecision));
         Assert.Contains("driver's licence", a.AtsRejectionReason);
-        Assert.Contains(a.Actions, x => x.Action == ApplicationAction.AtsRejected && x.ActorName == AtsService.SystemActor);
+        Assert.Contains(a.Actions, x => x.Action == ApplicationAction.AtsRejected && x.ActorName == AtsService.SystemActorName);
 
         // The applicant sees "Under review", no ATS step, and has not been told.
         As(candidate, Roles.Candidate);
@@ -268,6 +268,14 @@ public class AtsServiceTests : IAsyncLifetime
         Assert.Equal(ApplicationStatus.UnderReview, mine!.Status);
         Assert.DoesNotContain(mine.Timeline, t => t.Item1.Contains("ATS") || t.Item1.Contains("rejected", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(ApplicationStatus.UnderReview, (await Scoped(sp => sp.GetRequiredService<ApplicationService>().MyApplicationsAsync())).Single().Status);
+        // Nor in their own audit trail: the screening is recorded as the system, not as the applicant.
+        var myTrail = await Scoped(sp => sp.GetRequiredService<Grsms.Application.Auditing.IAuditLogService>()
+            .SearchMineAsync(candidate, candidate, new Grsms.Application.Auditing.AuditLogQuery()));
+        Assert.Contains(myTrail.Items, x => x.EntityName == "JobApplication" && x.Action == "Created");
+        Assert.DoesNotContain(myTrail.Items, x => (x.NewValues ?? "").Contains("AtsRejectionReason") ||
+                                                  (x.NewValues ?? "").Contains($"\"AtsDecision\":{(int)AtsDecision.AutoRejected}"));
+        Assert.True(await Scoped(sp => sp.GetRequiredService<ApplicationDbContext>().AuditLogs
+            .AnyAsync(x => x.EntityName == "JobApplication" && x.UserName == AtsService.SystemActorName && x.UserId == null && x.IpAddress == null)));
         Assert.DoesNotContain(DecodedEmails(), m => m.Contains("esi@mail.test") && m.Contains("will not be taking your application further"));
         Assert.Contains(DecodedEmails(), m => m.Contains("ro@grel.test") && m.Contains("rejected it automatically"));
 

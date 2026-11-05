@@ -32,6 +32,13 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
 
     private bool IsSuperAdmin => me.IsInRole(Roles.SuperAdmin);
 
+    /// <summary>The acting user's administrative roles (all that <see cref="Roles.CanManageAccount"/> needs to know).</summary>
+    private IEnumerable<string> MyRoles => new[] { Roles.SuperAdmin, Roles.Admin, Roles.HrAdministrator }.Where(me.IsInRole);
+
+    /// <summary>Who may manage an account with these roles, for messages.</summary>
+    private static string ManagerOf(IEnumerable<string> roles) =>
+        roles.Any(r => r is Roles.SuperAdmin or Roles.Admin) ? "a Super Admin" : "an Admin or Super Admin";
+
     /// <summary>Every role a staff account may be given: the built-in staff roles, then custom roles.</summary>
     public async Task<IReadOnlyList<string>> GetAssignableRolesAsync(CancellationToken ct = default)
     {
@@ -125,11 +132,15 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
         if (user is null || user.IsCandidate) return Result.Failure("User not found.");
 
         Normalize(form);
-        var errors = await ValidateCommonAsync(form, ct);
-
         var currentRoles = await userManager.GetRolesAsync(user);
-        if (!IsSuperAdmin && Roles.NeedsSuperAdmin(currentRoles))
-            return Result.Failure($"{user.FullName} holds a privileged role ({string.Join(", ", currentRoles.Where(r => Roles.NeedsSuperAdmin([r])))}), so only a Super Admin can change this account.");
+        if (!Roles.CanManageAccount(MyRoles, currentRoles))
+            return Result.Failure($"{user.FullName} holds a role you cannot manage ({string.Join(", ", currentRoles.Where(r => Roles.NeedsSuperAdmin([r])))}), so {ManagerOf(currentRoles)} must change this account.");
+
+        // Roles the editor may not touch are shown locked on the form, so the browser does not send them: keep them.
+        // (A privileged role being ADDED still arrives in the form and is refused below.)
+        if (!IsSuperAdmin)
+            form.SelectedRoles = [.. form.SelectedRoles.Union(currentRoles.Where(r => Roles.NeedsSuperAdmin([r])))];
+        var errors = await ValidateCommonAsync(form, ct);
         var removing = currentRoles.Except(form.SelectedRoles).ToList();
         var adding = form.SelectedRoles.Except(currentRoles).ToList();
         errors.AddRange(CheckRoleChangesAllowed([.. adding, .. removing]));
@@ -179,8 +190,9 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
     {
         var user = await userManager.FindByIdAsync(id);
         if (user is null) return Result.Failure("User not found.");
-        if (!IsSuperAdmin && Roles.NeedsSuperAdmin(await userManager.GetRolesAsync(user)))
-            return Result.Failure($"{user.FullName} holds a privileged role, so only a Super Admin can activate or deactivate this account.");
+        var targetRoles = await userManager.GetRolesAsync(user);
+        if (!Roles.CanManageAccount(MyRoles, targetRoles))
+            return Result.Failure($"{user.FullName} holds a role you cannot manage, so {ManagerOf(targetRoles)} must activate or deactivate this account.");
 
         var errors = await CheckSafetyRulesAsync(user, actingUserId, isActive, [], ct);
         if (errors.Count > 0) return Result.Failure([.. errors]);

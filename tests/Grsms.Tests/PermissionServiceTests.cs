@@ -60,6 +60,30 @@ public class PermissionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_built_in_role_added_later_gets_its_defaults_once_without_touching_earlier_choices()
+    {
+        await SeedAsync();
+        Assert.Equal(Permissions.Defaults[Roles.Admin].ToHashSet(), (await RolesAsync()).Single(r => r.Name == Roles.Admin).Permissions);
+
+        // Simulate an installation from before the Admin role: no Admin grants, no "role:Admin" marker,
+        // and a Super Admin who had taken "Open reports" away from HODs.
+        using (var scope = _db.NewScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.RoleClaims.RemoveRange(db.RoleClaims.Where(c => c.RoleId == "admin" ||
+                (c.RoleId == "head-of-department" && c.ClaimValue == Permissions.ViewReports)));
+            db.KnownPermissions.Remove(await db.KnownPermissions.SingleAsync(k => k.Name == "role:Admin"));
+            await db.SaveChangesAsync();
+        }
+        await SeedAsync();
+
+        var roles = await RolesAsync();
+        Assert.Equal(Permissions.Defaults[Roles.Admin].ToHashSet(), roles.Single(r => r.Name == Roles.Admin).Permissions);
+        Assert.DoesNotContain(Permissions.ViewReports, roles.Single(r => r.Name == Roles.HeadOfDepartment).Permissions);
+        Assert.DoesNotContain(Permissions.ManagePermissions, roles.Single(r => r.Name == Roles.Admin).Permissions); // Super Admin only
+    }
+
+    [Fact]
     public async Task Only_a_super_admin_manages_permissions_and_super_admin_only_ones_cannot_be_given_away()
     {
         await SeedAsync();

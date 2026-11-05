@@ -58,6 +58,14 @@ public interface IAuditLogService
     /// <summary>Searches the trail, newest first.</summary>
     Task<PagedResult<AuditLogDto>> SearchAsync(AuditLogQuery query, CancellationToken ct = default);
 
+    /// <summary>
+    /// "My audit trail" (every user, 5 November 2026): what the user did (every row recorded under their account, which
+    /// includes sign-ins, failed sign-ins and lockouts on their account, and password changes) PLUS what others did to
+    /// their account (their user record, role assignments and sign-in tokens). On rows made by someone else the IP
+    /// address is removed. Filters: Action, EntityName, From, To and paging (UserName and EntityId are ignored).
+    /// </summary>
+    Task<PagedResult<AuditLogDto>> SearchMineAsync(string userId, string? userName, AuditLogQuery query, CancellationToken ct = default);
+
     /// <summary>Distinct record types that appear in the trail, for the filter drop-down.</summary>
     Task<IReadOnlyList<string>> GetEntityNamesAsync(CancellationToken ct = default);
 }

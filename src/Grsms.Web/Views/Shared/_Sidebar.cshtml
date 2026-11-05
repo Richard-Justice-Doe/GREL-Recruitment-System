@@ -18,8 +18,8 @@
     var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
     var canSurveyResults = (await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded;
     var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
-    var canRoles = (await Auth.AuthorizeAsync(User, Policies.RolesAndPermissions)).Succeeded; // Phase 14: Super Admin
-    var canAtsSettings = (await Auth.AuthorizeAsync(User, Policies.AtsConfiguration)).Succeeded; // Phase 15: Super Admin
+    var canRoles = (await Auth.AuthorizeAsync(User, Policies.SystemSettings)).Succeeded; // Super Admin; Admin read-only
+    var canAtsSettings = canRoles; // Phase 15: Super Admin; Admin read-only
     var isCandidate = User.IsInRole(Roles.Candidate);
     var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
     var counts = await Nav.GetAsync();
@@ -130,6 +130,9 @@
         </a>
         <a class="nav-link @Active("Profile")" asp-controller="Profile" asp-action="Index">
             <i class="fa-regular fa-id-card"></i> My profile
+        </a>
+        <a class="nav-link @Active("MyAuditTrail")" asp-controller="MyAuditTrail" asp-action="Index">
+            <i class="fa-solid fa-clock-rotate-left"></i> My audit trail
         </a>
 
         @if (canMasterData)

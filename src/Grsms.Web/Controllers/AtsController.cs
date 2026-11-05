@@ -51,8 +51,12 @@ public class AtsController(AtsService ats) : AppController
 
     // ===================================================================== Settings (Super Admin)
 
-    [Authorize(Policy = Policies.AtsConfiguration)]
-    public async Task<IActionResult> Settings(CancellationToken ct) => View(await ats.GetSettingsFormAsync(ct));
+    [Authorize(Policy = Policies.SystemSettings)] // the Admin sees the settings read-only; saving needs AtsConfiguration (below)
+    public async Task<IActionResult> Settings(CancellationToken ct)
+    {
+        ViewBag.CanManage = (await HttpContext.RequestServices.GetRequiredService<IAuthorizationService>().AuthorizeAsync(User, Policies.AtsConfiguration)).Succeeded;
+        return View(await ats.GetSettingsFormAsync(ct));
+    }
 
     [HttpPost]
     [Authorize(Policy = Policies.AtsConfiguration)]
@@ -72,6 +76,7 @@ public class AtsController(AtsService ats) : AppController
         form.AiConfigured = current.AiConfigured;
         form.UpdatedAt = current.UpdatedAt;
         form.UpdatedBy = current.UpdatedBy;
+        ViewBag.CanManage = true;
         return View(form);
     }
 

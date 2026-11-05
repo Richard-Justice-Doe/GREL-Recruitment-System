@@ -42,7 +42,7 @@ public class AtsService(
     ILogger<AtsService> logger)
 {
     /// <summary>The name shown in the history for the ATS's own steps.</summary>
-    public const string SystemActor = "ATS (automatic screening)";
+    public const string SystemActorName = "ATS (automatic screening)";
 
     private const int MaxCvTextLength = 100_000;
     private const string ConflictMessage = "Someone else updated this application at the same moment. Please reload the page and try again.";
@@ -118,9 +118,14 @@ public class AtsService(
             var a = await applications.GetWithHistoryAsync(applicationId, ct);
             var v = a is null ? null : await vacancies.GetWithDetailsAsync(a.VacancyId, ct);
             if (a is null || v is null) return null;
-            var result = await ScreenAsync(a, v, await GetSettingsAsync(ct), ct);
-            await unitOfWork.SaveChangesAsync(ct);
-            return result;
+            // The ATS acts on its own here, inside the applicant's request: record it as the system, not the applicant,
+            // so a held rejection never appears in the applicant's own audit trail.
+            using (SystemActor.Begin(SystemActorName))
+            {
+                var result = await ScreenAsync(a, v, await GetSettingsAsync(ct), ct);
+                await unitOfWork.SaveChangesAsync(ct);
+                return result;
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -169,13 +174,13 @@ public class AtsService(
             a.AtsDecisionByUserId = null;
             a.AtsDecisionAt = now;
             a.AtsDecisionNote = null;
-            a.RecordStep(ApplicationAction.AtsRejected, ApplicationStatus.AutoRejected, null, SystemActor, reason, now);
+            a.RecordStep(ApplicationAction.AtsRejected, ApplicationStatus.AutoRejected, null, SystemActorName, reason, now);
         }
         else if (a.Status == ApplicationStatus.AutoRejected && !result.AutoReject)
         {
             a.AtsDecision = AtsDecision.Cleared;
             a.AtsDecisionAt = now;
-            a.RecordStep(ApplicationAction.AtsCleared, ApplicationStatus.Submitted, null, SystemActor,
+            a.RecordStep(ApplicationAction.AtsCleared, ApplicationStatus.Submitted, null, SystemActorName,
                 $"Re-screened at {result.Overall}%: no automatic-rejection rule applies any more.", now);
         }
         else if (a.Status == ApplicationStatus.AutoRejected)

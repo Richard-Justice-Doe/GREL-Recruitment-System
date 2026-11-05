@@ -6,6 +6,8 @@
     ViewData["Title"] = "Users & roles";
     // Phase 14: accounts with a privileged role can only be changed by a Super Admin (the service checks again).
     var isSuperAdmin = User.IsInRole(Roles.SuperAdmin);
+    var myRoles = new[] { Roles.SuperAdmin, Roles.Admin, Roles.HrAdministrator }.Where(User.IsInRole).ToList();
+    var isAdmin = User.IsInRole(Roles.Admin);
 }
 
 <div class="page-header">
@@ -14,7 +16,7 @@
         <p>Create staff accounts, assign roles, and deactivate or unlock accounts.
             @if (!isSuperAdmin)
             {
-                <br /><span class="small">You can give the Employee and Interview Panel Member roles. Accounts with other roles (HR Manager, Recruitment Officer, HOD, ...) are managed by a Super Admin.</span>
+                <br /><span class="small">You can give the Employee and Interview Panel Member roles; other roles (HR Manager, Recruitment Officer, HOD, ...) are given by a Super Admin. @(isAdmin ? "As an Admin you can edit, reset and deactivate every account except Admins and Super Admins." : "Accounts with other roles are managed by an Admin or Super Admin.")</span>
             }
         </p>
     </div>
@@ -71,14 +73,14 @@
                         </td>
                         <td data-order="@(u.LastSignInAt?.ToString("o"))" class="small text-nowrap">@(u.LastSignInAt?.ToString("dd MMM yyyy HH:mm") ?? "Never")</td>
                         <td class="text-end text-nowrap">
-                            @{ var canChange = isSuperAdmin || !Roles.NeedsSuperAdmin(u.Roles); }
+                            @{ var canChange = Roles.CanManageAccount(myRoles, u.Roles); }
                             @if (!u.IsCandidate && canChange)
                             {
                                 <a asp-action="Edit" asp-route-id="@u.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
                             }
                             else if (!u.IsCandidate)
                             {
-                                <span class="badge rounded-pill badge-soft-secondary me-1" title="Only a Super Admin can change this account"><i class="fa-solid fa-lock me-1"></i>Super Admin</span>
+                                <span class="badge rounded-pill badge-soft-secondary me-1" title="You cannot change this account"><i class="fa-solid fa-lock me-1"></i>@(u.Roles.Any(r => r is Roles.SuperAdmin or Roles.Admin) ? "Super Admin" : "Admin")</span>
                             }
                             @if (u.IsLockedOut)
                             {

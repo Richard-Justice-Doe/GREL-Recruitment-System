@@ -97,7 +97,7 @@ Passwords are stored only as a salted hash (PBKDF2), never as readable text.
 ### RoleClaims and KnownPermissions (Phase 14)
 `RoleClaims` holds **which permissions each role has**: one row per role and permission, `ClaimType` = `grsms:permission`, `ClaimValue` = the permission name (e.g. `vacancies.view`). A custom role's description is a row with `ClaimType` = `grsms:description`. A unique index on (RoleId, ClaimType, ClaimValue) stops duplicates. The Super Admin holds every permission without rows.
 
-`KnownPermissions` (Name, AddedAt) lists the permissions whose default grants have already been applied. At start-up GRSMS gives any permission **not** listed here to its default roles, then lists it, so a permission the Super Admin removed is never given back. To re-apply every default (for example after a mistake), delete the `grsms:permission` rows of the built-in roles and every `KnownPermissions` row, then restart GRSMS.
+`KnownPermissions` (Name, AddedAt) lists the permissions whose default grants have already been applied. At start-up GRSMS gives any permission **not** listed here to its default roles, then lists it, so a permission the Super Admin removed is never given back. To re-apply every default (for example after a mistake), delete the `grsms:permission` rows of the built-in roles and every `KnownPermissions` row, then restart GRSMS. A built-in role added later (the **Admin**, 5 November 2026) is listed as `role:Admin` once it has received all its defaults; existing roles are not touched when that happens.
 
 ### AuditLogs
 Append-only, never edited or deleted. It does **not** inherit the standard columns.
@@ -456,6 +456,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `12_phase09_onboarding.sql` | 9 | Onboardings, OnboardingTasks |
 | `13_phase10_notifications_surveys.sql` | 10 | Notifications, SentReminders, SurveyInvitations, SurveyAnswers |
 | `14_phase14_super_admin_permissions.sql` | 14 | KnownPermissions; the Super Admin role; RoleClaims text columns shortened (the table was empty) and a unique index. The default permissions and the first Super Admin are added by GRSMS at start-up, not by the script. |
+| `16_admin_role.sql` | — | The built-in **Admin** role (id `admin`). Its default permissions and the new permission `settings.view` are added by GRSMS at start-up. If someone already added a *custom* role called "Admin", rename it first (role names are unique). |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

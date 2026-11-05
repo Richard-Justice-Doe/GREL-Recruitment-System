@@ -3,6 +3,7 @@
 @model AtsSettingsFormDto
 @{
     ViewData["Title"] = "ATS settings";
+    var canManage = ViewBag.CanManage == true; // false = read-only (e.g. the Admin)
 }
 
 <div class="page-header">
@@ -14,7 +15,12 @@
     <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="AtsSettings" class="btn btn-outline-secondary"><i class="fa-solid fa-clock-rotate-left me-1"></i>Change history</a>
 </div>
 
+@if (!canManage)
+{
+    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change the ATS settings.</div>
+}
 <form asp-action="Settings" method="post" novalidate>
+    <fieldset disabled="@(!canManage)">
     <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
     <div class="row g-3">
         <div class="col-lg-6">
@@ -93,7 +99,8 @@
             </div>
         </div>
     </div>
-    <div class="mt-4">
+    </fieldset>
+    <div class="mt-4 @(canManage ? "" : "d-none")">
         <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save settings</button>
     </div>
 </form>

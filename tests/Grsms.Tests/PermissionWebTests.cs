@@ -135,7 +135,11 @@ public class PermissionWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.True(Denied(await reader.GetAsync("/Reports")));
         Assert.True(Denied(await reader.GetAsync("/Users")));
 
-        // The permission changes are in the audit trail.
+        // The permission changes are in the audit trail, and in plain words in the page's change history.
+        var history = await admin.GetStringAsync("/Roles?historyRole=head-of-department");
+        Assert.Contains("Change history", history);
+        Assert.Contains("took &quot;Open reports&quot; away from Head of Department", history);
+        Assert.Contains("gave &quot;Open reports&quot; to Head of Department", history);
         var trail = await admin.GetStringAsync("/AuditLogs?EntityName=RoleClaim");
         Assert.Contains("audit.view", trail);
     }

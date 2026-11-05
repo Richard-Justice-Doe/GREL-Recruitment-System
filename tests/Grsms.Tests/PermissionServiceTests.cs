@@ -51,11 +51,22 @@ public class PermissionServiceTests : IDisposable
         await SeedAsync();
         Assert.DoesNotContain(Permissions.ViewReports, (await RolesAsync()).Single(r => r.Name == Roles.HeadOfDepartment).Permissions);
 
-        // The change is in the audit trail.
+        // The change is in the audit trail...
         using (var scope = _db.NewScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             Assert.True(await db.AuditLogs.AnyAsync(a => a.EntityName == "RoleClaim" && a.Action == "Deleted" && a.UserName == "Super Admin"));
+        }
+        // ...and in the page's change history, in plain words, newest first, and filtered by role.
+        using (var scope = _db.NewScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<IRoleAdminService>();
+            var history = await service.GetHistoryAsync(null);
+            Assert.Equal("took \"Open reports\" away from Head of Department", history[0].Text);
+            Assert.Equal(("Super Admin", false, "permission"), (history[0].By, history[0].Granted, history[0].Kind));
+            Assert.Contains(history, h => h.Text == "gave \"Read the audit trail\" to HR Manager"); // the start-up defaults ("system" in the real app)
+            var hodOnly = await service.GetHistoryAsync("head-of-department");
+            Assert.All(hodOnly, h => Assert.Equal(Roles.HeadOfDepartment, h.RoleName));
         }
     }
 
@@ -129,6 +140,16 @@ public class PermissionServiceTests : IDisposable
 
         // A Super Admin can give the custom role to a user; it then cannot be deleted.
         var userId = await _db.CreateUserAsync("auditor@grel.test", 1, Roles.Employee, "Recruitment Auditor");
+
+        // The role's change history: added, its permissions, and who holds it.
+        using (var scope = _db.NewScope())
+        {
+            var texts = (await scope.ServiceProvider.GetRequiredService<IRoleAdminService>().GetHistoryAsync(roleId)).Select(h => h.Text).ToList();
+            Assert.Contains("added the role Recruitment Auditor", texts);
+            Assert.Contains("gave \"Open reports\" to Recruitment Auditor", texts);
+            Assert.Contains("gave the role Recruitment Auditor to auditor (auditor@grel.test)", texts);
+            Assert.Contains("changed the description of Recruitment Auditor", texts);
+        }
         using (var scope = _db.NewScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<IRoleAdminService>();

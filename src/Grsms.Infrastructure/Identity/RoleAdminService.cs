@@ -62,6 +62,90 @@ public partial class RoleAdminService(
             .ToList();
     }
 
+    public async Task<IReadOnlyList<RoleHistoryEntryDto>> GetHistoryAsync(string? roleId, int take = 100, CancellationToken ct = default)
+    {
+        string[] types = ["RoleClaim", "Role", "UserRole"];
+        var q = db.AuditLogs.AsNoTracking().Where(a => a.EntityName != null && types.Contains(a.EntityName));
+        // A role's own rows: its permissions/description (RoleId in the values), the role itself (its id), its holders ("user,role").
+        if (!string.IsNullOrEmpty(roleId))
+            q = q.Where(a => a.EntityId == roleId || (a.EntityId != null && a.EntityId.EndsWith("," + roleId)) ||
+                             (a.NewValues != null && a.NewValues.Contains("\"RoleId\":\"" + roleId + "\"")) ||
+                             (a.OldValues != null && a.OldValues.Contains("\"RoleId\":\"" + roleId + "\"")));
+        var rows = await q.OrderByDescending(a => a.Id).Take(Math.Clamp(take, 1, 500)).ToListAsync(ct);
+
+        // Names for the ids in the rows: current role names (a deleted custom role keeps its readable id) and user names.
+        var roleNames = await db.Roles.AsNoTracking().ToDictionaryAsync(r => r.Id, r => r.Name!, ct);
+        var userIds = rows.Where(r => r.EntityName == "UserRole").Select(r => (r.EntityId ?? "").Split(',')[0]).Distinct().ToList();
+        var userNames = await db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => $"{u.FullName} ({u.Email})", ct);
+
+        return rows.Select(a => Describe(a, roleNames, userNames)).OfType<RoleHistoryEntryDto>().ToList();
+    }
+
+    /// <summary>Turns one audit row into a plain-words line, or null if it is not one we describe.</summary>
+    private static RoleHistoryEntryDto? Describe(Domain.Auditing.AuditLog a, IReadOnlyDictionary<string, string> roleNames,
+        IReadOnlyDictionary<string, string> userNames)
+    {
+        var values = Values(a.NewValues ?? a.OldValues);
+        var old = Values(a.OldValues);
+        string Role(string? id) => id is null ? "?" : roleNames.GetValueOrDefault(id) ?? $"{id} (deleted)";
+        var by = a.UserName ?? "system";
+        var created = a.Action == Domain.Auditing.AuditActions.Created;
+        var deleted = a.Action == Domain.Auditing.AuditActions.Deleted;
+
+        switch (a.EntityName)
+        {
+            case "RoleClaim":
+            {
+                var role = Role(values.GetValueOrDefault("RoleId"));
+                if (values.GetValueOrDefault("ClaimType") == DescriptionClaimType)
+                    return new(a.Id, a.Timestamp, by, a.IpAddress, "role", null, role, $"changed the description of {role}");
+                var perm = values.GetValueOrDefault("ClaimValue") ?? "?";
+                var label = Permissions.Find(perm)?.Label ?? perm;
+                return created ? new(a.Id, a.Timestamp, by, a.IpAddress, "permission", true, role, $"gave \"{label}\" to {role}")
+                     : deleted ? new(a.Id, a.Timestamp, by, a.IpAddress, "permission", false, role, $"took \"{label}\" away from {role}")
+                     : new(a.Id, a.Timestamp, by, a.IpAddress, "permission", null, role, $"changed a permission of {role}");
+            }
+            case "Role":
+            {
+                var name = values.GetValueOrDefault("Name") ?? Role(a.EntityId);
+                if (created) return new(a.Id, a.Timestamp, by, a.IpAddress, "role", true, name, $"added the role {name}");
+                if (deleted) return new(a.Id, a.Timestamp, by, a.IpAddress, "role", false, old.GetValueOrDefault("Name") ?? name,
+                    $"deleted the role {old.GetValueOrDefault("Name") ?? name}");
+                var newName = Values(a.NewValues).GetValueOrDefault("Name");
+                return newName is null ? null
+                    : new(a.Id, a.Timestamp, by, a.IpAddress, "role", null, newName, $"renamed the role {old.GetValueOrDefault("Name")} to {newName}");
+            }
+            case "UserRole":
+            {
+                var parts = (a.EntityId ?? "").Split(',');
+                var role = Role(parts.ElementAtOrDefault(1));
+                var user = userNames.GetValueOrDefault(parts[0]) ?? "a deleted account";
+                return created ? new(a.Id, a.Timestamp, by, a.IpAddress, "assignment", true, role, $"gave the role {role} to {user}")
+                     : deleted ? new(a.Id, a.Timestamp, by, a.IpAddress, "assignment", false, role, $"took the role {role} from {user}")
+                     : null;
+            }
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>The audit trail's JSON values as text (e.g. {"RoleId":"hr-manager"} → RoleId = hr-manager).</summary>
+    private static Dictionary<string, string?> Values(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return [];
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.EnumerateObject().ToDictionary(p => p.Name,
+                p => p.Value.ValueKind == System.Text.Json.JsonValueKind.String ? p.Value.GetString() : p.Value.ToString());
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return [];
+        }
+    }
+
     public async Task<IReadOnlyList<string>> GetCustomRoleNamesAsync(CancellationToken ct = default) =>
         (await db.Roles.AsNoTracking().Select(r => r.Name!).ToListAsync(ct))
             .Where(n => !Roles.IsBuiltIn(n)).OrderBy(n => n).ToList();

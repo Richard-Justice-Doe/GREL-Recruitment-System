@@ -138,6 +138,9 @@ The **Super Admin** column is always ticked and cannot be changed. The two **Sup
 
 A custom role can be renamed (✏️) and deleted (🗑) once nobody holds it. Built-in roles can't be renamed or deleted.
 
+### Change history
+At the bottom of the page, **Change history** lists the latest 100 changes in plain words, newest first: every permission given or taken away (*gave "Open reports" to Head of Department*), every custom role added, renamed or deleted, and every role given to or taken from someone. Each line shows who made the change, when, and from which address. Choose a **Role** to see only that role's history. Changes GRSMS makes itself at start-up show as *system*. **Full audit trail** opens every recorded detail.
+
 ---
 
 ## Audit trail

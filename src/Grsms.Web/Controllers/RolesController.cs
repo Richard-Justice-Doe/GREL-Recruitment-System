@@ -14,9 +14,13 @@ namespace Grsms.Web.Controllers;
 [Authorize(Policy = Policies.SystemSettings)]
 public class RolesController(IRoleAdminService roles) : AppController
 {
-    public async Task<IActionResult> Index(CancellationToken ct)
+    /// <param name="historyRole">Optional: show the change history of this role only (its id).</param>
+    public async Task<IActionResult> Index(string? historyRole, CancellationToken ct)
     {
         ViewBag.CanManage = (await HttpContext.RequestServices.GetRequiredService<IAuthorizationService>().AuthorizeAsync(User, Policies.RolesAndPermissions)).Succeeded;
+        // The audit trail of roles and permissions, in plain words (latest 100 changes).
+        ViewBag.HistoryRole = historyRole;
+        ViewBag.History = await roles.GetHistoryAsync(historyRole, 100, ct);
         return View(await roles.GetAllAsync(ct));
     }
 

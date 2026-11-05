@@ -127,3 +127,66 @@
         </p>
     </div>
 </div>
+
+@* ---- Change history: the audit trail of roles and permissions, in plain words *@
+@{
+    var history = (IReadOnlyList<RoleHistoryEntryDto>)ViewBag.History;
+    var historyRole = (string?)ViewBag.HistoryRole;
+}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mt-5 mb-3" id="history">
+    <div>
+        <h2 class="h5 mb-1">Change history</h2>
+        <p class="small text-body-secondary mb-0">Every permission given or taken away, every custom role added, renamed or deleted, and every role given to
+            or taken from someone: who did it, when and from where. The latest 100 changes; older ones are in the audit trail.</p>
+    </div>
+    <form method="get" class="d-flex gap-2 align-items-center" action="#history">
+        <label for="historyRole" class="small text-nowrap">Role</label>
+        <select id="historyRole" name="historyRole" class="form-select form-select-sm" data-auto-submit>
+            <option value="">All roles</option>
+            @foreach (var r in Model)
+            {
+                <option value="@r.Id" selected="@(r.Id == historyRole)">@r.Name</option>
+            }
+        </select>
+        <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Show</button></noscript>
+        <a asp-controller="AuditLogs" asp-action="Index" asp-route-EntityName="RoleClaim" class="btn btn-sm btn-outline-secondary text-nowrap">Full audit trail</a>
+    </form>
+</div>
+<div class="card glass">
+    <div class="card-body">
+        @if (history.Count == 0)
+        {
+            <p class="text-body-secondary small mb-0">No changes recorded@(historyRole is null ? "" : " for this role").</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>When</th><th>Who</th><th>What</th><th>Role</th><th>From</th></tr></thead>
+                    <tbody>
+                    @foreach (var h in history)
+                    {
+                        var (icon, css) = (h.Kind, h.Granted) switch
+                        {
+                            ("permission", true) => ("fa-plus", "text-success"),
+                            ("permission", false) => ("fa-minus", "text-danger"),
+                            ("assignment", true) => ("fa-user-plus", "text-success"),
+                            ("assignment", false) => ("fa-user-minus", "text-danger"),
+                            ("role", true) => ("fa-circle-plus", "text-success"),
+                            ("role", false) => ("fa-trash", "text-danger"),
+                            _ => ("fa-pen", "text-body-secondary")
+                        };
+                        <tr>
+                            <td class="small text-nowrap">@h.Timestamp.ToString("dd MMM yyyy HH:mm")</td>
+                            <td class="small">@h.By</td>
+                            <td class="small"><i class="fa-solid @icon @css me-1" aria-hidden="true"></i>@h.Text</td>
+                            <td class="small text-nowrap">@h.RoleName</td>
+                            <td class="small text-body-secondary">@(h.IpAddress ?? "—")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

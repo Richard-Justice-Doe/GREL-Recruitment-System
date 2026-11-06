@@ -34,7 +34,7 @@ public class DashboardService(
     private const int TaskRows = 6, ProgressRows = 5, CandidateRows = 5;
 
     private static readonly RecruitmentRequestStatus[] InApproval =
-        [RecruitmentRequestStatus.RecruitmentReview, RecruitmentRequestStatus.HrApproval, RecruitmentRequestStatus.MdApproval];
+        [.. RecruitmentWorkflow.DecisionStages];
 
     public async Task<DashboardDto> GetAsync(DashboardAccess access, DateOnly? month, DashboardFilter? filter = null, CancellationToken ct = default)
     {
@@ -131,7 +131,7 @@ public class DashboardService(
                 var needVacancy = await vacancyService.GetApprovedRequestsWithoutVacancyAsync(ct);
                 taskTotal += needVacancy.Count;
                 tasks.AddRange(needVacancy.Select(r => new DashboardTaskDto(DashboardTaskTarget.NewVacancyForRequest, r.Id,
-                    r.PositionTitle, r.RequestNumber, "Create the vacancy", r.AssignedRecruiterName ?? "Unassigned",
+                    r.PositionTitle, r.RequestNumber, "Convert into a vacancy", r.AssignedRecruiterName ?? "Any Recruitment Officer",
                     RecruitmentRequestStatus.Approved, r.ApprovedAt ?? now)));
 
                 var drafts = await vacancies.ListAsync(x => x.RecruiterUserId == uid && x.Status == VacancyStatus.Draft, ct);
@@ -244,10 +244,10 @@ public class DashboardService(
         return new KpiCardDto(kind, title, icon, total, last7, previous);
     }
 
-    /// <summary>How far a request has come: submitted (review) 25%, HR 50%, MD 75%, approved 100%.</summary>
+    /// <summary>How far a request has come: submitted (Department Head review) 25%, HR 50%, MD 75%, approved 100%.</summary>
     public static int ProgressPercent(RecruitmentRequestStatus status) => status switch
     {
-        RecruitmentRequestStatus.RecruitmentReview => 25,
+        RecruitmentRequestStatus.DepartmentHeadReview or RecruitmentRequestStatus.RecruitmentReview => 25,
         RecruitmentRequestStatus.HrApproval => 50,
         RecruitmentRequestStatus.MdApproval => 75,
         RecruitmentRequestStatus.Approved => 100,

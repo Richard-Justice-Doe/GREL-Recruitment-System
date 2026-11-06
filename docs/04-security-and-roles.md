@@ -7,6 +7,7 @@ GRSMS uses **role-based access control with permissions**:
 * A **permission** opens a screen or a function, for example *Open vacancies* or *Maintain organisation data*. The list of permissions is fixed in code (`src/Grsms.Domain/Security/Permissions.cs`), because the code checks each one.
 * **Which roles hold which permission** is stored in the database (table `RoleClaims`). A **Super Admin** changes it on **Management → Roles & permissions** by ticking boxes. A change applies straight away: nobody has to sign out.
 * The defaults reproduce exactly what each role could open before Phase 14, so nobody gained or lost access when permissions were introduced. Each new permission gets its defaults **once**, at the first start-up of the version that adds it. After that, only the Super Admin's choices count.
+* **5 November 2026 (digital QF-81-11 form):** Employees were given *Open recruitment requests* and *Raise recruitment requests*, so department staff can fill in requests for their HOD to review. Like a new permission, this grant is applied **once** at the next start-up (recorded in `KnownPermissions` as `grant:Employee:requests.raise` and `grant:Employee:requests.view`); if the Super Admin takes it away, it stays away.
 
 | Permission | Super Admin | Admin | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member / Employee | Candidate |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -14,8 +15,8 @@ GRSMS uses **role-based access control with permissions**:
 | Maintain organisation data (divisions, departments, units, sites) | 🔒 | ✅ | ✅ | | | | | | |
 | Read the (whole) audit trail | 🔒 | ✅ | ✅ | ✅ | | | | | |
 | See system settings, read-only (Roles & permissions, ATS settings, System settings, Email templates) | 🔒 | ✅ | | | | | | | |
-| Open recruitment requests | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
-| Raise recruitment requests | 🔒 | | | | | | ✅ | | |
+| Open recruitment requests | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ Employee (own requests) | |
+| Raise recruitment requests (QF-81-11, own department) | 🔒 | | | | | | ✅ | ✅ Employee | |
 | Open vacancies / job adverts / applications / reports | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
 | Read survey results | 🔒 | ✅ | | ✅ | ✅ | ✅ | | | |
 | See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | | |
@@ -52,7 +53,7 @@ It never shows other people's records. Work the system does on its own inside so
 
 These are separation of duties, so no setting can switch them off:
 
-* **Who acts at each workflow step stays with the role:** the HOD raises, the Recruitment Officer reviews, the HR Manager approves, the MD gives final approval, the HOD gives their view on shortlists. A permission only opens the screen; the workflow decides what each person may do there. A Super Admin who wants to approve as the MD must also hold the Managing Director role, and the "not your own request" rules still apply.
+* **Who acts at each workflow step stays with the role:** the department raises (staff or HOD), the Head of that department reviews, the HR Manager approves, the MD gives final approval, the HOD gives their view on shortlists. A permission only opens the screen; the workflow decides what each person may do there. A Super Admin who wants to approve as the MD must also hold the Managing Director role, and the "not your own request" rules still apply.
 * **Only a Super Admin can give or remove any role other than Employee and Interview Panel Member.** That covers HR Manager, Recruitment Officer, Head of Department, HR Administrator, Managing Director, Super Admin and every custom role. Only a Super Admin can **edit, reset the password of, or deactivate** an account that holds one of them. Otherwise an HR Administrator could raise their own access, or take over an HR Manager's account by resetting its password. HR Administrators can still **unlock** any account, because that gives no new access.
 * **Permissions marked "Super Admin only"** (manage roles and permissions, create privileged accounts) can never be ticked for another role.
 * **Built-in roles** cannot be renamed or deleted, because the workflows check them by name.
@@ -77,14 +78,15 @@ The **Super Admin** can open every screen below and sees every department. For t
 | Users & roles | ✅ Employee and Panel Member accounts only | | | | | | | |
 | Roles & permissions | | | | | | | | |
 | Audit trail (read only) | ✅ | ✅ | | | | | | |
-| See recruitment requests | all | all | all | all | own departments | | | |
-| Raise / edit / submit / cancel a request | | | | | ✅ own departments, own requests | | | |
-| Decide at Recruitment Review (and assign recruiter) | | | | ✅ | | | | |
-| Decide at HR Approval (and validate budget) | | ✅ | | | | | | |
-| Decide at MD Approval (final) | | | ✅ | | | | | |
+| See recruitment requests | all | all | all | all | own departments | | own requests | |
+| Raise / edit / submit / cancel a request (QF-81-11) | | | | | ✅ own departments, own requests | | ✅ own department, own requests | |
+| Decide at stage 1, Department Head review | | | | | ✅ Head of that department, not their own request | | | |
+| Decide at the earlier workflow's Recruitment review (requests still waiting there) | | | | ✅ | | | | |
+| Decide at stage 2, HR Manager review (and validate budget) | | ✅ | | | | | | |
+| Decide at stage 3, MD approval (final) | | | ✅ | | | | | |
 | Download request documents | ✅ | ✅ | ✅ | ✅ | own departments | | | |
 | See vacancies | all | all | all | all | own departments (read only) | | | |
-| Create (from approved request), edit, submit a vacancy | | | | ✅ | | | | |
+| Convert an approved request into a vacancy (requisition number, owner, closing date, internal/external), edit, submit | | | | ✅ | | | | |
 | Approve (publish) or return a vacancy | | ✅ not one they submitted | | | | | | |
 | Close, reopen, archive a vacancy | | ✅ | | ✅ | | | | |
 | See job adverts | all | all | all | all | own departments (read only) | | | |
@@ -148,9 +150,9 @@ The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each 
 | **HR Manager** | Approves requests, validates budgets, reviews candidates, authorises hiring. |
 | **Managing Director** | Final vacancy and hiring approval, executive dashboard. |
 | **Recruitment Officer** | Manages vacancies, candidates, adverts and interview schedules, and communicates with candidates. |
-| **Head of Department** | Raises recruitment requests, shortlists, sits on interviews. |
+| **Head of Department** | Reviews (stage 1) and raises recruitment requests for their department, shortlists, sits on interviews. |
 | **Interview Panel Member** | Reviews interviews, completes scorecards. |
-| **Employee** | Views internal vacancies, applies internally, tracks applications. |
+| **Employee** | Views internal vacancies, applies internally, tracks applications, fills in recruitment requests (QF-81-11) for their department. |
 | **Candidate** | External job seeker: registers on the portal and applies. Cannot be given to staff. |
 
 ### Workflow controls (job adverts)

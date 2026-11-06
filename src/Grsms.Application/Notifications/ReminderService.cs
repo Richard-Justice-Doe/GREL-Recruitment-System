@@ -135,19 +135,20 @@ public class ReminderService(
             return age < approvalWaitingDays ? null : ((age - approvalWaitingDays) / 7).ToString(CultureInfo.InvariantCulture);
         }
 
-        foreach (var r in await requests.ListAsync(r => r.Status == RecruitmentRequestStatus.RecruitmentReview ||
-                                                        r.Status == RecruitmentRequestStatus.HrApproval || r.Status == RecruitmentRequestStatus.MdApproval, ct))
+        var decisionStages = RecruitmentWorkflow.DecisionStages.ToList();
+        foreach (var r in await requests.ListAsync(r => decisionStages.Contains(r.Status), ct))
         {
             if (Block(r.StatusChangedAt) is not { } block || !await notifications.ClaimReminderAsync($"waiting:request:{r.Id}:{r.Status}:{block}", ct)) continue;
-            var role = r.Status switch
-            {
-                RecruitmentRequestStatus.RecruitmentReview => Roles.RecruitmentOfficer,
-                RecruitmentRequestStatus.HrApproval => Roles.HrManager,
-                _ => Roles.ManagingDirector
-            };
-            await mailer.ToRoleAsync(role, [r.RequestedByUserId], $"Waiting {(int)(nowUtc - r.StatusChangedAt).TotalDays} days: {r.RequestNumber}",
-                $"Recruitment request <b>{WorkflowMailer.Enc(r.RequestNumber)}</b> ({WorkflowMailer.Enc(r.PositionTitle)}) has been waiting for " +
-                $"<b>{EnumText.Label(r.Status)}</b> since {r.StatusChangedAt.ToString("d MMMM", Gb)}.", links.RecruitmentRequest(r.Id), "Open the request", ct);
+            var subject = $"Waiting {(int)(nowUtc - r.StatusChangedAt).TotalDays} days: {r.RequestNumber}";
+            var html = $"Recruitment request <b>{WorkflowMailer.Enc(r.RequestNumber)}</b> ({WorkflowMailer.Enc(r.PositionTitle)}) has been waiting for " +
+                       $"<b>{EnumText.Label(r.Status)}</b> since {r.StatusChangedAt.ToString("d MMMM", Gb)}.";
+            // Stage 1 is one person (the department's HOD); the other stages are a role.
+            if (r.Status == RecruitmentRequestStatus.DepartmentHeadReview)
+                await mailer.ToUserAsync((await departments.GetByIdAsync(r.DepartmentId, ct))?.HeadOfDepartmentUserId, subject, html,
+                    links.RecruitmentRequest(r.Id), "Open the request", ct);
+            else
+                await mailer.ToRoleAsync(RecruitmentWorkflow.ApproverRole(r.Status)!, [r.RequestedByUserId], subject, html,
+                    links.RecruitmentRequest(r.Id), "Open the request", ct);
             sent++;
         }
 

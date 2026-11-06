@@ -19,6 +19,8 @@ internal class VacancyConfiguration : IEntityTypeConfiguration<Vacancy>
 
         b.Property(v => v.VacancyNumber).HasMaxLength(40).IsRequired();
         b.HasIndex(v => v.VacancyNumber).IsUnique();
+        b.Property(v => v.RequisitionNumber).HasMaxLength(40);
+        b.HasIndex(v => v.RequisitionNumber).IsUnique(); // several NULLs (older vacancies) are allowed by MySQL
 
         // ONE vacancy per approved request: enforced by the database as well as by the service.
         b.HasIndex(v => v.RecruitmentRequestId).IsUnique();

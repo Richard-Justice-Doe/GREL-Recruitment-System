@@ -1,9 +1,10 @@
-@* Create / edit a vacancy (Recruitment Officer). Department, number of positions and employment type
+@* Create / edit a vacancy (Recruitment Officer): HR converts an approved recruitment request into a job vacancy. The form is
+   pre-filled from the request; a Job Requisition Number is given on saving. Department, number of positions and employment type
    come from the approved request and cannot be changed here. *@
 @model VacancyFormDto
 @{
     var isNew = Model.Id == 0;
-    ViewData["Title"] = isNew ? "Create vacancy" : $"Edit vacancy";
+    ViewData["Title"] = isNew ? "Convert into a job vacancy" : $"Edit vacancy";
 }
 
 <div class="page-header">
@@ -19,20 +20,51 @@
     <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
 
     <div class="row g-3">
+        @* ---------------------------------------------------------------- Job requisition *@
+        <div class="col-12">
+            <div class="card glass border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Job requisition</h2>
+                    @if (isNew)
+                    {
+                        <p class="small text-body-secondary">The details below were filled in from the approved request. Check them, then choose who owns the recruitment, how long it runs and who may apply.</p>
+                    }
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label" for="requisitionNumber">Job Requisition Number</label>
+                            <input id="requisitionNumber" class="form-control" value="@(Model.RequisitionNumber ?? "Given when you save")" disabled />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="OwnerUserId" class="form-label"></label>
+                            <select asp-for="OwnerUserId" asp-items="ViewBag.OwnerList" class="form-select">
+                                <option value="">— Choose —</option>
+                            </select>
+                            <span asp-validation-for="OwnerUserId" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="ClosingDate" class="form-label">Recruitment closing date</label>
+                            <input asp-for="ClosingDate" type="date" class="form-control" />
+                            <span asp-validation-for="ClosingDate" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="VacancyType" class="form-label"></label>
+                            <select asp-for="VacancyType" asp-items="Html.GetEnumSelectList<VacancyType>()" class="form-select"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         @* ---------------------------------------------------------------- The job *@
         <div class="col-12">
             <div class="card glass">
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-3">The job</h2>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label asp-for="JobTitle" class="form-label"></label>
                             <input asp-for="JobTitle" class="form-control" />
                             <span asp-validation-for="JobTitle" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="VacancyType" class="form-label"></label>
-                            <select asp-for="VacancyType" asp-items="Html.GetEnumSelectList<VacancyType>()" class="form-select"></select>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Department</label>
@@ -155,11 +187,6 @@
                                 <input asp-for="ShowSalary" class="form-check-input" />
                                 <label asp-for="ShowSalary" class="form-check-label"></label>
                             </div>
-                        </div>
-                        <div class="col-md-3">
-                            <label asp-for="ClosingDate" class="form-label"></label>
-                            <input asp-for="ClosingDate" type="date" class="form-control" />
-                            <span asp-validation-for="ClosingDate" class="text-danger small"></span>
                         </div>
                     </div>
                 </div>

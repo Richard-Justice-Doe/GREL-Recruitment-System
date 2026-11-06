@@ -4,6 +4,21 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 5 November 2026 (19:40): Digital QF-81-11 Recruitment Request Form
+
+**Why:** GREL asked for a digital version of form QF-81-11 with a three-stage approval (Department Head → HR Manager → MD) and conversion of the approved request into a job vacancy. Recorded as [Phase 17](phases.md#-phase-17-digital-qf-81-11-recruitment-request-form-5-november-2026), with the decisions taken (department staff raise and their HOD reviews; the Recruitment Officer stage removed).
+
+* **Domain:** new `DepartmentHeadReview` status, `StaffCategory`, purpose `Other`, the QF-81-11 fields on `RecruitmentRequest`, `RequisitionNumber` on `Vacancy`, three new document categories; `RecruitmentWorkflow` rewritten for the three stages (old `RecruitmentReview` kept for requests already there).
+* **Application:** `RecruitmentRequestService` (who raises, stage-1 rules, HOD sign-off, form checks, document types, emails), `VacancyService` (pre-fill, requisition number, owner), `RichText` helpers, `AttachmentService` type restriction, reminders and dashboard know the new stage.
+* **Infrastructure:** `RichTextSanitizer` (HtmlSanitizer 10.0.1120), one-time permission grants in `PermissionSeeder`, EF configuration, migration `Qf8111RecruitmentRequestForm`.
+* **Web:** the form, details page, stepper, vacancy form (Job requisition card), `rich-text-editor.js`, editor styles.
+* **Database:** `database/18_qf8111_recruitment_request_form.sql` (columns only).
+* **Driving licence optional (6 November):** Not needed (default) / Desirable / Mandatory instead of a yes/no "required" switch, class optional; only Mandatory becomes a knockout question on the vacancy. Migration `DrivingLicenceRequirement`, included in script `18_`.
+* **One menu item for vacancies and adverts (6 November):** the sidebar shows "Vacancies & adverts"; a Vacancies / Job adverts tab bar (`Views/Shared/_VacanciesAndAdvertsTabs.cshtml`) sits at the top of both lists. People who may open only one of the two see just that one.
+* **Checked:** 149/149 tests. **Open:** the editor not yet tried in a real browser; the migration not yet run on MySQL.
+
+---
+
 ## 5 November 2026 (13:50): Public trial link, closed registration, candidate accounts by HR
 
 **Why:** the user wants a public link for specific people to try GRSMS, with only accounts the user creates (choices: Cloudflare quick tunnel; self-registration off).

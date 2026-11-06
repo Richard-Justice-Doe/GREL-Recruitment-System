@@ -22,6 +22,9 @@ public class VacancyFormDto
 
     // ---- shown, not edited (filled in by the service)
     public string? RequestNumber { get; set; }
+
+    /// <summary>The Job Requisition Number: given when the vacancy is created, shown on the edit form.</summary>
+    public string? RequisitionNumber { get; set; }
     public string? DepartmentName { get; set; }
     public int DepartmentId { get; set; }
     public int NumberOfPositions { get; set; }
@@ -42,8 +45,12 @@ public class VacancyFormDto
     [Display(Name = "Reporting manager")]
     public string? ReportingManagerUserId { get; set; }
 
+    /// <summary>The Recruitment Officer who owns (runs) this recruitment. Left empty, it is the person converting the request.</summary>
+    [Display(Name = "Vacancy owner")]
+    public string? OwnerUserId { get; set; }
+
     [Required]
-    [Display(Name = "Who may apply")]
+    [Display(Name = "Internal or external recruitment")]
     public VacancyType? VacancyType { get; set; } = Domain.Vacancies.VacancyType.InternalAndExternal;
 
     [Required, StringLength(8000, MinimumLength = 50, ErrorMessage = "Write a job description of at least 50 characters.")]
@@ -158,6 +165,7 @@ public record VacancyDetailsDto
 {
     public int Id { get; init; }
     public string VacancyNumber { get; init; } = "";
+    public string? RequisitionNumber { get; init; }
     public VacancyStatus Status { get; init; }
     public DateTime StatusChangedAt { get; init; }
 
@@ -192,6 +200,7 @@ public record VacancyDetailsDto
     public DateTime? PublishedAt { get; init; }
     public DateTime? ClosedAt { get; init; }
 
+    /// <summary>The Vacancy Owner (the responsible Recruitment Officer).</summary>
     public string RecruiterName { get; init; } = "";
     public IReadOnlyList<VacancyHistoryDto> History { get; init; } = [];
 

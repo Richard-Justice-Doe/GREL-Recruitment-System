@@ -30,6 +30,19 @@ internal class RecruitmentRequestConfiguration : IEntityTypeConfiguration<Recrui
         b.Property(r => r.VacancyReason).HasConversion<string>().HasMaxLength(30);
         b.Property(r => r.Status).HasConversion<string>().HasMaxLength(30);
 
+        // QF-81-11 fields (November 2026). Long free text is TEXT, stored outside the row (see docs/03-database.md).
+        b.Property(r => r.StaffCategory).HasConversion<string>().HasMaxLength(20);
+        b.Property(r => r.PurposeOther).HasMaxLength(200);
+        b.Property(r => r.PostDescription).HasColumnType("text");
+        b.Property(r => r.EducationLevel).HasConversion<string>().HasMaxLength(30);
+        b.Property(r => r.QualificationCategory).HasMaxLength(200);
+        b.Property(r => r.TrainingLevel).HasMaxLength(200);
+        b.Property(r => r.CertificateRequired).HasMaxLength(500);
+        b.Property(r => r.ProfessionalExperience).HasColumnType("text");
+        b.Property(r => r.DrivingLicence).HasConversion<string>().HasMaxLength(20);
+        b.Property(r => r.DrivingLicenceClass).HasMaxLength(50);
+        b.Property(r => r.Remarks).HasColumnType("text");
+
         b.Property(r => r.RequestedByUserId).HasMaxLength(255).IsRequired();
         b.Property(r => r.AssignedRecruiterUserId).HasMaxLength(255);
         b.Property(r => r.BudgetValidatedByUserId).HasMaxLength(255);

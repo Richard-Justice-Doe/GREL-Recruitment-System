@@ -65,6 +65,7 @@ public static class DependencyInjection
         // Phase 2: recruitment requests, reference numbers, file storage
         services.AddScoped<IRecruitmentRequestRepository, RecruitmentRequestRepository>();
         services.AddScoped<INumberGenerator, NumberGenerator>();
+        services.AddSingleton<Application.Common.IRichTextSanitizer, Security.RichTextSanitizer>(); // QF-81-11 "Description of the post"
         services.Configure<StorageOptions>(config.GetSection("Storage"));
         services.Configure<UploadOptions>(config.GetSection("Uploads"));
         services.AddSingleton<IFileStorage, LocalFileStorage>();

@@ -1,14 +1,13 @@
-// Recruitment request form behaviour:
+// Recruitment request form (QF-81-11) behaviour:
 //   1. When the department changes, reload its units into the Unit drop-down.
-//   2. Show the "Employee being replaced" box only when the reason is "Replacement".
+//   2. Show "Employee being replaced" only for the purpose "Replacement", and "Other purpose" only for "Other".
+//   3. Show "Licence class" only when a driving licence is desirable or mandatory.
 (function () {
     "use strict";
 
     document.addEventListener("DOMContentLoaded", function () {
         var dept = document.getElementById("DepartmentId");
         var unit = document.getElementById("UnitId");
-        var reason = document.querySelector("[data-toggle-replacement]");
-        var replacedGroup = document.getElementById("replacedEmployeeGroup");
 
         // ---- 1. Units follow the department
         if (dept && unit) {
@@ -31,16 +30,28 @@
             });
         }
 
-        // ---- 2. Replacement details
-        function toggleReplacement() {
-            if (!reason || !replacedGroup) return;
-            // The enum's numeric value for "Replacement" is rendered in the option; match on its text instead.
-            var text = reason.options[reason.selectedIndex] ? reason.options[reason.selectedIndex].text : "";
-            replacedGroup.style.display = text.indexOf("Replacement") === 0 ? "" : "none";
+        // ---- 2. Boxes that belong to one purpose (data-show-for-purpose="Replacement" / "Other")
+        var purposes = document.querySelectorAll("[data-purpose]");
+        var purposeBoxes = document.querySelectorAll("[data-show-for-purpose]");
+        function togglePurpose() {
+            var chosen = "";
+            purposes.forEach(function (r) { if (r.checked) chosen = r.value; });
+            purposeBoxes.forEach(function (box) {
+                box.style.display = box.getAttribute("data-show-for-purpose") === chosen ? "" : "none";
+            });
         }
-        if (reason) {
-            reason.addEventListener("change", toggleReplacement);
-            toggleReplacement();
+        purposes.forEach(function (r) { r.addEventListener("change", togglePurpose); });
+        togglePurpose();
+
+        // ---- 3. Licence class
+        var licences = document.querySelectorAll("[data-licence]");
+        var licenceGroup = document.getElementById("licenceClassGroup");
+        function toggleLicence() {
+            var chosen = "NotNeeded";
+            licences.forEach(function (r) { if (r.checked) chosen = r.value; });
+            if (licenceGroup) licenceGroup.style.display = chosen === "NotNeeded" ? "none" : "";
         }
+        licences.forEach(function (r) { r.addEventListener("change", toggleLicence); });
+        toggleLicence();
     });
 })();

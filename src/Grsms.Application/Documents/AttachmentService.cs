@@ -73,15 +73,29 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
     public Task<bool> HasCategoryAsync(string ownerType, int ownerId, AttachmentCategory category, CancellationToken ct = default) =>
         attachments.AnyAsync(a => a.OwnerType == ownerType && a.OwnerId == ownerId && a.Category == category, ct);
 
+    /// <summary>
+    /// The only types accepted for recruitment request supporting documents (form QF-81-11): PDF, DOCX and XLSX.
+    /// </summary>
+    public static readonly IReadOnlyList<string> RequestDocumentTypes = [".pdf", ".docx", ".xlsx"];
+
+    /// <summary>The <see cref="RequestDocumentTypes"/>, for the file picker's "accept" attribute.</summary>
+    public static string RequestDocumentAcceptList => string.Join(",", RequestDocumentTypes);
+
     /// <summary>Validates and stores a file, then saves its database record.</summary>
+    /// <param name="onlyTypes">
+    /// Optional narrower list of extensions (each must also be one of the generally allowed types), e.g.
+    /// <see cref="RequestDocumentTypes"/>. Null = every allowed type.
+    /// </param>
     public async Task<Result<int>> AddAsync(string ownerType, int ownerId, AttachmentCategory category,
-        string fileName, Stream content, CancellationToken ct = default)
+        string fileName, Stream content, CancellationToken ct = default, IReadOnlyList<string>? onlyTypes = null)
     {
         // Path.GetFileName strips any folder part a browser might send ("C:\fakepath\cv.pdf").
         var safeName = Path.GetFileName(fileName ?? "").Trim();
         var extension = Path.GetExtension(safeName);
-        if (safeName.Length == 0 || !AllowedTypes.TryGetValue(extension, out var type))
-            return Result.Failure<int>($"Only these file types are accepted: {AcceptList.Replace(",", ", ")}.");
+        var accepted = onlyTypes is null ? AcceptList : string.Join(",", onlyTypes);
+        if (safeName.Length == 0 || !AllowedTypes.TryGetValue(extension, out var type) ||
+            (onlyTypes is not null && !onlyTypes.Contains(extension, StringComparer.OrdinalIgnoreCase)))
+            return Result.Failure<int>($"Only these file types are accepted: {accepted.Replace(",", ", ")}.");
         if (safeName.Length > 200)
             safeName = Path.GetFileNameWithoutExtension(safeName)[..(200 - extension.Length)] + extension;
 

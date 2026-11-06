@@ -1,14 +1,15 @@
-@* Workflow progress indicator:  Draft → Recruitment review → HR approval → MD approval → Approved.
+@* Workflow progress indicator:  Draft → Department Head review → HR Manager review → MD approval → Approved.
    Completed steps are ticked, the current step is highlighted, and a rejected/cancelled request
-   shows a red cross at the step where it stopped. *@
+   shows a red cross at the step where it stopped. (A request still at the earlier workflow's Recruitment review is
+   shown at step 2.) *@
 @model RecruitmentRequestDetailsDto
 @{
-    var steps = new[] { "Draft", "Recruitment review", "HR approval", "MD approval", "Approved" };
+    var steps = new[] { "Draft", "Department Head review", "HR Manager review", "MD approval", "Approved" };
 
     int IndexOf(RecruitmentRequestStatus s) => s switch
     {
         RecruitmentRequestStatus.Draft or RecruitmentRequestStatus.Returned => 0,
-        RecruitmentRequestStatus.RecruitmentReview => 1,
+        RecruitmentRequestStatus.DepartmentHeadReview or RecruitmentRequestStatus.RecruitmentReview => 1,
         RecruitmentRequestStatus.HrApproval => 2,
         RecruitmentRequestStatus.MdApproval => 3,
         RecruitmentRequestStatus.Approved => 4,

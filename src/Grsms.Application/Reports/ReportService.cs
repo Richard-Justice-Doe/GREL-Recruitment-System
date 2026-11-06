@@ -244,7 +244,7 @@ public class ReportService(
                 new("Requests", list.Count.ToString(Gb)),
                 new("Positions requested", list.Sum(r => r.NumberOfPositions).ToString(Gb)),
                 new("Approved", approved.Count.ToString(Gb)),
-                new("In approval", list.Count(r => r.Status is RecruitmentRequestStatus.RecruitmentReview or RecruitmentRequestStatus.HrApproval or RecruitmentRequestStatus.MdApproval).ToString(Gb)),
+                new("In approval", list.Count(r => RecruitmentWorkflow.IsInApproval(r.Status)).ToString(Gb)),
                 new("Estimated annual cost", $"GHS {list.Sum(r => r.EstimatedAnnualCost):N0}"),
                 new("Average time to approve", Average(approved.Select(r => Days(r.DateRequested ?? r.CreatedAt, r.ApprovedAt))))
             ],

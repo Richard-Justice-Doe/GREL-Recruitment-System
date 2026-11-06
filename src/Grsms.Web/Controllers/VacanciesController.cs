@@ -170,6 +170,8 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
             nameof(LookupItem.Value), nameof(LookupItem.Text), form.UnitId?.ToString());
         ViewBag.SiteList = new SelectList(await service.GetSitesAsync(ct),
             nameof(LookupItem.Value), nameof(LookupItem.Text), form.SiteId?.ToString());
+        ViewBag.OwnerList = new SelectList(await service.GetOwnersAsync(ct),
+            nameof(LookupItem.Value), nameof(LookupItem.Text), form.OwnerUserId);
         ViewBag.ManagerList = new SelectList(await service.GetReportingManagersAsync(form.DepartmentId, ct),
             nameof(LookupItem.Value), nameof(LookupItem.Text), form.ReportingManagerUserId);
     }

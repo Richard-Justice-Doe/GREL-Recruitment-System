@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Anthropic" Version="13.5.0" />
+    <PackageReference Include="HtmlSanitizer" Version="10.0.1120" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="10.0.14" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.14" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />

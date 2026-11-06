@@ -109,8 +109,8 @@ What changed and why: [change log](docs/changelog.md).
 
 | Area | What works today |
 |---|---|
-| **Recruitment requests** | Heads of Department raise requests (numbered `RR-APM-2026-0001`) with position, unit, site, employment type, reason, budget code and cost, and attach the job description and other documents |
-| **Approval workflow** | Draft → Recruitment Review → HR Approval (budget validated) → MD Approval → Approved. Each reviewer can approve, return for changes or reject. Nobody can approve their own request. |
+| **Recruitment requests** | The digital **QF-81-11 Recruitment Request Form** (Phase 17): department staff or the HOD fill it in (numbered `RR-APM-2026-0001`) with engagement type, category, purpose, dates, a formatted description of the post, qualification requirements, and remarks, and attach the supporting documents (PDF, DOCX, XLSX) |
+| **Approval workflow** | Draft → Department Head review → HR Manager review (budget confirmed) → MD approval → Approved, then HR converts it into a job vacancy with a Job Requisition Number. Each reviewer can approve, return for correction or reject. Nobody can approve their own request. |
 | **Work queue** | An "Awaiting my action" list and home-page tile for each approver, with email notifications at every step |
 | **Progress and history** | A progress stepper and a full history timeline on every request |
 

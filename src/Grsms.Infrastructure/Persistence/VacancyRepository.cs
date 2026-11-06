@@ -18,13 +18,13 @@ public class VacancyRepository(ApplicationDbContext context) : Repository<Vacanc
             .AsSplitQuery() // two small queries instead of one wide join of requirements × history
             .FirstOrDefaultAsync(v => v.Id == id, ct);
 
-    public async Task<(int Id, string Number)?> FindForRequestAsync(int recruitmentRequestId, CancellationToken ct = default)
+    public async Task<(int Id, string Number, string? RequisitionNumber)?> FindForRequestAsync(int recruitmentRequestId, CancellationToken ct = default)
     {
         var hit = await Db.Vacancies.AsNoTracking()
             .Where(v => v.RecruitmentRequestId == recruitmentRequestId)
-            .Select(v => new { v.Id, v.VacancyNumber })
+            .Select(v => new { v.Id, v.VacancyNumber, v.RequisitionNumber })
             .FirstOrDefaultAsync(ct);
-        return hit is null ? null : (hit.Id, hit.VacancyNumber);
+        return hit is null ? null : (hit.Id, hit.VacancyNumber, hit.RequisitionNumber);
     }
 
     public async Task<PagedResult<VacancyListItemDto>> SearchAsync(VacancyFilter filter, RequestVisibility visibility,

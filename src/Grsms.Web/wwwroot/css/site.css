@@ -533,3 +533,32 @@ dl.details-grid dd { margin: 0; }
 .ats-tile { border: 1px solid var(--grsms-glass-border); border-radius: 0.6rem; padding: 0.6rem 0.8rem; background: var(--grsms-glass); }
 .ats-tile .ats-tile-value { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .ats-tile .ats-tile-label { font-size: 0.78rem; color: var(--bs-secondary-color); }
+
+/* ---------------------------------------------------------------- Rich-text editor (js/rich-text-editor.js)
+   Used for "Description of the post" on the QF-81-11 recruitment request form. */
+.rte-toolbar { display: flex; flex-wrap: wrap; gap: 0.15rem; align-items: center; padding: 0.3rem;
+    border: 1px solid var(--bs-border-color); border-bottom: 0; border-radius: var(--bs-border-radius) var(--bs-border-radius) 0 0;
+    background: var(--grsms-frame); }
+.rte-toolbar .btn { color: var(--bs-body-color); border: 0; min-width: 2rem; }
+.rte-toolbar .btn:hover, .rte-toolbar .btn:focus-visible { background: var(--grsms-sidebar-hover); }
+.rte-toolbar .btn.active { background: rgba(var(--grsms-brand-rgb), 0.15); color: var(--grsms-brand); }
+.rte-sep { width: 1px; align-self: stretch; margin: 0.15rem 0.3rem; background: var(--bs-border-color); }
+.rte-editor { min-height: 14rem; max-height: 36rem; overflow-y: auto; border-top-left-radius: 0; border-top-right-radius: 0; }
+.rte-editor:focus { outline: none; }
+.rte-footer { margin-top: 0.35rem; font-variant-numeric: tabular-nums; }
+
+/* Formatted text shown back on a page (editor content and the request's details page share these rules). */
+.rte-editor > :first-child, .rich-text > :first-child { margin-top: 0; }
+.rte-editor > :last-child, .rich-text > :last-child { margin-bottom: 0; }
+.rte-editor h3, .rich-text h3 { font-size: 1.05rem; font-weight: 600; margin: 1rem 0 0.4rem; }
+.rte-editor h4, .rich-text h4 { font-size: 0.95rem; font-weight: 600; margin: 0.8rem 0 0.3rem; }
+.rte-editor p, .rich-text p { margin: 0 0 0.6rem; }
+.rte-editor ul, .rte-editor ol, .rich-text ul, .rich-text ol { margin: 0 0 0.6rem; padding-left: 1.4rem; }
+.rich-text { overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------- Long unbroken text stays inside its card
+   A word or link with no spaces (e.g. "kbdhslbf...mmmm" typed into a job description) would otherwise run out of the
+   card and across the page. break-word only splits a word when it can't fit on a line of its own, so normal text is
+   unaffected, and (unlike "anywhere") it doesn't shrink table columns. */
+.card, .dash-card, .glass, .rich-text, [style*="pre-wrap"] { overflow-wrap: break-word; word-wrap: break-word; }
+.card, .dash-card { min-width: 0; }

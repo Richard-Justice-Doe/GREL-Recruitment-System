@@ -29,7 +29,7 @@ public static class Roles
     /// <summary>GREL staff member: views internal vacancies, applies internally, tracks own applications.</summary>
     public const string Employee = "Employee";
 
-    /// <summary>Head of Department: raises recruitment requests, shortlists, sits on interviews.</summary>
+    /// <summary>Head of Department: reviews (stage 1) and raises recruitment requests, shortlists, sits on interviews.</summary>
     public const string HeadOfDepartment = "Head of Department";
 
     /// <summary>Recruitment Officer: manages vacancies, candidates, adverts and interview schedules.</summary>
@@ -93,9 +93,9 @@ public static class Roles
         HrManager => "Approves requests and vacancies, authorises shortlists and hiring decisions.",
         ManagingDirector => "Final approval of recruitment requests and hires.",
         RecruitmentOfficer => "Runs vacancies, adverts, screening, interviews and offers.",
-        HeadOfDepartment => "Raises recruitment requests and takes part in selection for their department.",
+        HeadOfDepartment => "Reviews (stage 1) and raises recruitment requests for their department, and takes part in selection.",
         PanelMember => "Sits on interview panels and completes scorecards.",
-        Employee => "GREL staff member: sees internal vacancies and applies internally.",
+        Employee => "GREL staff member: sees internal vacancies, applies internally and fills in recruitment requests for their department.",
         Candidate => "External job seeker using the candidate portal.",
         _ => ""
     };

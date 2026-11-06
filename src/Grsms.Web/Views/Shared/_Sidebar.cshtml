@@ -50,20 +50,16 @@
                 }
             </a>
         }
-        @if (canVacancies)
+        @* Vacancies and job adverts are one menu item; tabs at the top of the page switch between them
+           (Views/Shared/_VacanciesAndAdvertsTabs.cshtml). *@
+        @if (canVacancies || canAdverts)
         {
-            <a class="nav-link @Active("Vacancies")" asp-controller="Vacancies" asp-action="Index">
-                <i class="fa-solid fa-briefcase"></i> Vacancies
+            <a class="nav-link @Active("Vacancies", "Adverts")" asp-controller="@(canVacancies ? "Vacancies" : "Adverts")" asp-action="Index">
+                <i class="fa-solid fa-briefcase"></i> @(canVacancies && canAdverts ? "Vacancies & adverts" : canVacancies ? "Vacancies" : "Job adverts")
                 @if (counts.OpenVacancies is int open)
                 {
                     <span class="nav-count" title="Open vacancies">@open</span>
                 }
-            </a>
-        }
-        @if (canAdverts)
-        {
-            <a class="nav-link @Active("Adverts")" asp-controller="Adverts" asp-action="Index">
-                <i class="fa-solid fa-bullhorn"></i> Job adverts
             </a>
         }
         @if (canApplications)

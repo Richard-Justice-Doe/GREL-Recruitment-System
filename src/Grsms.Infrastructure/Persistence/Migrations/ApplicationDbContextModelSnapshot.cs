@@ -2652,6 +2652,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("CertificateRequired")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -2675,6 +2679,19 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("DivisionId")
                         .HasColumnType("int");
 
+                    b.Property<string>("DrivingLicence")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("DrivingLicenceClass")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("EducationLevel")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
                     b.Property<string>("EmploymentType")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -2692,6 +2709,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("varchar(4000)");
 
+                    b.Property<int?>("MinYearsExperience")
+                        .HasColumnType("int");
+
                     b.Property<int>("NumberOfPositions")
                         .HasColumnType("int");
 
@@ -2700,9 +2720,32 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<string>("PostDescription")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProfessionalExperience")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ProposedStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("PurposeOther")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("QualificationCategory")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
+
                     b.Property<string>("ReplacedEmployee")
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime?>("RequestDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("RequestNumber")
                         .IsRequired()
@@ -2717,6 +2760,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("SiteId")
                         .HasColumnType("int");
 
+                    b.Property<string>("StaffCategory")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -2724,6 +2771,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("StatusChangedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("TrainingLevel")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
 
                     b.Property<int?>("UnitId")
                         .HasColumnType("int");
@@ -3207,6 +3258,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("RequisitionNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
                     b.Property<decimal?>("SalaryMax")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -3265,6 +3320,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasIndex("ReportingManagerUserId");
 
                     b.HasIndex("RequestingHodUserId");
+
+                    b.HasIndex("RequisitionNumber")
+                        .IsUnique();
 
                     b.HasIndex("SiteId");
 

@@ -3,7 +3,7 @@ using Grsms.Domain.Common;
 namespace Grsms.Domain.Recruitment;
 
 /// <summary>
-/// A Head of Department's formal request to recruit for a position (Module 2).
+/// A department's formal request to recruit for a position (Module 2): the digital form QF-81-11 Recruitment Request Form.
 /// It travels through the approval workflow described in <see cref="RecruitmentWorkflow"/>.
 /// Once approved, a vacancy is created from it (Phase 3).
 /// </summary>
@@ -31,21 +31,72 @@ public class RecruitmentRequest : BaseEntity
 
     // ---------------------------------------------------------------- The position
 
-    /// <summary>Job title, e.g. "Safety Officer".</summary>
+    /// <summary>"Specific job title" on QF-81-11, e.g. "Safety Officer".</summary>
     public string PositionTitle { get; set; } = string.Empty;
 
-    /// <summary>How many people are needed for this position (usually 1).</summary>
+    /// <summary>"Number of staff required" (usually 1).</summary>
     public int NumberOfPositions { get; set; } = 1;
 
+    /// <summary>"Engagement type": Permanent or Contract on the form (older requests may hold other types).</summary>
     public EmploymentType EmploymentType { get; set; }
 
+    /// <summary>"Category": Executive, Senior or Junior. Null only on requests raised before QF-81-11 was digitised.</summary>
+    public StaffCategory? StaffCategory { get; set; }
+
+    /// <summary>"Purpose" of the request.</summary>
     public VacancyReason VacancyReason { get; set; }
+
+    /// <summary>When the purpose is "Other": what it is.</summary>
+    public string? PurposeOther { get; set; }
 
     /// <summary>For replacements: who is being replaced (name / staff number). Optional.</summary>
     public string? ReplacedEmployee { get; set; }
 
+    /// <summary>"Request date" as written on the form (defaults to the day it is raised).</summary>
+    public DateOnly? RequestDate { get; set; }
+
+    /// <summary>"Proposed starting date" of the new hire(s).</summary>
+    public DateOnly? ProposedStartDate { get; set; }
+
+    /// <summary>
+    /// "Description of the post": formatted text (a small, safe subset of HTML: paragraphs, bold, italic, underline,
+    /// headings and lists). Always cleaned by the HTML sanitiser before it is saved, so it can be shown as-is.
+    /// </summary>
+    public string? PostDescription { get; set; }
+
     /// <summary>Why the hire is needed and what happens if it is not approved.</summary>
     public string Justification { get; set; } = string.Empty;
+
+    // ---------------------------------------------------------------- Qualification requirements (QF-81-11)
+
+    /// <summary>Minimum educational level; becomes the vacancy's minimum education.</summary>
+    public Vacancies.EducationLevel? EducationLevel { get; set; }
+
+    /// <summary>Category / field of the qualification, e.g. "Mechanical engineering".</summary>
+    public string? QualificationCategory { get; set; }
+
+    /// <summary>Level of training required, e.g. "Trade test grade 1", "Advanced".</summary>
+    public string? TrainingLevel { get; set; }
+
+    /// <summary>Certificate(s) required, one per line, e.g. "NEBOSH IGC".</summary>
+    public string? CertificateRequired { get; set; }
+
+    /// <summary>Minimum years of professional experience.</summary>
+    public int? MinYearsExperience { get; set; }
+
+    /// <summary>What professional experience is needed.</summary>
+    public string? ProfessionalExperience { get; set; }
+
+    /// <summary>Driving licence requirement: not needed (default), desirable or mandatory.</summary>
+    public DrivingLicenceRequirement DrivingLicence { get; set; }
+
+    /// <summary>The licence class (Ghana DVLA classes A–F), optional; only kept when a licence is desirable or mandatory.</summary>
+    public string? DrivingLicenceClass { get; set; }
+
+    // ---------------------------------------------------------------- Additional information
+
+    /// <summary>"Observations / remarks".</summary>
+    public string? Remarks { get; set; }
 
     // ---------------------------------------------------------------- Budget
 
@@ -63,10 +114,10 @@ public class RecruitmentRequest : BaseEntity
 
     // ---------------------------------------------------------------- People
 
-    /// <summary>The HOD who raised the request (Users.Id). They edit, submit or cancel it.</summary>
+    /// <summary>The person who raised the request (Users.Id): a staff member of the department or its HOD. They edit, submit or cancel it.</summary>
     public string RequestedByUserId { get; set; } = string.Empty;
 
-    /// <summary>Recruitment Officer responsible for filling the position; set at Recruitment Review (Users.Id).</summary>
+    /// <summary>Recruitment Officer chosen at the earlier workflow's Recruitment review (Users.Id). New requests leave it empty: the vacancy owner is chosen when the vacancy is created.</summary>
     public string? AssignedRecruiterUserId { get; set; }
 
     // ---------------------------------------------------------------- Workflow state

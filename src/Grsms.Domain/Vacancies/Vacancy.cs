@@ -16,6 +16,12 @@ public class Vacancy : BaseEntity
     /// <summary>Reference, e.g. "VAC-2026-0001". Unique.</summary>
     public string VacancyNumber { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Job Requisition Number, e.g. "JRN-2026-0001": given when HR converts the approved request into this vacancy. It is
+    /// the reference recruitment is run under. Null only on vacancies created before requisition numbers were introduced.
+    /// </summary>
+    public string? RequisitionNumber { get; set; }
+
     /// <summary>The approved request this vacancy fills (RecruitmentRequests.Id). One vacancy per request.</summary>
     public int RecruitmentRequestId { get; set; }
 
@@ -80,7 +86,7 @@ public class Vacancy : BaseEntity
 
     // ---------------------------------------------------------------- Workflow state
 
-    /// <summary>Recruitment Officer responsible for this vacancy (Users.Id). Copied from the request's assigned recruiter.</summary>
+    /// <summary>The Vacancy Owner: the Recruitment Officer responsible for this vacancy (Users.Id), chosen when it is created.</summary>
     public string RecruiterUserId { get; set; } = string.Empty;
 
     public VacancyStatus Status { get; set; } = VacancyStatus.Draft;

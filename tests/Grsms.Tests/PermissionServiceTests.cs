@@ -95,6 +95,34 @@ public class PermissionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_single_grant_added_later_reaches_existing_installations_once()
+    {
+        await SeedAsync();
+        string EmployeeId(IReadOnlyList<RoleSummaryDto> r) => r.Single(x => x.Name == Roles.Employee).Id;
+        var employeeId = EmployeeId(await RolesAsync());
+        Assert.Contains(Permissions.RaiseRecruitmentRequests, (await RolesAsync()).Single(r => r.Name == Roles.Employee).Permissions);
+
+        // An installation from before QF-81-11: Employees held neither request permission and the grants were not recorded.
+        async Task ForgetEmployeeGrantsAsync(bool keepMarkers)
+        {
+            using var scope = _db.NewScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.RoleClaims.RemoveRange(db.RoleClaims.Where(c => c.RoleId == employeeId));
+            if (!keepMarkers) db.KnownPermissions.RemoveRange(db.KnownPermissions.Where(k => k.Name.StartsWith(PermissionSeeder.GrantMarkerPrefix)));
+            await db.SaveChangesAsync();
+        }
+        await ForgetEmployeeGrantsAsync(keepMarkers: false);
+        await SeedAsync();
+        Assert.Equal([Permissions.RaiseRecruitmentRequests, Permissions.ViewRecruitmentRequests],
+            (await RolesAsync()).Single(r => r.Name == Roles.Employee).Permissions.Order());
+
+        // If the Super Admin then takes them away, the next start-up leaves it that way.
+        await ForgetEmployeeGrantsAsync(keepMarkers: true);
+        await SeedAsync();
+        Assert.Empty((await RolesAsync()).Single(r => r.Name == Roles.Employee).Permissions);
+    }
+
+    [Fact]
     public async Task Only_a_super_admin_manages_permissions_and_super_admin_only_ones_cannot_be_given_away()
     {
         await SeedAsync();

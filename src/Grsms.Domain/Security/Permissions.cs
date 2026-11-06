@@ -135,7 +135,8 @@ public static class Permissions
         [Roles.HeadOfDepartment] =
             [ViewRecruitmentRequests, RaiseRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports],
         [Roles.PanelMember] = [],
-        [Roles.Employee] = [],
+        // QF-81-11 (November 2026): department staff fill in recruitment requests for their own department; the HOD reviews them.
+        [Roles.Employee] = [ViewRecruitmentRequests, RaiseRecruitmentRequests],
         [Roles.Candidate] = [],
     };
 
@@ -145,6 +146,17 @@ public static class Permissions
     /// Roles that existed before are not touched, so the Super Admin's choices for them stay.
     /// </summary>
     public static readonly IReadOnlyList<string> RolesAddedLater = [Roles.Admin];
+
+    /// <summary>
+    /// Single grants added to <see cref="Defaults"/> after the permission itself already existed. Each is applied ONCE at the
+    /// next start-up (recorded in KnownPermissions as "grant:&lt;role&gt;:&lt;permission&gt;"), so if the Super Admin later
+    /// takes it away again, it stays away.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Role, string Permission)> GrantsAddedLater =
+    [
+        (Roles.Employee, ViewRecruitmentRequests),
+        (Roles.Employee, RaiseRecruitmentRequests),
+    ];
 
     public static PermissionInfo? Find(string name) => Catalogue.FirstOrDefault(p => p.Name == name);
 

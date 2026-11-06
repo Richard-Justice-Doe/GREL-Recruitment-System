@@ -126,16 +126,26 @@ Password hashes and security stamps are **never** copied into the audit trail.
 | SiteId | INT | **FK → Sites** (RESTRICT) |
 | PositionTitle | VARCHAR(150) | required |
 | NumberOfPositions | INT | 1-100 |
-| EmploymentType | VARCHAR(30) | `Permanent`, `FixedTermContract`, `Temporary`, `Casual`, `Internship`, `NationalService` |
-| VacancyReason | VARCHAR(30) | `NewPosition`, `Replacement`, `Expansion`, `Restructuring`, `TemporaryCover` |
+| EmploymentType | VARCHAR(30) | "Engagement type": `Permanent` or `FixedTermContract` (Contract) on the form; `Temporary`, `Casual`, `Internship`, `NationalService` only on older requests |
+| StaffCategory | VARCHAR(20) | `Executive`, `Senior`, `Junior` (NULL on requests from before QF-81-11) |
+| RequestDate / ProposedStartDate | DATE | from the form; the start date must be after today |
+| PostDescription | TEXT | "Description of the post": formatted text, **cleaned by the HTML sanitiser** before saving (only p, br, strong/b, em/i, u, ul, ol, li, h3, h4, blockquote; no attributes). At most 10,000 characters of text. |
+| EducationLevel | VARCHAR(30) | same values as Vacancies.MinimumEducation |
+| QualificationCategory / TrainingLevel | VARCHAR(200) | optional |
+| CertificateRequired | VARCHAR(500) | optional, one per line |
+| MinYearsExperience | INT | optional, 0-40 |
+| ProfessionalExperience / Remarks | TEXT | optional |
+| DrivingLicence / DrivingLicenceClass | VARCHAR(20) / VARCHAR(50) | `NotNeeded` (default), `Desirable`, `Mandatory`; the class is optional and kept only when a licence is desirable or mandatory |
+| VacancyReason | VARCHAR(30) | "Purpose": `Restructuring` (internal restructuring), `Replacement`, `Expansion`, `NewPosition`, `Other`; `TemporaryCover` only on older requests |
+| PurposeOther | VARCHAR(200) | required when the purpose is Other |
 | ReplacedEmployee | VARCHAR(150) | required when the reason is Replacement |
 | Justification | VARCHAR(4000) | required |
-| BudgetCode | VARCHAR(50) | required, upper-case |
-| EstimatedAnnualCost | DECIMAL(18,2) | GHS |
+| BudgetCode | VARCHAR(50) | upper-case; only on requests from before QF-81-11 (empty on new ones: the form has no budget fields) |
+| EstimatedAnnualCost | DECIMAL(18,2) | GHS; only on requests from before QF-81-11 (0 on new ones) |
 | BudgetValidated / BudgetValidatedByUserId | TINYINT(1) / VARCHAR(255) **FK → Users** | set by the HR Manager |
-| RequestedByUserId | VARCHAR(255) **FK → Users** | the HOD who raised it |
-| AssignedRecruiterUserId | VARCHAR(255) **FK → Users** | set at Recruitment Review |
-| Status | VARCHAR(30), indexed | `Draft`, `Returned`, `RecruitmentReview`, `HrApproval`, `MdApproval`, `Approved`, `Rejected`, `Cancelled` |
+| RequestedByUserId | VARCHAR(255) **FK → Users** | who raised it: a staff member of the department or its HOD |
+| AssignedRecruiterUserId | VARCHAR(255) **FK → Users** | set at the earlier workflow's Recruitment Review; empty on new requests (the vacancy owner is chosen on the vacancy) |
+| Status | VARCHAR(30), indexed | `Draft`, `Returned`, `DepartmentHeadReview`, `HrApproval`, `MdApproval`, `Approved`, `Rejected`, `Cancelled`; `RecruitmentReview` only on requests still in the earlier workflow |
 | DateRequested | DATETIME(6) | first submission |
 | StatusChangedAt | DATETIME(6) | when the current status began (used for "waiting N days") |
 | ApprovedAt | DATETIME(6) | MD's final approval |
@@ -159,7 +169,7 @@ Indexes: `RequestNumber` (unique), `Status`, `RequestedByUserId`, (`DepartmentId
 | Column | Type | Meaning |
 |---|---|---|
 | OwnerType / OwnerId | VARCHAR(50) / INT, indexed together | which record the file belongs to, e.g. `RecruitmentRequest` / `12` |
-| Category | VARCHAR(40) | `JobDescription`, `OrganisationalChart`, `InductionProgramme`, `Other` (more added by later modules) |
+| Category | VARCHAR(40) | Recruitment request documents (QF-81-11): `JobDescription`, `MainAccountabilities`, `OrganisationalChart` (organisational structure), `DepartmentJustification`, `BudgetApproval` (PDF, DOCX or XLSX only); `InductionProgramme` and `Other` on older requests; more added by later modules |
 | OriginalFileName | VARCHAR(200) | name shown to users |
 | StoredFileName | VARCHAR(200), **unique** | random name on disk, e.g. `2026/11/3f2a…e9.pdf` |
 | ContentType | VARCHAR(150) | MIME type |
@@ -183,13 +193,14 @@ A number is used up even if the record that asked for it was never saved, so occ
 | Column | Type | Rules |
 |---|---|---|
 | VacancyNumber | VARCHAR(40) | required, **unique**, e.g. `VAC-2026-0001` |
+| RequisitionNumber | VARCHAR(40) | the **Job Requisition Number**, e.g. `JRN-2026-0001`, given when the request is converted; **unique**; NULL on vacancies created before 5 November 2026 |
 | RecruitmentRequestId | INT | **FK → RecruitmentRequests** (RESTRICT), **unique**: one vacancy per approved request |
 | JobTitle | VARCHAR(150) | required |
 | DivisionId | INT | **FK → Divisions** (RESTRICT), copied from the request |
 | DepartmentId / UnitId / SiteId | INT | **FKs** (RESTRICT). The department is copied from the request. |
-| RequestingHodUserId | VARCHAR(255) **FK → Users** | the HOD who raised the request, copied from it |
+| RequestingHodUserId | VARCHAR(255) **FK → Users** | the department's HOD (who reviewed the request), or the requester if no HOD is set |
 | ReportingManagerUserId | VARCHAR(255) **FK → Users** | optional |
-| RecruiterUserId | VARCHAR(255) **FK → Users** | responsible Recruitment Officer |
+| RecruiterUserId | VARCHAR(255) **FK → Users** | the **Vacancy owner**: the responsible Recruitment Officer |
 | EmploymentType | VARCHAR(30) | copied from the request |
 | NumberOfPositions | INT | copied from the request |
 | VacancyType | VARCHAR(30) | `Internal`, `External`, `InternalAndExternal` |
@@ -466,7 +477,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `14_phase14_super_admin_permissions.sql` | 14 | KnownPermissions; the Super Admin role; RoleClaims text columns shortened (the table was empty) and a unique index. The default permissions and the first Super Admin are added by GRSMS at start-up, not by the script. |
 | `16_admin_role.sql` | — | The built-in **Admin** role (id `admin`). Its default permissions and the new permission `settings.view` are added by GRSMS at start-up. If someone already added a *custom* role called "Admin", rename it first (role names are unique). |
 | `17_phase16_system_settings.sql` | 16 | SystemSettings (values saved on the System settings screen; secrets encrypted) and EmailTemplates (reworded candidate emails). The new permissions `settings.manage` and `backups.manage` are added by GRSMS at start-up. |
-| `17_phase16_system_settings.sql` | 16 | SystemSettings (values saved on the System settings screen; secrets encrypted) and EmailTemplates (reworded candidate emails). The new permissions `settings.manage` and `backups.manage` are added by GRSMS at start-up. |
+| `18_qf8111_recruitment_request_form.sql` | QF-81-11 | No new tables. The QF-81-11 form fields on RecruitmentRequests (StaffCategory, PurposeOther, RequestDate, ProposedStartDate, PostDescription, EducationLevel, QualificationCategory, TrainingLevel, CertificateRequired, MinYearsExperience, ProfessionalExperience, DrivingLicence (`NotNeeded` by default), DrivingLicenceClass, Remarks; all optional, so existing requests are untouched) and `RequisitionNumber` (unique, NULL for older vacancies) on Vacancies. The one-time grant of the request permissions to Employees is made by GRSMS at start-up. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

@@ -97,6 +97,7 @@ public class VacancyService(
         {
             Id = v.Id,
             VacancyNumber = v.VacancyNumber,
+            RequisitionNumber = v.RequisitionNumber,
             Status = v.Status,
             StatusChangedAt = v.StatusChangedAt,
             RecruitmentRequestId = v.RecruitmentRequestId,
@@ -156,6 +157,14 @@ public class VacancyService(
         if (request is null) return Result.Failure<VacancyFormDto>(error!);
 
         var dept = await departments.GetByIdAsync(request.DepartmentId, ct);
+
+        // QF-81-11: everything the department wrote on the request is carried over, so HR starts from the approved form.
+        // Driving licence: Mandatory → essential certification + knockout question (applicants without one are screened
+        // out); Desirable → nice-to-have certification only; Not needed → nothing.
+        var licenceText = $"Driving licence{(request.DrivingLicenceClass is { } cls ? $" (class {cls})" : "")}";
+        var licence = request.DrivingLicence == DrivingLicenceRequirement.Mandatory ? licenceText : null;
+        var desirableLicence = request.DrivingLicence == DrivingLicenceRequirement.Desirable ? licenceText : null;
+        var trainingNote = request.TrainingLevel is { } training ? $"Level of training: {training}" : null;
         var form = new VacancyFormDto
         {
             RecruitmentRequestId = request.Id,
@@ -163,13 +172,28 @@ public class VacancyService(
             UnitId = request.UnitId,
             SiteId = request.SiteId,
             ReportingManagerUserId = dept?.HeadOfDepartmentUserId,
+            OwnerUserId = request.AssignedRecruiterUserId ?? scope.UserId,
+            JobDescription = Truncate(RichText.ToPlainText(request.PostDescription), JobDescriptionMaxLength) ?? "",
+            MinimumEducation = request.EducationLevel ?? EducationLevel.None,
+            FieldOfStudy = Truncate(request.QualificationCategory, 200),
+            QualificationNotes = trainingNote,
+            MinYearsExperience = request.MinYearsExperience ?? 0,
+            ExperienceNotes = Truncate(request.ProfessionalExperience, 1000),
+            EssentialCertifications = string.Join("\n", SplitLines(request.CertificateRequired).Append(licence).OfType<string>()),
+            DesirableCertifications = desirableLicence,
             // Phase 16: the advertising window and suggested knockout questions come from System settings.
             ClosingDate = Today.AddDays(settings.GetInt(Domain.Settings.SettingCatalogue.VacancyClosingDays)),
-            KnockoutQuestions = settings.Get(Domain.Settings.SettingCatalogue.DefaultKnockoutQuestions)
+            KnockoutQuestions = string.Join("\n", SplitLines(settings.Get(Domain.Settings.SettingCatalogue.DefaultKnockoutQuestions))
+                .Append(licence is null ? null : $"Do you hold a valid {(request.DrivingLicenceClass is { } c ? $"class {c} " : "")}driving licence?")
+                .OfType<string>())
         };
         FillReadOnlyFields(form, request, dept);
         return Result.Success(form);
     }
+
+    /// <summary>Recruitment Officers who can own a vacancy.</summary>
+    public Task<IReadOnlyList<LookupItem>> GetOwnersAsync(CancellationToken ct = default) =>
+        users.GetActiveUsersInRoleAsync(Roles.RecruitmentOfficer, ct);
 
     /// <summary>Loads a Draft vacancy into the edit form.</summary>
     public async Task<VacancyFormDto?> GetForEditAsync(int id, CancellationToken ct = default)
@@ -187,6 +211,8 @@ public class VacancyService(
             UnitId = v.UnitId,
             SiteId = v.SiteId,
             ReportingManagerUserId = v.ReportingManagerUserId,
+            OwnerUserId = v.RecruiterUserId,
+            RequisitionNumber = v.RequisitionNumber,
             VacancyType = v.VacancyType,
             JobDescription = v.JobDescription,
             MinimumEducation = v.MinimumEducation,
@@ -244,21 +270,24 @@ public class VacancyService(
         if (request is null) return Result.Failure<int>(error!);
 
         Normalize(form);
+        form.OwnerUserId ??= request.AssignedRecruiterUserId ?? scope.UserId; // default owner: the person converting the request
         var errors = await ValidateAsync(form, request.DepartmentId, ct);
         if (errors.Count > 0) return Result.Failure<int>([.. errors]);
 
         var now = DateTime.UtcNow;
         var number = await numbers.NextAsync($"VAC-{now.Year}", ct); // before Add: it saves its own change
+        var requisition = await numbers.NextAsync($"JRN-{now.Year}", ct); // the Job Requisition Number recruitment runs under
         var v = new Vacancy
         {
             VacancyNumber = $"VAC-{now.Year}-{number:0000}",
+            RequisitionNumber = $"JRN-{now.Year}-{requisition:0000}",
             RecruitmentRequestId = request.Id,
             DivisionId = request.DivisionId,
             DepartmentId = request.DepartmentId,
-            RequestingHodUserId = request.RequestedByUserId,
+            // The department's HOD (who reviewed the request at stage 1); the requester only if no HOD is set.
+            RequestingHodUserId = (await departments.GetByIdAsync(request.DepartmentId, ct))?.HeadOfDepartmentUserId ?? request.RequestedByUserId,
             EmploymentType = request.EmploymentType,
             NumberOfPositions = request.NumberOfPositions,
-            RecruiterUserId = request.AssignedRecruiterUserId ?? scope.UserId,
             Status = VacancyStatus.Draft,
             StatusChangedAt = now
         };
@@ -278,6 +307,7 @@ public class VacancyService(
         if (!VacancyWorkflow.IsEditable(v.Status)) return Result.Failure("Only draft vacancies can be edited.");
 
         Normalize(form);
+        form.OwnerUserId ??= v.RecruiterUserId; // owner unchanged when the form does not send one
         var errors = await ValidateAsync(form, v.DepartmentId, ct);
         if (errors.Count > 0) return Result.Failure([.. errors]);
 
@@ -470,6 +500,7 @@ public class VacancyService(
         form.QualificationNotes = Clean(form.QualificationNotes);
         form.ExperienceNotes = Clean(form.ExperienceNotes);
         form.ReportingManagerUserId = Clean(form.ReportingManagerUserId);
+        form.OwnerUserId = Clean(form.OwnerUserId);
     }
 
     private async Task<List<string>> ValidateAsync(VacancyFormDto form, int departmentId, CancellationToken ct)
@@ -490,6 +521,8 @@ public class VacancyService(
             errors.Add("Choose an active site.");
         if (form.ReportingManagerUserId is { } managerId && !await users.IsActiveStaffAsync(managerId, ct))
             errors.Add("The reporting manager must be an active GREL staff member.");
+        if (form.OwnerUserId is not { } ownerId || !await users.IsActiveUserInRoleAsync(ownerId, Roles.RecruitmentOfficer, ct))
+            errors.Add("The vacancy owner must be an active Recruitment Officer.");
 
         foreach (var (label, text) in new[]
                  {
@@ -517,6 +550,7 @@ public class VacancyService(
         v.UnitId = form.UnitId;
         v.SiteId = form.SiteId!.Value;
         v.ReportingManagerUserId = form.ReportingManagerUserId;
+        v.RecruiterUserId = form.OwnerUserId!;
         v.VacancyType = form.VacancyType!.Value;
         v.JobDescription = form.JobDescription;
         v.MinimumEducation = form.MinimumEducation!.Value;
@@ -563,6 +597,11 @@ public class VacancyService(
         string.Join("\n", v.Requirements.Where(r => r.Type == type && r.IsEssential == essential).OrderBy(r => r.Id).Select(r => r.Name));
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+    private const int JobDescriptionMaxLength = 8000;
+
+    private static string? Truncate(string? text, int max) =>
+        string.IsNullOrWhiteSpace(text) ? null : text.Length <= max ? text : text[..max];
 
     private async Task<Result> SaveAsync(CancellationToken ct)
     {

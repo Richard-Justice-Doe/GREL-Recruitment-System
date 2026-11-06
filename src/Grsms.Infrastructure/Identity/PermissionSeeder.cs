@@ -17,13 +17,17 @@ namespace Grsms.Infrastructure.Identity;
 public static class PermissionSeeder
 {
     public const string RoleMarkerPrefix = "role:";
+    public const string GrantMarkerPrefix = "grant:";
+
+    public static string GrantMarker(string role, string permission) => $"{GrantMarkerPrefix}{role}:{permission}";
 
     public static async Task ApplyNewDefaultsAsync(ApplicationDbContext db, ILogger? logger = null, CancellationToken ct = default)
     {
         var known = (await db.KnownPermissions.Select(k => k.Name).ToListAsync(ct)).ToHashSet();
         var freshPermissions = Permissions.Catalogue.Where(p => !known.Contains(p.Name)).ToList();
         var freshRoles = Permissions.RolesAddedLater.Where(r => !known.Contains(RoleMarkerPrefix + r)).ToList();
-        if (freshPermissions.Count == 0 && freshRoles.Count == 0) return;
+        var freshGrants = Permissions.GrantsAddedLater.Where(g => !known.Contains(GrantMarker(g.Role, g.Permission))).ToList();
+        if (freshPermissions.Count == 0 && freshRoles.Count == 0 && freshGrants.Count == 0) return;
 
         var roleIds = await db.Roles.ToDictionaryAsync(r => r.Name!, r => r.Id, ct);
         var existing = (await db.RoleClaims.Where(c => c.ClaimType == Permissions.ClaimType).Select(c => new { c.RoleId, c.ClaimValue }).ToListAsync(ct))
@@ -47,6 +51,11 @@ public static class PermissionSeeder
         {
             foreach (var p in Permissions.Defaults.GetValueOrDefault(role) ?? []) Grant(role, p);
             db.KnownPermissions.Add(new KnownPermission { Name = RoleMarkerPrefix + role, AddedAt = now });
+        }
+        foreach (var (role, permission) in freshGrants)
+        {
+            Grant(role, permission);
+            db.KnownPermissions.Add(new KnownPermission { Name = GrantMarker(role, permission), AddedAt = now });
         }
         await db.SaveChangesAsync(ct);
         logger?.LogInformation("Default role permissions applied for {Count} new permission(s) {Names} and {RoleCount} new role(s) {Roles}",

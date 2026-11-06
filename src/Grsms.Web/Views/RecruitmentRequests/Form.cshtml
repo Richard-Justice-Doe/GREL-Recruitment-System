@@ -1,15 +1,17 @@
-@* Raise / edit a recruitment request (Head of Department). Id = 0 means "new".
-   Attachments are added on the details page after the draft is saved. *@
+@* The digital QF-81-11 Recruitment Request Form (raise / edit). Id = 0 means "new".
+   Filled in by a department staff member or the Head of Department. Supporting documents are uploaded on the
+   details page after the draft is saved. Every rule is checked again by RecruitmentRequestService. *@
 @model RecruitmentRequestFormDto
 @{
     var isNew = Model.Id == 0;
     ViewData["Title"] = isNew ? "Raise a recruitment request" : "Edit recruitment request";
+    var maxChars = RecruitmentRequestFormDto.MaxPostDescriptionChars;
 }
 
 <div class="page-header">
     <div>
         <h1>@ViewData["Title"]</h1>
-        <p>Saved as a draft first. You can attach documents and submit it for approval on the next page.</p>
+        <p>Recruitment Request Form <span class="text-body-secondary">(QF-81-11)</span>. It is saved as a draft first; you attach the supporting documents and submit it for approval on the next page.</p>
     </div>
     <a asp-action="@(isNew ? "Index" : "Details")" asp-route-id="@(isNew ? null : Model.Id)" class="btn btn-outline-secondary">Cancel</a>
 </div>
@@ -17,102 +19,229 @@
 <form asp-action="@(isNew ? "Create" : "Edit")" asp-route-id="@(isNew ? null : Model.Id)" method="post" novalidate>
     <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
 
-    <div class="row g-3">
-        <div class="col-lg-6">
-            <div class="card glass h-100">
-                <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Where</h2>
-                    <div class="mb-3">
-                        <label asp-for="DepartmentId" class="form-label"></label>
-                        <select asp-for="DepartmentId" asp-items="ViewBag.DepartmentList" class="form-select" data-units-url="@Url.Action("Units")">
-                            <option value="">— Choose —</option>
-                        </select>
-                        <span asp-validation-for="DepartmentId" class="text-danger small"></span>
+    @* ------------------------------------------------------------ 1. Employment details *@
+    <div class="card glass mb-3">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">1. Employment details</h2>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="DepartmentId" class="form-label"></label>
+                    <select asp-for="DepartmentId" asp-items="ViewBag.DepartmentList" class="form-select" data-units-url="@Url.Action("Units")">
+                        <option value="">— Choose —</option>
+                    </select>
+                    <span asp-validation-for="DepartmentId" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="UnitId" class="form-label"></label>
+                    <select asp-for="UnitId" asp-items="ViewBag.UnitList" class="form-select">
+                        <option value="">— None / whole department —</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="SiteId" class="form-label"></label>
+                    <select asp-for="SiteId" asp-items="ViewBag.SiteList" class="form-select">
+                        <option value="">— Choose —</option>
+                    </select>
+                    <span asp-validation-for="SiteId" class="text-danger small"></span>
+                </div>
+
+                <fieldset class="col-md-3">
+                    <legend class="form-label fs-6 mb-2">Engagement type</legend>
+                    @foreach (var t in RecruitmentWorkflow.FormEngagementTypes)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" asp-for="EmploymentType" value="@t" id="engagement-@t" />
+                            <label class="form-check-label" for="engagement-@t">@t.DisplayName()</label>
+                        </div>
+                    }
+                    <span asp-validation-for="EmploymentType" class="text-danger small"></span>
+                </fieldset>
+
+                <fieldset class="col-md-3">
+                    <legend class="form-label fs-6 mb-2">Category</legend>
+                    @foreach (var c in Enum.GetValues<StaffCategory>())
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" asp-for="StaffCategory" value="@c" id="category-@c" />
+                            <label class="form-check-label" for="category-@c">@c.DisplayName()</label>
+                        </div>
+                    }
+                    <span asp-validation-for="StaffCategory" class="text-danger small"></span>
+                </fieldset>
+
+                <fieldset class="col-md-6">
+                    <legend class="form-label fs-6 mb-2">Purpose</legend>
+                    @foreach (var p in RecruitmentWorkflow.FormPurposes)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" asp-for="VacancyReason" value="@p" id="purpose-@p" data-purpose />
+                            <label class="form-check-label" for="purpose-@p">@p.DisplayName()</label>
+                        </div>
+                    }
+                    <span asp-validation-for="VacancyReason" class="text-danger small"></span>
+
+                    <div class="mt-2" id="replacedEmployeeGroup" data-show-for-purpose="@VacancyReason.Replacement">
+                        <label asp-for="ReplacedEmployee" class="form-label small"></label>
+                        <input asp-for="ReplacedEmployee" class="form-control form-control-sm" placeholder="Name and staff number" />
+                        <span asp-validation-for="ReplacedEmployee" class="text-danger small"></span>
                     </div>
-                    <div class="mb-3">
-                        <label asp-for="UnitId" class="form-label"></label>
-                        <select asp-for="UnitId" asp-items="ViewBag.UnitList" class="form-select">
-                            <option value="">— None / whole department —</option>
-                        </select>
+                    <div class="mt-2" id="purposeOtherGroup" data-show-for-purpose="@VacancyReason.Other">
+                        <label asp-for="PurposeOther" class="form-label small"></label>
+                        <input asp-for="PurposeOther" class="form-control form-control-sm" />
+                        <span asp-validation-for="PurposeOther" class="text-danger small"></span>
                     </div>
-                    <div class="mb-0">
-                        <label asp-for="SiteId" class="form-label"></label>
-                        <select asp-for="SiteId" asp-items="ViewBag.SiteList" class="form-select">
-                            <option value="">— Choose —</option>
-                        </select>
-                        <span asp-validation-for="SiteId" class="text-danger small"></span>
-                    </div>
+                </fieldset>
+            </div>
+        </div>
+    </div>
+
+    @* ------------------------------------------------------------ 2. Request information *@
+    <div class="card glass mb-3">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">2. Request information</h2>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label asp-for="RequestDate" class="form-label"></label>
+                    <input asp-for="RequestDate" class="form-control" type="date" />
+                    <span asp-validation-for="RequestDate" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="PositionTitle" class="form-label"></label>
+                    <input asp-for="PositionTitle" class="form-control" placeholder="e.g. Safety Officer" />
+                    <span asp-validation-for="PositionTitle" class="text-danger small"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="NumberOfPositions" class="form-label"></label>
+                    <input asp-for="NumberOfPositions" class="form-control" type="number" min="1" max="100" />
+                    <span asp-validation-for="NumberOfPositions" class="text-danger small"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="ProposedStartDate" class="form-label"></label>
+                    <input asp-for="ProposedStartDate" class="form-control" type="date" />
+                    <span asp-validation-for="ProposedStartDate" class="text-danger small"></span>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="col-lg-6">
-            <div class="card glass h-100">
-                <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Budget</h2>
-                    <div class="mb-3">
-                        <label asp-for="BudgetCode" class="form-label"></label>
-                        <input asp-for="BudgetCode" class="form-control text-uppercase" />
-                        <span asp-validation-for="BudgetCode" class="text-danger small"></span>
-                    </div>
-                    <div class="mb-0">
-                        <label asp-for="EstimatedAnnualCost" class="form-label"></label>
-                        <div class="input-group">
-                            <span class="input-group-text">GHS</span>
-                            <input asp-for="EstimatedAnnualCost" class="form-control" type="number" step="0.01" min="0" />
-                        </div>
-                        <div class="form-text">Total yearly cost of all the positions: salary, allowances and employer contributions.</div>
-                        <span asp-validation-for="EstimatedAnnualCost" class="text-danger small"></span>
-                    </div>
+    @* ------------------------------------------------------------ 3. Description of the post *@
+    <div class="card glass mb-3">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">3. Description of the post</h2>
+            <label asp-for="PostDescription" class="form-label" id="postDescriptionLabel"></label>
+            <p class="form-text mt-0">Purpose of the job, main duties and responsibilities, reporting line. Use the toolbar for headings, bold text and lists.</p>
+            @* Without JavaScript the plain text box below is used, and each line becomes a paragraph. *@
+            <div class="rte" data-rich-text data-max-chars="@maxChars">
+                <div class="rte-toolbar" role="toolbar" aria-label="Text formatting" hidden>
+                    <button type="button" class="btn btn-sm" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold"><i class="fa-solid fa-bold"></i></button>
+                    <button type="button" class="btn btn-sm" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic"><i class="fa-solid fa-italic"></i></button>
+                    <button type="button" class="btn btn-sm" data-cmd="underline" title="Underline (Ctrl+U)" aria-label="Underline"><i class="fa-solid fa-underline"></i></button>
+                    <span class="rte-sep" aria-hidden="true"></span>
+                    <button type="button" class="btn btn-sm" data-cmd="formatBlock" data-value="h3" title="Heading" aria-label="Heading"><i class="fa-solid fa-heading"></i></button>
+                    <button type="button" class="btn btn-sm" data-cmd="formatBlock" data-value="p" title="Normal text" aria-label="Normal text"><i class="fa-solid fa-paragraph"></i></button>
+                    <button type="button" class="btn btn-sm" data-cmd="insertUnorderedList" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul"></i></button>
+                    <button type="button" class="btn btn-sm" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
+                    <span class="rte-sep" aria-hidden="true"></span>
+                    <button type="button" class="btn btn-sm" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting"><i class="fa-solid fa-text-slash"></i></button>
+                    <button type="button" class="btn btn-sm" data-cmd="undo" title="Undo (Ctrl+Z)" aria-label="Undo"><i class="fa-solid fa-rotate-left"></i></button>
+                    <button type="button" class="btn btn-sm" data-cmd="redo" title="Redo (Ctrl+Y)" aria-label="Redo"><i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+                <div class="rte-editor form-control" contenteditable="true" role="textbox" aria-multiline="true"
+                     aria-labelledby="postDescriptionLabel" aria-describedby="postDescriptionCount" hidden></div>
+                <textarea asp-for="PostDescription" class="form-control rte-source" rows="10"></textarea>
+                <div class="rte-footer small text-body-secondary" id="postDescriptionCount" aria-live="polite">
+                    <span data-rte-count>0</span> / @maxChars.ToString("N0") characters
+                    <span class="ms-1">(at least @RecruitmentRequestFormDto.MinPostDescriptionChars)</span>
                 </div>
             </div>
-        </div>
+            <span asp-validation-for="PostDescription" class="text-danger small"></span>
 
-        <div class="col-12">
-            <div class="card glass">
-                <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">The position</h2>
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <label asp-for="PositionTitle" class="form-label"></label>
-                            <input asp-for="PositionTitle" class="form-control" placeholder="e.g. Safety Officer" />
-                            <span asp-validation-for="PositionTitle" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-4">
-                            <label asp-for="NumberOfPositions" class="form-label"></label>
-                            <input asp-for="NumberOfPositions" class="form-control" type="number" min="1" max="100" />
-                            <span asp-validation-for="NumberOfPositions" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="EmploymentType" class="form-label"></label>
-                            <select asp-for="EmploymentType" asp-items="Html.GetEnumSelectList<EmploymentType>()" class="form-select">
-                                <option value="">— Choose —</option>
-                            </select>
-                            <span asp-validation-for="EmploymentType" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="VacancyReason" class="form-label"></label>
-                            <select asp-for="VacancyReason" asp-items="Html.GetEnumSelectList<VacancyReason>()" class="form-select" data-toggle-replacement>
-                                <option value="">— Choose —</option>
-                            </select>
-                            <span asp-validation-for="VacancyReason" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6" id="replacedEmployeeGroup">
-                            <label asp-for="ReplacedEmployee" class="form-label"></label>
-                            <input asp-for="ReplacedEmployee" class="form-control" placeholder="Name and staff number" />
-                            <span asp-validation-for="ReplacedEmployee" class="text-danger small"></span>
+            <div class="mt-3">
+                <label asp-for="Justification" class="form-label"></label>
+                <textarea asp-for="Justification" class="form-control" rows="3"
+                          placeholder="Why is this hire needed now? What happens to the work if it is not approved?"></textarea>
+                <span asp-validation-for="Justification" class="text-danger small"></span>
+            </div>
+        </div>
+    </div>
+
+    @* ------------------------------------------------------------ 4. Qualification requirements *@
+    <div class="card glass mb-3">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">4. Qualification requirements</h2>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="EducationLevel" class="form-label"></label>
+                    <select asp-for="EducationLevel" asp-items="Html.GetEnumSelectList<EducationLevel>()" class="form-select">
+                        <option value="">— Choose —</option>
+                    </select>
+                    <span asp-validation-for="EducationLevel" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="QualificationCategory" class="form-label"></label>
+                    <input asp-for="QualificationCategory" class="form-control" placeholder="e.g. Agriculture, Accounting, Mechanical engineering" />
+                    <span asp-validation-for="QualificationCategory" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="TrainingLevel" class="form-label"></label>
+                    <input asp-for="TrainingLevel" class="form-control" placeholder="e.g. Trade test grade 1, Advanced" />
+                    <span asp-validation-for="TrainingLevel" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="CertificateRequired" class="form-label"></label>
+                    <textarea asp-for="CertificateRequired" class="form-control" rows="2" placeholder="e.g. NEBOSH IGC"></textarea>
+                    <span asp-validation-for="CertificateRequired" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <div class="row g-2">
+                        <div class="col-sm-5">
+                            <label asp-for="MinYearsExperience" class="form-label"></label>
+                            <input asp-for="MinYearsExperience" class="form-control" type="number" min="0" max="40" />
+                            <span asp-validation-for="MinYearsExperience" class="text-danger small"></span>
                         </div>
                         <div class="col-12">
-                            <label asp-for="Justification" class="form-label"></label>
-                            <textarea asp-for="Justification" class="form-control" rows="5"
-                                      placeholder="Why is this hire needed now? What happens to the work if it is not approved?"></textarea>
-                            <span asp-validation-for="Justification" class="text-danger small"></span>
+                            <label asp-for="ProfessionalExperience" class="form-label"></label>
+                            <textarea asp-for="ProfessionalExperience" class="form-control" rows="2"
+                                      placeholder="e.g. Supervising field staff on an oil palm plantation"></textarea>
+                            <span asp-validation-for="ProfessionalExperience" class="text-danger small"></span>
                         </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <fieldset>
+                        <legend class="form-label fs-6 mb-2">Driving licence <span class="text-body-secondary small">(optional)</span></legend>
+                        @foreach (var l in Enum.GetValues<DrivingLicenceRequirement>())
+                        {
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" asp-for="DrivingLicence" value="@l" id="licence-@l" data-licence />
+                                <label class="form-check-label" for="licence-@l">@l.DisplayName()</label>
+                            </div>
+                        }
+                        <div class="form-text">Only <strong>Mandatory</strong> screens out applicants without a licence. <strong>Desirable</strong> is a nice-to-have.</div>
+                    </fieldset>
+                    <div class="mt-2" id="licenceClassGroup" style="max-width: 16rem">
+                        <label asp-for="DrivingLicenceClass" class="form-label small"></label>
+                        <input asp-for="DrivingLicenceClass" class="form-control form-control-sm text-uppercase" placeholder="e.g. B, C or D" />
+                        <span asp-validation-for="DrivingLicenceClass" class="text-danger small"></span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    @* ------------------------------------------------------------ 5. Additional information *@
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">5. Additional information</h2>
+                    <label asp-for="Remarks" class="form-label"></label>
+                    <textarea asp-for="Remarks" class="form-control" rows="4"></textarea>
+                    <span asp-validation-for="Remarks" class="text-danger small"></span>
+                    <p class="form-text mb-0 mt-3">
+                        <i class="fa-solid fa-paperclip me-1"></i><strong>Supporting documents</strong> (job description, main accountabilities,
+                        organisational structure, department justification, budget approval) are attached on the next page. PDF, DOCX or XLSX only.
+                    </p>
+                </div>
+            </div>
 
     <div class="mt-4">
         <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save draft</button>
@@ -121,5 +250,6 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/rich-text-editor.js" asp-append-version="true"></script>
     <script src="~/js/recruitment-request-form.js" asp-append-version="true"></script>
 }

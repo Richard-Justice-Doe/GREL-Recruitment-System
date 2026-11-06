@@ -39,10 +39,14 @@ public class Attachment : BaseEntity
 /// <summary>What a file is. New modules add their own categories here.</summary>
 public enum AttachmentCategory
 {
+    // Recruitment request supporting documents (form QF-81-11). Induction programme and Other remain for older requests.
     [Display(Name = "Job description")] JobDescription,
-    [Display(Name = "Organisational chart")] OrganisationalChart,
+    [Display(Name = "Organisational structure")] OrganisationalChart,
     [Display(Name = "Induction programme")] InductionProgramme,
     [Display(Name = "Other supporting document")] Other,
+    [Display(Name = "Main accountabilities")] MainAccountabilities,
+    [Display(Name = "Department justification")] DepartmentJustification,
+    [Display(Name = "Budget approval document")] BudgetApproval,
 
     // Phase 5: candidate documents
     [Display(Name = "CV")] Cv,

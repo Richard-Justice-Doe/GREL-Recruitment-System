@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Grsms.Application.Documents;
 using Grsms.Application.Organization;
 using Grsms.Application.Recruitment;
@@ -26,7 +25,7 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
     private const long UploadRequestLimitBytes = 25 * 1024 * 1024;
 
     /// <summary>Roles that approve at some stage, so their list opens on "Awaiting my action".</summary>
-    private static readonly string[] ApproverRoles = [Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector];
+    private static readonly string[] ApproverRoles = [Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector];
 
     // ================================================================= List
 
@@ -39,21 +38,21 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
         ViewBag.Tab = tab;
         ViewBag.Filter = filter;
         ViewBag.AwaitingCount = await service.CountAwaitingMeAsync(ct);
-        ViewBag.CanRaise = User.IsInRole(Roles.HeadOfDepartment);
+        ViewBag.CanRaise = (await service.GetCreatableDepartmentsAsync(ct)).Count > 0;
         await LoadFilterListsAsync(filter.DivisionId, filter.DepartmentId, ct);
         return View(await service.SearchAsync(filter, ct));
     }
 
-    // ================================================================= Raise / edit (HOD)
+    // ================================================================= Raise / edit (department staff or HOD)
 
     [Authorize(Policy = Policies.RaiseRecruitmentRequest)]
     public async Task<IActionResult> Create(CancellationToken ct)
     {
-        var form = new RecruitmentRequestFormDto();
+        var form = RecruitmentRequestService.NewForm();
         var depts = await service.GetCreatableDepartmentsAsync(ct);
         if (depts.Count == 0)
         {
-            Error("You are not set as Head of an active department, so you cannot raise requests yet. Ask the HR Administrator to update the department.");
+            Error("Your account is not linked to an active department, so you cannot raise requests yet. Ask the HR Administrator to set your department.");
             return RedirectToAction(nameof(Index));
         }
         if (depts.Count == 1) form.DepartmentId = int.Parse(depts[0].Value); // save a click
@@ -117,20 +116,14 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
     public async Task<IActionResult> Details(int id, CancellationToken ct)
     {
         var model = await service.GetDetailsAsync(id, ct);
-        if (model is null) return NotFound();
-
-        // The reviewing Recruitment Officer is pre-selected as the assigned recruiter.
-        if (model.CanDecide && model.Status == RecruitmentRequestStatus.RecruitmentReview)
-            ViewBag.RecruiterList = new SelectList(await service.GetRecruitersAsync(ct),
-                nameof(LookupItem.Value), nameof(LookupItem.Text), User.FindFirstValue(ClaimTypes.NameIdentifier));
-        return View(model);
+        return model is null ? NotFound() : View(model);
     }
 
     [HttpPost]
     public async Task<IActionResult> Submit(int id, CancellationToken ct)
     {
         var result = await service.SubmitAsync(id, ct);
-        if (result.Succeeded) Success("Request submitted. The Recruitment Officers have been notified.");
+        if (result.Succeeded) Success("Request submitted for approval. The next reviewer has been notified by email.");
         else Error(string.Join(" ", result.Errors));
         return RedirectToAction(nameof(Details), new { id });
     }
@@ -147,8 +140,8 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
             Success(form.Decision switch
             {
                 ReviewDecision.Approve => "Approved. The next approver has been notified.",
-                ReviewDecision.Return => "Returned to the Head of Department for changes.",
-                _ => "Request rejected. The Head of Department has been notified."
+                ReviewDecision.Return => "Returned to the requester for correction.",
+                _ => "Request rejected. The requester has been notified."
             });
             // Back to the waiting list: the reviewer usually has more to process.
             return RedirectToAction(nameof(Index), new { tab = "awaiting" });
@@ -215,6 +208,6 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
             nameof(LookupItem.Value), nameof(LookupItem.Text), form.UnitId?.ToString());
         ViewBag.SiteList = new SelectList(await service.GetSitesAsync(ct),
             nameof(LookupItem.Value), nameof(LookupItem.Text), form.SiteId?.ToString());
-        ViewBag.AcceptList = AttachmentService.AcceptList;
+        ViewBag.AcceptList = AttachmentService.RequestDocumentAcceptList;
     }
 }

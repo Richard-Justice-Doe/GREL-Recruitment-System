@@ -90,11 +90,61 @@ When the new employee submits, the vacancy's recruiter and whoever started the o
 HR can also upload a document for the new employee (for example a scan of an original brought in on paper) until the HR Manager approves, and can **Submit for the new employee**.
 
 ### HR approval
-An HR Manager **approves** (the checklist owners and the HOD are emailed that the induction can begin) or **returns for verification** with comments. **The HR Manager who marked the documents verified cannot approve the same onboarding**; another HR Manager must.
+An HR Manager ticks the **departmental induction areas** that apply to this new employee, then **approves** or **returns for verification** with comments. **The HR Manager who marked the documents verified cannot approve the same onboarding**; another HR Manager must.
+
+On approval, each ticked area's tasks are added to the checklist, given to the area's owner, and due a week after the induction starts (the start date, or today if later). The task owners and the HOD are emailed that the induction can begin. A task already on the checklist is not added twice.
+
+### Departmental induction
+The checklist on the onboarding page is grouped by area:
+
+| Area | Example tasks (built in; changeable on **Induction areas**) |
+|---|---|
+| Human Resource | Company orientation; policies review (plus the HR preparation tasks from the start: personal file, induction programme, payroll, benefits) |
+| Corporate Information Technology | Email setup; AD account creation; system access (plus the IT tasks from the start) |
+| Corporate Procurement · Corporate Supply Chain · Corporate Finance | A briefing on the department's procedures |
+| Factory Operations · TBU Operations · Stores Operations · Engineering | A site or workshop induction (stores: stock-issue briefing; engineering: permit-to-work) |
+| Security | Access card; security induction |
+| Health & Safety | Safety training; PPE issue and emergency procedures |
+| Administration | Office, transport and canteen arrangements |
+| Own department (HOD) | Workspace, tools and PPE; department induction; probation objectives |
+
+Each task shows its **owner**, **assigned date**, **due date** and, once done, who did it and when. Owners (or the HOD for department tasks, or HR) mark it **Done** or **Not needed** (with a reason).
+
+**HR verifies the induction:** a task marked done by anyone outside HR shows *waiting for HR to verify*. HR clicks **Verify** after checking it really was done. A task HR marks done counts as verified.
+
+HR can also **add a task** to any area (with an optional description), reassign one, change its due date, or remove one still to do.
+
+### Induction areas (HR Administrator)
+**Menu → Organisation → Induction areas** lists the twelve areas. For each area:
+* **Owner**: who receives its tasks. With no owner, they go to HR (the vacancy's recruiter); Corporate IT with no owner goes to the Head of the IT department;
+* **Ticked by default**: whether the HR Manager sees it already ticked when approving. Out of the box: Human Resource, Corporate IT, Security, and Health & Safety;
+* **Tasks**: one per line.
+
+Changes apply to onboardings approved from then on, never to tasks already created.
 
 ### Induction and activation
-* When every checklist item is **Done** or **Not needed** and the start date has come, click **Induction complete: ready to activate**.
+* When every checklist item is **Done** or **Not needed**, **every task done outside HR has been verified**, and the start date has come, click **Induction complete: ready to activate**.
 * Enter the **staff number** from payroll and click **Activate the employee**. The new employee's account becomes a staff account: the Employee role is added, the Candidate role removed, and the staff number, department and site are set. The new employee (template *Onboarding: staff account active*) and the HOD are emailed.
+* At the same moment the employee's **electronic personnel file** is opened and filled (below).
+
+### The electronic personnel file
+**Menu → Personnel files** (Recruitment Officers and HR Managers; the permission *Open personnel files*), or **Personnel file** on the onboarding page.
+
+Each employee has one file, numbered e.g. **PF-2026-0001**, with seven folders. These are records in the database, not Windows folders:
+
+| Folder | Filed automatically at activation |
+|---|---|
+| Recruitment Documents | The application's files (CV, certificates, cover letter as sent); application letter, CV and recommendation letters |
+| Employee Records | The signed Personal Record Declaration; school certificates, marriage certificate, children's birth certificates, dependants' photographs |
+| Identification Records | Passport picture, birth certificate, Ghana Card, SSNIT card, passport biodata page, non-citizen card |
+| Compliance Records | Medical report, police clearance, bank confirmation letter |
+| Onboarding Records | The onboarding and induction record: every task, who did it and who verified it |
+| Probation Records | Added by probation management (a later phase) |
+| Generated Letters | The appointment letter, frozen exactly as it was signed |
+
+Only **verified** new-hire documents are filed. Files are not copied: the personnel file points to the same securely stored file. Click a file to download it, or a letter to read and print it (**Print or save as PDF**). HR can **add a document** to any folder.
+
+An onboarding completed before personnel files existed shows **Open the personnel file** for HR, which opens and fills it the same way.
 
 ### Notes and cancelling
 **HR notes** are for HR only (never shown to the new employee). **Cancel onboarding** needs a reason and works at any stage before Completed.
@@ -105,9 +155,9 @@ An HR Manager **approves** (the checklist owners and the HOD are emailed that th
 
 | Person | Sees |
 |---|---|
-| HR (Recruitment Officer, HR Manager) | Every onboarding, the new-hire documents and files, the personal record, HR notes |
+| HR (Recruitment Officer, HR Manager) | Every onboarding, the new-hire documents and files, the personal record, HR notes, and the personnel files |
 | Head of Department | Their department's onboardings and checklist, **not** the new-hire documents or the personal record (Ghana Card, medical report, family, bank and beneficiary details) |
-| A task owner | The onboarding, while they have a task on it |
+| A task owner (e.g. an induction area owner) | The onboarding, while they have a task on it |
 | The new employee | Their own letter, first-day information, documents and personal record, in their portal |
 
 Every upload, verification, rejection and stage change is in the audit trail. Files are stored on the server under random names outside the website's public folder, with a SHA-256 fingerprint.

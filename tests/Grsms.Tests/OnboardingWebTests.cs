@@ -296,9 +296,14 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
 
         // ---- The HR Manager approves: the induction begins
         var hrm = await SignedInAsync(c.Email("hrm"));
-        Assert.Contains("Approve: start the induction", await hrm.GetStringAsync(url));
-        Assert.Equal(HttpStatusCode.Redirect, (await hrm.PostFormAsync(url, $"/Onboarding/HrDecide/{id}", new() { ["approve"] = "true" })).StatusCode);
+        var approvePage = await hrm.GetStringAsync(url);
+        Assert.Contains("Approve: start the induction", approvePage);
+        Assert.Contains("Departmental induction areas", approvePage);                       // Phase 20: the 12 areas to tick
+        Assert.Contains("TBU Operations", approvePage);
+        Assert.Equal(HttpStatusCode.Redirect, (await hrm.PostFormAsync(url, $"/Onboarding/HrDecide/{id}",
+            new() { ["approve"] = "true", ["areas"] = "Security" })).StatusCode);
         Assert.Equal(OnboardingStatus.AwaitingDepartmentalInduction, await StageAsync(id));
+        Assert.Contains("Access card", await recruiter.GetStringAsync(url));                 // the Security area's tasks were added
 
         // ---- Every checklist item ticked (HR may tick any), then the induction is closed
         foreach (var taskId in await Db(db => db.OnboardingTasks.Where(t => t.OnboardingRecordId == id).Select(t => t.Id).ToListAsync()))
@@ -312,6 +317,21 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Equal(OnboardingStatus.Completed, await StageAsync(id));
         var account = await Db(db => db.Users.SingleAsync(u => u.Id == c.Candidate));
         Assert.Equal(("GREL-9001", false), (account.StaffNumber, account.IsCandidate));
+
+        // ---- Phase 20: the personnel file was opened and filled; the recruiter opens it, a filed letter and a filed file
+        var onboardingPage = await recruiter.GetStringAsync(url);
+        var fileUrl = Regex.Match(onboardingPage, @"/PersonnelFiles/Details/\d+").Value;
+        Assert.NotEmpty(fileUrl);
+        var filePage = await recruiter.GetStringAsync(fileUrl);
+        foreach (var text in new[] { "Identification Records", "Compliance Records", "Generated Letters", "Ghana Card", "Employee Personal Record Declaration (signed)" })
+            Assert.Contains(text, filePage);
+        var letterUrl = Regex.Match(filePage, @"(/PersonnelFiles/Letter/\d+)""[^>]*>Letter of appointment").Groups[1].Value;
+        Assert.Contains("Letter of appointment", await recruiter.GetStringAsync(letterUrl));
+        var downloadUrl = Regex.Match(filePage, @"/PersonnelFiles/Download/\d+").Value;
+        var download = await recruiter.GetAsync(downloadUrl);
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+        Assert.Equal("attachment", download.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.Contains("/Account/AccessDenied", (await (await SignedInAsync(c.Email("hod"))).GetAsync(fileUrl)).Headers.Location!.ToString());
 
         // The new employee now signs in as staff and can open staff screens.
         var staff = await SignedInAsync(c.Email("cand"));
@@ -356,5 +376,29 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         var other = await SignedInAsync("v.other@mail.test");
         Assert.Equal(HttpStatusCode.NotFound,
             (await other.GetAsync($"/MyApplications/DownloadDocument/{c.ApplicationId}?documentId={medical.Id}&attachmentId={fileId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Hr_administrator_sets_an_induction_area_owner_and_tasks()
+    {
+        var owner = await UserAsync("ia.security@grel.test", "Security Chief", 1, Roles.Employee);
+        await UserAsync("ia.admin@grel.test", "HR Admin", 1, Roles.HrAdministrator);
+        await UserAsync("ia.ro@grel.test", "Recruiter", 1, Roles.RecruitmentOfficer);
+
+        var admin = await SignedInAsync("ia.admin@grel.test");
+        var page = await admin.GetStringAsync("/InductionAreas");
+        foreach (var area in new[] { "Human Resource", "Corporate Information Technology", "Corporate Procurement", "Corporate Supply Chain", "Corporate Finance",
+                                     "Factory Operations", "TBU Operations", "Stores Operations", "Engineering", "Security", "Health &amp; Safety", "Administration" })
+            Assert.Contains(area, page);
+        Assert.Equal(HttpStatusCode.Redirect, (await admin.PostFormAsync("/InductionAreas", "/InductionAreas/Save", new()
+        {
+            ["area"] = "Security", ["ownerUserId"] = owner, ["isDefault"] = "true", ["tasks"] = "Access card\nSecurity induction\nKey register"
+        })).StatusCode);
+        var saved = await Db(db => db.InductionAreaSettings.SingleAsync(s => s.Area == InductionArea.Security));
+        Assert.Equal((owner, "Access card\nSecurity induction\nKey register"), (saved.OwnerUserId, saved.Tasks));
+
+        // Recruiters run onboardings but do not change the areas.
+        var ro = await SignedInAsync("ia.ro@grel.test");
+        Assert.Contains("/Account/AccessDenied", (await ro.GetAsync("/InductionAreas")).Headers.Location!.ToString());
     }
 }

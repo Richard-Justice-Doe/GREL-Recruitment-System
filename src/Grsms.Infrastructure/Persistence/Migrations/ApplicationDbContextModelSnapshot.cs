@@ -2085,6 +2085,63 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("EmployeeSpouses", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Onboarding.InductionAreaSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Area")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("OwnerUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Tasks")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Area")
+                        .IsUnique();
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("OwnerUserId");
+
+                    b.ToTable("InductionAreaSettings", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingActionEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -2358,6 +2415,13 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    b.Property<string>("Area")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<DateTime?>("AssignedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("AssignedToUserId")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
@@ -2382,6 +2446,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<string>("DeletedBy")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("date");
@@ -2420,17 +2487,251 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("VerifiedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompletedByUserId");
 
                     b.HasIndex("IsDeleted");
 
+                    b.HasIndex("VerifiedByUserId");
+
                     b.HasIndex("AssignedToUserId", "Status");
 
                     b.HasIndex("OnboardingRecordId", "SortOrder");
 
                     b.ToTable("OnboardingTasks", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.PersonnelFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("EmployeeUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("FileNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("JobTitle")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int>("OnboardingRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("OpenedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("StaffNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("EmployeeUserId")
+                        .IsUnique();
+
+                    b.HasIndex("FileNumber")
+                        .IsUnique();
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("OnboardingRecordId");
+
+                    b.ToTable("PersonnelFiles", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.PersonnelFileCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PersonnelFileCategories", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Name = "Recruitment Documents",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Name = "Employee Records",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Name = "Identification Records",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Name = "Compliance Records",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Name = "Onboarding Records",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Name = "Probation Records",
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Name = "Generated Letters",
+                            SortOrder = 7
+                        });
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.PersonnelFileDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("AddedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int?>("AttachmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime>("DocumentDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("PersonnelFileId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SourceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceType")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AddedByUserId");
+
+                    b.HasIndex("AttachmentId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("PersonnelFileId", "CategoryId");
+
+                    b.HasIndex("SourceType", "SourceId");
+
+                    b.ToTable("PersonnelFileDocuments", (string)null);
                 });
 
             modelBuilder.Entity("Grsms.Domain.Organization.Department", b =>
@@ -4870,6 +5171,14 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Onboarding.InductionAreaSetting", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingActionEntry", b =>
                 {
                     b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
@@ -4967,6 +5276,57 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasOne("Grsms.Domain.Onboarding.OnboardingRecord", null)
                         .WithMany()
                         .HasForeignKey("OnboardingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("VerifiedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.PersonnelFile", b =>
+                {
+                    b.HasOne("Grsms.Domain.Organization.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Onboarding.OnboardingRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnboardingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.PersonnelFileDocument", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AddedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Documents.Attachment", null)
+                        .WithMany()
+                        .HasForeignKey("AttachmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Grsms.Domain.Onboarding.PersonnelFileCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Onboarding.PersonnelFile", null)
+                        .WithMany()
+                        .HasForeignKey("PersonnelFileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

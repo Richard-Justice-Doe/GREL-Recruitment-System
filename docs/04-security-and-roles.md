@@ -19,6 +19,7 @@ GRSMS uses **role-based access control with permissions**:
 | Raise recruitment requests (QF-81-11, own department) | 🔒 | | | | | | ✅ | ✅ Employee | |
 | Open vacancies / job adverts / applications / reports | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
 | Read survey results | 🔒 | ✅ | | ✅ | ✅ | ✅ | | | |
+| Open personnel files (Phase 20) | 🔒 | | | ✅ | | ✅ | | | |
 | See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | | |
 | Manage roles and permissions | 🔒 only | | | | | | | | |
 | Create privileged accounts | 🔒 only | | | | | | | | |

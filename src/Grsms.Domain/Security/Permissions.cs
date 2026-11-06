@@ -46,6 +46,9 @@ public static class Permissions
     public const string ViewReports = "reports.view";
     public const string ViewSurveyResults = "surveys.results";
 
+    /// <summary>Phase 20: open employees' electronic personnel files (personal and identification documents).</summary>
+    public const string ViewPersonnelFiles = "personnel.view";
+
     // ---------------------------------------------------------------- Data visibility
     /// <summary>See the records of every department (otherwise a HOD sees only their own departments).</summary>
     public const string SeeAllDepartments = "data.all-departments";
@@ -88,6 +91,8 @@ public static class Permissions
             "See applications, the shortlisting board, hiring and onboarding."),
         new(ViewReports, "Recruitment", "Open reports", "See the recruitment reports and download them as CSV."),
         new(ViewSurveyResults, "Recruitment", "Read survey results", "See the candidate and new-hire survey results."),
+        new(ViewPersonnelFiles, "Recruitment", "Open personnel files",
+            "See employees' electronic personnel files (identification, compliance and onboarding records) and file documents in them."),
 
         new(SeeAllDepartments, "Data visibility", "See all departments",
             "See the records of every department. Without it, a Head of Department sees only their own departments."),
@@ -126,12 +131,12 @@ public static class Permissions
         [Roles.HrManager] =
         [
             ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports,
-            ViewSurveyResults, SeeAllDepartments
+            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles
         ],
         [Roles.ManagingDirector] =
             [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments],
         [Roles.RecruitmentOfficer] =
-            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments],
+            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles],
         [Roles.HeadOfDepartment] =
             [ViewRecruitmentRequests, RaiseRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports],
         [Roles.PanelMember] = [],

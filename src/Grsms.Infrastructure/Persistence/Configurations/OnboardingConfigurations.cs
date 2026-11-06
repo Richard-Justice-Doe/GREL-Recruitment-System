@@ -78,6 +78,11 @@ internal class OnboardingTaskConfiguration : IEntityTypeConfiguration<Onboarding
         b.Property(t => t.Notes).HasColumnType("text");
         b.Property(t => t.AssignedToUserId).HasMaxLength(255);
         b.Property(t => t.CompletedByUserId).HasMaxLength(255);
+        // Phase 20: departmental induction
+        b.Property(t => t.Area).HasConversion<string>().HasMaxLength(40);
+        b.Property(t => t.Description).HasColumnType("text");
+        b.Property(t => t.VerifiedByUserId).HasMaxLength(255);
+        b.HasOne<ApplicationUser>().WithMany().HasForeignKey(t => t.VerifiedByUserId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasOne<OnboardingRecord>().WithMany().HasForeignKey(t => t.OnboardingRecordId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<ApplicationUser>().WithMany().HasForeignKey(t => t.AssignedToUserId).OnDelete(DeleteBehavior.Restrict);

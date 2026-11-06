@@ -437,6 +437,29 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 
 **Not tested here:** the add/remove-row buttons and the running total in a real browser (the page and its posted rows were exercised by the web tests).
 
+## ✅ Phase 20: Departmental induction and the electronic personnel file (6 November 2026)
+
+**Asked for** (stage 3 of the onboarding → probation → confirmation extension): after HR verification, departments complete onboarding tasks across twelve induction areas (Human Resource, Corporate IT, Procurement, Supply Chain, Finance, Factory Operations, TBU Operations, Stores Operations, Engineering, Security, Health & Safety, Administration), each task with department, name, description, assigned, due and completed dates, verified by and status; and an electronic personnel file per employee, as database records (not Windows folders), with seven categories.
+
+**Delivered** ([user guide](24-onboarding-module.md#departmental-induction))
+* **Induction areas** (`InductionArea`, `InductionAreaSetting`, `InductionAreaService`, screen *Organisation → Induction areas*): per area an owner (none = HR; Corporate IT falls back to the Head of IT), whether it is ticked by default (Human Resource, Corporate IT, Security, Health & Safety out of the box) and its tasks (built-in lists, changeable).
+* **Induction tasks** are the onboarding checklist tasks, extended with the area, a description, the assigned date and **HR verification**. On approval the HR Manager ticks the areas that apply; their tasks are added to the owners (due a week after the induction starts), never twice. Tasks done outside HR wait for HR to **Verify**; the induction can't close until every task is done and verified. HR can add tasks to any area.
+* **Personnel file** (`PersonnelFile`, `PersonnelFileCategory` seeded with the 7 categories, `PersonnelFileDocument`, `PersonnelFileService`): opened automatically at activation (`PF-<year>-<0000>`) and filled with the verified new-hire documents (each in its category), the application's files, the signed Personal Record Declaration, the appointment letter frozen as signed, and the onboarding and induction record. Filing again never duplicates. HR can add documents; letters open printable (*Print or save as PDF*). Older completed onboardings get **Open the personnel file**.
+* New permission **Open personnel files** (`personnel.view`, Recruitment Officers and HR Managers by default); menu *Personnel files*.
+* Migration `Phase20_InductionAndPersonnelFile`, script `database/21_phase20_induction_and_personnel_file.sql`. New `InductionAndPersonnelFileTests`; the onboarding web journey ticks an area, completes the induction and opens the personnel file, its letter and a file; a web test for the Induction areas screen: **168 tests**.
+
+**Decisions recorded**
+* **The twelve areas are a fixed list** (user's choice), each with an owner set on the Induction areas screen; **an area without an owner goes to HR** (the vacancy's recruiter). The new employee's own department stays a separate group owned by its HOD.
+* **The spec's DepartmentalOnboardingTask is the existing OnboardingTasks table, extended**, so the Phase 9 checklist and the induction are one list and nothing is duplicated. HR and IT preparation tasks still start with the onboarding (they must be ready before day one); the other areas' tasks are added when the HR Manager approves.
+* **HR verifies tasks done by others**; tasks HR marks done count as verified. Tasks finished before this phase count as verified by whoever finished them.
+* **The personnel file is HR's**: only holders of *Open personnel files* see it (not the HOD, not the employee: the ESS portal is out of scope).
+* **Files are never copied** into the personnel file; it points at the Attachments rows. **Letters are frozen HTML** (user's choice: no PDF library), built only from encoded values and cleaned again on display.
+* **Only verified new-hire documents are filed.**
+
+**Checked:** 168/168 tests. Scripts 19, 20 and 21 applied in order on MySQL 8.4 to a throwaway copy of the development database: 7 categories seeded, new columns present; the copy was dropped.
+
+**Not tested here:** the new pages in a real browser (exercised as HTML by the web tests).
+
 ## 🎉 All 13 original phases delivered
 Next steps are GREL's: work through the [go-live checklist](21-production-deployment.md#8-go-live-checklist), then gather users' feedback for improvements.
 

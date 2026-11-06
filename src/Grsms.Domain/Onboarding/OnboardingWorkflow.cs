@@ -122,4 +122,52 @@ public static class OnboardingWorkflow
         new(OnboardingTeam.InformationTechnology, "Create the email account and system access", -2),
         new(OnboardingTeam.InformationTechnology, "Issue a computer / phone (mark \"not needed\" if none)", -1)
     ];
+
+    // ---------------------------------------------------------------- Phase 20: departmental induction
+
+    /// <summary>The induction area of a checklist team: HR → Human Resource, IT → Corporate IT; the own department has none.</summary>
+    public static InductionArea? AreaOf(OnboardingTeam team) => team switch
+    {
+        OnboardingTeam.HumanResources => InductionArea.HumanResource,
+        OnboardingTeam.InformationTechnology => InductionArea.CorporateIt,
+        _ => null
+    };
+
+    /// <summary>The checklist team a new task of an area belongs to (HR, IT, or department for every other area).</summary>
+    public static OnboardingTeam TeamOf(InductionArea area) => area switch
+    {
+        InductionArea.HumanResource => OnboardingTeam.HumanResources,
+        InductionArea.CorporateIt => OnboardingTeam.InformationTechnology,
+        _ => OnboardingTeam.Department
+    };
+
+    /// <summary>Areas ticked by default when the HR Manager approves (until changed on the Induction areas screen).</summary>
+    public static readonly IReadOnlySet<InductionArea> DefaultAreas = new HashSet<InductionArea>
+    {
+        InductionArea.HumanResource, InductionArea.CorporateIt, InductionArea.Security, InductionArea.HealthAndSafety
+    };
+
+    /// <summary>Days after the induction starts (the later of the start date and the HR approval) by which area tasks are due.</summary>
+    public const int InductionTaskDueDays = 7;
+
+    /// <summary>The built-in tasks of each area (one per line on the Induction areas screen, where they can be changed).</summary>
+    public static readonly IReadOnlyDictionary<InductionArea, IReadOnlyList<string>> InductionTemplates = new Dictionary<InductionArea, IReadOnlyList<string>>
+    {
+        [InductionArea.HumanResource] = ["Company orientation", "Policies review (code of conduct, leave, disciplinary and grievance procedures)"],
+        [InductionArea.CorporateIt] = ["Email setup", "AD account creation", "System access (ERP, shared drives, printers)"],
+        [InductionArea.CorporateProcurement] = ["Procurement procedures briefing"],
+        [InductionArea.CorporateSupplyChain] = ["Supply chain procedures briefing"],
+        [InductionArea.CorporateFinance] = ["Finance procedures briefing (expenses, petty cash, approvals)"],
+        [InductionArea.FactoryOperations] = ["Factory floor induction and shift arrangements"],
+        [InductionArea.TbuOperations] = ["TBU site induction"],
+        [InductionArea.StoresOperations] = ["Stores procedures and stock-issue briefing"],
+        [InductionArea.Engineering] = ["Engineering workshop induction and permit-to-work"],
+        [InductionArea.Security] = ["Access card", "Security induction"],
+        [InductionArea.HealthAndSafety] = ["Safety training", "PPE issue and emergency procedures"],
+        [InductionArea.Administration] = ["Office, transport and canteen arrangements"]
+    };
+
+    /// <summary>"Email setup\n  AD account creation\n\n" → ["Email setup", "AD account creation"].</summary>
+    public static IReadOnlyList<string> TaskLines(string? text) =>
+        (text ?? "").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 }

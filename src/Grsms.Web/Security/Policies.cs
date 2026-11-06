@@ -44,6 +44,9 @@ public static class Policies
     /// <summary>Read survey results (Phase 10).</summary>
     public const string SurveyResults = nameof(SurveyResults);
 
+    /// <summary>Phase 20: open employees' electronic personnel files.</summary>
+    public const string PersonnelFiles = nameof(PersonnelFiles);
+
     /// <summary>Open the Reports (Phase 11). HODs see only their own departments (decided by ReportService).</summary>
     public const string Reports = nameof(Reports);
 
@@ -76,6 +79,7 @@ public static class Policies
             .AddPermissionPolicy(Adverts, Permissions.ViewAdverts)
             .AddPermissionPolicy(Applications, Permissions.ViewApplications)
             .AddPermissionPolicy(SurveyResults, Permissions.ViewSurveyResults)
+            .AddPermissionPolicy(PersonnelFiles, Permissions.ViewPersonnelFiles)
             .AddPermissionPolicy(Reports, Permissions.ViewReports)
             .AddPermissionPolicy(RolesAndPermissions, Permissions.ManagePermissions)
             .AddPermissionPolicy(SystemSettings, Permissions.ViewSystemSettings)

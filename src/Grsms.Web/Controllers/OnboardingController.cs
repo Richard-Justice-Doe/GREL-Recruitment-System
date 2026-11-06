@@ -88,9 +88,30 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     public Task<IActionResult> AssignTask(int id, int taskId, string? userId, DateOnly? dueDate, CancellationToken ct) =>
         Act(id, () => onboarding.AssignTaskAsync(taskId, userId, dueDate, ct), "Task updated.");
 
+    /// <param name="area">Phase 20: the induction area ("" = the new employee's own department).</param>
     [HttpPost]
-    public Task<IActionResult> AddTask(int id, OnboardingTeam team, string? title, DateOnly? dueDate, string? userId, CancellationToken ct) =>
-        Act(id, () => onboarding.AddTaskAsync(id, team, title, dueDate, userId, ct), "Task added to the checklist.");
+    public Task<IActionResult> AddTask(int id, OnboardingTeam team, string? title, DateOnly? dueDate, string? userId, InductionArea? area,
+        string? description, CancellationToken ct) =>
+        Act(id, () => onboarding.AddTaskAsync(id, team, title, dueDate, userId, ct, area, description), "Task added to the checklist.");
+
+    /// <summary>Phase 20: opens the personnel file of an onboarding completed before personnel files existed.</summary>
+    [HttpPost]
+    public async Task<IActionResult> OpenPersonnelFile(int id, CancellationToken ct)
+    {
+        var result = await onboarding.OpenPersonnelFileAsync(id, ct);
+        if (result.Succeeded)
+        {
+            Success("Personnel file opened.");
+            return RedirectToAction("Details", "PersonnelFiles", new { id = result.Value });
+        }
+        Error(string.Join(" ", result.Errors));
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    /// <summary>Phase 20: HR confirms a task someone else marked done.</summary>
+    [HttpPost]
+    public Task<IActionResult> VerifyTask(int id, int taskId, CancellationToken ct) =>
+        Act(id, () => onboarding.VerifyTaskAsync(taskId, ct), "Task verified.");
 
     [HttpPost]
     public Task<IActionResult> RemoveTask(int id, int taskId, CancellationToken ct) =>
@@ -110,9 +131,10 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     public Task<IActionResult> MarkVerified(int id, CancellationToken ct) =>
         Act(id, () => onboarding.MarkDocumentsVerifiedAsync(id, ct), "Documents verified. The HR Managers have been asked to approve.");
 
+    /// <param name="areas">Phase 20: the induction areas ticked on the form.</param>
     [HttpPost]
-    public Task<IActionResult> HrDecide(int id, bool approve, string? comments, CancellationToken ct) =>
-        Act(id, () => onboarding.HrDecideAsync(id, approve, comments, ct),
+    public Task<IActionResult> HrDecide(int id, bool approve, string? comments, InductionArea[]? areas, CancellationToken ct) =>
+        Act(id, () => onboarding.HrDecideAsync(id, approve, comments, ct, areas ?? []),
             approve ? "Approved. The induction task owners have been emailed." : "Returned for verification.");
 
     [HttpPost]

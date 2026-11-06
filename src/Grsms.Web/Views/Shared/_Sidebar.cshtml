@@ -17,6 +17,7 @@
     var canAdverts = (await Auth.AuthorizeAsync(User, Policies.Adverts)).Succeeded;
     var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
     var canSurveyResults = (await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded;
+    var canPersonnelFiles = (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded; // Phase 20
     var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
     var canRoles = (await Auth.AuthorizeAsync(User, Policies.SystemSettings)).Succeeded; // Super Admin; Admin read-only
     var canAtsSettings = canRoles; // Phase 15: Super Admin; Admin read-only
@@ -103,6 +104,13 @@
                 }
             </a>
         }
+        @if (canPersonnelFiles)
+        {
+            @* Phase 20 *@
+            <a class="nav-link @Active("PersonnelFiles")" asp-controller="PersonnelFiles" asp-action="Index">
+                <i class="fa-regular fa-folder-open"></i> Personnel files
+            </a>
+        }
         @if (canReports)
         {
             @* Phase 11 *@
@@ -146,6 +154,9 @@
             </a>
             <a class="nav-link @Active("Sites")" asp-controller="Sites" asp-action="Index">
                 <i class="fa-solid fa-location-dot"></i> Sites
+            </a>
+            <a class="nav-link @Active("InductionAreas")" asp-controller="InductionAreas" asp-action="Index">
+                <i class="fa-solid fa-list-check"></i> Induction areas
             </a>
         }
 

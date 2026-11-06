@@ -41,6 +41,16 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
             <a asp-controller="Hiring" asp-action="Case" asp-route-id="@Model.ApplicationId" class="btn btn-outline-secondary">Hiring case</a>
         }
         <a asp-action="Letter" asp-route-id="@Model.Id" class="btn btn-outline-secondary"><i class="fa-regular fa-file-lines me-1"></i>Letter preview</a>
+        @if (Model.PersonnelFileId is int pf)
+        {
+            <a asp-controller="PersonnelFiles" asp-action="Details" asp-route-id="@pf" class="btn btn-outline-secondary"><i class="fa-regular fa-folder-open me-1"></i>Personnel file</a>
+        }
+        else if (Model.Status == OnboardingStatus.Completed && Model.Documents is not null && (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded)
+        {
+            <form asp-action="OpenPersonnelFile" asp-route-id="@Model.Id" method="post">
+                <button type="submit" class="btn btn-outline-primary"><i class="fa-regular fa-folder-open me-1"></i>Open the personnel file</button>
+            </form>
+        }
         <a asp-action="Index" class="btn btn-outline-secondary">All onboarding</a>
     </div>
 </div>
@@ -97,24 +107,27 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         <div class="card glass mb-3">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Checklist</h2>
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Checklist and departmental induction</h2>
                     <span class="small text-body-secondary">@Model.TasksFinished of @Model.Tasks.Count finished</span>
                 </div>
                 <div class="progress mb-3" role="progressbar" aria-label="Checklist progress" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100" style="height: 6px">
                     <div class="progress-bar" style="width: @percent%"></div>
                 </div>
 
-                @foreach (var team in Model.Tasks.GroupBy(t => t.Team).OrderBy(g => g.Key))
+                @* Phase 20: grouped by induction area (HR, IT and the other areas), with the new employee's own department (its HOD) *@
+                @foreach (var team in Model.Tasks.GroupBy(t => t.Group).OrderBy(g => g.Min(t => t.Area is { } a ? (int)a : t.Team == OnboardingTeam.Department ? -1 : 99)))
                 {
-                    <h3 class="h6 mt-3">@team.Key.DisplayName()@(team.Key == OnboardingTeam.NewEmployee ? " (to bring on the first day; tick when received)" : "")</h3>
+                    <h3 class="h6 mt-3">@team.Key@(team.First().Team == OnboardingTeam.NewEmployee ? " (to bring on the first day; tick when received)" : "")</h3>
                     @foreach (var t in team)
                     {
                         <div class="border rounded-3 p-2 mb-2 small @(t.IsOverdue ? "border-danger" : "")">
                             <div class="d-flex justify-content-between gap-2">
                                 <div>
                                     <strong>@t.Title</strong>
+                                    @if (t.Description is not null) { <div>@t.Description</div> }
                                     <div class="text-body-secondary">
                                         @(t.AssignedTo ?? (t.Team == OnboardingTeam.NewEmployee ? "HR ticks when received" : "Unassigned"))
+                                        @if (t.AssignedAt is not null) { <span> · assigned @t.AssignedAt.Value.ToString("dd MMM")</span> }
                                         @if (t.DueDate is not null)
                                         {
                                             <span> · due @t.DueDate.Value.ToString("dd MMM")</span>
@@ -123,12 +136,22 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                                     </div>
                                     @if (t.CompletedBy is not null)
                                     {
-                                        <div class="text-body-secondary">@t.Status.DisplayName() by @t.CompletedBy, @t.CompletedAt?.ToString("dd MMM yyyy")</div>
+                                        <div class="text-body-secondary">@t.Status.DisplayName() by @t.CompletedBy, @t.CompletedAt?.ToString("dd MMM yyyy")
+                                            @if (t.VerifiedBy is not null) { <span>· verified by @t.VerifiedBy, @t.VerifiedAt?.ToString("dd MMM yyyy")</span> }
+                                            else { <span class="text-warning">· waiting for HR to verify</span> }
+                                        </div>
                                     }
                                     @if (t.Notes is not null) { <div class="mt-1">@t.Notes</div> }
                                 </div>
                                 <span class="badge rounded-pill @TaskCss(t.Status) align-self-start">@t.Status.DisplayName()</span>
                             </div>
+                            @if (t.CanVerify)
+                            {
+                                <form asp-action="VerifyTask" asp-route-id="@Model.Id" method="post" class="mt-2">
+                                    <input type="hidden" name="taskId" value="@t.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-check-double me-1"></i>Verify</button>
+                                </form>
+                            }
                             @if (t.CanUpdate)
                             {
                                 <form asp-action="UpdateTask" asp-route-id="@Model.Id" method="post" class="mt-2">
@@ -181,15 +204,21 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                         <h3 class="h6">Add a task</h3>
                         <div class="row g-2">
                             <div class="col-md-4">
-                                <select name="team" class="form-select form-select-sm" aria-label="Team">
-                                    @foreach (var tm in Enum.GetValues<OnboardingTeam>())
+                                @* Phase 20: an induction area, or (empty) the new employee's own department *@
+                                <input type="hidden" name="team" value="@OnboardingTeam.Department" />
+                                <select name="area" class="form-select form-select-sm" aria-label="Induction area">
+                                    <option value="">Own department (HOD)</option>
+                                    @foreach (var ar in Enum.GetValues<InductionArea>())
                                     {
-                                        <option value="@tm">@tm.DisplayName()</option>
+                                        <option value="@ar">@ar.DisplayName()</option>
                                     }
                                 </select>
                             </div>
                             <div class="col-md-8">
-                                <input name="title" class="form-control form-control-sm" maxlength="300" required placeholder="What needs doing" aria-label="Task" />
+                                <input name="title" class="form-control form-control-sm" maxlength="300" required placeholder="Task name" aria-label="Task" />
+                            </div>
+                            <div class="col-12">
+                                <input name="description" class="form-control form-control-sm" maxlength="2000" placeholder="Description (optional)" aria-label="Description" />
                             </div>
                             <div class="col-md-5">
                                 <select name="userId" class="form-select form-select-sm" aria-label="Responsible person">
@@ -281,7 +310,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                                     <button type="submit" class="btn btn-sm btn-success"><i class="fa-solid fa-check-double me-1"></i>All documents verified: send to the HR Manager</button>
                                 </form>
                             }
-                            else if (Model.VerifiedBlockedReason is not null && !Model.CanReturnToEmployee)
+                            else if (Model.VerifiedBlockedReason is not null)
                             {
                                 <p class="small text-body-secondary mb-0">@Model.VerifiedBlockedReason</p>
                             }
@@ -291,6 +320,19 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                             @if (Model.CanHrDecide && User.IsInRole(Roles.HrManager))
                             {
                                 <form asp-action="HrDecide" asp-route-id="@Model.Id" method="post">
+                                    @* Phase 20: which departmental induction areas apply to this new employee *@
+                                    <fieldset class="mb-3">
+                                        <legend class="form-label small mb-1">Departmental induction areas <span class="text-body-secondary">(their tasks are added on approval)</span></legend>
+                                        @foreach (var c in Model.InductionChoices)
+                                        {
+                                            <div class="form-check small">
+                                                <input class="form-check-input" type="checkbox" name="areas" value="@c.Area" id="area-@c.Area" checked="@c.Ticked" />
+                                                <label class="form-check-label" for="area-@c.Area">
+                                                    <strong>@c.Area.DisplayName()</strong> <span class="text-body-secondary">· @c.Owner · @string.Join(", ", c.Tasks)</span>
+                                                </label>
+                                            </div>
+                                        }
+                                    </fieldset>
                                     <label for="hrComments" class="form-label small">Comments <span class="text-body-secondary">(required to return)</span></label>
                                     <textarea id="hrComments" name="comments" class="form-control form-control-sm mb-2" rows="2" maxlength="2000"></textarea>
                                     <div class="d-flex gap-2">

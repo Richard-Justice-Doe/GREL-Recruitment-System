@@ -71,6 +71,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Onboarding.EmployeeDocument> EmployeeDocuments => Set<Domain.Onboarding.EmployeeDocument>();
     public DbSet<Domain.Onboarding.EmployeePersonalRecord> EmployeePersonalRecords => Set<Domain.Onboarding.EmployeePersonalRecord>();
     public DbSet<Domain.Onboarding.EmployeeDeclaration> EmployeeDeclarations => Set<Domain.Onboarding.EmployeeDeclaration>();
+    public DbSet<Domain.Onboarding.InductionAreaSetting> InductionAreaSettings => Set<Domain.Onboarding.InductionAreaSetting>();
+    public DbSet<Domain.Onboarding.PersonnelFileCategory> PersonnelFileCategories => Set<Domain.Onboarding.PersonnelFileCategory>();
+    public DbSet<Domain.Onboarding.PersonnelFile> PersonnelFiles => Set<Domain.Onboarding.PersonnelFile>();
+    public DbSet<Domain.Onboarding.PersonnelFileDocument> PersonnelFileDocuments => Set<Domain.Onboarding.PersonnelFileDocument>();
 
     // Phase 10: notifications, reminders and surveys
     public DbSet<Domain.Notifications.Notification> Notifications => Set<Domain.Notifications.Notification>();

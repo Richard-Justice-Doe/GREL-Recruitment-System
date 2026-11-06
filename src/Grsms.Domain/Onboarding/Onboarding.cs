@@ -182,12 +182,49 @@ public class OnboardingActionEntry : BaseEntity
     public DateTime ActionAt { get; set; }
 }
 
-/// <summary>One item on an onboarding checklist.</summary>
+/// <summary>
+/// Phase 20: the twelve induction areas of the GREL departmental induction. Each has an owner and default tasks on the
+/// Induction areas screen (<see cref="InductionAreaSetting"/>); an area without an owner falls to HR.
+/// </summary>
+public enum InductionArea
+{
+    [Display(Name = "Human Resource")] HumanResource,
+    [Display(Name = "Corporate Information Technology")] CorporateIt,
+    [Display(Name = "Corporate Procurement")] CorporateProcurement,
+    [Display(Name = "Corporate Supply Chain")] CorporateSupplyChain,
+    [Display(Name = "Corporate Finance")] CorporateFinance,
+    [Display(Name = "Factory Operations")] FactoryOperations,
+    [Display(Name = "TBU Operations")] TbuOperations,
+    [Display(Name = "Stores Operations")] StoresOperations,
+    [Display(Name = "Engineering")] Engineering,
+    [Display(Name = "Security")] Security,
+    [Display(Name = "Health & Safety")] HealthAndSafety,
+    [Display(Name = "Administration")] Administration
+}
+
+/// <summary>
+/// One onboarding / departmental induction task (the spec's "DepartmentalOnboardingTask"): who does it (the area's owner,
+/// the HOD for the new employee's own department, or HR), by when, when it was done and who verified it.
+/// </summary>
 public class OnboardingTask : BaseEntity
 {
     public int OnboardingRecordId { get; set; }
+
+    /// <summary>The older grouping (HR / department / IT / new employee); kept for every task, and derived from the area for new ones.</summary>
     public OnboardingTeam Team { get; set; }
+
+    /// <summary>Phase 20: the induction area, or null for the new employee's own department (its HOD's tasks) and older tasks.</summary>
+    public InductionArea? Area { get; set; }
+
+    /// <summary>"Task name".</summary>
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>Phase 20: what the task involves, if more than the title.</summary>
+    public string? Description { get; set; }
+
+    /// <summary>Phase 20: when the task was given to its current owner ("assigned date").</summary>
+    public DateTime? AssignedAt { get; set; }
+
     public DateOnly? DueDate { get; set; }
 
     /// <summary>The staff member responsible (null for the new employee's items, which HR ticks off).</summary>
@@ -197,5 +234,28 @@ public class OnboardingTask : BaseEntity
     public string? Notes { get; set; }
     public DateTime? CompletedAt { get; set; }
     public string? CompletedByUserId { get; set; }
+
+    /// <summary>Phase 20: HR's check that a task marked done really is done. A task done by HR itself counts as verified.</summary>
+    public DateTime? VerifiedAt { get; set; }
+    public string? VerifiedByUserId { get; set; }
+
     public int SortOrder { get; set; }
+}
+
+/// <summary>
+/// Phase 20: the settings of one induction area (one row per <see cref="InductionArea"/>, created on first use): who owns its
+/// tasks, whether HR ticks it by default when approving an onboarding, and its default tasks (one per line).
+/// </summary>
+public class InductionAreaSetting : BaseEntity
+{
+    public InductionArea Area { get; set; }
+
+    /// <summary>The person who receives this area's tasks; null = HR (the vacancy's recruiter).</summary>
+    public string? OwnerUserId { get; set; }
+
+    /// <summary>Ticked by default when the HR Manager approves an onboarding.</summary>
+    public bool IsDefault { get; set; }
+
+    /// <summary>The area's tasks, one per line; null = the built-in list in <see cref="OnboardingWorkflow.InductionTemplates"/>.</summary>
+    public string? Tasks { get; set; }
 }

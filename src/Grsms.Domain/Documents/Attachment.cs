@@ -54,7 +54,10 @@ public enum AttachmentCategory
     [Display(Name = "Cover letter")] CoverLetter,
 
     // Phase 18: a new employee's administrative-records document (the document type is on EmployeeDocument)
-    [Display(Name = "New-hire document")] NewHireDocument
+    [Display(Name = "New-hire document")] NewHireDocument,
+
+    // Phase 20: a document HR filed directly in a personnel file
+    [Display(Name = "Personnel file document")] PersonnelFileDocument
 }
 
 /// <summary>The values used in <see cref="Attachment.OwnerType"/>.</summary>
@@ -70,4 +73,7 @@ public static class AttachmentOwners
 
     /// <summary>Phase 18: a file of one new-hire document (EmployeeDocument).</summary>
     public const string EmployeeDocument = "EmployeeDocument";
+
+    /// <summary>Phase 20: a file HR added directly to an employee's personnel file (OwnerId = PersonnelFiles.Id).</summary>
+    public const string PersonnelFile = "PersonnelFile";
 }

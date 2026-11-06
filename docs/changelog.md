@@ -4,6 +4,18 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 6 November 2026: Phase 20, departmental induction and the electronic personnel file
+
+**Why:** stage 3 of GREL's onboarding → probation → confirmation request. Details in [Phase 20](phases.md#-phase-20-departmental-induction-and-the-electronic-personnel-file-6-november-2026).
+
+* **Domain:** `InductionArea` (12), `InductionAreaSetting`; `OnboardingTask` gets area, description, assigned date and verification; `PersonnelFile`, `PersonnelFileCategory` (7, seeded), `PersonnelFileDocument`; permission `personnel.view`.
+* **Application:** `InductionAreaService`, `PersonnelFileService`; `OnboardingService` adds the chosen areas' tasks on approval, task verification, opens the personnel file at activation.
+* **Web:** *Induction areas* screen, *Personnel files* (list, folders, letters, downloads, uploads), area checkboxes on approval, grouped and verifiable induction tasks.
+* **Database:** `database/21_phase20_induction_and_personnel_file.sql`, checked on MySQL 8.4 after scripts 19 and 20.
+* **Checked:** 168/168 tests.
+
+---
+
 ## 6 November 2026: Phase 19, Employee Personal Record Declaration
 
 **Why:** stage 2 of GREL's onboarding → probation → confirmation request. Details in [Phase 19](phases.md#-phase-19-employee-personal-record-declaration-6-november-2026).

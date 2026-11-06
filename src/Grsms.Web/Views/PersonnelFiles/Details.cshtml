@@ -1,0 +1,84 @@
+@* Phase 20: one personnel file: its seven folders and their documents (files download; letters open; records link to
+   where they are kept), and HR's upload form. *@
+@model PersonnelFileDetailsDto
+@{
+    ViewData["Title"] = $"Personnel file: {Model.EmployeeName}";
+    string Size(long? bytes) => bytes is not { } b ? "" : b >= 1024 * 1024 ? $"{b / 1024d / 1024d:0.0} MB" : $"{Math.Max(1, b / 1024)} KB";
+    string Icon(PersonnelDocumentKind k) => k switch
+    {
+        PersonnelDocumentKind.Letter => "fa-file-signature",
+        PersonnelDocumentKind.Record => "fa-id-card",
+        _ => "fa-file"
+    };
+}
+<div class="page-header">
+    <div>
+        <h1>@Model.EmployeeName</h1>
+        <p>Personnel file <strong>@Model.FileNumber</strong> · staff number @(Model.StaffNumber ?? "—") · @Model.JobTitle, @Model.DepartmentName · opened @Model.OpenedAt.ToString("dd MMM yyyy")</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="Onboarding" asp-action="Details" asp-route-id="@Model.OnboardingRecordId" class="btn btn-outline-secondary">The onboarding</a>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All files</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-8">
+        @foreach (var folder in Model.Folders)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-regular fa-folder me-1"></i>@folder.Name <span class="fw-normal">(@folder.Documents.Count)</span></h2>
+                    @if (folder.Documents.Count == 0)
+                    {
+                        <p class="small text-body-secondary mb-0">Empty.</p>
+                    }
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var d in folder.Documents)
+                        {
+                            <li class="d-flex align-items-start gap-2 py-1 border-bottom small">
+                                <i class="fa-regular @Icon(d.Kind) mt-1"></i>
+                                <div class="flex-grow-1 text-break">
+                                    @switch (d.Kind)
+                                    {
+                                        case PersonnelDocumentKind.File:
+                                            <a asp-action="Download" asp-route-id="@d.Id" class="fw-semibold text-decoration-none">@d.Title</a>
+                                            break;
+                                        case PersonnelDocumentKind.Letter:
+                                            <a asp-action="Letter" asp-route-id="@d.Id" class="fw-semibold text-decoration-none">@d.Title</a>
+                                            break;
+                                        default:
+                                            <a asp-controller="Onboarding" asp-action="PersonalRecord" asp-route-id="@Model.OnboardingRecordId" class="fw-semibold text-decoration-none">@d.Title</a>
+                                            break;
+                                    }
+                                    <div class="text-body-secondary">
+                                        @d.Kind.DisplayName() · @d.DocumentDate.ToString("dd MMM yyyy")@(d.SizeBytes is null ? "" : $" · {Size(d.SizeBytes)}")
+                                        · @(d.AddedBy is null ? "filed automatically" : $"filed by {d.AddedBy}")
+                                    </div>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="col-xl-4">
+        <div class="card glass">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Add a document</h2>
+                <form asp-action="Upload" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+                    <label for="categoryId" class="form-label small">Folder</label>
+                    <select id="categoryId" name="categoryId" class="form-select form-select-sm mb-2">
+                        @foreach (var f in Model.Folders) { <option value="@f.CategoryId">@f.Name</option> }
+                    </select>
+                    <label for="title" class="form-label small">Title <span class="text-body-secondary">(optional)</span></label>
+                    <input id="title" name="title" class="form-control form-control-sm mb-2" maxlength="200" />
+                    <input type="file" name="file" class="form-control form-control-sm mb-1" accept="@AttachmentService.AcceptList" required aria-label="File" />
+                    <div class="form-text mb-2">PDF, Word, Excel, PowerPoint or image. Stored on the server, never in a public folder.</div>
+                    <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload me-1"></i>File it</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

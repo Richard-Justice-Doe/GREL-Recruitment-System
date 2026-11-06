@@ -2,8 +2,24 @@ using Grsms.Domain.Onboarding;
 
 namespace Grsms.Application.Onboarding;
 
+/// <param name="CanVerify">Phase 20: HR may confirm that a task someone else marked done really is done.</param>
 public record OnboardingTaskDto(int Id, OnboardingTeam Team, string Title, DateOnly? DueDate, string? AssignedToUserId, string? AssignedTo,
-    OnboardingTaskStatus Status, string? Notes, DateTime? CompletedAt, string? CompletedBy, bool CanUpdate, bool IsOverdue);
+    OnboardingTaskStatus Status, string? Notes, DateTime? CompletedAt, string? CompletedBy, bool CanUpdate, bool IsOverdue)
+{
+    // Phase 20: departmental induction
+    public InductionArea? Area { get; init; }
+    public string? Description { get; init; }
+    public DateTime? AssignedAt { get; init; }
+    public DateTime? VerifiedAt { get; init; }
+    public string? VerifiedBy { get; init; }
+    public bool CanVerify { get; init; }
+
+    /// <summary>The heading the task is listed under: its induction area, or the older team.</summary>
+    public string Group => Area is { } a ? Common.EnumText.Label(a) : Team == OnboardingTeam.Department ? "Own department (HOD)" : Common.EnumText.Label(Team);
+}
+
+/// <summary>Phase 20: an induction area the HR Manager can tick when approving, with who would receive its tasks.</summary>
+public record InductionAreaChoiceDto(InductionArea Area, bool Ticked, string Owner, IReadOnlyList<string> Tasks);
 
 /// <summary>Everything about one onboarding, for the staff details page.</summary>
 public record OnboardingDetailsDto
@@ -72,6 +88,12 @@ public record OnboardingDetailsDto
     public bool CanCompleteInduction { get; init; }
     public string? InductionBlockedReason { get; init; }
     public bool CanActivate { get; init; }
+
+    /// <summary>Phase 20: the areas the HR Manager can tick when approving (empty unless they can decide now).</summary>
+    public IReadOnlyList<InductionAreaChoiceDto> InductionChoices { get; init; } = [];
+
+    /// <summary>Phase 20: the employee's personnel file, once opened (for people who may open it).</summary>
+    public int? PersonnelFileId { get; init; }
 }
 
 /// <summary>An accepted offer that has no onboarding yet (the "Waiting to start" tab).</summary>

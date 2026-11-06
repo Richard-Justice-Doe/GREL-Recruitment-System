@@ -450,6 +450,42 @@ Each list row has `Id` and `PersonalRecordId` (**FK → EmployeePersonalRecords*
 ### EmployeeDeclarations (immutable)
 `PersonalRecordId` (**FK**), `EmployeeUserId` (**FK → Users**), `DeclarationText` (*"I declare that the above information is accurate and correct to the best of my knowledge."*), `SignatureName` (the typed full name), `SignedAt`, `IpAddress`, `Snapshot` TEXT (the whole record as signed, JSON), `SnapshotSha256`, plus the standard columns. **Insert-only:** any attempt to change or delete a row (even a soft delete) is refused when saving. Signing again after a change adds a new row.
 
+## Phase 20 tables and columns (departmental induction and personnel file)
+
+### OnboardingTasks: new columns (the departmental induction tasks)
+| Column | Type | Rules |
+|---|---|---|
+| Area | VARCHAR(40) | the induction area: `HumanResource`, `CorporateIt`, `CorporateProcurement`, `CorporateSupplyChain`, `CorporateFinance`, `FactoryOperations`, `TbuOperations`, `StoresOperations`, `Engineering`, `Security`, `HealthAndSafety`, `Administration`; NULL for the new employee's own department (its HOD) |
+| Description | TEXT | optional |
+| AssignedAt | DATETIME(6) | when it was given to its current owner ("assigned date") |
+| VerifiedAt / VerifiedByUserId | DATETIME(6) / VARCHAR(255) **FK → Users** | HR's check that a task done by someone else was done; set at once when HR marks it done |
+
+The existing `Title` (task name), `DueDate`, `CompletedAt` (completed date), `AssignedToUserId` and `Status` (`Open`, `Done`, `NotNeeded`) complete the spec's *DepartmentalOnboardingTask*. The migration gives existing HR and IT tasks their area, sets `AssignedAt` to `CreatedAt`, and counts finished tasks as verified by whoever finished them.
+
+### InductionAreaSettings
+One row per area once it has been saved (**unique** `Area`): `OwnerUserId` (**FK → Users**, NULL = HR), `IsDefault` (ticked by default on approval), `Tasks` TEXT (one per line; NULL = the built-in list), plus the standard columns.
+
+### PersonnelFileCategories (seeded)
+`Id` (fixed), `Name`, `SortOrder`: 1 Recruitment Documents, 2 Employee Records, 3 Identification Records, 4 Compliance Records, 5 Onboarding Records, 6 Probation Records, 7 Generated Letters.
+
+### PersonnelFiles
+One per employee (**unique** `EmployeeUserId`, **FK → Users**): `FileNumber` VARCHAR(40) **unique** (e.g. `PF-2026-0001`), `EmployeeName`, `StaffNumber`, `JobTitle`, `DepartmentId` (**FK → Departments**), `OnboardingRecordId` (**FK → Onboardings**), `OpenedAt`, plus the standard columns.
+
+### PersonnelFileDocuments
+| Column | Type | Rules |
+|---|---|---|
+| PersonnelFileId / CategoryId | INT **FKs** | the file and its folder |
+| Title | VARCHAR(200) | |
+| Kind | VARCHAR(20) | `File` (an uploaded file), `Letter` (frozen HTML), `Record` (e.g. the signed declaration, kept in its own table) |
+| AttachmentId | INT **FK → Attachments** | for files: the stored path, name, type, size and SHA-256 are on the attachment (files are never copied) |
+| Content | TEXT | for letters: the letter as filed, built from encoded values and cleaned again before display |
+| SourceType / SourceId | VARCHAR(50) / INT | where it came from, e.g. (`Attachment`, 12), (`EmployeeDeclaration`, 3), (`AppointmentLetter`, 5); indexed so nothing is filed twice |
+| DocumentDate | DATETIME(6) | the date of the document itself |
+| AddedByUserId | VARCHAR(255) **FK → Users** | NULL when filed automatically |
+| + standard columns | | |
+
+Files HR adds directly are `Attachments` rows with `OwnerType = 'PersonnelFile'` and category `PersonnelFileDocument`.
+
 ## Phase 10 tables
 
 ### Notifications (the bell)
@@ -543,6 +579,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `18_qf8111_recruitment_request_form.sql` | QF-81-11 | No new tables. The QF-81-11 form fields on RecruitmentRequests (StaffCategory, PurposeOther, RequestDate, ProposedStartDate, PostDescription, EducationLevel, QualificationCategory, TrainingLevel, CertificateRequired, MinYearsExperience, ProfessionalExperience, DrivingLicence (`NotNeeded` by default), DrivingLicenceClass, Remarks; all optional, so existing requests are untouched) and `RequisitionNumber` (unique, NULL for older vacancies) on Vacancies. The one-time grant of the request permissions to Employees is made by GRSMS at start-up. |
 | `19_phase18_onboarding_workflow.sql` | 18 | OnboardingActions, EmployeeDocuments; `ExpectedCompletionDate`, `CompletedAt`, `Notes` on Onboardings and `Status` widened to 40. **Moves existing onboardings to the new stages** (in progress → Draft, Awaiting employee submission or Awaiting departmental induction, by letter state), sets the expected completion dates, and gives onboardings still waiting for the new employee their 16-document checklist. Checked on MySQL 8.4 against a copy of the development database. |
 | `20_phase19_personal_record_declaration.sql` | 19 | EmployeePersonalRecords, EmployeeLanguages, EmployeeBankAccounts, EmployeeSpouses, EmployeeChildren, EmployeeDependants, EmployeeEmergencyContacts, EmployeeBeneficiaries, EmployeeDeclarations. New tables only. Checked on MySQL 8.4 (with script 19) against a copy of the development database. |
+| `21_phase20_induction_and_personnel_file.sql` | 20 | InductionAreaSettings, PersonnelFileCategories (seeded with the 7 categories), PersonnelFiles, PersonnelFileDocuments; `Area`, `Description`, `AssignedAt`, `VerifiedAt`, `VerifiedByUserId` on OnboardingTasks, with existing tasks given their area and assigned date and finished ones counted as verified. The new permission `personnel.view` is added by GRSMS at start-up. Checked on MySQL 8.4 (after scripts 19 and 20) against a copy of the development database. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

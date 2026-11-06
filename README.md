@@ -178,6 +178,7 @@ dotnet test
 | [21 Production deployment](docs/21-production-deployment.md) | install on GREL's server, certificates, updates and rollback, backups and restore, monitoring, go-live checklist (for IT) |
 | [22 ATS screening](docs/22-ats-screening.md) | Phase 15: how the ATS reads CVs, scores and classifies, knockout questions, automatic rejections held for HR, the dashboard, ATS settings and the optional AI reader (non-technical) |
 | [23 System settings](docs/23-system-settings.md) | Phase 16: system settings (email server, Microsoft 365, workflow), email templates, backups and the audit monitor (non-technical) |
+| [24 Employee onboarding](docs/24-onboarding-module.md) | Phase 18: the eight-stage onboarding workflow, the new-hire documents (upload, verify, reject) and activation of the staff account (non-technical) |
 | [Phase log](docs/phases.md) | see what each phase delivered and what comes next |
 | [Change log](docs/changelog.md) | see work done between phases, with reasons and checks |
 

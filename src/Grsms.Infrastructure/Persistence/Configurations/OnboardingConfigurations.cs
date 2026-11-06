@@ -38,7 +38,9 @@ internal class OnboardingRecordConfiguration : IEntityTypeConfiguration<Onboardi
         b.Property(o => o.LetterAcknowledgedName).HasMaxLength(200);
         b.Property(o => o.LetterAcknowledgedIp).HasMaxLength(64);
         b.Property(o => o.CancelReason).HasColumnType("text");
-        b.Property(o => o.Status).HasConversion<string>().HasMaxLength(20);
+        b.Property(o => o.Status).HasConversion<string>().HasMaxLength(40); // Phase 18: the 8 workflow stages
+        b.Property(o => o.Notes).HasColumnType("text");
+        b.HasMany(o => o.Actions).WithOne().HasForeignKey(a => a.OnboardingRecordId).OnDelete(DeleteBehavior.Restrict);
         foreach (var p in new[] { nameof(OnboardingRecord.RequestingHodUserId), nameof(OnboardingRecord.EmployeeUserId),
                      nameof(OnboardingRecord.ContactPersonUserId), nameof(OnboardingRecord.LetterIssuedByUserId), nameof(OnboardingRecord.CreatedByUserId) })
             b.Property(p).HasMaxLength(255);
@@ -83,5 +85,49 @@ internal class OnboardingTaskConfiguration : IEntityTypeConfiguration<Onboarding
 
         b.HasIndex(t => new { t.OnboardingRecordId, t.SortOrder });
         b.HasIndex(t => new { t.AssignedToUserId, t.Status }); // "my onboarding tasks"
+    }
+}
+
+/// <summary>Phase 18: table "OnboardingActions": the onboarding's workflow history.</summary>
+internal class OnboardingActionEntryConfiguration : IEntityTypeConfiguration<OnboardingActionEntry>
+{
+    public void Configure(EntityTypeBuilder<OnboardingActionEntry> b)
+    {
+        b.ToTable("OnboardingActions");
+        b.ConfigureBase();
+        b.Property(a => a.Action).HasConversion<string>().HasMaxLength(40);
+        b.Property(a => a.FromStatus).HasConversion<string>().HasMaxLength(40);
+        b.Property(a => a.ToStatus).HasConversion<string>().HasMaxLength(40);
+        b.Property(a => a.ActorUserId).HasMaxLength(255).IsRequired();
+        b.Property(a => a.ActorName).HasMaxLength(200).IsRequired();
+        b.Property(a => a.Comments).HasColumnType("text");
+        b.HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.ActorUserId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(a => new { a.OnboardingRecordId, a.ActionAt });
+    }
+}
+
+/// <summary>
+/// Phase 18: table "EmployeeDocuments": the New Hire Administrative Records checklist, one row per document type per
+/// onboarding. The files are Attachments rows (OwnerType "EmployeeDocument").
+/// </summary>
+internal class EmployeeDocumentConfiguration : IEntityTypeConfiguration<EmployeeDocument>
+{
+    public void Configure(EntityTypeBuilder<EmployeeDocument> b)
+    {
+        b.ToTable("EmployeeDocuments");
+        b.ConfigureBase();
+        b.Property(d => d.DocumentType).HasConversion<string>().HasMaxLength(40);
+        b.Property(d => d.Status).HasConversion<string>().HasMaxLength(20);
+        b.Property(d => d.EmployeeUserId).HasMaxLength(255).IsRequired();
+        b.Property(d => d.VerifiedByUserId).HasMaxLength(255);
+        b.Property(d => d.NotApplicableReason).HasMaxLength(500);
+        b.Property(d => d.RejectionReason).HasMaxLength(1000);
+
+        b.HasOne<OnboardingRecord>().WithMany().HasForeignKey(d => d.OnboardingRecordId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<ApplicationUser>().WithMany().HasForeignKey(d => d.EmployeeUserId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<ApplicationUser>().WithMany().HasForeignKey(d => d.VerifiedByUserId).OnDelete(DeleteBehavior.Restrict);
+
+        b.HasIndex(d => new { d.OnboardingRecordId, d.DocumentType }).IsUnique(); // one row per document type
+        b.HasIndex(d => d.Status);                                                 // "documents awaiting verification"
     }
 }

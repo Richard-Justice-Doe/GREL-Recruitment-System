@@ -3,12 +3,51 @@ using Grsms.Domain.Common;
 
 namespace Grsms.Domain.Onboarding;
 
-// Module 9: appointment letters and onboarding.
+// Module 9: appointment letters and onboarding. Phase 18 (6 November 2026): the eight-stage onboarding workflow.
 
+/// <summary>
+/// The stage an onboarding has reached (its "current stage"). The order and the allowed moves are in
+/// <see cref="OnboardingWorkflow"/>. Stored as text, e.g. "AwaitingDocumentVerification".
+/// </summary>
 public enum OnboardingStatus
 {
-    [Display(Name = "In progress")] InProgress,
+    /// <summary>HR is preparing the onboarding (first-day details, appointment letter).</summary>
+    [Display(Name = "Draft")] Draft,
+
+    /// <summary>The letter is issued: the new employee signs it and uploads the new-hire documents.</summary>
+    [Display(Name = "Awaiting employee submission")] AwaitingEmployeeSubmission,
+
+    /// <summary>The new employee has submitted; HR verifies each document.</summary>
+    [Display(Name = "Awaiting document verification")] AwaitingDocumentVerification,
+
+    /// <summary>Documents verified; the HR Manager approves the new hire's records.</summary>
+    [Display(Name = "Awaiting HR approval")] AwaitingHrApproval,
+
+    /// <summary>Approved; the departments complete their induction tasks.</summary>
+    [Display(Name = "Awaiting departmental induction")] AwaitingDepartmentalInduction,
+
+    /// <summary>Induction done; HR records the staff number and activates the employee's staff account.</summary>
+    [Display(Name = "Awaiting activation")] AwaitingActivation,
+
+    /// <summary>The employee is active. Final.</summary>
     [Display(Name = "Completed")] Completed,
+
+    /// <summary>Stopped (e.g. the new employee did not report). Final.</summary>
+    [Display(Name = "Cancelled")] Cancelled
+}
+
+/// <summary>One line of an onboarding's history.</summary>
+public enum OnboardingAction
+{
+    [Display(Name = "Started")] Started,
+    [Display(Name = "Appointment letter issued")] LetterIssued,
+    [Display(Name = "Submitted by the new employee")] Submitted,
+    [Display(Name = "Returned to the new employee")] ReturnedToEmployee,
+    [Display(Name = "Documents verified")] DocumentsVerified,
+    [Display(Name = "Approved by HR")] HrApproved,
+    [Display(Name = "Returned for verification")] ReturnedForVerification,
+    [Display(Name = "Induction completed")] InductionCompleted,
+    [Display(Name = "Employee activated")] Activated,
     [Display(Name = "Cancelled")] Cancelled
 }
 
@@ -90,18 +129,57 @@ public class OnboardingRecord : BaseEntity
     public string? LetterAcknowledgedName { get; set; }
     public string? LetterAcknowledgedIp { get; set; }
 
-    // ---- Status
-    public OnboardingStatus Status { get; set; } = OnboardingStatus.InProgress;
+    // ---- Workflow (Phase 18)
+    /// <summary>The current stage of the onboarding workflow (see <see cref="OnboardingWorkflow"/>).</summary>
+    public OnboardingStatus Status { get; set; } = OnboardingStatus.Draft;
     public DateTime StatusChangedAt { get; set; }
     public string CreatedByUserId { get; set; } = string.Empty;
+
+    /// <summary>When the onboarding should be finished: by default <see cref="OnboardingWorkflow.ExpectedCompletionDays"/> after the start date.</summary>
+    public DateOnly? ExpectedCompletionDate { get; set; }
+
+    /// <summary>When the employee was activated (the onboarding reached Completed).</summary>
+    public DateTime? CompletedAt { get; set; }
+
+    /// <summary>HR's internal notes on this onboarding (not shown to the new employee).</summary>
+    public string? Notes { get; set; }
 
     /// <summary>Why the onboarding was cancelled (e.g. the new employee did not report).</summary>
     public string? CancelReason { get; set; }
 
     public Guid Version { get; set; } = Guid.NewGuid();
 
+    /// <summary>Every stage change, oldest first.</summary>
+    public ICollection<OnboardingActionEntry> Actions { get; set; } = new List<OnboardingActionEntry>();
+
     public bool LetterIssued => LetterIssuedAt is not null;
     public bool LetterAcknowledged => LetterAcknowledgedAt is not null;
+
+    /// <summary>Moves to <paramref name="newStatus"/> and records the step in the history.</summary>
+    public void RecordStep(OnboardingAction action, OnboardingStatus newStatus, string actorUserId, string actorName, string? comments, DateTime now)
+    {
+        Actions.Add(new OnboardingActionEntry
+        {
+            Action = action, FromStatus = Status, ToStatus = newStatus, ActorUserId = actorUserId, ActorName = actorName,
+            Comments = comments, ActionAt = now
+        });
+        if (newStatus != Status) StatusChangedAt = now;
+        Status = newStatus;
+        Version = Guid.NewGuid();
+    }
+}
+
+/// <summary>One line of an onboarding's history. Never edited.</summary>
+public class OnboardingActionEntry : BaseEntity
+{
+    public int OnboardingRecordId { get; set; }
+    public OnboardingAction Action { get; set; }
+    public OnboardingStatus FromStatus { get; set; }
+    public OnboardingStatus ToStatus { get; set; }
+    public string ActorUserId { get; set; } = string.Empty;
+    public string ActorName { get; set; } = string.Empty;
+    public string? Comments { get; set; }
+    public DateTime ActionAt { get; set; }
 }
 
 /// <summary>One item on an onboarding checklist.</summary>

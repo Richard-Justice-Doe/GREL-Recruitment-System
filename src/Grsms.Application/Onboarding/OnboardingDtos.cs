@@ -45,12 +45,30 @@ public record OnboardingDetailsDto
     public IReadOnlyList<OnboardingTaskDto> Tasks { get; init; } = [];
     public int TasksFinished => Tasks.Count(t => t.Status != OnboardingTaskStatus.Open);
 
-    /// <summary>HR: change first-day details, the staff number and the checklist; complete or cancel.</summary>
+    // ---- Phase 18: workflow
+    public DateOnly? ExpectedCompletionDate { get; init; }
+    public DateTime? CompletedAt { get; init; }
+    public string? Notes { get; init; }
+    public IReadOnlyList<OnboardingHistoryDto> History { get; init; } = [];
+
+    /// <summary>The New Hire Administrative Records checklist; null for people who may not see personal documents (e.g. the HOD).</summary>
+    public DocumentChecklistDto? Documents { get; init; }
+
+    /// <summary>HR: change first-day details, notes and the checklist; cancel.</summary>
     public bool CanManage { get; init; }
     public bool CanEditStartDate { get; init; }
     public bool CanIssueLetter { get; init; }
-    public bool CanComplete { get; init; }
-    public string? CompleteBlockedReason { get; init; }
+
+    /// <summary>HR may submit for the new employee (e.g. documents brought in on paper and scanned by HR).</summary>
+    public bool CanSubmitForEmployee { get; init; }
+    public bool CanReturnToEmployee { get; init; }
+    public bool CanMarkVerified { get; init; }
+    public string? VerifiedBlockedReason { get; init; }
+    public bool CanHrDecide { get; init; }
+    public string? HrDecisionBlockedReason { get; init; }
+    public bool CanCompleteInduction { get; init; }
+    public string? InductionBlockedReason { get; init; }
+    public bool CanActivate { get; init; }
 }
 
 /// <summary>An accepted offer that has no onboarding yet (the "Waiting to start" tab).</summary>
@@ -104,5 +122,34 @@ public record MyAppointmentDto(
     OnboardingStatus Status, IReadOnlyList<(string Item, bool Received)> ToBring)
 {
     public bool LetterReady => LetterIssuedAt is not null;
-    public bool CanSign => LetterReady && LetterSignedAt is null && Status == OnboardingStatus.InProgress;
+    public bool CanSign => LetterReady && LetterSignedAt is null && OnboardingWorkflow.IsActive(Status);
+}
+
+// ===================================================================== Phase 18: workflow history and new-hire documents
+
+public record OnboardingHistoryDto(OnboardingAction Action, OnboardingStatus FromStatus, OnboardingStatus ToStatus, string ActorName,
+    string? Comments, DateTime ActionAt);
+
+public record EmployeeDocumentFileDto(int AttachmentId, string FileName, long SizeBytes, DateTime UploadedAt);
+
+/// <summary>One line of the New Hire Administrative Records checklist.</summary>
+/// <param name="CanEdit">The current user may upload / remove files or declare it not applicable.</param>
+/// <param name="CanReview">The current user (HR) may verify or reject it now.</param>
+public record EmployeeDocumentDto(int Id, EmployeeDocumentType Type, bool IsRequired, EmployeeDocumentStatus Status, DateTime? SubmittedAt,
+    string? NotApplicableReason, DateTime? VerifiedAt, string? VerifiedBy, string? RejectionReason, IReadOnlyList<EmployeeDocumentFileDto> Files,
+    bool CanEdit, bool CanReview)
+{
+    /// <summary>"Not applicable" that HR has accepted.</summary>
+    public bool NotApplicableAccepted => Status == EmployeeDocumentStatus.NotApplicable && VerifiedAt is not null;
+}
+
+/// <summary>The whole checklist of one onboarding (for the new employee's portal and for HR).</summary>
+/// <param name="SubmitBlockedReason">Why it cannot be submitted to HR yet (null = it can).</param>
+public record DocumentChecklistDto(int OnboardingId, string OnboardingNumber, int ApplicationId, string EmployeeName, string JobTitle,
+    OnboardingStatus Stage, IReadOnlyList<EmployeeDocumentDto> Documents, bool LetterSigned, string? SubmitBlockedReason)
+{
+    public int Settled => Documents.Count(d => d.Status == EmployeeDocumentStatus.Verified || d.NotApplicableAccepted);
+    public int Rejected => Documents.Count(d => d.Status == EmployeeDocumentStatus.Rejected);
+    public int WaitingForHr => Documents.Count(d => d.Status == EmployeeDocumentStatus.Submitted ||
+                                                    (d.Status == EmployeeDocumentStatus.NotApplicable && d.VerifiedAt is null));
 }

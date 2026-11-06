@@ -379,13 +379,37 @@ Applications gain the status `OfferDeclined` and the history actions `CheckRecor
 | LetterTerms | TEXT | conditions of appointment |
 | LetterIssuedAt / LetterIssuedByUserId | DATETIME / **FK → Users** | |
 | LetterAcknowledgedAt / LetterAcknowledgedName / LetterAcknowledgedIp | DATETIME / VARCHAR(200) / VARCHAR(64) | the electronic signature: when, the name typed, from which address |
-| Status | VARCHAR(20) | `InProgress`, `Completed`, `Cancelled` |
+| Status | VARCHAR(40) | the current stage (Phase 18): `Draft`, `AwaitingEmployeeSubmission`, `AwaitingDocumentVerification`, `AwaitingHrApproval`, `AwaitingDepartmentalInduction`, `AwaitingActivation`, `Completed`, `Cancelled` (before Phase 18: `InProgress`, `Completed`, `Cancelled`) |
+| ExpectedCompletionDate / CompletedAt / Notes | DATE / DATETIME(6) / TEXT | Phase 18: start date + 30 days by default; when the employee was activated; HR's internal notes |
 | StatusChangedAt, CreatedByUserId (**FK**), CancelReason TEXT, Version | | |
 
 ### OnboardingTasks (the checklist)
 `OnboardingRecordId` (**FK → Onboardings**), `Team` (`HumanResources`, `Department`, `InformationTechnology`, `NewEmployee`), `Title` VARCHAR(300), `DueDate`, `AssignedToUserId` (FK → Users, empty for the new employee's items), `Status` (`Open`, `Done`, `NotNeeded`), `Notes` TEXT, `CompletedAt`, `CompletedByUserId` (FK), `SortOrder`, plus the standard columns. Index on `AssignedToUserId, Status` ("my onboarding tasks").
 
 Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `OnboardingCompleted`, `OnboardingCancelled`. The application stays **Hired** throughout.
+
+## Phase 18 tables (onboarding workflow and new-hire documents)
+
+### OnboardingActions (onboarding history)
+`OnboardingRecordId` (**FK → Onboardings**), `Action` (`Started`, `LetterIssued`, `Submitted`, `ReturnedToEmployee`, `DocumentsVerified`, `HrApproved`, `ReturnedForVerification`, `InductionCompleted`, `Activated`, `Cancelled`), `FromStatus` / `ToStatus` VARCHAR(40), `ActorUserId` (**FK → Users**), `ActorName` VARCHAR(200), `Comments` TEXT, `ActionAt`, plus the standard columns. Never edited. Index on `OnboardingRecordId, ActionAt`.
+
+### EmployeeDocuments (New Hire Administrative Records)
+One row per document per onboarding, created (`Pending`) when onboarding starts.
+
+| Column | Type | Rules |
+|---|---|---|
+| OnboardingRecordId | INT **FK → Onboardings** (RESTRICT) | unique together with DocumentType |
+| EmployeeUserId | VARCHAR(255) **FK → Users** | the new employee |
+| DocumentType | VARCHAR(40) | `ApplicationLetter`, `Cv`, `PassportPicture`, `RecommendationLetters`, `MedicalReport`, `PoliceClearance`, `SchoolCertificates`, `BirthCertificate`, `GhanaCard`, `SsnitCard`, `MarriageCertificate`, `ChildBirthCertificates`, `DependantPhotographs`, `BankConfirmationLetter`, `PassportBiodataPage`, `NonCitizenCard` |
+| IsRequired | TINYINT(1) | 0 for the five that may be "not applicable" |
+| Status | VARCHAR(20), indexed | `Pending`, `Submitted`, `Verified`, `Rejected`, `NotApplicable` |
+| SubmittedAt | DATETIME(6) | last upload (or "not applicable" declaration) |
+| NotApplicableReason | VARCHAR(500) | the new employee's reason |
+| VerifiedAt / VerifiedByUserId | DATETIME(6) / VARCHAR(255) **FK → Users** | who verified, accepted or rejected it, and when |
+| RejectionReason | VARCHAR(1000) | shown to the new employee |
+| + standard columns | | |
+
+**The files** are rows in `Attachments` with `OwnerType = 'EmployeeDocument'`, `OwnerId = EmployeeDocuments.Id` and category `NewHireDocument`: `OriginalFileName` (as uploaded), `StoredFileName` (the random path on the server, outside the web root), `ContentType`, `SizeBytes`, `Sha256` and `CreatedAt` (the upload date). A document can have several files. Only PDF, JPG and PNG are accepted for these, checked by extension and content.
 
 ## Phase 10 tables
 
@@ -478,6 +502,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `16_admin_role.sql` | — | The built-in **Admin** role (id `admin`). Its default permissions and the new permission `settings.view` are added by GRSMS at start-up. If someone already added a *custom* role called "Admin", rename it first (role names are unique). |
 | `17_phase16_system_settings.sql` | 16 | SystemSettings (values saved on the System settings screen; secrets encrypted) and EmailTemplates (reworded candidate emails). The new permissions `settings.manage` and `backups.manage` are added by GRSMS at start-up. |
 | `18_qf8111_recruitment_request_form.sql` | QF-81-11 | No new tables. The QF-81-11 form fields on RecruitmentRequests (StaffCategory, PurposeOther, RequestDate, ProposedStartDate, PostDescription, EducationLevel, QualificationCategory, TrainingLevel, CertificateRequired, MinYearsExperience, ProfessionalExperience, DrivingLicence (`NotNeeded` by default), DrivingLicenceClass, Remarks; all optional, so existing requests are untouched) and `RequisitionNumber` (unique, NULL for older vacancies) on Vacancies. The one-time grant of the request permissions to Employees is made by GRSMS at start-up. |
+| `19_phase18_onboarding_workflow.sql` | 18 | OnboardingActions, EmployeeDocuments; `ExpectedCompletionDate`, `CompletedAt`, `Notes` on Onboardings and `Status` widened to 40. **Moves existing onboardings to the new stages** (in progress → Draft, Awaiting employee submission or Awaiting departmental induction, by letter state), sets the expected completion dates, and gives onboardings still waiting for the new employee their 16-document checklist. Checked on MySQL 8.4 against a copy of the development database. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

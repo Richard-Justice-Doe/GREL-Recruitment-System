@@ -1,0 +1,59 @@
+@* Phase 18: the new employee's New Hire Administrative Records: upload each document (or mark an optional one not
+   applicable), then submit everything to HR. HR's comments on rejected documents are shown on each document. *@
+@model DocumentChecklistDto
+@{
+    ViewData["Title"] = "My new-hire documents";
+    int applicationId = ViewBag.ApplicationId;
+    var myTurn = Model.Stage == OnboardingStatus.AwaitingEmployeeSubmission;
+}
+
+<div class="page-header">
+    <div>
+        <h1>My new-hire documents</h1>
+        <p>@Model.JobTitle · onboarding @Model.OnboardingNumber · <strong>@Model.Stage.DisplayName()</strong></p>
+    </div>
+    <a asp-action="Details" asp-route-id="@applicationId" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>My application</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-8">
+        <div class="card glass">
+            <div class="card-body p-4">
+                @{
+                    ViewData["DocController"] = "MyApplications";
+                    ViewData["DocRouteId"] = applicationId;
+                }
+                <partial name="_EmployeeDocuments" model="Model" view-data="ViewData" />
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card glass @(Model.SubmitBlockedReason is null ? "border border-primary" : "")">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Submit to HR</h2>
+                @if (Model.SubmitBlockedReason is null)
+                {
+                    <p class="small">Everything is ready. HR will check each document against your originals on your first day.</p>
+                    <form asp-action="SubmitDocuments" asp-route-id="@applicationId" method="post">
+                        <button type="submit" class="btn btn-primary w-100" data-confirm="Send your documents to HR? You can change them only if HR sends them back.">
+                            <i class="fa-solid fa-paper-plane me-1"></i>Submit to HR
+                        </button>
+                    </form>
+                }
+                else if (myTurn || Model.Stage == OnboardingStatus.Draft)
+                {
+                    <p class="small mb-2">Before you can submit:</p>
+                    <p class="small text-body-secondary mb-0">@Model.SubmitBlockedReason</p>
+                    @if (!Model.LetterSigned && myTurn)
+                    {
+                        <a asp-action="Appointment" asp-route-id="@applicationId" class="btn btn-sm btn-outline-primary mt-2">Read and sign my appointment letter</a>
+                    }
+                }
+                else
+                {
+                    <p class="small text-body-secondary mb-0">Your documents are with HR (@Model.Stage.DisplayName().ToLowerInvariant()). We will email you if anything needs attention.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>

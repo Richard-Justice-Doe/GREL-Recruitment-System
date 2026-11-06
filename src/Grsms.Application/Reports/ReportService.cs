@@ -449,7 +449,7 @@ public class ReportService(
         var tasks = d.Tasks.GroupBy(t => t.OnboardingRecordId).ToDictionary(g => g.Key, g => g.ToList());
         int Done(int id) => (tasks.GetValueOrDefault(id) ?? []).Count(t => t.Status != OnboardingTaskStatus.Open);
         int Total(int id) => (tasks.GetValueOrDefault(id) ?? []).Count;
-        int Overdue(OnboardingRecord o) => o.Status != OnboardingStatus.InProgress ? 0 :
+        int Overdue(OnboardingRecord o) => !OnboardingWorkflow.IsActive(o.Status) ? 0 :
             (tasks.GetValueOrDefault(o.Id) ?? []).Count(t => t.Status == OnboardingTaskStatus.Open && t.DueDate < today);
 
         var rows = list.Select(o => new ReportRow([
@@ -465,9 +465,9 @@ public class ReportService(
             Kpis =
             [
                 new("Onboardings", list.Count.ToString(Gb)),
-                new("In progress", list.Count(o => o.Status == OnboardingStatus.InProgress).ToString(Gb)),
+                new("In progress", list.Count(o => OnboardingWorkflow.IsActive(o.Status)).ToString(Gb)),
                 new("Completed", list.Count(o => o.Status == OnboardingStatus.Completed).ToString(Gb)),
-                new("Letters not yet signed", list.Count(o => o.Status == OnboardingStatus.InProgress && !o.LetterAcknowledged).ToString(Gb)),
+                new("Letters not yet signed", list.Count(o => OnboardingWorkflow.IsActive(o.Status) && !o.LetterAcknowledged).ToString(Gb)),
                 new("Overdue checklist items", list.Sum(Overdue).ToString(Gb))
             ],
             Table = new ReportTable(

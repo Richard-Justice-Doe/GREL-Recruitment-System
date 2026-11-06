@@ -51,7 +51,10 @@ public enum AttachmentCategory
     // Phase 5: candidate documents
     [Display(Name = "CV")] Cv,
     [Display(Name = "Certificate")] Certificate,
-    [Display(Name = "Cover letter")] CoverLetter
+    [Display(Name = "Cover letter")] CoverLetter,
+
+    // Phase 18: a new employee's administrative-records document (the document type is on EmployeeDocument)
+    [Display(Name = "New-hire document")] NewHireDocument
 }
 
 /// <summary>The values used in <see cref="Attachment.OwnerType"/>.</summary>
@@ -64,4 +67,7 @@ public static class AttachmentOwners
 
     /// <summary>A job application (copies of the documents sent with it, frozen at the time of applying).</summary>
     public const string JobApplication = "JobApplication";
+
+    /// <summary>Phase 18: a file of one new-hire document (EmployeeDocument).</summary>
+    public const string EmployeeDocument = "EmployeeDocument";
 }

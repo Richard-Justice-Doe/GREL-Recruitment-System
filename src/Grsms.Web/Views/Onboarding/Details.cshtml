@@ -50,8 +50,36 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
     <div class="alert alert-secondary">Cancelled: @Model.CancelReason</div>
 }
 
+<div class="card glass mb-3">
+    <div class="card-body py-4">
+        <partial name="_OnboardingStepper" model="(Model.Status, Model.History.LastOrDefault(h => h.ToStatus == OnboardingStatus.Cancelled)?.FromStatus)" />
+        @if (OnboardingWorkflow.IsActive(Model.Status) && Model.ExpectedCompletionDate is { } expected)
+        {
+            <p class="text-center small text-body-secondary mb-0 mt-3">
+                Expected to be complete by <strong>@expected.ToString("dd MMM yyyy")</strong>@(expected < today ? " (overdue)" : "").
+            </p>
+        }
+        else if (Model.CompletedAt is { } done)
+        {
+            <p class="text-center small text-body-secondary mb-0 mt-3">Completed on @done.ToString("dd MMM yyyy"), staff number <strong>@Model.EmployeeNumber</strong>.</p>
+        }
+    </div>
+</div>
+
 <div class="row g-3">
     <div class="col-xl-7">
+        @* ---- Phase 18: New-hire documents (HR only: personal documents) *@
+        @if (Model.Documents is not null)
+        {
+            ViewData["DocController"] = "Onboarding";
+            ViewData["DocRouteId"] = Model.Id;
+            <div class="card glass mb-3 @(Model.Status == OnboardingStatus.AwaitingDocumentVerification ? "border border-primary" : "")">
+                <div class="card-body p-4">
+                    <partial name="_EmployeeDocuments" model="Model.Documents" view-data="ViewData" />
+                </div>
+            </div>
+        }
+
         @* ---- Checklist *@
         <div class="card glass mb-3">
             <div class="card-body p-4">
@@ -170,9 +198,130 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                 }
             </div>
         </div>
+
+        @* ---- Phase 18: history *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
+                <ul class="timeline">
+                    @foreach (var h in Model.History)
+                    {
+                        <li>
+                            <span class="tl-dot @(h.Action is OnboardingAction.Cancelled ? "danger" : h.Action is OnboardingAction.ReturnedToEmployee or OnboardingAction.ReturnedForVerification ? "warning" : "")"></span>
+                            <div><strong>@h.Action.DisplayName()</strong> by @h.ActorName</div>
+                            <div class="small text-body-secondary">
+                                @h.ActionAt.ToString("dd MMM yyyy HH:mm")
+                                @if (h.FromStatus != h.ToStatus) { <span> · @h.FromStatus.DisplayName() → @h.ToStatus.DisplayName()</span> }
+                            </div>
+                            @if (h.Comments is not null) { <div class="tl-comment small">@h.Comments</div> }
+                        </li>
+                    }
+                </ul>
+                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="OnboardingRecord" asp-route-entityId="@Model.Id" class="small">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
+                </a>
+            </div>
+        </div>
     </div>
 
     <div class="col-xl-5">
+        @* ---- Phase 18: the next step of the workflow *@
+        @if (Model.CanManage)
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Next step: @Model.Status.DisplayName()</h2>
+                    @switch (Model.Status)
+                    {
+                        case OnboardingStatus.Draft:
+                            <p class="small mb-0">An HR Manager issues the appointment letter below. That asks the new employee to sign it and upload the new-hire documents.</p>
+                            break;
+
+                        case OnboardingStatus.AwaitingEmployeeSubmission:
+                            <p class="small">Waiting for the new employee to sign the letter@(Model.LetterSignedAt is null ? "" : " (done)") and upload the documents, then submit.</p>
+                            @if (Model.CanSubmitForEmployee)
+                            {
+                                <form asp-action="Submit" asp-route-id="@Model.Id" method="post">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" data-confirm="Submit the documents for verification on the new employee's behalf?">Submit for the new employee</button>
+                                </form>
+                            }
+                            else if (Model.Documents?.SubmitBlockedReason is { } why)
+                            {
+                                <p class="small text-body-secondary mb-0">@why</p>
+                            }
+                            break;
+
+                        case OnboardingStatus.AwaitingDocumentVerification:
+                            <p class="small">Verify each document against the original (left), or reject it with the reason.</p>
+                            @if (Model.CanReturnToEmployee)
+                            {
+                                <form asp-action="ReturnToEmployee" asp-route-id="@Model.Id" method="post" class="mb-2">
+                                    <div class="input-group input-group-sm">
+                                        <input name="comments" class="form-control" maxlength="2000" placeholder="Message to the new employee (optional)" aria-label="Message to the new employee" />
+                                        <button type="submit" class="btn btn-outline-warning" data-confirm="Send the rejected documents back to the new employee?">Send rejected documents back</button>
+                                    </div>
+                                </form>
+                            }
+                            @if (Model.CanMarkVerified)
+                            {
+                                <form asp-action="MarkVerified" asp-route-id="@Model.Id" method="post">
+                                    <button type="submit" class="btn btn-sm btn-success"><i class="fa-solid fa-check-double me-1"></i>All documents verified: send to the HR Manager</button>
+                                </form>
+                            }
+                            else if (Model.VerifiedBlockedReason is not null && !Model.CanReturnToEmployee)
+                            {
+                                <p class="small text-body-secondary mb-0">@Model.VerifiedBlockedReason</p>
+                            }
+                            break;
+
+                        case OnboardingStatus.AwaitingHrApproval:
+                            @if (Model.CanHrDecide && User.IsInRole(Roles.HrManager))
+                            {
+                                <form asp-action="HrDecide" asp-route-id="@Model.Id" method="post">
+                                    <label for="hrComments" class="form-label small">Comments <span class="text-body-secondary">(required to return)</span></label>
+                                    <textarea id="hrComments" name="comments" class="form-control form-control-sm mb-2" rows="2" maxlength="2000"></textarea>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" name="approve" value="true" class="btn btn-sm btn-success"><i class="fa-solid fa-check me-1"></i>Approve: start the induction</button>
+                                        <button type="submit" name="approve" value="false" class="btn btn-sm btn-outline-warning">Return for verification</button>
+                                    </div>
+                                </form>
+                            }
+                            else
+                            {
+                                <p class="small text-body-secondary mb-0">@(Model.HrDecisionBlockedReason ?? "Waiting for an HR Manager to approve the onboarding.")</p>
+                            }
+                            break;
+
+                        case OnboardingStatus.AwaitingDepartmentalInduction:
+                            @if (Model.CanCompleteInduction)
+                            {
+                                <form asp-action="CompleteInduction" asp-route-id="@Model.Id" method="post">
+                                    <button type="submit" class="btn btn-sm btn-success"><i class="fa-solid fa-flag-checkered me-1"></i>Induction complete: ready to activate</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <p class="small text-body-secondary mb-0">@Model.InductionBlockedReason</p>
+                            }
+                            break;
+
+                        case OnboardingStatus.AwaitingActivation:
+                            <form asp-action="Activate" asp-route-id="@Model.Id" method="post">
+                                <label for="staffNumber" class="form-label small">Staff number (from payroll)</label>
+                                <div class="input-group input-group-sm">
+                                    <input id="staffNumber" name="staffNumber" class="form-control text-uppercase" maxlength="30" value="@Model.EmployeeNumber" required />
+                                    <button type="submit" class="btn btn-success" data-confirm="Activate @Model.EmployeeName as a GREL employee? Their account becomes a staff account.">
+                                        <i class="fa-solid fa-user-check me-1"></i>Activate the employee
+                                    </button>
+                                </div>
+                                <div class="form-text">Their GRSMS account becomes a staff account (Employee role, @Model.DepartmentName, @Model.SiteName).</div>
+                            </form>
+                            break;
+                    }
+                </div>
+            </div>
+        }
+
         @* ---- Appointment letter *@
         <div class="card glass mb-3 @(Model.CanIssueLetter && Model.LetterIssuedAt is null ? "border border-primary" : "")">
             <div class="card-body p-4">
@@ -265,22 +414,16 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
             </div>
         </div>
 
-        @* ---- Complete / cancel *@
+        @* ---- Notes and cancel (HR) *@
         @if (Model.CanManage)
         {
             <div class="card glass mb-3">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Finish</h2>
-                    @if (Model.CanComplete)
-                    {
-                        <form asp-action="Complete" asp-route-id="@Model.Id" method="post" class="mb-3">
-                            <button type="submit" class="btn btn-success" data-confirm="Mark the onboarding as completed?"><i class="fa-solid fa-flag-checkered me-1"></i>Complete onboarding</button>
-                        </form>
-                    }
-                    else
-                    {
-                        <p class="small text-body-secondary">@Model.CompleteBlockedReason</p>
-                    }
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">HR notes</h2>
+                    <form asp-action="SaveNotes" asp-route-id="@Model.Id" method="post" class="mb-3">
+                        <textarea name="notes" class="form-control form-control-sm mb-2" rows="3" maxlength="4000" aria-label="HR notes (not shown to the new employee)">@Model.Notes</textarea>
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Save notes</button>
+                    </form>
                     <form asp-action="Cancel" asp-route-id="@Model.Id" method="post">
                         <div class="input-group input-group-sm">
                             <input name="reason" class="form-control" maxlength="2000" required placeholder="Reason (e.g. did not report)" aria-label="Reason for cancelling" />

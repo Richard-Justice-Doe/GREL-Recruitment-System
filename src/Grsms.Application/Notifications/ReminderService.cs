@@ -93,7 +93,7 @@ public class ReminderService(
         }
 
         // ---------------------------------------------------------------- First day tomorrow
-        foreach (var o in await onboardings.ListAsync(o => o.Status == OnboardingStatus.InProgress && o.StartDate == tomorrow, ct))
+        foreach (var o in await onboardings.ListAsync(o => o.Status != OnboardingStatus.Completed && o.Status != OnboardingStatus.Cancelled && o.StartDate == tomorrow, ct))
         {
             if (!await notifications.ClaimReminderAsync($"first-day:{o.Id}:{o.StartDate:yyyyMMdd}", ct)) continue;
             var app = await applications.GetByIdAsync(o.JobApplicationId, ct);
@@ -109,7 +109,7 @@ public class ReminderService(
         }
 
         // ---------------------------------------------------------------- Onboarding items due tomorrow or overdue (one summary per owner per day)
-        var active = (await onboardings.ListAsync(o => o.Status == OnboardingStatus.InProgress, ct)).ToDictionary(o => o.Id);
+        var active = (await onboardings.ListAsync(o => o.Status != OnboardingStatus.Completed && o.Status != OnboardingStatus.Cancelled, ct)).ToDictionary(o => o.Id);
         if (active.Count > 0)
         {
             var ids = active.Keys.ToList();

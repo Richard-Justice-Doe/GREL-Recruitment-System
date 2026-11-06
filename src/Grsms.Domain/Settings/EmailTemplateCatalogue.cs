@@ -34,6 +34,11 @@ public static partial class EmailTemplateCatalogue
     public const string AccountCreatedMicrosoft = "account.created-microsoft";
     public const string AccountCreatedCandidate = "account.created-candidate";
 
+    // Phase 18: onboarding emails to the new employee
+    public const string OnboardingDocumentsRequested = "onboarding.documents-requested";
+    public const string OnboardingDocumentsReturned = "onboarding.documents-returned";
+    public const string OnboardingActivated = "onboarding.activated";
+
     private const string MyApplication = "View my application";
 
     public static readonly IReadOnlyList<EmailTemplateDefinition> All =
@@ -96,6 +101,20 @@ public static partial class EmailTemplateCatalogue
             "Welcome to the {{Organisation}} recruitment system",
             "Your GRSMS account was created when you first signed in with Microsoft 365 ({{SignInEmail}}).\n\nYour roles: {{Roles}}. If you need more access, for example to raise recruitment requests, ask HR.",
             ["SignInEmail", "Roles"], "Open GRSMS"),
+
+        // Phase 18 (6 November 2026): onboarding emails to the new employee.
+        new(OnboardingDocumentsRequested, "Onboarding: letter and documents", "When the HR Manager first issues the appointment letter",
+            "Your appointment letter and new-hire documents: {{JobTitle}}",
+            "Your appointment letter for the position of {{JobTitle}} is ready. Please read and sign it in your portal.\n\nPlease also upload your new-hire documents (Ghana Card, SSNIT card, certificates, medical report, police clearance, bank confirmation letter and the others listed), then click \"Submit to HR\". Your first day is {{StartDate}}.",
+            ["JobTitle", "StartDate"], "Open my onboarding"),
+        new(OnboardingDocumentsReturned, "Onboarding: documents need attention", "When HR sends rejected new-hire documents back to the new employee",
+            "Some of your documents need attention",
+            "HR has checked your new-hire documents. These need to be uploaded again:\n\n{{Documents}}\n\nPlease upload them and click \"Submit to HR\" again.",
+            ["Documents"], "Open my onboarding"),
+        new(OnboardingActivated, "Onboarding: staff account active", "When HR activates the new employee at the end of onboarding",
+            "Welcome to {{Organisation}}: your staff account is active",
+            "Your onboarding as {{JobTitle}} is complete and your GRSMS account is now a staff account. Your staff number is {{StaffNumber}}.\n\nWelcome to the team!",
+            ["JobTitle", "StaffNumber"], "Open GRSMS"),
     ];
 
     public static EmailTemplateDefinition? Find(string key) => All.FirstOrDefault(t => t.Key == key);

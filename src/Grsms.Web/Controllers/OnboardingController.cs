@@ -14,8 +14,11 @@ namespace Grsms.Web.Controllers;
 /// can be given to anyone (e.g. IT staff); what each person sees and may do is decided by <see cref="OnboardingService"/>.
 /// </summary>
 [Authorize(Policy = Policies.Staff)]
-public class OnboardingController(OnboardingService onboarding) : AppController
+public class OnboardingController(OnboardingService onboarding, DocumentVerificationService documents) : AppController
 {
+    /// <summary>Upload limit for document files, slightly above the file limit to allow for form overhead.</summary>
+    private const long UploadRequestLimitBytes = 25 * 1024 * 1024;
+
     /// <param name="filter">Tab "tasks" (my checklist items), "progress", "start" (accepted offers waiting) or "all", plus filters.</param>
     public async Task<IActionResult> Index([FromQuery] OnboardingFilter filter, CancellationToken ct)
     {
@@ -93,9 +96,72 @@ public class OnboardingController(OnboardingService onboarding) : AppController
     public Task<IActionResult> RemoveTask(int id, int taskId, CancellationToken ct) =>
         Act(id, () => onboarding.RemoveTaskAsync(taskId, ct), "Task removed.");
 
+    // ================================================================= Phase 18: workflow stages
+
     [HttpPost]
-    public Task<IActionResult> Complete(int id, CancellationToken ct) =>
-        Act(id, () => onboarding.CompleteAsync(id, ct), "Onboarding completed. Welcome aboard!");
+    public Task<IActionResult> Submit(int id, CancellationToken ct) =>
+        Act(id, () => onboarding.SubmitAsync(id, ct), "Submitted for document verification.");
+
+    [HttpPost]
+    public Task<IActionResult> ReturnToEmployee(int id, string? comments, CancellationToken ct) =>
+        Act(id, () => onboarding.ReturnToEmployeeAsync(id, comments, ct), "The rejected documents were sent back to the new employee, who has been emailed.");
+
+    [HttpPost]
+    public Task<IActionResult> MarkVerified(int id, CancellationToken ct) =>
+        Act(id, () => onboarding.MarkDocumentsVerifiedAsync(id, ct), "Documents verified. The HR Managers have been asked to approve.");
+
+    [HttpPost]
+    public Task<IActionResult> HrDecide(int id, bool approve, string? comments, CancellationToken ct) =>
+        Act(id, () => onboarding.HrDecideAsync(id, approve, comments, ct),
+            approve ? "Approved. The induction task owners have been emailed." : "Returned for verification.");
+
+    [HttpPost]
+    public Task<IActionResult> CompleteInduction(int id, CancellationToken ct) =>
+        Act(id, () => onboarding.CompleteInductionAsync(id, ct), "Induction complete. Next: activate the employee with their staff number.");
+
+    [HttpPost]
+    public Task<IActionResult> Activate(int id, string? staffNumber, CancellationToken ct) =>
+        Act(id, () => onboarding.ActivateAsync(id, staffNumber, ct), "Employee activated: the account is now a GREL staff account. Welcome aboard!");
+
+    [HttpPost]
+    public Task<IActionResult> SaveNotes(int id, string? notes, CancellationToken ct) =>
+        Act(id, () => onboarding.SaveNotesAsync(id, notes, ct), "Notes saved.");
+
+    // ================================================================= Phase 18: new-hire documents (HR)
+
+    [HttpPost]
+    [RequestSizeLimit(UploadRequestLimitBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimitBytes)]
+    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0) return await Act(id, () => Task.FromResult(Result.Failure("Choose a file to upload.")), "");
+        await using var stream = file.OpenReadStream();
+        var result = await documents.UploadAsync(documentId, file.FileName, stream, ct);
+        return await Act(id, () => Task.FromResult(result.Succeeded ? Result.Success() : Result.Failure([.. result.Errors])), $"'{Path.GetFileName(file.FileName)}' uploaded.");
+    }
+
+    [HttpPost]
+    public Task<IActionResult> RemoveDocumentFile(int id, int documentId, int attachmentId, CancellationToken ct) =>
+        Act(id, () => documents.RemoveFileAsync(documentId, attachmentId, ct), "File removed.");
+
+    [HttpPost]
+    public Task<IActionResult> MarkNotApplicable(int id, int documentId, string? reason, CancellationToken ct) =>
+        Act(id, () => documents.MarkNotApplicableAsync(documentId, reason, ct), "Marked not applicable.");
+
+    [HttpPost]
+    public Task<IActionResult> VerifyDocument(int id, int documentId, CancellationToken ct) =>
+        Act(id, () => documents.VerifyAsync(documentId, ct), "Document verified.");
+
+    [HttpPost]
+    public Task<IActionResult> RejectDocument(int id, int documentId, string? reason, CancellationToken ct) =>
+        Act(id, () => documents.RejectAsync(documentId, reason, ct), "Document rejected. Send the rejected documents back to the new employee when you have checked them all.");
+
+    /// <summary>Downloads a new-hire document file (HR only; always as a download, never shown inside the site).</summary>
+    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, CancellationToken ct)
+    {
+        var file = await documents.OpenFileAsync(documentId, attachmentId, ct);
+        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+    }
 
     [HttpPost]
     public Task<IActionResult> Cancel(int id, string? reason, CancellationToken ct) =>

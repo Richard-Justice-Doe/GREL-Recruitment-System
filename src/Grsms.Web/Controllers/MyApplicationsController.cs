@@ -12,7 +12,7 @@ namespace Grsms.Web.Controllers;
 [Authorize]
 public class MyApplicationsController(ApplicationService applications, Application.Interviews.InterviewService interviews,
     Application.Hiring.HiringService hiring, Application.Onboarding.OnboardingService onboarding,
-    Application.Surveys.SurveyService surveys) : AppController
+    Application.Surveys.SurveyService surveys, Application.Onboarding.DocumentVerificationService documents) : AppController
 {
     public async Task<IActionResult> Index(CancellationToken ct) => View(await applications.MyApplicationsAsync(ct));
 
@@ -53,6 +53,71 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         }
         Error(string.Join(" ", result.Errors));
         return RedirectToAction(nameof(Appointment), new { id });
+    }
+
+    // ================================================================= Phase 18: my new-hire documents
+    // "id" is always the application id; every rule (my own documents, my turn) is checked by DocumentVerificationService.
+
+    private const long DocumentUploadLimitBytes = 25 * 1024 * 1024;
+
+    /// <summary>My New Hire Administrative Records checklist: upload, mark not applicable, submit to HR.</summary>
+    public async Task<IActionResult> Documents(int id, CancellationToken ct)
+    {
+        var model = await documents.GetMineAsync(id, ct);
+        if (model is null) return NotFound();
+        ViewBag.ApplicationId = id;
+        return View(model);
+    }
+
+    [HttpPost]
+    [RequestSizeLimit(DocumentUploadLimitBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = DocumentUploadLimitBytes)]
+    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0) Error("Choose a file to upload.");
+        else
+        {
+            await using var stream = file.OpenReadStream();
+            var result = await documents.UploadAsync(documentId, file.FileName, stream, ct);
+            if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded.");
+            else Error(string.Join(" ", result.Errors));
+        }
+        return RedirectToAction(nameof(Documents), new { id });
+    }
+
+    [HttpPost]
+    public Task<IActionResult> RemoveDocumentFile(int id, int documentId, int attachmentId, CancellationToken ct) =>
+        DocumentAct(id, () => documents.RemoveFileAsync(documentId, attachmentId, ct), "File removed.");
+
+    [HttpPost]
+    public Task<IActionResult> MarkNotApplicable(int id, int documentId, string? reason, CancellationToken ct) =>
+        DocumentAct(id, () => documents.MarkNotApplicableAsync(documentId, reason, ct), "Marked not applicable.");
+
+    /// <summary>Submit my signed letter and documents to HR for verification.</summary>
+    [HttpPost]
+    public async Task<IActionResult> SubmitDocuments(int id, CancellationToken ct)
+    {
+        var mine = await documents.GetMineAsync(id, ct);
+        if (mine is null) return NotFound();
+        var result = await onboarding.SubmitAsync(mine.OnboardingId, ct);
+        if (result.Succeeded) Success("Thank you! Your documents have been sent to HR for verification. We will email you if anything needs attention.");
+        else Error(string.Join(" ", result.Errors));
+        return RedirectToAction(nameof(Documents), new { id });
+    }
+
+    /// <summary>Downloads one of my own document files.</summary>
+    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, CancellationToken ct)
+    {
+        var file = await documents.OpenFileAsync(documentId, attachmentId, ct);
+        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+    }
+
+    private async Task<IActionResult> DocumentAct(int id, Func<Task<Application.Common.Result>> action, string successMessage)
+    {
+        var result = await action();
+        if (result.Succeeded) Success(successMessage);
+        else Error(string.Join(" ", result.Errors));
+        return RedirectToAction(nameof(Documents), new { id });
     }
 
     /// <param name="id">The advert number, e.g. ADV-2026-0001.</param>

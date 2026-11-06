@@ -4,6 +4,19 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 6 November 2026: Phase 18, onboarding workflow and new-hire documents
+
+**Why:** stage 1 of GREL's onboarding → probation → confirmation request (decisions: extend the Phase 9 onboarding; 12 induction areas; HTML letters; four committed stages). Details in [Phase 18](phases.md#-phase-18-onboarding-workflow-and-new-hire-documents-6-november-2026) and the [user guide](24-onboarding-module.md).
+
+* **Domain:** `OnboardingStatus` is now the eight stages; `OnboardingActionEntry` history; `EmployeeDocument` with 16 types; `OnboardingWorkflow` rules; three email templates.
+* **Application:** `OnboardingService` stage moves (submit, return, verified, HR decision, induction complete, activate, notes); new `DocumentVerificationService`; `IEmployeeAccounts`; reminders and reports use "active" instead of "in progress".
+* **Infrastructure:** `EmployeeAccounts` (Identity), EF configuration, migration `Phase18_OnboardingWorkflow` (moves existing onboardings to the new stages).
+* **Web:** onboarding page (stepper, next step, documents, history, notes), portal page *My new-hire documents*, shared `_EmployeeDocuments` partial.
+* **Database:** `database/19_phase18_onboarding_workflow.sql`, run on MySQL 8.4 against a throwaway copy of the development database.
+* **Checked:** 156/156 tests.
+
+---
+
 ## 5 November 2026 (19:40): Digital QF-81-11 Recruitment Request Form
 
 **Why:** GREL asked for a digital version of form QF-81-11 with a three-stage approval (Department Head → HR Manager → MD) and conversion of the approved request into a job vacancy. Recorded as [Phase 17](phases.md#-phase-17-digital-qf-81-11-recruitment-request-form-5-november-2026), with the decisions taken (department staff raise and their HOD reviews; the Recruitment Officer stage removed).

@@ -1567,6 +1567,166 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("SentReminders", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Onboarding.EmployeeDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("EmployeeUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("NotApplicableReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("OnboardingRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("VerifiedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("VerifiedByUserId");
+
+                    b.HasIndex("OnboardingRecordId", "DocumentType")
+                        .IsUnique();
+
+                    b.ToTable("EmployeeDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingActionEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<DateTime>("ActionAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("ActorUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("OnboardingRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("OnboardingRecordId", "ActionAt");
+
+                    b.ToTable("OnboardingActions", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingRecord", b =>
                 {
                     b.Property<int>("Id")
@@ -1575,6 +1735,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("CancelReason")
                         .HasColumnType("text");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("ContactPersonUserId")
                         .HasMaxLength(255)
@@ -1619,6 +1782,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<DateTime?>("ExpectedCompletionDate")
+                        .HasColumnType("date");
+
                     b.Property<string>("FirstDayNotes")
                         .HasColumnType("text");
 
@@ -1662,6 +1828,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -1691,8 +1860,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
 
                     b.Property<DateTime>("StatusChangedAt")
                         .HasColumnType("datetime(6)");
@@ -4155,6 +4324,41 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Onboarding.EmployeeDocument", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Onboarding.OnboardingRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnboardingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("VerifiedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingActionEntry", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Onboarding.OnboardingRecord", null)
+                        .WithMany("Actions")
+                        .HasForeignKey("OnboardingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingRecord", b =>
                 {
                     b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
@@ -4551,6 +4755,11 @@ namespace Grsms.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Grsms.Domain.Interviews.Scorecard", b =>
                 {
                     b.Navigation("Ratings");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingRecord", b =>
+                {
+                    b.Navigation("Actions");
                 });
 
             modelBuilder.Entity("Grsms.Domain.Organization.Department", b =>

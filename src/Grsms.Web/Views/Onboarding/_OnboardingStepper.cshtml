@@ -1,0 +1,38 @@
+@* Phase 18: the onboarding stages as a progress stepper (same look as the recruitment request stepper).
+   A cancelled onboarding shows a red cross at the stage where it stopped. *@
+@model (OnboardingStatus Status, OnboardingStatus? StoppedAt)
+@{
+    var labels = new Dictionary<OnboardingStatus, string>
+    {
+        [OnboardingStatus.Draft] = "Draft",
+        [OnboardingStatus.AwaitingEmployeeSubmission] = "Employee submission",
+        [OnboardingStatus.AwaitingDocumentVerification] = "Document verification",
+        [OnboardingStatus.AwaitingHrApproval] = "HR approval",
+        [OnboardingStatus.AwaitingDepartmentalInduction] = "Departmental induction",
+        [OnboardingStatus.AwaitingActivation] = "Activation",
+        [OnboardingStatus.Completed] = "Completed"
+    };
+    var stages = OnboardingWorkflow.Stages;
+    var stopped = Model.Status == OnboardingStatus.Cancelled;
+    var current = stages.ToList().IndexOf(stopped ? Model.StoppedAt ?? OnboardingStatus.Draft : Model.Status);
+    var finished = Model.Status == OnboardingStatus.Completed;
+}
+<ol class="stepper" aria-label="Onboarding progress">
+    @for (var i = 0; i < stages.Count; i++)
+    {
+        var state = i < current || (finished && i == current) ? "done"
+                  : i == current ? (stopped ? "stopped" : "current")
+                  : "todo";
+        <li class="step step-@state" aria-current="@(state == "current" ? "step" : null)">
+            <span class="step-dot">
+                @switch (state)
+                {
+                    case "done": <i class="fa-solid fa-check"></i> break;
+                    case "stopped": <i class="fa-solid fa-xmark"></i> break;
+                    default: @(i + 1) break;
+                }
+            </span>
+            <span class="step-label">@labels[stages[i]]</span>
+        </li>
+    }
+</ol>

@@ -12,7 +12,8 @@ namespace Grsms.Web.Controllers;
 [Authorize]
 public class MyApplicationsController(ApplicationService applications, Application.Interviews.InterviewService interviews,
     Application.Hiring.HiringService hiring, Application.Onboarding.OnboardingService onboarding,
-    Application.Surveys.SurveyService surveys, Application.Onboarding.DocumentVerificationService documents) : AppController
+    Application.Surveys.SurveyService surveys, Application.Onboarding.DocumentVerificationService documents,
+    Application.Onboarding.PersonalRecordService personalRecords) : AppController
 {
     public async Task<IActionResult> Index(CancellationToken ct) => View(await applications.MyApplicationsAsync(ct));
 
@@ -110,6 +111,43 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     {
         var file = await documents.OpenFileAsync(documentId, attachmentId, ct);
         return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+    }
+
+    // ================================================================= Phase 19: my personal record declaration
+
+    public async Task<IActionResult> PersonalRecord(int id, CancellationToken ct)
+    {
+        var model = await personalRecords.GetMineAsync(id, ct);
+        return model is null ? NotFound() : View(model);
+    }
+
+    /// <summary>Saves the whole form. On a problem, the page is shown again with what was typed and every error.</summary>
+    [HttpPost]
+    public async Task<IActionResult> PersonalRecord(int id, Application.Onboarding.PersonalRecordForm form, CancellationToken ct)
+    {
+        var result = await personalRecords.SaveAsync(id, form, ct);
+        if (result.Succeeded)
+        {
+            Success("Personal record saved. Now read the declaration at the top and sign it.");
+            return RedirectToAction(nameof(PersonalRecord), new { id });
+        }
+        var model = await personalRecords.GetMineAsync(id, ct);
+        if (model is null) return NotFound();
+        AddErrors(result);
+        return View(model with { Form = form });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SignPersonalRecord(int id, string? fullName, bool confirm, CancellationToken ct)
+    {
+        var result = await personalRecords.SignAsync(id, fullName, confirm, ct);
+        if (result.Succeeded)
+        {
+            Success("Thank you. Your personal record is signed.");
+            return RedirectToAction(nameof(Documents), new { id });
+        }
+        Error(string.Join(" ", result.Errors));
+        return RedirectToAction(nameof(PersonalRecord), new { id });
     }
 
     private async Task<IActionResult> DocumentAct(int id, Func<Task<Application.Common.Result>> action, string successMessage)

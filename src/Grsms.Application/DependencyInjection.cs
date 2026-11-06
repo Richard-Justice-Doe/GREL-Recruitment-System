@@ -62,6 +62,7 @@ public static class DependencyInjection
         // Phase 9: appointment letters and onboarding
         services.AddScoped<Onboarding.OnboardingService>();
         services.AddScoped<Onboarding.DocumentVerificationService>(); // Phase 18
+        services.AddScoped<Onboarding.PersonalRecordService>(); // Phase 19
 
         // Phase 10: reminders and surveys (notifications themselves are stored by Infrastructure)
         services.AddScoped<Notifications.ReminderService>();

@@ -4,6 +4,19 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 6 November 2026: Phase 19, Employee Personal Record Declaration
+
+**Why:** stage 2 of GREL's onboarding → probation → confirmation request. Details in [Phase 19](phases.md#-phase-19-employee-personal-record-declaration-6-november-2026).
+
+* **Domain:** `EmployeePersonalRecord` and its seven lists, immutable `EmployeeDeclaration`.
+* **Application:** `PersonalRecordService` (every rule, incl. beneficiaries = 100%); submitting needs the signed record; HR may send back with a message.
+* **Infrastructure:** `PersonalRecordRepository`, EF configuration, the audit interceptor refuses changes to declarations, migration `Phase19_PersonalRecordDeclaration`.
+* **Web:** *My personal record* (portal), HR read-only view, `_PersonalRecordView`, `js/repeater.js`.
+* **Database:** `database/20_phase19_personal_record_declaration.sql` (new tables only), checked on MySQL 8.4 with script 19.
+* **Checked:** 161/161 tests.
+
+---
+
 ## 6 November 2026: Phase 18, onboarding workflow and new-hire documents
 
 **Why:** stage 1 of GREL's onboarding → probation → confirmation request (decisions: extend the Phase 9 onboarding; 12 induction areas; HTML letters; four committed stages). Details in [Phase 18](phases.md#-phase-18-onboarding-workflow-and-new-hire-documents-6-november-2026) and the [user guide](24-onboarding-module.md).

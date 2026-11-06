@@ -411,6 +411,45 @@ One row per document per onboarding, created (`Pending`) when onboarding starts.
 
 **The files** are rows in `Attachments` with `OwnerType = 'EmployeeDocument'`, `OwnerId = EmployeeDocuments.Id` and category `NewHireDocument`: `OriginalFileName` (as uploaded), `StoredFileName` (the random path on the server, outside the web root), `ContentType`, `SizeBytes`, `Sha256` and `CreatedAt` (the upload date). A document can have several files. Only PDF, JPG and PNG are accepted for these, checked by extension and content.
 
+## Phase 19 tables (Employee Personal Record Declaration)
+
+Only the new employee and HR can read these (family, bank, health and beneficiary details).
+
+### EmployeePersonalRecords
+One per onboarding (unique `OnboardingRecordId`, **FK → Onboardings**), `EmployeeUserId` (**FK → Users**). Name, staff number, department, position and service date are **not** repeated here: they come from the onboarding.
+
+| Column | Type | Rules |
+|---|---|---|
+| Qualification | VARCHAR(200) | optional |
+| SsnitNumber | VARCHAR(30) | required to save, upper-case |
+| DateOfBirth | DATE | required; age 15-75 (the age is calculated, not stored) |
+| ResidentialAddress / HomeTown | VARCHAR(500) / VARCHAR(100) | required |
+| Region | VARCHAR(20) | Ghana's 16 regions or `OutsideGhana` |
+| Tribe / Religion | VARCHAR(100) | optional |
+| Email / MobileNumber | VARCHAR(256) / VARCHAR(30) | the mobile number is required and must be a usable phone number |
+| HasDisability / DisabilityDetails | TINYINT(1) / TEXT | details required when there is a disability |
+| VisibleMarks | VARCHAR(500) | optional |
+| NextOfKinName, NextOfKinTelephone, NextOfKinRelationship, NextOfKinDateOfBirth, NextOfKinAddress | | name, relationship and telephone required |
+| DeclaredAt / CurrentDeclarationId | DATETIME(6) / INT | when the current version was signed and which declaration row; both cleared by any change |
+| Version | CHAR(36) | concurrency token |
+| + standard columns | | |
+
+### The lists (replaced as a whole on every save; rows removed are deleted and recorded in the audit trail)
+| Table | Columns | Rules |
+|---|---|---|
+| EmployeeLanguages | `Language` VARCHAR(60), `Proficiency` (`VeryFluent`, `Fluent`, `Passable`) | at least one; each language once |
+| EmployeeBankAccounts | `BankName`, `Branch` VARCHAR(100), `AccountNumber` VARCHAR(40), `IsPrimary` | at least one; **exactly one primary** |
+| EmployeeSpouses | `FullName`, `Occupation`, `DateOfBirth`, `Address`, `Telephone` | optional, up to 4 |
+| EmployeeChildren | `FullName`, `Gender` (`Male`, `Female`), `DateOfBirth`, `PlaceOfBirth`, `CurrentResidence` | any number |
+| EmployeeDependants | `FullName`, `Relationship`, `Age` (0-120) | any number |
+| EmployeeEmergencyContacts | `Name`, `Relationship`, `Telephone1`, `Telephone2` | 1 to 3 |
+| EmployeeBeneficiaries | `Name`, `Relationship`, `DateOfBirth`, `Percentage` DECIMAL(5,2) | at least one; each > 0; **the total must be exactly 100.00**, checked by the application before anything is saved |
+
+Each list row has `Id` and `PersonalRecordId` (**FK → EmployeePersonalRecords**, CASCADE).
+
+### EmployeeDeclarations (immutable)
+`PersonalRecordId` (**FK**), `EmployeeUserId` (**FK → Users**), `DeclarationText` (*"I declare that the above information is accurate and correct to the best of my knowledge."*), `SignatureName` (the typed full name), `SignedAt`, `IpAddress`, `Snapshot` TEXT (the whole record as signed, JSON), `SnapshotSha256`, plus the standard columns. **Insert-only:** any attempt to change or delete a row (even a soft delete) is refused when saving. Signing again after a change adds a new row.
+
 ## Phase 10 tables
 
 ### Notifications (the bell)
@@ -503,6 +542,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `17_phase16_system_settings.sql` | 16 | SystemSettings (values saved on the System settings screen; secrets encrypted) and EmailTemplates (reworded candidate emails). The new permissions `settings.manage` and `backups.manage` are added by GRSMS at start-up. |
 | `18_qf8111_recruitment_request_form.sql` | QF-81-11 | No new tables. The QF-81-11 form fields on RecruitmentRequests (StaffCategory, PurposeOther, RequestDate, ProposedStartDate, PostDescription, EducationLevel, QualificationCategory, TrainingLevel, CertificateRequired, MinYearsExperience, ProfessionalExperience, DrivingLicence (`NotNeeded` by default), DrivingLicenceClass, Remarks; all optional, so existing requests are untouched) and `RequisitionNumber` (unique, NULL for older vacancies) on Vacancies. The one-time grant of the request permissions to Employees is made by GRSMS at start-up. |
 | `19_phase18_onboarding_workflow.sql` | 18 | OnboardingActions, EmployeeDocuments; `ExpectedCompletionDate`, `CompletedAt`, `Notes` on Onboardings and `Status` widened to 40. **Moves existing onboardings to the new stages** (in progress → Draft, Awaiting employee submission or Awaiting departmental induction, by letter state), sets the expected completion dates, and gives onboardings still waiting for the new employee their 16-document checklist. Checked on MySQL 8.4 against a copy of the development database. |
+| `20_phase19_personal_record_declaration.sql` | 19 | EmployeePersonalRecords, EmployeeLanguages, EmployeeBankAccounts, EmployeeSpouses, EmployeeChildren, EmployeeDependants, EmployeeEmergencyContacts, EmployeeBeneficiaries, EmployeeDeclarations. New tables only. Checked on MySQL 8.4 (with script 19) against a copy of the development database. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

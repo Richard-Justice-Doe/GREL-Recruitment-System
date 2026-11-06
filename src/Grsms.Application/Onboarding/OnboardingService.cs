@@ -253,12 +253,13 @@ public class OnboardingService(
             Notes = hr ? o.Notes : null,
             History = steps,
             Documents = hr ? await documentService.GetForHrAsync(o.Id, ct) : null,
+            PersonalRecordSigned = hr ? await documentService.PersonalRecordSignedAsync(o.Id, ct) : null,
             CanManage = manage,
             CanEditStartDate = manage && !o.LetterAcknowledged,
             CanIssueLetter = me.IsInRole(Roles.HrManager) && !own && OnboardingWorkflow.LetterMayBeIssued(o.Status) && !o.LetterAcknowledged,
-            CanSubmitForEmployee = hr && DocumentVerificationService.SubmitProblem(o, docs) is null,
-            CanReturnToEmployee = hr && o.Status == OnboardingStatus.AwaitingDocumentVerification &&
-                                  docs.Any(d => d.Status == EmployeeDocumentStatus.Rejected),
+            CanSubmitForEmployee = hr && DocumentVerificationService.SubmitProblem(o, docs, await documentService.PersonalRecordSignedAsync(o.Id, ct)) is null,
+            CanReturnToEmployee = hr && o.Status == OnboardingStatus.AwaitingDocumentVerification,
+
             CanMarkVerified = hr && o.Status == OnboardingStatus.AwaitingDocumentVerification && verifiedBlocked is null,
             VerifiedBlockedReason = hr && o.Status == OnboardingStatus.AwaitingDocumentVerification ? verifiedBlocked : null,
             CanHrDecide = hr && o.Status == OnboardingStatus.AwaitingHrApproval && hrDecisionBlocked is null,
@@ -508,7 +509,8 @@ public class OnboardingService(
         if (o is null) return Result.Failure("Onboarding not found.");
         var own = o.EmployeeUserId == me.UserId;
         if (!own && !IsHr) return Result.Failure("Onboarding not found.");
-        if (DocumentVerificationService.SubmitProblem(o, await documentService.LoadAsync(o.Id, ct)) is { } problem) return Result.Failure(problem);
+        if (DocumentVerificationService.SubmitProblem(o, await documentService.LoadAsync(o.Id, ct), await documentService.PersonalRecordSignedAsync(o.Id, ct)) is { } problem)
+            return Result.Failure(problem);
 
         var now = DateTime.UtcNow;
         o.RecordStep(OnboardingAction.Submitted, OnboardingStatus.AwaitingDocumentVerification, MyId, own ? o.EmployeeName : scope.UserName,
@@ -530,8 +532,10 @@ public class OnboardingService(
         if (o is null) return Result.Failure(error!);
         if (o.Status != OnboardingStatus.AwaitingDocumentVerification) return Result.Failure("Documents can be sent back only while HR is verifying them.");
         var rejected = (await documentService.LoadAsync(o.Id, ct)).Where(d => d.Status == EmployeeDocumentStatus.Rejected).ToList();
-        if (rejected.Count == 0) return Result.Failure("Reject at least one document first, with the reason.");
         comments = Clean(comments);
+        // Phase 19: HR may also send it back to correct the personal record, with a message, when no document was rejected.
+        if (rejected.Count == 0 && (comments is null || comments.Length < 5))
+            return Result.Failure("Reject at least one document, or write what the new employee must correct (e.g. in the personal record).");
         if (comments?.Length > 2000) return Result.Failure("Keep the comments under 2,000 characters.");
 
         o.RecordStep(OnboardingAction.ReturnedToEmployee, OnboardingStatus.AwaitingEmployeeSubmission, MyId, scope.UserName,

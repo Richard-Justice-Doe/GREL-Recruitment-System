@@ -414,6 +414,29 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 
 **Not tested here:** the pages in a real browser (they were exercised as HTML by the web tests).
 
+## ✅ Phase 19: Employee Personal Record Declaration (6 November 2026)
+
+**Asked for** (stage 2 of the onboarding → probation → confirmation extension): the whole GREL Employee Personal Record Declaration form: employee information (name, staff number, department, position, qualification, SSNIT number, service date, date of birth, age, residential address, home town, region, tribe, religion, email, mobile, disability, visible marks), languages with proficiency, bank accounts, spouse, children, dependants, next of kin, emergency contact, beneficiaries that must total 100% (no save otherwise, checked in the Application layer), and a signed declaration storing the name, date and IP as an immutable record.
+
+**Delivered** ([user guide](24-onboarding-module.md#your-personal-record-employee-personal-record-declaration))
+* **Domain** (`PersonalRecord.cs`): `EmployeePersonalRecord` (one per onboarding) with `EmployeeLanguage`, `EmployeeBankAccount`, `EmployeeSpouse`, `EmployeeChild`, `EmployeeDependant`, `EmployeeEmergencyContact`, `EmployeeBeneficiary`; next of kin on the record; `EmployeeDeclaration`; enums for the 16 regions, proficiency and gender.
+* **`PersonalRecordService`**: all the form's rules in one place (required fields, usable phone numbers, at least one language / bank account / emergency contact / beneficiary, exactly one primary bank account, beneficiaries exactly 100%, dates not in the future), all-or-nothing saves, blank rows ignored; signing by typing the full name with a confirmation tick.
+* **The declaration** is immutable: each signature is a new `EmployeeDeclarations` row with the name, time, IP address, a JSON snapshot of everything declared and its SHA-256. The audit interceptor refuses any update or delete of one. Changing the record clears the signature, so it must be signed again.
+* **Workflow:** submitting to HR now needs the signed personal record (letter → personal record → documents). HR can send the onboarding back to correct the personal record with a message, even when no document was rejected.
+* **Screens:** *My personal record* in the portal (add/remove rows with a small self-hosted `repeater.js`, which also shows the running beneficiary total; without JavaScript one blank row per list); HR's read-only, printable view from the onboarding page; a shared `_PersonalRecordView`.
+* Migration `Phase19_PersonalRecordDeclaration`, script `database/20_phase19_personal_record_declaration.sql` (nine new tables). New `PersonalRecordServiceTests`; the onboarding web journeys now fill in and sign the record through the real page: **161 tests**.
+
+**Decisions recorded**
+* **Name, staff number, department, position and service date are not typed again**: they come from the onboarding (and the staff number from activation), so they can't disagree. Age is calculated from the date of birth, not stored.
+* **Next of kin is one person** (on the record); **emergency contacts are 1 to 3** and **spouses up to 4**; children and dependants are unlimited (up to 30 rows per list).
+* **The lists are replaced as a whole on each save** (like a vacancy's requirements); the audit trail keeps every row added or removed.
+* **Every signature is kept.** A new signature never overwrites an old one, so what was declared on any date can be shown and proved (fingerprint).
+* **Only the employee and HR see it**, like the new-hire documents. The employee can change it only while the onboarding is with them.
+
+**Checked:** 161/161 tests. Scripts 19 and 20 applied together on MySQL 8.4 to a throwaway copy of the development database (then dropped).
+
+**Not tested here:** the add/remove-row buttons and the running total in a real browser (the page and its posted rows were exercised by the web tests).
+
 ## 🎉 All 13 original phases delivered
 Next steps are GREL's: work through the [go-live checklist](21-production-deployment.md#8-go-live-checklist), then gather users' feedback for improvements.
 

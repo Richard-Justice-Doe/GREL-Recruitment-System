@@ -29,7 +29,8 @@ public class DocumentVerificationService(
     AttachmentService files,
     IUserDirectory users,
     IUnitOfWork unitOfWork,
-    ICurrentUserService me)
+    ICurrentUserService me,
+    IRepository<EmployeePersonalRecord> personalRecords)
 {
     private string MyId => me.UserId ?? throw new InvalidOperationException("No signed-in user.");
     private bool IsHr => OnboardingWorkflow.HrRoles.Any(me.IsInRole);
@@ -81,15 +82,16 @@ public class DocumentVerificationService(
                 canReview && d.Status is EmployeeDocumentStatus.Submitted or EmployeeDocumentStatus.NotApplicable && !IsSettled(d)));
         }
         return new DocumentChecklistDto(o.Id, o.Number, o.JobApplicationId, o.EmployeeName, o.JobTitle, o.Status, dtos, o.LetterAcknowledged,
-            SubmitProblem(o, list));
+            SubmitProblem(o, list, await PersonalRecordSignedAsync(o.Id, ct)));
     }
 
     /// <summary>Why the onboarding cannot be submitted to HR yet, or null when it can (used by <see cref="OnboardingService"/>).</summary>
-    public static string? SubmitProblem(OnboardingRecord o, IReadOnlyCollection<EmployeeDocument> list)
+    public static string? SubmitProblem(OnboardingRecord o, IReadOnlyCollection<EmployeeDocument> list, bool personalRecordSigned)
     {
         if (o.Status != OnboardingStatus.AwaitingEmployeeSubmission)
             return o.Status == OnboardingStatus.Draft ? "HR has not issued the appointment letter yet." : "The documents have already been submitted.";
         if (!o.LetterAcknowledged) return "Sign the appointment letter first.";
+        if (!personalRecordSigned) return "Fill in your personal record and sign the declaration.";
         var missing = list.Where(d => !OnboardingWorkflow.ReadyToSubmit(d.Status)).Select(d => EnumText.Label(d.DocumentType)).ToList();
         return missing.Count == 0 ? null
             : $"Upload {(missing.Count == 1 ? "this document" : "these documents")} (or, where allowed, mark it not applicable): {string.Join(", ", missing)}.";
@@ -103,6 +105,10 @@ public class DocumentVerificationService(
         var open = list.Count(d => !IsSettled(d));
         return open > 0 ? $"{open} document(s) still need to be verified." : null;
     }
+
+    /// <summary>Phase 19: true when the personal record exists and its current version is signed.</summary>
+    public async Task<bool> PersonalRecordSignedAsync(int onboardingId, CancellationToken ct = default) =>
+        (await personalRecords.ListAsync(r => r.OnboardingRecordId == onboardingId, ct)).FirstOrDefault()?.DeclaredAt is not null;
 
     public Task<IReadOnlyList<EmployeeDocument>> LoadAsync(int onboardingId, CancellationToken ct = default) =>
         LoadSortedAsync(onboardingId, ct);

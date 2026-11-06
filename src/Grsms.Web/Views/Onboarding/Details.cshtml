@@ -68,6 +68,19 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
 
 <div class="row g-3">
     <div class="col-xl-7">
+        @* ---- Phase 19: the personal record declaration (HR only) *@
+        @if (Model.PersonalRecordSigned is bool prSigned)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h2 class="h6 text-uppercase text-body-secondary mb-1">Personal record declaration</h2>
+                        <span class="badge rounded-pill @(prSigned ? "badge-soft-success" : "badge-soft-warning")">@(prSigned ? "Signed" : "Not signed yet")</span>
+                    </div>
+                    <a asp-action="PersonalRecord" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary"><i class="fa-regular fa-id-card me-1"></i>Open the personal record</a>
+                </div>
+            </div>
+        }
         @* ---- Phase 18: New-hire documents (HR only: personal documents) *@
         @if (Model.Documents is not null)
         {
@@ -257,8 +270,8 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                             {
                                 <form asp-action="ReturnToEmployee" asp-route-id="@Model.Id" method="post" class="mb-2">
                                     <div class="input-group input-group-sm">
-                                        <input name="comments" class="form-control" maxlength="2000" placeholder="Message to the new employee (optional)" aria-label="Message to the new employee" />
-                                        <button type="submit" class="btn btn-outline-warning" data-confirm="Send the rejected documents back to the new employee?">Send rejected documents back</button>
+                                        <input name="comments" class="form-control" maxlength="2000" placeholder="Message (required if no document was rejected)" aria-label="Message to the new employee" />
+                                        <button type="submit" class="btn btn-outline-warning" data-confirm="Send the onboarding back to the new employee to correct?">Send back to the new employee</button>
                                     </div>
                                 </form>
                             }

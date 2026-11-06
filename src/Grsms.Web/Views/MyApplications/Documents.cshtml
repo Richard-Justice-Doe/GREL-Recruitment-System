@@ -31,6 +31,11 @@
         <div class="card glass @(Model.SubmitBlockedReason is null ? "border border-primary" : "")">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Submit to HR</h2>
+                <ol class="small ps-3">
+                    <li>Sign your <a asp-action="Appointment" asp-route-id="@applicationId">appointment letter</a>@(Model.LetterSigned ? " ✓" : "")</li>
+                    <li>Fill in and sign your <a asp-action="PersonalRecord" asp-route-id="@applicationId">personal record</a></li>
+                    <li>Upload the documents on this page</li>
+                </ol>
                 @if (Model.SubmitBlockedReason is null)
                 {
                     <p class="small">Everything is ready. HR will check each document against your originals on your first day.</p>

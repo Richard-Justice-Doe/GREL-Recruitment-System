@@ -182,6 +182,30 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
             Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
         }
         Assert.All(await DocumentsAsync(onboardingId), d => Assert.True(OnboardingWorkflow.ReadyToSubmit(d.Status)));
+
+        // Phase 19: the Personal Record Declaration, filled in and signed on its page (rows posted with their ".Index" keys).
+        var recordPage = $"/MyApplications/PersonalRecord/{c.ApplicationId}";
+        var form = await employee.GetStringAsync(recordPage);
+        Assert.Contains("Beneficiaries", form);
+        Assert.Contains("repeater.js", form);
+        Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(recordPage, recordPage, new()
+        {
+            ["SsnitNumber"] = "C987654321098", ["DateOfBirth"] = Today.AddYears(-31).ToString("yyyy-MM-dd"), ["ResidentialAddress"] = "Kwesimintsim, Takoradi",
+            ["HomeTown"] = "Elmina", ["Region"] = "Central", ["MobileNumber"] = "0244000111",
+            ["NextOfKinName"] = "Yaw Mensah", ["NextOfKinRelationship"] = "Father", ["NextOfKinTelephone"] = "0208000222",
+            ["Languages.Index"] = "0", ["Languages[0].Language"] = "English", ["Languages[0].Proficiency"] = "VeryFluent",
+            ["BankAccounts.Index"] = "0", ["BankAccounts[0].BankName"] = "Absa", ["BankAccounts[0].Branch"] = "Takoradi", ["BankAccounts[0].AccountNumber"] = "0331001",
+            ["EmergencyContacts.Index"] = "0", ["EmergencyContacts[0].Name"] = "Yaw Mensah", ["EmergencyContacts[0].Relationship"] = "Father",
+            ["EmergencyContacts[0].Telephone1"] = "0208000222",
+            ["Beneficiaries.Index"] = "k7", ["Beneficiaries[k7].Name"] = "Yaw Mensah", ["Beneficiaries[k7].Relationship"] = "Father",
+            ["Beneficiaries[k7].Percentage"] = "100"
+        })).StatusCode);
+        var fullName = await Db(db => db.Users.Where(u => u.Id == c.Candidate).Select(u => u.FullName).SingleAsync());
+        Assert.Contains(PersonalRecordServiceText, await employee.GetStringAsync(recordPage));
+        Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(recordPage, $"/MyApplications/SignPersonalRecord/{c.ApplicationId}",
+            new() { ["fullName"] = fullName, ["confirm"] = "true" })).StatusCode);
+        Assert.NotNull(await Db(db => db.EmployeePersonalRecords.Where(r => r.OnboardingRecordId == onboardingId).Select(r => r.DeclaredAt).SingleAsync()));
+
         Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(page, $"/MyApplications/SubmitDocuments/{c.ApplicationId}", new())).StatusCode);
         Assert.Contains("Your documents are with HR", await employee.GetStringAsync(page));
         return employee;
@@ -192,6 +216,8 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         foreach (var d in docs)
             Assert.Equal(HttpStatusCode.Redirect, (await hr.PostFormAsync(url, $"/Onboarding/VerifyDocument/{id}", new() { ["documentId"] = d.Id.ToString() })).StatusCode);
     }
+
+    private static readonly string PersonalRecordServiceText = System.Net.WebUtility.HtmlEncode(Application.Onboarding.PersonalRecordService.DeclarationText);
 
     private Task<OnboardingStatus> StageAsync(int id) => Db(db => db.Onboardings.Where(o => o.Id == id).Select(o => o.Status).SingleAsync());
 
@@ -305,7 +331,7 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         var medical = (await DocumentsAsync(id)).Single(d => d.DocumentType == EmployeeDocumentType.MedicalReport);
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/RejectDocument/{id}",
             new() { ["documentId"] = medical.Id.ToString(), ["reason"] = "Not signed by the doctor." })).StatusCode);
-        Assert.Contains("Send rejected documents back", await recruiter.GetStringAsync(url));
+        Assert.Contains("Send back to the new employee", await recruiter.GetStringAsync(url));
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/ReturnToEmployee/{id}", new())).StatusCode);
         Assert.Equal(OnboardingStatus.AwaitingEmployeeSubmission, await StageAsync(id));
 

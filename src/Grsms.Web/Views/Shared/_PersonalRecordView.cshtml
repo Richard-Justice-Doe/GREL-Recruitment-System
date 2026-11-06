@@ -1,0 +1,107 @@
+@* Phase 19: the Employee Personal Record Declaration, read-only: for HR (Onboarding → Personal record) and for the
+   new employee once it is with HR. Shows the signature history (every signature is kept, with a fingerprint of what was signed). *@
+@model PersonalRecordPageDto
+@{
+    var f = Model.Form;
+    string Or(string? s) => string.IsNullOrWhiteSpace(s) ? "—" : s;
+    string D(DateOnly? d) => d?.ToString("dd MMM yyyy") ?? "—";
+}
+@if (!Model.Saved)
+{
+    <div class="alert alert-secondary small">The personal record has not been filled in yet.</div>
+    return;
+}
+<div class="card glass mb-3">
+    <div class="card-body p-4">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Employee information</h2>
+        <dl class="details-grid small mb-0">
+            <dt>Employee name</dt><dd>@Model.EmployeeName</dd>
+            <dt>Staff number</dt><dd>@Or(Model.StaffNumber)</dd>
+            <dt>Department</dt><dd>@Model.DepartmentName</dd>
+            <dt>Position</dt><dd>@Model.Position</dd>
+            <dt>Qualification</dt><dd>@Or(f.Qualification)</dd>
+            <dt>SSNIT number</dt><dd>@Or(f.SsnitNumber)</dd>
+            <dt>Service date</dt><dd>@Model.ServiceDate.ToString("dd MMM yyyy")</dd>
+            <dt>Date of birth</dt><dd>@D(f.DateOfBirth)@(Model.Age is int age ? $" (age {age})" : "")</dd>
+            <dt>Residential address</dt><dd style="white-space: pre-wrap">@Or(f.ResidentialAddress)</dd>
+            <dt>Home town / region</dt><dd>@Or(f.HomeTown)@(f.Region is { } r ? $", {r.DisplayName()}" : "")</dd>
+            <dt>Tribe / religion</dt><dd>@Or(f.Tribe) / @Or(f.Religion)</dd>
+            <dt>Email / mobile</dt><dd>@Or(f.Email) / @Or(f.MobileNumber)</dd>
+            <dt>Disability</dt><dd>@(f.HasDisability ? f.DisabilityDetails : "None declared")</dd>
+            <dt>Visible marks</dt><dd>@Or(f.VisibleMarks)</dd>
+            <dt>Languages</dt><dd>@(f.Languages.Count == 0 ? "—" : string.Join(", ", f.Languages.Select(l => $"{l.Language} ({l.Proficiency?.DisplayName()})")))</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="card glass h-100"><div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Bank accounts</h2>
+            <ul class="list-unstyled small mb-0">
+                @foreach (var b in f.BankAccounts) { <li>@b.BankName, @b.Branch · <code>@b.AccountNumber</code>@(b.IsPrimary ? " (primary)" : "")</li> }
+            </ul>
+            <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-3">Next of kin</h2>
+            <p class="small mb-0">@Or(f.NextOfKinName) (@Or(f.NextOfKinRelationship)) · @Or(f.NextOfKinTelephone) · born @D(f.NextOfKinDateOfBirth)<br />@Or(f.NextOfKinAddress)</p>
+            <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-3">Emergency contacts</h2>
+            <ul class="list-unstyled small mb-0">
+                @foreach (var e in f.EmergencyContacts) { <li>@e.Name (@e.Relationship) · @e.Telephone1@(e.Telephone2 is null ? "" : $" / {e.Telephone2}")</li> }
+            </ul>
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card glass h-100"><div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Family</h2>
+            <p class="small fw-semibold mb-1">Spouse</p>
+            @if (f.Spouses.Count == 0) { <p class="small text-body-secondary">None declared.</p> }
+            <ul class="list-unstyled small">
+                @foreach (var s in f.Spouses) { <li>@s.FullName · @Or(s.Occupation) · born @D(s.DateOfBirth) · @Or(s.Telephone)<br /><span class="text-body-secondary">@s.Address</span></li> }
+            </ul>
+            <p class="small fw-semibold mb-1">Children</p>
+            @if (f.Children.Count == 0) { <p class="small text-body-secondary">None declared.</p> }
+            <ul class="list-unstyled small">
+                @foreach (var c in f.Children) { <li>@c.FullName (@c.Gender?.DisplayName()) · born @D(c.DateOfBirth)@(c.PlaceOfBirth is null ? "" : $" in {c.PlaceOfBirth}") · lives in @Or(c.CurrentResidence)</li> }
+            </ul>
+            <p class="small fw-semibold mb-1">Dependants</p>
+            @if (f.Dependants.Count == 0) { <p class="small text-body-secondary mb-0">None declared.</p> }
+            <ul class="list-unstyled small mb-0">
+                @foreach (var d in f.Dependants) { <li>@d.FullName (@d.Relationship), age @d.Age</li> }
+            </ul>
+        </div></div>
+    </div>
+</div>
+
+<div class="card glass mb-3">
+    <div class="card-body p-4">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Beneficiaries</h2>
+        <table class="table table-sm small mb-0">
+            <thead><tr><th>Name</th><th>Relationship</th><th>Date of birth</th><th class="text-end">Share</th></tr></thead>
+            <tbody>
+                @foreach (var b in f.Beneficiaries) { <tr><td>@b.Name</td><td>@b.Relationship</td><td>@D(b.DateOfBirth)</td><td class="text-end">@b.Percentage?.ToString("0.##")%</td></tr> }
+                <tr class="fw-semibold"><td colspan="3">Total</td><td class="text-end">@f.Beneficiaries.Sum(b => b.Percentage ?? 0).ToString("0.##")%</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card glass mb-3">
+    <div class="card-body p-4">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Declaration</h2>
+        <p class="small fst-italic">"@PersonalRecordService.DeclarationText"</p>
+        @if (Model.Declarations.Count == 0)
+        {
+            <p class="small text-body-secondary mb-0">Not signed yet.</p>
+        }
+        else
+        {
+            @if (!Model.Signed) { <p class="small text-warning mb-2">Changed since it was last signed: the current version is not signed.</p> }
+            <ul class="list-unstyled small mb-0">
+                @foreach (var d in Model.Declarations)
+                {
+                    <li>Signed <strong>@d.SignatureName</strong> on @d.SignedAt.ToString("dd MMM yyyy HH:mm")@(d.IpAddress is null ? "" : $" from {d.IpAddress}")
+                        <span class="text-body-secondary">· fingerprint <code>@d.SnapshotSha256[..12]</code></span></li>
+                }
+            </ul>
+        }
+    </div>
+</div>

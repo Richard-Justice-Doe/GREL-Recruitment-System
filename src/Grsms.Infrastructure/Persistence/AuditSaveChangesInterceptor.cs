@@ -155,6 +155,10 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
             if (entry.Entity is AuditLog or NumberSequence or Domain.Security.KnownPermission) continue;
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
 
+            // Phase 19: a signed Personal Record Declaration is immutable. Nothing may change or remove it, not even soft-delete.
+            if (entry.Entity is Domain.Onboarding.EmployeeDeclaration && entry.State != EntityState.Added)
+                throw new InvalidOperationException("A signed declaration can never be changed or deleted.");
+
             string action;
             if (entry.Entity is BaseEntity entity)
             {

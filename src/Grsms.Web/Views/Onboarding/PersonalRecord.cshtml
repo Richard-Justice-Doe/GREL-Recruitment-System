@@ -1,0 +1,19 @@
+@* Phase 19: HR's read-only view of a new employee's Personal Record Declaration. *@
+@model PersonalRecordPageDto
+@{
+    ViewData["Title"] = $"Personal record: {Model.EmployeeName}";
+}
+<div class="page-header">
+    <div>
+        <h1>Personal record: @Model.EmployeeName</h1>
+        <p>Employee Personal Record Declaration · onboarding @Model.OnboardingNumber ·
+            @if (Model.Signed) { <span class="badge rounded-pill badge-soft-success">Signed @Model.DeclaredAt!.Value.ToString("dd MMM yyyy HH:mm")</span> }
+            else { <span class="badge rounded-pill badge-soft-warning">Not signed</span> }
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-print><i class="fa-solid fa-print me-1"></i>Print</button>
+        <a asp-action="Details" asp-route-id="@Model.OnboardingId" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>The onboarding</a>
+    </div>
+</div>
+<partial name="_PersonalRecordView" model="Model" />

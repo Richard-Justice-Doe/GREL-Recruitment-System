@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IEmployeeAccounts, EmployeeAccounts>(); // Phase 18: onboarding activation
+        services.AddScoped<Application.Onboarding.IPersonalRecordRepository, PersonalRecordRepository>(); // Phase 19
         // Phase 14: roles and permissions. The store is one shared in-memory copy of who holds which permission.
         services.AddSingleton<IPermissionStore, PermissionStore>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();

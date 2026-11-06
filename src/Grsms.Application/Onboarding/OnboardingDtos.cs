@@ -54,6 +54,9 @@ public record OnboardingDetailsDto
     /// <summary>The New Hire Administrative Records checklist; null for people who may not see personal documents (e.g. the HOD).</summary>
     public DocumentChecklistDto? Documents { get; init; }
 
+    /// <summary>Phase 19: the personal record is signed (HR only; null for others).</summary>
+    public bool? PersonalRecordSigned { get; init; }
+
     /// <summary>HR: change first-day details, notes and the checklist; cancel.</summary>
     public bool CanManage { get; init; }
     public bool CanEditStartDate { get; init; }

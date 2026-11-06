@@ -14,7 +14,7 @@ namespace Grsms.Web.Controllers;
 /// can be given to anyone (e.g. IT staff); what each person sees and may do is decided by <see cref="OnboardingService"/>.
 /// </summary>
 [Authorize(Policy = Policies.Staff)]
-public class OnboardingController(OnboardingService onboarding, DocumentVerificationService documents) : AppController
+public class OnboardingController(OnboardingService onboarding, DocumentVerificationService documents, PersonalRecordService personalRecords) : AppController
 {
     /// <summary>Upload limit for document files, slightly above the file limit to allow for form overhead.</summary>
     private const long UploadRequestLimitBytes = 25 * 1024 * 1024;
@@ -126,6 +126,13 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     [HttpPost]
     public Task<IActionResult> SaveNotes(int id, string? notes, CancellationToken ct) =>
         Act(id, () => onboarding.SaveNotesAsync(id, notes, ct), "Notes saved.");
+
+    /// <summary>Phase 19: the new employee's Personal Record Declaration, read-only (HR only).</summary>
+    public async Task<IActionResult> PersonalRecord(int id, CancellationToken ct)
+    {
+        var model = await personalRecords.GetForHrAsync(id, ct);
+        return model is null ? NotFound() : View(model);
+    }
 
     // ================================================================= Phase 18: new-hire documents (HR)
 

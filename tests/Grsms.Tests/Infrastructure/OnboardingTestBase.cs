@@ -166,12 +166,47 @@ public abstract class OnboardingTestBase : IAsyncLifetime
         }
     }
 
-    /// <summary>Started, letter issued and signed, documents uploaded and submitted: "Awaiting document verification".</summary>
+    protected async Task<T> RunRecord<T>(Func<PersonalRecordService, Task<T>> call)
+    {
+        using var scope = _db.NewScope();
+        return await call(scope.ServiceProvider.GetRequiredService<PersonalRecordService>());
+    }
+
+    /// <summary>A complete, valid Personal Record Declaration form (beneficiaries 60% + 40%).</summary>
+    protected static PersonalRecordForm ValidRecord() => new()
+    {
+        Qualification = "BSc Chemical Engineering, KNUST", SsnitNumber = "c123456789012", DateOfBirth = Today.AddYears(-29),
+        ResidentialAddress = "House 12, Anaji, Takoradi", HomeTown = "Axim", Region = GhanaRegion.Western, Tribe = "Nzema",
+        Religion = "Christian", Email = "ama.mensah@mail.test", MobileNumber = "024 123 4567",
+        NextOfKinName = "Kojo Mensah", NextOfKinRelationship = "Brother", NextOfKinTelephone = "020 555 1234",
+        Languages = [new() { Language = "English", Proficiency = LanguageProficiency.VeryFluent }, new() { Language = "Nzema", Proficiency = LanguageProficiency.Fluent }],
+        BankAccounts = [new() { BankName = "GCB Bank", Branch = "Takoradi", AccountNumber = "1011130012345" }],
+        Children = [new() { FullName = "Esi Mensah", Gender = Gender.Female, DateOfBirth = Today.AddYears(-3), PlaceOfBirth = "Takoradi" }],
+        EmergencyContacts = [new() { Name = "Kojo Mensah", Relationship = "Brother", Telephone1 = "020 555 1234" }],
+        Beneficiaries =
+        [
+            new() { Name = "Esi Mensah", Relationship = "Daughter", Percentage = 60m },
+            new() { Name = "Kojo Mensah", Relationship = "Brother", Percentage = 40m }
+        ]
+    };
+
+    /// <summary>As the new employee: save a valid personal record and sign the declaration.</summary>
+    protected async Task FillPersonalRecordAsync(int app)
+    {
+        As(_candidate, Roles.Candidate);
+        var saved = await RunRecord(s => s.SaveAsync(app, ValidRecord()));
+        Assert.True(saved.Succeeded, string.Join(" ", saved.Errors));
+        var signed = await RunRecord(s => s.SignAsync(app, "Ama Mensah", true));
+        Assert.True(signed.Succeeded, string.Join(" ", signed.Errors));
+    }
+
+    /// <summary>Started, letter issued and signed, personal record signed, documents uploaded and submitted: "Awaiting document verification".</summary>
     protected async Task<(int Id, int App)> SubmittedAsync(DateOnly? start = null)
     {
         var app = await WithOfferAsync(_candidate, "Ama Mensah", OfferStatus.Accepted, start);
         var id = await StartAsync(app, start);
         await IssueAndSignAsync(id, app);
+        await FillPersonalRecordAsync(app);
         await FillDocumentsAsync(id);
         As(_candidate, Roles.Candidate);
         var submitted = await Run(s => s.SubmitAsync(id));

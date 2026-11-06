@@ -78,10 +78,13 @@ public class DocumentVerificationServiceTests : OnboardingTestBase
 
         var blocked = await Run(s => s.SubmitAsync(id));
         Assert.False(blocked.Succeeded);
-        Assert.Contains(blocked.Errors, e => e.Contains("Ghana Card") && e.Contains("CV"));
+        Assert.Contains(blocked.Errors, e => e.Contains("personal record")); // Phase 19: the letter, then the personal record, then the documents
         Assert.NotNull((await RunDocs(s => s.GetMineAsync(app)))!.SubmitBlockedReason);
 
         await FillDocumentsAsync(id);
+        Assert.Contains("personal record", (await RunDocs(s => s.GetMineAsync(app)))!.SubmitBlockedReason); // Phase 19
+        await FillPersonalRecordAsync(app);
+        As(_candidate, Roles.Candidate);
         Assert.Null((await RunDocs(s => s.GetMineAsync(app)))!.SubmitBlockedReason);
         Assert.True((await Run(s => s.SubmitAsync(id))).Succeeded);
 

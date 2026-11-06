@@ -69,6 +69,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Onboarding.OnboardingTask> OnboardingTasks => Set<Domain.Onboarding.OnboardingTask>();
     public DbSet<Domain.Onboarding.OnboardingActionEntry> OnboardingActions => Set<Domain.Onboarding.OnboardingActionEntry>();
     public DbSet<Domain.Onboarding.EmployeeDocument> EmployeeDocuments => Set<Domain.Onboarding.EmployeeDocument>();
+    public DbSet<Domain.Onboarding.EmployeePersonalRecord> EmployeePersonalRecords => Set<Domain.Onboarding.EmployeePersonalRecord>();
+    public DbSet<Domain.Onboarding.EmployeeDeclaration> EmployeeDeclarations => Set<Domain.Onboarding.EmployeeDeclaration>();
 
     // Phase 10: notifications, reminders and surveys
     public DbSet<Domain.Notifications.Notification> Notifications => Set<Domain.Notifications.Notification>();

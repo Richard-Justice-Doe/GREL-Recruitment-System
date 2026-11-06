@@ -192,9 +192,15 @@ public class PersonnelFileService(
         (await files.ListAsync(f => f.EmployeeUserId == employeeUserId, ct)).FirstOrDefault()?.Id;
 
     /// <summary>A filed letter, cleaned again before display.</summary>
-    public async Task<FiledLetterDto?> GetLetterAsync(int documentId, CancellationToken ct = default)
+    public async Task<FiledLetterDto?> GetLetterAsync(int documentId, CancellationToken ct = default) =>
+        CanView ? await GetLetterUncheckedAsync(documentId, ct) : null;
+
+    /// <summary>
+    /// Phase 21: a filed letter WITHOUT the personnel-file permission check, for a caller that has already checked the
+    /// person may read that one letter (e.g. an employee reading their own confirmation letter).
+    /// </summary>
+    public async Task<FiledLetterDto?> GetLetterUncheckedAsync(int documentId, CancellationToken ct = default)
     {
-        if (!CanView) return null;
         var d = await documents.GetByIdAsync(documentId, ct);
         if (d is null || d.Kind != PersonnelDocumentKind.Letter) return null;
         var f = (await files.GetByIdAsync(d.PersonnelFileId, ct))!;

@@ -14,4 +14,7 @@ public class HomeViewModel
     /// <summary>Drop-downs for the filter bar (null when the user only sees their own departments).</summary>
     public SelectList? DivisionList { get; init; }
     public SelectList? DepartmentList { get; init; }
+
+    /// <summary>Phase 21: the onboarding and probation widgets (HR and Head of Department).</summary>
+    public Application.Probation.WorkforcePanelDto Workforce { get; init; } = new([], []);
 }

@@ -20,7 +20,8 @@ public class HomeController(
     IAuthorizationService auth,
     AccessScope scope,
     IDivisionService divisionService,
-    IDepartmentService departmentService) : AppController
+    IDepartmentService departmentService,
+    Application.Probation.WorkforceDashboardService workforce) : AppController
 {
     /// <param name="month">Month shown in the vacancy closing calendar, as "yyyy-MM" (default: this month).</param>
     /// <param name="divisionId">Optional: only count records of this division.</param>
@@ -43,6 +44,7 @@ public class HomeController(
         return View(new HomeViewModel
         {
             Dashboard = await dashboard.GetAsync(access, shownMonth, filter, ct),
+            Workforce = await workforce.GetAsync(ct), // Phase 21
             Filter = filter,
             DivisionList = showFilter
                 ? new SelectList(await divisionService.GetAllLookupAsync(ct), nameof(LookupItem.Value), nameof(LookupItem.Text), divisionId)

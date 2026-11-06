@@ -39,6 +39,11 @@ public static partial class EmailTemplateCatalogue
     public const string OnboardingDocumentsReturned = "onboarding.documents-returned";
     public const string OnboardingActivated = "onboarding.activated";
 
+    // Phase 21: probation outcome emails to the employee
+    public const string ProbationConfirmed = "probation.confirmed";
+    public const string ProbationExtended = "probation.extended";
+    public const string ProbationNotConfirmed = "probation.not-confirmed";
+
     private const string MyApplication = "View my application";
 
     public static readonly IReadOnlyList<EmailTemplateDefinition> All =
@@ -115,6 +120,20 @@ public static partial class EmailTemplateCatalogue
             "Welcome to {{Organisation}}: your staff account is active",
             "Your onboarding as {{JobTitle}} is complete and your GRSMS account is now a staff account. Your staff number is {{StaffNumber}}.\n\nWelcome to the team!",
             ["JobTitle", "StaffNumber"], "Open GRSMS"),
+
+        // Phase 21 (6 November 2026): probation outcomes.
+        new(ProbationConfirmed, "Probation: employment confirmed", "When the HR Manager approves the confirmation of employment",
+            "Your employment as {{JobTitle}} is confirmed",
+            "Congratulations! Having completed your probation, your employment as {{JobTitle}} is confirmed with effect from {{ConfirmationDate}}.\n\nYour confirmation letter ({{LetterNumber}}) is in your probation page and your personnel file.",
+            ["JobTitle", "ConfirmationDate", "LetterNumber"], "See my probation"),
+        new(ProbationExtended, "Probation: extended", "When the HR Manager approves an extension of probation",
+            "Your probation has been extended",
+            "Your probation as {{JobTitle}} has been extended to {{NewEndDate}}.\n\nReason: {{Reason}}\n\nYour Head of Department will go through the improvement plan with you.",
+            ["JobTitle", "NewEndDate", "Reason"], "See my probation"),
+        new(ProbationNotConfirmed, "Probation: not confirmed", "When the HR Manager approves that employment is not confirmed (the assessment is never sent)",
+            "The outcome of your probation",
+            "Following the final assessment of your probation as {{JobTitle}}, your employment will not be confirmed. Human Resources will contact you about the next steps.",
+            ["JobTitle"], "See my probation"),
     ];
 
     public static EmailTemplateDefinition? Find(string key) => All.FirstOrDefault(t => t.Key == key);

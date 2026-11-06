@@ -450,6 +450,24 @@ Each list row has `Id` and `PersonalRecordId` (**FK → EmployeePersonalRecords*
 ### EmployeeDeclarations (immutable)
 `PersonalRecordId` (**FK**), `EmployeeUserId` (**FK → Users**), `DeclarationText` (*"I declare that the above information is accurate and correct to the best of my knowledge."*), `SignatureName` (the typed full name), `SignedAt`, `IpAddress`, `Snapshot` TEXT (the whole record as signed, JSON), `SnapshotSha256`, plus the standard columns. **Insert-only:** any attempt to change or delete a row (even a soft delete) is refused when saving. Signing again after a change adds a new row.
 
+## Phase 21 tables (probation and confirmation)
+See [25 Probation management](25-probation-management.md).
+
+### ProbationRecords
+One per activated employee: `Number` (`PRB-<year>-<0000>`, unique), the employee (`EmployeeUserId`, `EmployeeName`, `StaffNumber`, `JobTitle`, `DepartmentId`), `OnboardingRecordId` (unique), `StartDate`, `EndDate` (moves when extended), `OriginalEndDate`, `Status` (InitialMeeting, InProgress, Extended, AwaitingHrDecision, Confirmed, NotConfirmed), `HodUserId`, `HrManagerUserId` (who decided), `InitialMeetingDueDate` (start + 7 days), `InitialMeetingDate`, `InitialMeetingNotes`, the two signatures (`HodSignedAt`/`HodSignatureName`, `EmployeeSignedAt`/`EmployeeSignatureName`), `ExtendedMonths` (total, at most 3), `ExtensionReason`, `ExtensionImprovementPlan`, `Version` (concurrency).
+
+### ProbationObjectives, ProbationDevelopmentPlans
+The initial meeting's rows: objective, success indicators, due date; training need, development need, timeline.
+
+### ProbationAssessments
+`Kind` (First, Final), `AssessorUserId`, the six ratings (`AbilityToSupervise` may be NULL), `Comments`, `ImprovementPlan`, and for the final one `Outcome` (Confirm, Extend, DoNotConfirm), `ExtensionMonths`, `ExtensionReason`, `HrApproved` (NULL = waiting), `HrComments`.
+
+### ProbationActions
+The history: `Action`, `FromStatus`, `ToStatus`, `ActorUserId`, `ActorName`, `ActionAt`, `Comments`.
+
+### ConfirmationRecords
+One per confirmed probation (`ProbationRecordId` unique): `EmployeeUserId`, `LetterNumber` (`CNF-<year>-<0000>`, unique), `ConfirmationDate`, `ApprovedByUserId`, `PersonnelFileDocumentId` (the frozen letter in the personnel file).
+
 ## Phase 20 tables and columns (departmental induction and personnel file)
 
 ### OnboardingTasks: new columns (the departmental induction tasks)
@@ -580,6 +598,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `19_phase18_onboarding_workflow.sql` | 18 | OnboardingActions, EmployeeDocuments; `ExpectedCompletionDate`, `CompletedAt`, `Notes` on Onboardings and `Status` widened to 40. **Moves existing onboardings to the new stages** (in progress → Draft, Awaiting employee submission or Awaiting departmental induction, by letter state), sets the expected completion dates, and gives onboardings still waiting for the new employee their 16-document checklist. Checked on MySQL 8.4 against a copy of the development database. |
 | `20_phase19_personal_record_declaration.sql` | 19 | EmployeePersonalRecords, EmployeeLanguages, EmployeeBankAccounts, EmployeeSpouses, EmployeeChildren, EmployeeDependants, EmployeeEmergencyContacts, EmployeeBeneficiaries, EmployeeDeclarations. New tables only. Checked on MySQL 8.4 (with script 19) against a copy of the development database. |
 | `21_phase20_induction_and_personnel_file.sql` | 20 | InductionAreaSettings, PersonnelFileCategories (seeded with the 7 categories), PersonnelFiles, PersonnelFileDocuments; `Area`, `Description`, `AssignedAt`, `VerifiedAt`, `VerifiedByUserId` on OnboardingTasks, with existing tasks given their area and assigned date and finished ones counted as verified. The new permission `personnel.view` is added by GRSMS at start-up. Checked on MySQL 8.4 (after scripts 19 and 20) against a copy of the development database. |
+| `22_phase21_probation_and_confirmation.sql` | 21 | ProbationRecords, ProbationObjectives, ProbationDevelopmentPlans, ProbationAssessments, ProbationActions, ConfirmationRecords. New tables only. Checked on MySQL 8.4 (after scripts 19, 20 and 21) against a copy of the development database. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

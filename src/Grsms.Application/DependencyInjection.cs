@@ -65,6 +65,9 @@ public static class DependencyInjection
         services.AddScoped<Onboarding.PersonalRecordService>(); // Phase 19
         services.AddScoped<Onboarding.InductionAreaService>(); // Phase 20
         services.AddScoped<Onboarding.PersonnelFileService>(); // Phase 20
+        services.AddScoped<Probation.ProbationService>(); // Phase 21
+        services.AddScoped<Probation.WorkforceDashboardService>(); // Phase 21
+        services.AddScoped<Probation.WorkforceReportService>(); // Phase 21
 
         // Phase 10: reminders and surveys (notifications themselves are stored by Infrastructure)
         services.AddScoped<Notifications.ReminderService>();

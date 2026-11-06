@@ -104,6 +104,13 @@
                 }
             </a>
         }
+        @if (canApplications)
+        {
+            @* Phase 21: HR and Heads of Department follow probations (what each sees is decided by ProbationService). *@
+            <a class="nav-link @Active("Probation")" asp-controller="Probation" asp-action="Index" asp-route-tab="due">
+                <i class="fa-solid fa-user-clock"></i> Probation
+            </a>
+        }
         @if (canPersonnelFiles)
         {
             @* Phase 20 *@
@@ -136,6 +143,13 @@
         <a class="nav-link @Active("Profile")" asp-controller="Profile" asp-action="Index">
             <i class="fa-regular fa-id-card"></i> My profile
         </a>
+        @if (isStaff)
+        {
+            @* Phase 21: the employee's own probation *@
+            <a class="nav-link @Active("MyProbation")" asp-controller="MyProbation" asp-action="Index">
+                <i class="fa-solid fa-seedling"></i> My probation
+            </a>
+        }
         <a class="nav-link @Active("MyAuditTrail")" asp-controller="MyAuditTrail" asp-action="Index">
             <i class="fa-solid fa-clock-rotate-left"></i> My audit trail
         </a>

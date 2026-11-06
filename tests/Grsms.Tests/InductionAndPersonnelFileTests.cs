@@ -27,29 +27,6 @@ public class InductionAndPersonnelFileTests : OnboardingTestBase
         return await call(scope.ServiceProvider.GetRequiredService<PersonnelFileService>());
     }
 
-    /// <summary>Submitted, verified and sent to the HR Manager: "Awaiting HR approval".</summary>
-    private async Task<int> AtHrApprovalAsync()
-    {
-        var (id, _) = await SubmittedAsync(Today);
-        await VerifyAllAsync(id);
-        Assert.True((await Run(s => s.MarkDocumentsVerifiedAsync(id))).Succeeded);
-        return id;
-    }
-
-    /// <summary>Through to "Completed" (every task done by HR, staff number GREL-0457).</summary>
-    private async Task<int> ActivatedAsync()
-    {
-        var id = await AtHrApprovalAsync();
-        AsHrManager();
-        Assert.True((await Run(s => s.HrDecideAsync(id, true, null))).Succeeded);
-        AsRecruiter();
-        foreach (var t in (await TasksAsync(id)).Where(t => t.Status == OnboardingTaskStatus.Open))
-            Assert.True((await Run(s => s.UpdateTaskAsync(t.Id, OnboardingTaskStatus.Done, null))).Succeeded);
-        Assert.True((await Run(s => s.CompleteInductionAsync(id))).Succeeded);
-        Assert.True((await Run(s => s.ActivateAsync(id, "GREL-0457"))).Succeeded);
-        return id;
-    }
-
     // ------------------------------------------------------------------ induction
 
     [Fact]

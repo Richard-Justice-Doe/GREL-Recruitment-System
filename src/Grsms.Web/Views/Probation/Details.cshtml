@@ -1,0 +1,235 @@
+@* Phase 21: one probation: key dates, what is due, the HOD's initial meeting and assessment forms, the HR Manager's decision,
+   the agreed record (_ProbationRecord) and the history. What each person may do comes from ProbationService. *@
+@model ProbationDetailsDto
+@{
+    ViewData["Title"] = $"Probation: {Model.EmployeeName}";
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    string StatusCss(ProbationStatus s) => s switch
+    {
+        ProbationStatus.Confirmed => "badge-soft-success",
+        ProbationStatus.NotConfirmed => "badge-soft-danger",
+        ProbationStatus.Extended or ProbationStatus.AwaitingHrDecision => "badge-soft-warning",
+        _ => "badge-soft-primary"
+    };
+    var ratings = Enum.GetValues<ProbationRating>();
+}
+<div class="page-header">
+    <div>
+        <h1>Probation: @Model.EmployeeName <span class="badge rounded-pill @StatusCss(Model.Status) fs-6 align-middle">@Model.Status.DisplayName()</span></h1>
+        <p>@Model.Number · @Model.JobTitle · @Model.DepartmentName · staff number @(Model.StaffNumber ?? "—")</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (Model.ConfirmationLetterDocumentId is not null)
+        {
+            <a asp-action="Letter" asp-route-id="@Model.Id" class="btn btn-outline-success"><i class="fa-solid fa-file-signature me-1"></i>Confirmation letter @Model.ConfirmationLetterNumber</a>
+        }
+        <a asp-controller="Onboarding" asp-action="Details" asp-route-id="@Model.OnboardingRecordId" class="btn btn-outline-secondary">The onboarding</a>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All probations</a>
+    </div>
+</div>
+
+<div class="card glass mb-3">
+    <div class="card-body p-4">
+        <dl class="details-grid small mb-0">
+            <dt>Probation</dt><dd>@Model.StartDate.ToString("dd MMM yyyy") to <strong>@Model.EndDate.ToString("dd MMM yyyy")</strong>@(Model.ExtendedMonths > 0 ? $" (extended by {Model.ExtendedMonths} month(s))" : "")</dd>
+            <dt>Initial meeting</dt><dd>due @Model.InitialMeetingDueDate.ToString("dd MMM yyyy")@(Model.InitialMeetingDate is { } m ? $", held {m:dd MMM yyyy}" : Model.InitialMeetingDueDate < today ? " (overdue)" : "")</dd>
+            <dt>First assessment</dt><dd>due @Model.FirstAssessmentDueDate.ToString("dd MMM yyyy")@(Model.Assessments.Any(a => a.Kind == ProbationAssessmentKind.First) ? " (done)" : "")</dd>
+            <dt>Final assessment</dt><dd>due @Model.EndDate.ToString("dd MMM yyyy")</dd>
+            <dt>Head of Department</dt><dd>@(Model.HodName ?? "—")</dd>
+            @if (Model.HrManagerName is not null) { <dt>HR Manager</dt><dd>@Model.HrManagerName</dd> }
+        </dl>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <partial name="_ProbationRecord" model="Model" />
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
+                <ul class="timeline">
+                    @foreach (var h in Model.History)
+                    {
+                        <li>
+                            <span class="tl-dot @(h.Action is ProbationAction.NotConfirmed ? "danger" : h.Action is ProbationAction.Extended or ProbationAction.ReturnedToHod ? "warning" : "")"></span>
+                            <div><strong>@h.Action.DisplayName()</strong> by @h.ActorName</div>
+                            <div class="small text-body-secondary">@h.ActionAt.ToString("dd MMM yyyy HH:mm")@(h.FromStatus != h.ToStatus ? $" · {h.FromStatus.DisplayName()} → {h.ToStatus.DisplayName()}" : "")</div>
+                            @if (h.Comments is not null) { <div class="tl-comment small">@h.Comments</div> }
+                        </li>
+                    }
+                </ul>
+                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="ProbationRecord" asp-route-entityId="@Model.Id" class="small">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        @* ---- HOD: the initial meeting (objectives + development plan), signed *@
+        @if (Model.CanRecordInitialMeeting)
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Initial meeting <span class="fw-normal">(due @Model.InitialMeetingDueDate.ToString("dd MMM"))</span></h2>
+                    <form asp-action="InitialMeeting" asp-route-id="@Model.Id" method="post">
+                        <label class="form-label small" for="MeetingDate">Date of the meeting</label>
+                        <input id="MeetingDate" name="MeetingDate" type="date" class="form-control form-control-sm mb-2" value="@(Model.InitialMeetingDate ?? today).ToString("yyyy-MM-dd")" required />
+
+                        <div data-repeater class="mb-3">
+                            <p class="small fw-semibold mb-1">Objectives</p>
+                            @{
+                                async Task ObjectiveRowHtml(string key, ObjectiveRow r)
+                                {
+                                    <div class="border rounded-3 p-2 mb-2" data-repeater-row>
+                                        <input type="hidden" name="Objectives.Index" value="@key" />
+                                        <input name="Objectives[@key].Objective" class="form-control form-control-sm mb-1" maxlength="500" value="@r.Objective" placeholder="Objective" aria-label="Objective" />
+                                        <input name="Objectives[@key].SuccessIndicators" class="form-control form-control-sm mb-1" maxlength="1000" value="@r.SuccessIndicators" placeholder="Success indicators" aria-label="Success indicators" />
+                                        <div class="d-flex gap-2">
+                                            <input name="Objectives[@key].DueDate" type="date" class="form-control form-control-sm" value="@r.DueDate?.ToString("yyyy-MM-dd")" aria-label="Due date" />
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+                                        </div>
+                                    </div>
+                                    await Task.CompletedTask;
+                                }
+                            }
+                            <div data-repeater-list>
+                                @foreach (var (r, i) in (Model.Objectives.Count == 0 ? new List<ObjectiveRow> { new() } : Model.Objectives.ToList()).Select((r, i) => (r, i))) { await ObjectiveRowHtml(i.ToString(), r); }
+                            </div>
+                            <template data-repeater-template>@{ await ObjectiveRowHtml("__key__", new()); }</template>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add an objective</button>
+                        </div>
+
+                        <div data-repeater class="mb-3">
+                            <p class="small fw-semibold mb-1">Development plan</p>
+                            @{
+                                async Task PlanRowHtml(string key, DevelopmentPlanRow r)
+                                {
+                                    <div class="border rounded-3 p-2 mb-2" data-repeater-row>
+                                        <input type="hidden" name="DevelopmentPlan.Index" value="@key" />
+                                        <input name="DevelopmentPlan[@key].TrainingNeed" class="form-control form-control-sm mb-1" maxlength="500" value="@r.TrainingNeed" placeholder="Training need" aria-label="Training need" />
+                                        <input name="DevelopmentPlan[@key].DevelopmentNeed" class="form-control form-control-sm mb-1" maxlength="500" value="@r.DevelopmentNeed" placeholder="Development need" aria-label="Development need" />
+                                        <div class="d-flex gap-2">
+                                            <input name="DevelopmentPlan[@key].Timeline" class="form-control form-control-sm" maxlength="200" value="@r.Timeline" placeholder="Timeline (e.g. by month 2)" aria-label="Timeline" />
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+                                        </div>
+                                    </div>
+                                    await Task.CompletedTask;
+                                }
+                            }
+                            <div data-repeater-list>
+                                @foreach (var (r, i) in (Model.DevelopmentPlan.Count == 0 ? new List<DevelopmentPlanRow> { new() } : Model.DevelopmentPlan.ToList()).Select((r, i) => (r, i))) { await PlanRowHtml(i.ToString(), r); }
+                            </div>
+                            <template data-repeater-template>@{ await PlanRowHtml("__key__", new()); }</template>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add a line</button>
+                        </div>
+
+                        <label class="form-label small" for="Notes">Notes <span class="text-body-secondary">(optional)</span></label>
+                        <textarea id="Notes" name="Notes" class="form-control form-control-sm mb-2" rows="2" maxlength="4000">@Model.InitialMeetingNotes</textarea>
+                        <label class="form-label small" for="SignatureName">Sign: type your full name</label>
+                        <div class="input-group input-group-sm">
+                            <input id="SignatureName" name="SignatureName" class="form-control" maxlength="200" required />
+                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-signature me-1"></i>Save and sign</button>
+                        </div>
+                        <div class="form-text">The employee is then asked to sign in their portal (My probation).</div>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @* ---- HOD: first or final assessment *@
+        @if (Model.CanAssess && Model.NextAssessment is { } kind)
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">@kind.DisplayName()</h2>
+                    <form asp-action="Assess" asp-route-id="@Model.Id" method="post">
+                        <table class="table table-sm small align-middle">
+                            <tbody>
+                                @foreach (var c in Enum.GetValues<ProbationRatingCategory>())
+                                {
+                                    <tr>
+                                        <th class="fw-normal">@c.DisplayName()</th>
+                                        <td>
+                                            <select name="@c" class="form-select form-select-sm" aria-label="@c.DisplayName()" required="@(c != ProbationRatingCategory.AbilityToSupervise)">
+                                                <option value="">@(c == ProbationRatingCategory.AbilityToSupervise ? "Not applicable" : "— Rate —")</option>
+                                                @foreach (var r in ratings) { <option value="@r">@r.DisplayName()</option> }
+                                            </select>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <label class="form-label small" for="Comments">Comments</label>
+                        <textarea id="Comments" name="Comments" class="form-control form-control-sm mb-2" rows="3" maxlength="4000" required></textarea>
+                        <label class="form-label small" for="ImprovementPlan">Improvement plan <span class="text-body-secondary">(@(kind == ProbationAssessmentKind.Final ? "required to extend" : "optional"))</span></label>
+                        <textarea id="ImprovementPlan" name="ImprovementPlan" class="form-control form-control-sm mb-2" rows="2" maxlength="4000"></textarea>
+                        @if (kind == ProbationAssessmentKind.Final)
+                        {
+                            <fieldset class="mb-2">
+                                <legend class="form-label small mb-1">Outcome</legend>
+                                @foreach (var o in Enum.GetValues<ProbationOutcome>())
+                                {
+                                    <div class="form-check small">
+                                        <input class="form-check-input" type="radio" name="Outcome" value="@o" id="outcome-@o" />
+                                        <label class="form-check-label" for="outcome-@o">@o.DisplayName()</label>
+                                    </div>
+                                }
+                            </fieldset>
+                            <div class="row g-2 mb-2">
+                                <div class="col-4">
+                                    <label class="form-label small" for="ExtensionMonths">Extend by</label>
+                                    <select id="ExtensionMonths" name="ExtensionMonths" class="form-select form-select-sm">
+                                        <option value="">—</option>
+                                        @for (var m = 1; m <= Model.ExtensionMonthsLeft; m++) { <option value="@m">@m month(s)</option> }
+                                    </select>
+                                </div>
+                                <div class="col-8">
+                                    <label class="form-label small" for="ExtensionReason">Reason for the extension</label>
+                                    <input id="ExtensionReason" name="ExtensionReason" class="form-control form-control-sm" maxlength="4000" />
+                                </div>
+                            </div>
+                            <div class="form-text mb-2">Extensions add up to at most @ProbationWorkflow.MaxExtensionMonths months (@Model.ExtensionMonthsLeft left). The HR Manager decides.</div>
+                        }
+                        <button type="submit" class="btn btn-sm btn-primary" data-confirm="Record this assessment? It is filed in the personnel file."><i class="fa-solid fa-clipboard-check me-1"></i>Record the assessment</button>
+                    </form>
+                </div>
+            </div>
+        }
+        else if (Model.AssessBlockedReason is not null)
+        {
+            <div class="alert alert-info small">@Model.AssessBlockedReason</div>
+        }
+
+        @* ---- HR Manager: the decision on the final assessment *@
+        @if (Model.CanHrDecide)
+        {
+            var final = Model.Assessments.Last(a => a.Kind == ProbationAssessmentKind.Final);
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Your decision</h2>
+                    <p class="small">The Head of Department recommends: <strong>@final.Outcome?.DisplayName()</strong>@(final.ExtensionMonths is { } em ? $" by {em} month(s)" : "").</p>
+                    <form asp-action="HrDecide" asp-route-id="@Model.Id" method="post">
+                        <label class="form-label small" for="hrComments">Comments <span class="text-body-secondary">(required to return)</span></label>
+                        <textarea id="hrComments" name="comments" class="form-control form-control-sm mb-2" rows="2" maxlength="2000"></textarea>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" name="approve" value="true" class="btn btn-sm btn-success" data-confirm="Approve: @final.Outcome?.DisplayName()?">
+                                <i class="fa-solid fa-check me-1"></i>Approve@(final.Outcome == ProbationOutcome.Confirm ? ": confirm and issue the letter" : "")
+                            </button>
+                            <button type="submit" name="approve" value="false" class="btn btn-sm btn-outline-warning">Return to the Head of Department</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+        else if (Model.HrDecisionBlockedReason is not null && Model.Status == ProbationStatus.AwaitingHrDecision)
+        {
+            <div class="alert alert-info small">@Model.HrDecisionBlockedReason</div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/repeater.js" asp-append-version="true"></script>
+}

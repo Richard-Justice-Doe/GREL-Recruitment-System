@@ -1,0 +1,25 @@
+@* Phase 21: onboarding and probation widgets on the Home dashboard: HR's six, the Head of Department's four.
+   Each count links to the list it comes from; counts needing action are highlighted. *@
+@model Grsms.Application.Probation.WorkforcePanelDto
+@{
+    void Group(string title, IReadOnlyList<Grsms.Application.Probation.WorkforceWidgetDto> widgets)
+    {
+        if (widgets.Count == 0) return;
+        <section class="dash-card mb-3" aria-label="@title">
+            <div class="dash-card-head"><h2><i class="fa-solid fa-user-check"></i>@title</h2></div>
+            <div class="row g-2">
+                @foreach (var w in widgets)
+                {
+                    <div class="col-6 col-md-4 col-xl-2">
+                        <a class="ats-tile d-block text-decoration-none h-100 @(w.Attention ? "border-warning" : "")" href="@Url.Action(w.Action, w.Controller, w.Route.ToDictionary(k => k.Key, k => (object?)k.Value))">
+                            <div class="ats-tile-value @(w.Attention ? "text-warning" : "")"><i class="fa-solid @w.Icon me-1 small"></i>@w.Count</div>
+                            <div class="ats-tile-label">@w.Title</div>
+                        </a>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+}
+@{ Group("Onboarding and probation (HR)", Model.Hr); }
+@{ Group("My department's new employees", Model.Hod); }

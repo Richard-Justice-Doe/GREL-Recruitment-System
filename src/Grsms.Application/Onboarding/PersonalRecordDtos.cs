@@ -141,4 +141,7 @@ public record PersonalRecordPageDto
 public interface IPersonalRecordRepository : IRepository<EmployeePersonalRecord>
 {
     Task<EmployeePersonalRecord?> GetForOnboardingAsync(int onboardingId, CancellationToken ct = default);
+
+    /// <summary>Phase 21: every personal record with its beneficiaries (Beneficiary report).</summary>
+    Task<IReadOnlyList<EmployeePersonalRecord>> ListWithBeneficiariesAsync(CancellationToken ct = default);
 }

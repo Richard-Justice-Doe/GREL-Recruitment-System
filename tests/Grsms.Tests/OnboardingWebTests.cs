@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Grsms.Domain.Applications;
 using Grsms.Domain.Hiring;
 using Grsms.Domain.Onboarding;
+using Grsms.Domain.Probation;
 using Grsms.Domain.Recruitment;
 using Grsms.Domain.Security;
 using Grsms.Domain.Vacancies;
@@ -24,7 +25,9 @@ namespace Grsms.Tests;
 ///   * Phase 18, employee onboarding journey: the new employee uploads the new-hire documents in their portal and submits;
 ///     HR verifies them, the HR Manager approves, the induction is closed and HR activates the employee;
 ///   * Phase 18, document verification journey: HR rejects a document, sends it back, the new employee sees why, uploads it
-///     again and resubmits.
+///     again and resubmits;
+///   * Phase 21, probation assessment journey: the HOD records the initial meeting, the employee signs it, the HOD records
+///     both assessments, the HR Manager confirms and the employee opens the confirmation letter.
 /// </summary>
 public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFactory>
 {
@@ -223,6 +226,96 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
 
     // ------------------------------------------------------------------ tests
 
+
+    /// <summary>Documents verified, HR Manager approval, every task ticked, induction closed, activated: the probation starts.</summary>
+    private async Task<HttpClient> ActivatedThroughPagesAsync(Cast c, string url, int id, string staffNumber)
+    {
+        await EmployeeSubmitsDocumentsAsync(c, id);
+        var recruiter = await SignedInAsync(c.Email("ro"));
+        await VerifyAllAsync(recruiter, url, id, await DocumentsAsync(id));
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/MarkVerified/{id}", new())).StatusCode);
+        var hrm = await SignedInAsync(c.Email("hrm"));
+        Assert.Equal(HttpStatusCode.Redirect, (await hrm.PostFormAsync(url, $"/Onboarding/HrDecide/{id}", new() { ["approve"] = "true" })).StatusCode);
+        foreach (var taskId in await Db(db => db.OnboardingTasks.Where(t => t.OnboardingRecordId == id).Select(t => t.Id).ToListAsync()))
+            Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/UpdateTask/{id}",
+                new() { ["taskId"] = taskId.ToString(), ["status"] = "Done" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/CompleteInduction/{id}", new())).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/Activate/{id}", new() { ["staffNumber"] = staffNumber })).StatusCode);
+        Assert.Equal(OnboardingStatus.Completed, await StageAsync(id));
+        return recruiter;
+    }
+
+    [Fact]
+    public async Task Probation_assessment_journey_from_the_initial_meeting_to_the_confirmation_letter()
+    {
+        var c = await AcceptedOfferAsync("p", "Kofi Asante", Today);
+        var (url, id) = await StartAsync(c, Today);
+        await LetterIssuedAndSignedAsync(c, url, id, "Kofi Asante");
+        await ActivatedThroughPagesAsync(c, url, id, "GREL-9101");
+        var probationId = await Db(db => db.ProbationRecords.Where(p => p.OnboardingRecordId == id).Select(p => p.Id).SingleAsync());
+        var page = $"/Probation/Details/{probationId}";
+
+        // ---- The HOD sees the new employee on their home page and records the initial meeting
+        var hod = await SignedInAsync(c.Email("hod"));
+        var home = await hod.GetStringAsync("/");
+        Assert.Contains("My department&#x27;s new employees", home);
+        Assert.Contains("Objectives pending", home);
+        Assert.Contains("Kofi Asante", await hod.GetStringAsync("/Probation?tab=all"));
+        Assert.Contains("Initial meeting", await hod.GetStringAsync(page));
+        Assert.Equal(HttpStatusCode.Redirect, (await hod.PostFormAsync(page, $"/Probation/InitialMeeting/{probationId}", new()
+        {
+            ["MeetingDate"] = Today.ToString("yyyy-MM-dd"), ["Notes"] = "First week went well.",
+            ["Objectives.Index"] = "a", ["Objectives[a].Objective"] = "Service the fleet on schedule", ["Objectives[a].SuccessIndicators"] = "No overdue services",
+            ["DevelopmentPlan.Index"] = "b", ["DevelopmentPlan[b].TrainingNeed"] = "Hydraulics", ["DevelopmentPlan[b].Timeline"] = "Month 2",
+            ["SignatureName"] = "Garage Head"
+        })).StatusCode);
+
+        // ---- The employee reads and signs it in My probation
+        var employee = await SignedInAsync(c.Email("cand"));
+        var mine = await employee.GetStringAsync("/MyProbation");
+        Assert.Contains("Please sign your objectives", mine);
+        Assert.Contains("Service the fleet on schedule", mine);
+        Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync("/MyProbation", $"/MyProbation/Sign/{probationId}",
+            new() { ["fullName"] = "Kofi Asante", ["confirm"] = "true" })).StatusCode);
+        Assert.DoesNotContain("Please sign your objectives", await employee.GetStringAsync("/MyProbation"));
+
+        // ---- Six months later: the first and final assessments (dates moved back so both are due)
+        await Db(async db =>
+        {
+            var p = await db.ProbationRecords.SingleAsync(x => x.Id == probationId);
+            p.StartDate = Today.AddMonths(-6); p.EndDate = Today; p.OriginalEndDate = Today;
+            return await db.SaveChangesAsync();
+        });
+        var ratings = new Dictionary<string, string>
+        {
+            ["ApplicationOfSkills"] = "Good", ["QualityOfWork"] = "VeryGood", ["Productivity"] = "Good", ["Cooperation"] = "Outstanding",
+            ["Dependability"] = "Good", ["AbilityToSupervise"] = "", ["Comments"] = "Reliable and careful."
+        };
+        Assert.Equal(HttpStatusCode.Redirect, (await hod.PostFormAsync(page, $"/Probation/Assess/{probationId}", ratings)).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await hod.PostFormAsync(page, $"/Probation/Assess/{probationId}",
+            new(ratings) { ["Outcome"] = "Confirm" })).StatusCode);
+        Assert.Equal(2, await Db(db => db.ProbationAssessments.CountAsync(a => a.ProbationRecordId == probationId)));
+
+        // ---- The HR Manager sees it pending on the dashboard and confirms
+        var hrm = await SignedInAsync(c.Email("hrm"));
+        Assert.Contains("Confirmations pending", await hrm.GetStringAsync("/"));
+        Assert.Contains("Kofi Asante", await hrm.GetStringAsync("/Probation?tab=decision"));
+        Assert.Equal(HttpStatusCode.Redirect, (await hrm.PostFormAsync(page, $"/Probation/HrDecide/{probationId}",
+            new() { ["approve"] = "true", ["comments"] = "Confirmed." })).StatusCode);
+        Assert.Equal(ProbationStatus.Confirmed, await Db(db => db.ProbationRecords.Where(p => p.Id == probationId).Select(p => p.Status).SingleAsync()));
+
+        // ---- The employee opens the confirmation letter; the Head of IT cannot see the probation
+        Assert.Contains("My confirmation letter", await employee.GetStringAsync("/MyProbation"));
+        var letter = await employee.GetStringAsync($"/MyProbation/Letter/{probationId}");
+        Assert.Contains("CNF-", letter);
+        Assert.Contains("Diesel Mechanic", letter);
+        Assert.Contains("CNF-", await hrm.GetStringAsync($"/Probation/Letter/{probationId}"));
+        var itHod = await SignedInAsync(c.Email("ithod"));
+        Assert.NotEqual(HttpStatusCode.OK, (await itHod.GetAsync(page)).StatusCode);
+
+        // ---- The confirmations report lists the employee
+        Assert.Contains("Kofi Asante", await hrm.GetStringAsync("/Reports?report=confirmations"));
+    }
     [Fact]
     public async Task Recruiter_starts_hr_manager_issues_it_ticks_and_the_new_employee_signs()
     {

@@ -19,4 +19,7 @@ public class PersonalRecordRepository(ApplicationDbContext context)
             .Include(r => r.Beneficiaries)
             .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.OnboardingRecordId == onboardingId, ct);
+
+    public async Task<IReadOnlyList<EmployeePersonalRecord>> ListWithBeneficiariesAsync(CancellationToken ct = default) =>
+        await Db.EmployeePersonalRecords.AsNoTracking().Include(r => r.Beneficiaries).ToListAsync(ct);
 }

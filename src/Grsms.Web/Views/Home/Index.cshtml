@@ -71,6 +71,12 @@
     </p>
 }
 
+@* ---------------------------------------------------------------- Phase 21: onboarding and probation widgets *@
+@if (!Model.Workforce.IsEmpty)
+{
+    <partial name="_WorkforcePanel" model="Model.Workforce" />
+}
+
 @* ---------------------------------------------------------------- KPI cards *@
 <div class="kpi-grid mb-3">
     @foreach (var k in d.Kpis)

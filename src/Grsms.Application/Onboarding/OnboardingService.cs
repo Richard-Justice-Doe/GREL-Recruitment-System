@@ -45,7 +45,8 @@ public class OnboardingService(
     DocumentVerificationService documentService,
     IEmployeeAccounts accounts,
     InductionAreaService induction,
-    PersonnelFileService personnelFiles)
+    PersonnelFileService personnelFiles,
+    Probation.ProbationService probation)
 {
     private const string ConflictMessage = "Someone else updated this record at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
@@ -711,6 +712,8 @@ public class OnboardingService(
 
         // Phase 20: open the electronic personnel file and file everything from the onboarding.
         await personnelFiles.OpenForOnboardingAsync(o, ct);
+        // Phase 21: the probation starts automatically (the HOD and the employee are emailed).
+        await probation.StartForOnboardingAsync(o, ct);
         await mailer.TemplateToUserAsync(o.EmployeeUserId, Domain.Settings.EmailTemplateCatalogue.OnboardingActivated,
             new Dictionary<string, string?> { ["JobTitle"] = o.JobTitle, ["StaffNumber"] = staffNumber }, links.MyApplication(o.JobApplicationId), ct: ct);
         foreach (var hod in await HodsAsync(o, ct))

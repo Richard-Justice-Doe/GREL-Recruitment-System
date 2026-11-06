@@ -29,6 +29,8 @@ GRSMS uses **role-based access control with permissions**:
 
 🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission. **Everyone** (candidates included) can always open **My audit trail** (below); it is not a permission.
 
+**Probation (Phase 21)** follows the roles, not a separate permission, and every rule is checked in `ProbationService`: Recruitment Officers, HR Managers and holders of *See all departments* see every probation; a Head of Department sees and assesses only the departments they head; only an **HR Manager** decides the outcome, and never on an assessment they recorded; the employee sees only their own probation and confirmation letter. Signatures must match the signer's own full name. The reports *Missing documents*, *Document verification* and *Beneficiaries* need *Open personnel files*. See [25 Probation management](25-probation-management.md#who-can-see-and-do-what).
+
 ### The three administrator levels (5 November 2026)
 
 | | Super Admin | Admin | HR Administrator |

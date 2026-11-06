@@ -437,6 +437,32 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 
 **Not tested here:** the add/remove-row buttons and the running total in a real browser (the page and its posted rows were exercised by the web tests).
 
+## ✅ Phase 21: Probation, confirmation, dashboards and reports (6 November 2026)
+
+**Asked for** (stage 4, the last, of the onboarding → probation → confirmation extension): a 6-month probation with an initial meeting within 7 days (objectives and a development plan signed by the employee and the HOD), a first assessment at 3 months and a final one at 6 months recommending *Confirm*, *Extend* (at most 3 months, with a reason, an improvement plan and a new end date) or *Do not confirm*; a confirmation letter and confirmation record; emails to the employee, HR and the HOD; HR and HOD dashboard widgets; seven CSV reports.
+
+**Delivered** ([user guide](25-probation-management.md))
+* **Domain** (`Grsms.Domain.Probation`): `ProbationRecord` with its objectives, development plan, assessments and history; `ConfirmationRecord`; `ProbationWorkflow` (6 months, 7 days, 3 months, at most 3 months' extension, assessments open 14 days early).
+* **ProbationService**: the probation opens at activation (`PRB-<year>-<0000>`, once only); the HOD records and signs the initial meeting, the employee signs it in **My probation** and it is filed in the personnel file; first and final assessments, each filed; the HR Manager approves (confirm: letter `CNF-<year>-<0000>` frozen in *Generated Letters* + confirmation record; extend: new end date; do not confirm) or returns to the HOD with comments. Emails at every step; three new reworded templates (*probation confirmed / extended / not confirmed*).
+* **Screens**: *Probation* (tabs Reviews due / In progress / Awaiting HR decision / All, department filter, details with the forms for the viewer's step), *My probation*, the printable confirmation letter.
+* **Home dashboard** (`WorkforceDashboardService`): HR's six widgets (Employees onboarding, Documents awaiting verification, Incomplete onboarding cases, Probation reviews due, Probation extensions, Confirmations pending) and the HOD's four (New employees assigned, Objectives pending, Assessments due, Probation cases), each linking to its list.
+* **Reports** (`WorkforceReportService`): *Onboarding status* (the existing onboarding report, renamed) plus *Missing documents*, *Document verification*, *Beneficiaries*, *Probation*, *Probation extensions*, *Confirmations*: seven in all, each with the usual filters and CSV download.
+* Migration `Phase21_ProbationAndConfirmation`, script `database/22_phase21_probation_and_confirmation.sql`. New `ProbationServiceTests` (8) and the probation assessment web journey: **177 tests**.
+
+**Decisions recorded**
+* **The probation starts at activation**, from the onboarding's start date, and only for onboardings activated from this phase on (older employees have no probation in GRSMS).
+* **Signatures are typed full names** that must match the signer's account, with the date and time recorded, as for the appointment letter and the declaration.
+* **Only an HR Manager decides**, never on an assessment they recorded; the HOD's recommendation takes effect only when approved. The 3-month limit counts every extension together.
+* **The ratings** are six areas (application of skills, quality of work, productivity, co-operation, dependability, ability to supervise) on a five-point scale, Outstanding to Unacceptable; *Ability to supervise* may be left empty.
+* **Letters are frozen HTML** in the personnel file (user's choice in Phase 18: no PDF library); *Save as PDF* from the print dialog.
+* **Personal-data reports** (missing documents, document verification, beneficiaries) need *Open personnel files*; a HOD sees an empty report saying why. The probation reports follow the usual department rules.
+* **No automatic reminders** yet: due and overdue steps show on the dashboards and the *Reviews due* tab.
+* Out of scope, as asked: payroll, leave, performance management, an ESS portal, training, medical claims.
+
+**Checked:** 177/177 tests. Scripts 19, 20, 21 and 22 applied in order on MySQL 8.4 to a throwaway copy of the development database (six new tables, migration recorded); the copy was dropped.
+
+**Not tested here:** the new pages in a real browser (exercised as HTML by the web tests).
+
 ## ✅ Phase 20: Departmental induction and the electronic personnel file (6 November 2026)
 
 **Asked for** (stage 3 of the onboarding → probation → confirmation extension): after HR verification, departments complete onboarding tasks across twelve induction areas (Human Resource, Corporate IT, Procurement, Supply Chain, Finance, Factory Operations, TBU Operations, Stores Operations, Engineering, Security, Health & Safety, Administration), each task with department, name, description, assigned, due and completed dates, verified by and status; and an electronic personnel file per employee, as database records (not Windows folders), with seven categories.

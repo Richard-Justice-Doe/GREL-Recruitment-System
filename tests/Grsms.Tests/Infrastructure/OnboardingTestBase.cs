@@ -221,4 +221,27 @@ public abstract class OnboardingTestBase : IAsyncLifetime
         foreach (var d in await DocumentsAsync(id))
             Assert.True((await RunDocs(s => s.VerifyAsync(d.Id))).Succeeded);
     }
+    /// <summary>Submitted, verified and sent to the HR Manager: "Awaiting HR approval".</summary>
+    protected async Task<int> AtHrApprovalAsync()
+    {
+        var (id, _) = await SubmittedAsync(Today);
+        await VerifyAllAsync(id);
+        Assert.True((await Run(s => s.MarkDocumentsVerifiedAsync(id))).Succeeded);
+        return id;
+    }
+
+    /// <summary>Through to "Completed" (every task done by HR, staff number GREL-0457).</summary>
+    protected async Task<int> ActivatedAsync()
+    {
+        var id = await AtHrApprovalAsync();
+        AsHrManager();
+        Assert.True((await Run(s => s.HrDecideAsync(id, true, null))).Succeeded);
+        AsRecruiter();
+        foreach (var t in (await TasksAsync(id)).Where(t => t.Status == OnboardingTaskStatus.Open))
+            Assert.True((await Run(s => s.UpdateTaskAsync(t.Id, OnboardingTaskStatus.Done, null))).Succeeded);
+        Assert.True((await Run(s => s.CompleteInductionAsync(id))).Succeeded);
+        Assert.True((await Run(s => s.ActivateAsync(id, "GREL-0457"))).Succeeded);
+        return id;
+    }
+
 }

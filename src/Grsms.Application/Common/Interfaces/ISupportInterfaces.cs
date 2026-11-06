@@ -53,6 +53,12 @@ public interface IAppLinks
     /// <summary>An onboarding (checklist, appointment letter, first day) for staff.</summary>
     string Onboarding(int id);
 
+    /// <summary>Phase 21: a probation (staff page).</summary>
+    string Probation(int id);
+
+    /// <summary>Phase 21: the employee's own probation page.</summary>
+    string MyProbation();
+
     /// <summary>A survey invitation, for the person invited to answer it.</summary>
     string Survey(int invitationId);
 

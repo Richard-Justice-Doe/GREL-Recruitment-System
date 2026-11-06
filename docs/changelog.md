@@ -4,6 +4,19 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 6 November 2026: Phase 21, probation, confirmation, dashboards and reports
+
+**Why:** stage 4, the last, of GREL's onboarding → probation → confirmation request. Details in [Phase 21](phases.md#-phase-21-probation-confirmation-dashboards-and-reports-6-november-2026).
+
+* **Domain:** `ProbationRecord` (objectives, development plan, assessments, history), `ConfirmationRecord`, `ProbationWorkflow`.
+* **Application:** `ProbationService` (started by `OnboardingService` at activation), `WorkforceDashboardService`, `WorkforceReportService` (called by `ReportService`); `PersonnelFileService` files the meeting, assessments and confirmation letter; three new email templates.
+* **Web:** *Probation* and *My probation* screens, the confirmation letter, the Home dashboard widgets, six new reports.
+* **Database:** `database/22_phase21_probation_and_confirmation.sql`, checked on MySQL 8.4 after scripts 19, 20 and 21.
+* **Checked:** 177/177 tests.
+* **Open:** no automatic reminders for due reviews (shown on the dashboards instead).
+
+---
+
 ## 6 November 2026: Phase 20, departmental induction and the electronic personnel file
 
 **Why:** stage 3 of GREL's onboarding → probation → confirmation request. Details in [Phase 20](phases.md#-phase-20-departmental-induction-and-the-electronic-personnel-file-6-november-2026).

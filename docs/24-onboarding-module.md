@@ -2,7 +2,7 @@
 
 For **HR (Recruitment Officers and HR Managers), Heads of Department, task owners and new employees**. No technical knowledge needed.
 
-Onboarding starts the moment a candidate **accepts the offer** and ends when the new employee is an **active GREL employee** with a staff account. (After that, probation begins; probation management is added in Phase 21.)
+Onboarding starts the moment a candidate **accepts the offer** and ends when the new employee is an **active GREL employee** with a staff account. (After that, [probation](25-probation-management.md) begins.)
 
 > This guide describes the onboarding workflow added in Phase 18 (6 November 2026). The appointment letter, first-day details and the departmental checklist work as described in [18 Appointment letters and onboarding](18-onboarding.md); this page covers the stages and the new-hire documents around them.
 
@@ -139,7 +139,7 @@ Each employee has one file, numbered e.g. **PF-2026-0001**, with seven folders. 
 | Identification Records | Passport picture, birth certificate, Ghana Card, SSNIT card, passport biodata page, non-citizen card |
 | Compliance Records | Medical report, police clearance, bank confirmation letter |
 | Onboarding Records | The onboarding and induction record: every task, who did it and who verified it |
-| Probation Records | Added by probation management (a later phase) |
+| Probation Records | The signed initial meeting and each probation assessment ([probation](25-probation-management.md)) |
 | Generated Letters | The appointment letter, frozen exactly as it was signed |
 
 Only **verified** new-hire documents are filed. Files are not copied: the personnel file points to the same securely stored file. Click a file to download it, or a letter to read and print it (**Print or save as PDF**). HR can **add a document** to any folder.

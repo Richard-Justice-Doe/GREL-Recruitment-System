@@ -1,6 +1,7 @@
 @* Staff home page (dashboard). Data comes from DashboardService (Application/Dashboard).
-   Layout: greeting, KPI cards with 7-day bar charts, then "My tasks" + requests in progress + latest candidates
-   on the left and the vacancy closing calendar on the right. Panels the user may not see are left out. *@
+   Layout (redesign, November 2026): green welcome banner, "Your to-dos" cards, workforce panel, coloured KPI cards with
+   7-day bar charts, then requests in progress + latest candidates on the left and the vacancy closing calendar on the
+   right. Panels the user may not see are left out. *@
 @using System.Globalization
 @using Grsms.Application.Dashboard
 @using Microsoft.AspNetCore.Authorization
@@ -18,6 +19,10 @@
 
     var showCalendar = d.ClosingDays is not null;
     var showBottom = d.InProgress is not null || d.LatestCandidates is not null;
+
+    // Tasks come oldest first, so the first one is the one to start with.
+    var overdueCount = d.Tasks.Count(t => (DateTime.UtcNow - t.Since).TotalDays >= 3);
+    var firstTaskUrl = d.Tasks.Count > 0 ? TaskUrl(d.Tasks[0]) : null;
 }
 @functions {
     // Same initials + colour for the same person everywhere on the page.
@@ -34,13 +39,68 @@
     }
 
     private static string DayLetter(DateOnly day) => day.DayOfWeek.ToString()[..1];
+
+    // The page a task opens.
+    private string? TaskUrl(DashboardTaskDto t) => t.Target switch
+    {
+        DashboardTaskTarget.Request => Url.Action("Details", "RecruitmentRequests", new { id = t.Id }),
+        DashboardTaskTarget.Vacancy => Url.Action("Details", "Vacancies", new { id = t.Id }),
+        DashboardTaskTarget.Shortlist => Url.Action("Vacancy", "Shortlisting", new { id = t.Id }),
+        DashboardTaskTarget.Interview => Url.Action("Details", "Interviews", new { id = t.Id }),
+        DashboardTaskTarget.Hiring => Url.Action("Case", "Hiring", new { id = t.Id }),
+        DashboardTaskTarget.Onboarding => Url.Action("Details", "Onboarding", new { id = t.Id }),
+        DashboardTaskTarget.NewOnboarding => Url.Action("Start", "Onboarding", new { id = t.Id }),
+        _ => Url.Action("Create", "Vacancies", new { requestId = t.Id })
+    };
+
+    // Stage colour, label and button text of a to-do card (site.css section 10).
+    private static (string Tone, string Label, string Button) TaskLook(DashboardTaskTarget target) => target switch
+    {
+        DashboardTaskTarget.Request => ("tone-hire", "Recruitment request", "Open request"),
+        DashboardTaskTarget.Vacancy => ("tone-hire", "Vacancy", "Open vacancy"),
+        DashboardTaskTarget.NewVacancyForRequest => ("tone-hire", "Vacancy", "Create the vacancy"),
+        DashboardTaskTarget.Shortlist => ("tone-hire", "Shortlist", "Open shortlist"),
+        DashboardTaskTarget.Interview => ("tone-interview", "Interview", "Open scorecard"),
+        DashboardTaskTarget.Hiring => ("tone-offer", "Hiring decision", "Open hiring case"),
+        DashboardTaskTarget.NewOnboarding => ("tone-onboard", "Onboarding", "Start onboarding"),
+        _ => ("tone-onboard", "Onboarding", "Open checklist")
+    };
+
+    // KPI card colours.
+    private static string KpiTone(KpiKind kind) => kind switch
+    {
+        KpiKind.Requests => "tone-hire",
+        KpiKind.Approved => "tone-onboard",
+        KpiKind.OpenVacancies => "tone-probation",
+        KpiKind.Applications => "tone-interview",
+        _ => "tone-offer"
+    };
 }
 
-<div class="dash-greeting dash-greeting-row">
-    <div>
-        <h1>@greeting, @firstName <span aria-hidden="true">👋</span></h1>
-        <p>Here is what is happening in recruitment today, @today.ToString("dddd d MMMM yyyy", CultureInfo.GetCultureInfo("en-GB")).</p>
+@* ---------------------------------------------------------------- Welcome banner (redesign, November 2026) *@
+<section class="hero">
+    <div class="hero-text">
+        <span class="hero-date">@today.ToString("dddd d MMMM yyyy", CultureInfo.GetCultureInfo("en-GB"))</span>
+        <h1>@greeting, @firstName</h1>
+        <p>
+            @if (d.TaskTotal == 0)
+            {
+                <text>You're all caught up. Nothing is waiting for you.</text>
+            }
+            else
+            {
+                <text>You have <strong>@d.TaskTotal @(d.TaskTotal == 1 ? "thing" : "things") to do</strong>.</text>
+                @if (overdueCount > 0)
+                {
+                    <text> @overdueCount @(overdueCount == 1 ? "has" : "have") been waiting 3 days or more.</text>
+                }
+            }
+        </p>
     </div>
+    @if (firstTaskUrl is not null)
+    {
+        <a href="@firstTaskUrl" class="hero-cta">Start with the first one <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+    }
     @if (Model.DivisionList is not null)
     {
         @* Division / Department filter for the KPI cards, the in-progress list and the calendar. *@
@@ -62,14 +122,71 @@
             }
         </form>
     }
-</div>
+</section>
 @if (Model.Filter.IsSet)
 {
     <p class="small text-body-secondary mb-2">
-        <i class="fa-solid fa-filter me-1"></i>Filtered. <i>My tasks</i> still lists everything waiting for you, and
+        <i class="fa-solid fa-filter me-1"></i>Filtered. <i>Your to-dos</i> still lists everything waiting for you, and
         <i>Registered candidates</i> counts all candidates (candidates are linked to a department once they apply, in a later phase).
     </p>
 }
+
+@* ---------------------------------------------------------------- Your to-dos: one card per thing waiting for you *@
+<section aria-labelledby="todos-title">
+    <div class="section-head">
+        <h2 id="todos-title">Your to-dos</h2>
+        <span class="section-sub">Only things waiting for you, oldest first</span>
+    </div>
+    @if (d.Tasks.Count == 0)
+    {
+        <div class="todo-empty">
+            <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
+            <span>You're all caught up. Nothing is waiting for you.</span>
+        </div>
+    }
+    else
+    {
+        <div class="todo-grid">
+            @foreach (var t in d.Tasks)
+            {
+                var look = TaskLook(t.Target);
+                var person = t.PersonName == "You" ? name : t.PersonName;
+                var days = (int)(DateTime.UtcNow - t.Since).TotalDays;
+                <article class="todo-card @look.Tone">
+                    <div class="todo-card-top">
+                        <span class="pill">@look.Label</span>
+                        @if (days >= 3)
+                        {
+                            <span class="pill pill-danger" title="Waiting since @t.Since.ToString("ddd d MMM")"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>Waiting @days days</span>
+                        }
+                        else if (t.Since > DateTime.UtcNow)
+                        {
+                            <span class="pill pill-muted">@t.Since.ToString("ddd d MMM, HH:mm")</span>
+                        }
+                        else
+                        {
+                            <span class="pill pill-muted">Since @t.Since.ToString("ddd d MMM")</span>
+                        }
+                    </div>
+                    <h3>@t.Title</h3>
+                    <p class="todo-meta">@t.Reference · @t.Action</p>
+                    @if (t.PersonName != "Recruitment")
+                    {
+                        <span class="todo-from">
+                            <span class="mini-avatar" style="background:@AvatarColour(person)" aria-hidden="true">@Initials(person)</span>
+                            @(t.PersonName == "You" ? "Your own" : $"From {t.PersonName}")
+                        </span>
+                    }
+                    <a href="@TaskUrl(t)" class="btn">@look.Button <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                </article>
+            }
+        </div>
+        @if (d.TaskTotal > d.Tasks.Count)
+        {
+            <p class="dash-more mt-n3 mb-4">Showing the @d.Tasks.Count oldest of @d.TaskTotal. Open Recruitment requests or Vacancies to see them all.</p>
+        }
+    }
+</section>
 
 @* ---------------------------------------------------------------- Phase 21: onboarding and probation widgets *@
 @if (!Model.Workforce.IsEmpty)
@@ -91,7 +208,7 @@
             _ => null
         };
         var max = Math.Max(1, k.Last7Days.Max(x => x.Count));
-        <section class="dash-card kpi-card">
+        <section class="dash-card kpi-card @KpiTone(k.Kind)">
             <header class="kpi-head">
                 <i class="fa-solid @k.Icon"></i>
                 @if (link is not null)
@@ -142,85 +259,6 @@
 
 <div class="row g-3">
     <div class="@(showCalendar ? "col-xl-8" : "col-12")">
-
-        @* ---------------------------------------------------------------- My tasks *@
-        <section class="dash-card mb-3">
-            <header class="dash-card-head">
-                <h2><i class="fa-solid fa-list-check"></i> My tasks
-                    @if (d.TaskTotal > 0) { <span class="badge rounded-pill badge-soft-primary ms-1">@d.TaskTotal</span> }
-                </h2>
-            </header>
-            @if (d.Tasks.Count == 0)
-            {
-                <div class="dash-empty">
-                    <i class="fa-regular fa-circle-check"></i>
-                    <div>You're all caught up. Nothing is waiting for you.</div>
-                </div>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table dash-table">
-                        <thead>
-                            <tr><th>Task</th><th class="d-none d-md-table-cell">From</th><th>Status</th><th class="d-none d-sm-table-cell">Waiting since</th></tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var t in d.Tasks)
-                            {
-                                var url = t.Target switch
-                                {
-                                    DashboardTaskTarget.Request => Url.Action("Details", "RecruitmentRequests", new { id = t.Id }),
-                                    DashboardTaskTarget.Vacancy => Url.Action("Details", "Vacancies", new { id = t.Id }),
-                                    DashboardTaskTarget.Shortlist => Url.Action("Vacancy", "Shortlisting", new { id = t.Id }),
-                                    DashboardTaskTarget.Interview => Url.Action("Details", "Interviews", new { id = t.Id }),
-                                    DashboardTaskTarget.Hiring => Url.Action("Case", "Hiring", new { id = t.Id }),
-                                    DashboardTaskTarget.Onboarding => Url.Action("Details", "Onboarding", new { id = t.Id }),
-                                    DashboardTaskTarget.NewOnboarding => Url.Action("Start", "Onboarding", new { id = t.Id }),
-                                    _ => Url.Action("Create", "Vacancies", new { requestId = t.Id })
-                                };
-                                var person = t.PersonName == "You" ? name : t.PersonName;
-                                var days = (int)(DateTime.UtcNow - t.Since).TotalDays;
-                                <tr>
-                                    <td>
-                                        <a href="@url" class="task-link">
-                                            <span class="task-title">@t.Title</span>
-                                            <small>@t.Reference · @t.Action</small>
-                                        </a>
-                                    </td>
-                                    <td class="text-nowrap d-none d-md-table-cell">
-                                        <span class="person">
-                                            <span class="mini-avatar" style="background:@AvatarColour(person)">@Initials(person)</span>
-                                            @t.PersonName
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @if (t.Status is RecruitmentRequestStatus rs)
-                                        {
-                                            <partial name="~/Views/RecruitmentRequests/_StatusBadge.cshtml" model="rs" />
-                                        }
-                                        else if (t.Status is VacancyStatus vs)
-                                        {
-                                            <partial name="~/Views/Vacancies/_StatusBadge.cshtml" model="vs" />
-                                        }
-                                    </td>
-                                    <td class="text-nowrap d-none d-sm-table-cell">
-                                        @t.Since.ToString("ddd, d MMM")
-                                        @if (days >= 3)
-                                        {
-                                            <span class="badge rounded-pill badge-soft-danger ms-1" title="Waiting @days days"><i class="fa-solid fa-triangle-exclamation me-1"></i>@days d</span>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-                @if (d.TaskTotal > d.Tasks.Count)
-                {
-                    <div class="dash-more">Showing the @d.Tasks.Count oldest of @d.TaskTotal. Open Recruitment requests or Vacancies to see them all.</div>
-                }
-            }
-        </section>
 
         @if (showBottom)
         {

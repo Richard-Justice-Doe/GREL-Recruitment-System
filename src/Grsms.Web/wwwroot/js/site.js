@@ -58,6 +58,19 @@
             btn.addEventListener("click", function () { document.body.classList.toggle("sidebar-open"); });
         });
 
+        // ---- 2b. Menu groups (Hire, Onboard, ...) remember being opened or closed in this browser.
+        // The group holding the current page always stays open (data-nav-current="yes").
+        var navState = {};
+        try { navState = JSON.parse(localStorage.getItem("grsms-nav-groups") || "{}") || {}; } catch (e) { navState = {}; }
+        document.querySelectorAll("details[data-nav-group]").forEach(function (group) {
+            var key = group.getAttribute("data-nav-group");
+            if (group.getAttribute("data-nav-current") !== "yes" && typeof navState[key] === "boolean") group.open = navState[key];
+            group.addEventListener("toggle", function () {
+                navState[key] = group.open;
+                try { localStorage.setItem("grsms-nav-groups", JSON.stringify(navState)); } catch (e) { /* private mode: ignore */ }
+            });
+        });
+
         // ---- 3. Confirmation prompts (SweetAlert2) -----------------------
         // <button data-confirm="Deactivate this department?"> asks before submitting its form. The form is sent with the
         // same button, so name="decision" value="Approve" style buttons keep working. A red (danger) button gets a red

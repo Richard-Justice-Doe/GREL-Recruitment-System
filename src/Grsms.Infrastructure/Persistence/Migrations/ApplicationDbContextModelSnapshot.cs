@@ -5418,8 +5418,6 @@ namespace Grsms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SiteId");
 
-                    b.HasIndex("Status");
-
                     b.HasIndex("UnitId");
 
                     b.HasIndex("VacancyNumber")

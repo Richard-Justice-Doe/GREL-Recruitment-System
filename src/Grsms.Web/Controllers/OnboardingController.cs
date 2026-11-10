@@ -30,6 +30,7 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     }
 
     /// <param name="id">The application id.</param>
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public async Task<IActionResult> Start(int id, CancellationToken ct)
     {
         if (await onboarding.IdForApplicationAsync(id, ct) is int existing) return RedirectToAction(nameof(Details), new { id = existing });
@@ -40,6 +41,7 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public async Task<IActionResult> Start(StartOnboardingForm form, CancellationToken ct)
     {
         var result = await onboarding.StartAsync(form, ct);
@@ -71,12 +73,14 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> UpdateFirstDay(int id, DateOnly? startDate, TimeOnly? reportTime, string? reportLocation, string? contactPersonUserId,
         string? firstDayNotes, string? employeeNumber, CancellationToken ct) =>
         Act(id, () => onboarding.UpdateFirstDayAsync(id, startDate, reportTime, reportLocation, contactPersonUserId, firstDayNotes, employeeNumber, ct),
             "First-day details saved.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> IssueLetter(int id, string? terms, CancellationToken ct) =>
         Act(id, () => onboarding.IssueLetterAsync(id, terms, ct), "Appointment letter issued. The new employee has been emailed and can sign it in their portal.");
 
@@ -85,17 +89,20 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         Act(id, () => onboarding.UpdateTaskAsync(taskId, status, notes, ct), "Checklist updated.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> AssignTask(int id, int taskId, string? userId, DateOnly? dueDate, CancellationToken ct) =>
         Act(id, () => onboarding.AssignTaskAsync(taskId, userId, dueDate, ct), "Task updated.");
 
     /// <param name="area">Phase 20: the induction area ("" = the new employee's own department).</param>
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> AddTask(int id, OnboardingTeam team, string? title, DateOnly? dueDate, string? userId, InductionArea? area,
         string? description, CancellationToken ct) =>
         Act(id, () => onboarding.AddTaskAsync(id, team, title, dueDate, userId, ct, area, description), "Task added to the checklist.");
 
     /// <summary>Phase 20: opens the personnel file of an onboarding completed before personnel files existed.</summary>
     [HttpPost]
+    [Authorize(Policy = Policies.PersonnelFiles)]
     public async Task<IActionResult> OpenPersonnelFile(int id, CancellationToken ct)
     {
         var result = await onboarding.OpenPersonnelFileAsync(id, ct);
@@ -110,10 +117,12 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
 
     /// <summary>Phase 20: HR confirms a task someone else marked done.</summary>
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> VerifyTask(int id, int taskId, CancellationToken ct) =>
         Act(id, () => onboarding.VerifyTaskAsync(taskId, ct), "Task verified.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> RemoveTask(int id, int taskId, CancellationToken ct) =>
         Act(id, () => onboarding.RemoveTaskAsync(taskId, ct), "Task removed.");
 
@@ -121,29 +130,35 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     // Before activation the stage moves by itself as documents are uploaded and verified; there is no "submit" or HR approval.
 
     [HttpPost]
+    [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> RequestCorrection(int id, string? message, CancellationToken ct) =>
         Act(id, () => onboarding.RequestCorrectionAsync(id, message, ct), "The new employee has been emailed what to correct.");
 
     /// <param name="education">The codes of the education certificates ticked.</param>
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> SetRequirements(int id, bool isExpatriate, string[]? education, CancellationToken ct) =>
         Act(id, () => documents.SetRequirementsAsync(id, isExpatriate, education ?? [], ct), "Documents required updated.");
 
     /// <param name="areas">The departmental induction areas whose tasks are created.</param>
     [HttpPost]
+    [Authorize(Policy = Policies.CompleteOnboarding)]
     public Task<IActionResult> Activate(int id, string? staffNumber, InductionArea[]? areas, CancellationToken ct) =>
         Act(id, () => onboarding.ActivateAsync(id, staffNumber, ct, areas ?? []),
             "Employee activated: the account is now a GREL staff account and the probation has started. The induction task owners have been emailed.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.CompleteOnboarding)]
     public Task<IActionResult> CompleteInduction(int id, CancellationToken ct) =>
         Act(id, () => onboarding.CompleteInductionAsync(id, ct), "Induction closed: the onboarding is complete and filed in the personnel file.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> SaveNotes(int id, string? notes, CancellationToken ct) =>
         Act(id, () => onboarding.SaveNotesAsync(id, notes, ct), "Notes saved.");
 
     /// <summary>Phase 19: the new employee's Personal Record Declaration, read-only (HR only).</summary>
+    [Authorize(Policy = Policies.ViewOnboarding)]
     public async Task<IActionResult> PersonalRecord(int id, CancellationToken ct)
     {
         var model = await personalRecords.GetForHrAsync(id, ct);
@@ -155,6 +170,7 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     [HttpPost]
     [RequestSizeLimit(UploadRequestLimitBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimitBytes)]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, int? replacesAttachmentId, CancellationToken ct)
     {
         if (file is null || file.Length == 0) return await Act(id, () => Task.FromResult(Result.Failure("Choose a file to upload.")), "");
@@ -164,27 +180,33 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> RemoveDocumentFile(int id, int documentId, int attachmentId, CancellationToken ct) =>
         Act(id, () => documents.RemoveFileAsync(documentId, attachmentId, ct), "File removed.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> MarkNotApplicable(int id, int documentId, string? reason, CancellationToken ct) =>
         Act(id, () => documents.MarkNotApplicableAsync(documentId, reason, ct), "Marked not applicable.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> VerifyDocument(int id, int documentId, CancellationToken ct) =>
         Act(id, () => documents.VerifyAsync(documentId, ct), "Document verified.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> StartReview(int id, int documentId, CancellationToken ct) =>
         Act(id, () => documents.StartReviewAsync(documentId, ct), "Review started: the new employee cannot change this document until you verify or reject it.");
 
     /// <param name="reasonCode">The reason from the list; <paramref name="reason"/> is the RO's note (required for "Other").</param>
     [HttpPost]
+    [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> RejectDocument(int id, int documentId, DocumentRejectionReason? reasonCode, string? reason, CancellationToken ct) =>
         Act(id, () => documents.RejectAsync(documentId, reasonCode, reason, ct), "Document rejected. The new employee has been emailed the reason.");
 
     /// <summary>Downloads a new-hire document file (onboarding.view; always as a download, never shown inside the site; every opening is recorded).</summary>
+    [Authorize(Policy = Policies.ViewOnboarding)]
     public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, CancellationToken ct)
     {
         var file = await documents.OpenFileAsync(documentId, attachmentId, ct);
@@ -192,6 +214,7 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> Cancel(int id, string? reason, CancellationToken ct) =>
         Act(id, () => onboarding.CancelAsync(id, reason, ct), "Onboarding cancelled.");
 

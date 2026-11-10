@@ -4,6 +4,21 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 10 November 2026: codebase audit and cleanup
+
+**Why:** a full audit of the codebase (dead code, duplicates, structure, database, security, performance) before Phase 27 stages B and C. Report, decisions and results: [27 Codebase audit](27-codebase-audit.md). No business rule changed except the two decisions below.
+
+* **Removed (no callers):** 7 methods, 1 constructor parameter, 1 view helper, the unchecked permission `users.manage-privileged`, 11 CSS rules, ~9.3 MB of unused Bootstrap/jQuery variants.
+* **Faster:** the onboarding page runs 16 queries instead of 71; several lists and reports filter in the database; reminders and dashboards prefetch lookups.
+* **Simpler:** shared `Text.Clean`, `Signatures.SameName`, `TrySaveAsync`, `AppController.Fail`/`RunAsync` replace ~90 copies.
+* **Clearer:** `ScheduledJobsWorker` (was `VacancyAutoCloseWorker`), four status-badge partials named by what they show, `Application/Workforce`, one controller per file.
+* **Decisions:** **probation now uses permissions** (`probation.view`: RO and HR Manager; `probation.decide`: HR Manager), like onboarding; onboarding and probation actions are also guarded per action by policy. **Virus scanning:** the placeholder stays; [06 Configuration](06-configuration.md#virus-scanning-of-uploads-connect-before-go-live) explains how to connect ClamAV or Defender.
+* **Database:** migration `AuditDropRedundantVacancyStatusIndex`, script `database/25_audit_drop_redundant_vacancy_status_index.sql` (drops one redundant index).
+* **Checked:** 190/190 tests (new: onboarding page query count, per-action policies); full rebuild without warnings.
+* **Open:** splitting `OnboardingService` (after Phase 27 B and C); scripts 24 and 25 not yet run on MySQL.
+
+---
+
 ## 10 November 2026: Phase 27 stage A, onboarding documents reviewed one by one, no HR approval
 
 **Why:** GREL asked for a candidate onboarding document portal with per-document verification. Stage A (rules and data) of three; details and every decision in [Phase 27](phases.md#-phase-27-candidate-onboarding-document-portal-10-november-2026-stage-a-of-3-delivered).

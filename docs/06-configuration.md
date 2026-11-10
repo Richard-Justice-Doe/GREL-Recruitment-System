@@ -73,6 +73,49 @@ dotnet user-secrets --project src/Grsms.Web set "Email:FromAddress" "recruitment
 | `Storage:RootFolder` | `App_Data/uploads` | Where uploaded documents are kept: a local folder (`D:\GRSMS\uploads`) or a file-server share (`\\fileserver\grsms`). Relative paths are inside the web app folder. **Never** point it inside `wwwroot`. Back it up with the database. The app's account needs read/write access. |
 | `Uploads:MaxFileSizeMb` | `10` | Largest file accepted, in MB (the upload page allows at most 25 MB per request) |
 
+### Virus scanning of uploads (connect before go-live)
+Every upload (CVs, new-hire documents, request attachments, personnel files) goes through `IVirusScanner` (Application/Common/Interfaces) **after** the type, size and real-content checks and **before** it is written to disk. A file that is not clean is refused with the scanner's finding and never stored.
+
+Out of the box GRSMS registers `NoVirusScanner` (Infrastructure/Storage), which **lets every file through**: a placeholder until GREL connects a real scanner (decision of 10 November 2026). To connect one:
+
+1. Install a scanner the server can reach, e.g. **ClamAV** (`clamd`, TCP port 3310) on the server or a small VM, or use **Microsoft Defender** on the Windows server (`MpCmdRun.exe -Scan -ScanType 3 -File <path> -DisableRemediation`, exit code 2 = threat found; this needs the file saved to a temporary folder first).
+2. Add a class in `Grsms.Infrastructure/Storage` that implements `IVirusScanner`. For ClamAV (no extra package needed):
+   ```csharp
+   public sealed class ClamAvScanner(IConfiguration config, ILogger<ClamAvScanner> logger) : IVirusScanner
+   {
+       public async Task<VirusScanResult> ScanAsync(Stream content, string fileName, CancellationToken ct = default)
+       {
+           try
+           {
+               using var tcp = new System.Net.Sockets.TcpClient();
+               await tcp.ConnectAsync(config["Antivirus:Host"] ?? "localhost", config.GetValue("Antivirus:Port", 3310), ct);
+               await using var net = tcp.GetStream();
+               await net.WriteAsync("zINSTREAM\0"u8.ToArray(), ct);
+               var buffer = new byte[64 * 1024];
+               int read;
+               while ((read = await content.ReadAsync(buffer, ct)) > 0)
+               {
+                   await net.WriteAsync(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(read)), ct); // chunk length, big-endian
+                   await net.WriteAsync(buffer.AsMemory(0, read), ct);
+               }
+               await net.WriteAsync(new byte[4], ct); // a zero-length chunk ends the stream
+               using var reader = new StreamReader(net);
+               var reply = (await reader.ReadToEndAsync(ct)).TrimEnd('\0', '\n'); // "stream: OK" or "stream: <name> FOUND"
+               return reply.EndsWith(" OK") ? VirusScanResult.Passed : new VirusScanResult(false, reply.Replace("stream: ", "").Replace(" FOUND", ""));
+           }
+           catch (Exception e) when (e is not OperationCanceledException)
+           {
+               logger.LogError(e, "Virus scanner unavailable; upload {File} refused", fileName);
+               return new VirusScanResult(false, "the virus scanner is unavailable, please try again later"); // fail closed
+           }
+       }
+   }
+   ```
+3. In `Grsms.Infrastructure/DependencyInjection.cs` replace `services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>();` with `services.AddSingleton<IVirusScanner, Storage.ClamAvScanner>();`, and set `Antivirus:Host` / `Antivirus:Port` (environment variables `Antivirus__Host`, `Antivirus__Port`).
+4. Test with the standard **EICAR test file** (a harmless string every scanner reports): uploading it must be refused with "refused by the virus scan (Eicar-Signature)". The automated test `A_file_refused_by_the_virus_scanner_is_never_stored` already checks that a refusal stores nothing.
+
+Keep `clamd`'s `StreamMaxLength` at or above `Uploads:MaxFileSizeMb`. The example **fails closed** (refuses uploads while the scanner is down); change the `catch` if GREL prefers uploads to continue unscanned during an outage.
+
 ### Vacancies
 | Setting | Default | Meaning |
 |---|---|---|

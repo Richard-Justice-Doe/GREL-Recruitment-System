@@ -625,6 +625,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `22_phase21_probation_and_confirmation.sql` | 21 | ProbationRecords, ProbationObjectives, ProbationDevelopmentPlans, ProbationAssessments, ProbationActions, ConfirmationRecords. New tables only. Checked on MySQL 8.4 (after scripts 19, 20 and 21) against a copy of the development database. |
 | `23_interview_score_validation.sql` | 9 Nov | Interview score validation columns. |
 | `24_phase27_onboarding_document_portal.sql` | 27 | OnboardingDocumentTypes (seeded, 25 rows), EmployeeDocumentEvents; new columns on EmployeeDocuments (existing rows get `IsApplicable` = 1) and Onboardings. **Moves onboardings waiting for HR approval, or in the old pre-activation induction, to `AwaitingActivation`** (their documents were verified). The four `onboarding.*` permissions are added by GRSMS at start-up. Not yet run on MySQL. |
+| `25_audit_drop_redundant_vacancy_status_index.sql` | audit | Drops `IX_Vacancies_Status` (the index on (Status, ClosingDate) starts with Status and serves the same queries). Codebase audit B7, 10 November 2026. Not yet run on MySQL. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

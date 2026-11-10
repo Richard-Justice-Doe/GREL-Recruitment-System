@@ -527,4 +527,24 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         var ro = await SignedInAsync("od.ro@grel.test");
         Assert.Contains("/Account/AccessDenied", (await ro.GetAsync("/OnboardingDocuments")).Headers.Location!.ToString());
     }
+
+    [Fact]
+    public async Task Onboarding_and_probation_actions_are_blocked_by_permission_before_they_run()
+    {
+        // Codebase audit B8: per-action policies on top of the service checks; probation now uses permissions too.
+        await UserAsync("pp.hrm@grel.test", "HR Manager", 1, Roles.HrManager);
+        await UserAsync("pp.ro@grel.test", "Recruiter", 1, Roles.RecruitmentOfficer);
+        var hrm = await SignedInAsync("pp.hrm@grel.test");
+        var ro = await SignedInAsync("pp.ro@grel.test");
+
+        // The HR Manager (view only, and activation) is refused verification, management and correction actions.
+        foreach (var action in new[] { "StartReview", "VerifyDocument", "RejectDocument", "RequestCorrection", "IssueLetter", "Cancel", "SetRequirements" })
+            Assert.Contains("/Account/AccessDenied", (await hrm.PostFormAsync("/Onboarding", $"/Onboarding/{action}/999999", new())).Headers.Location!.ToString());
+        // The Recruitment Officer reaches them (the service then says the record does not exist).
+        Assert.DoesNotContain("AccessDenied", (await ro.PostFormAsync("/Onboarding", "/Onboarding/StartReview/999999", new() { ["documentId"] = "1" })).Headers.Location!.ToString());
+
+        // Probation decisions: probation.decide (HR Manager by default), not the Recruitment Officer.
+        Assert.Contains("/Account/AccessDenied", (await ro.PostFormAsync("/Probation", "/Probation/HrDecide/999999", new() { ["approve"] = "true" })).Headers.Location!.ToString());
+        Assert.DoesNotContain("AccessDenied", (await hrm.PostFormAsync("/Probation", "/Probation/HrDecide/999999", new() { ["approve"] = "true" })).Headers.Location!.ToString());
+    }
 }

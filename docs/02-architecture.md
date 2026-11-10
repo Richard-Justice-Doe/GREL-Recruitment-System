@@ -85,7 +85,8 @@ Added in Phase 3:
 * `AccessScope` (Application/Common): the single "who sees which department's records" rule, used by requests and vacancies.
 * `WorkflowMailer` (Application/Common): the shared notification email (no self-emails, same layout everywhere, failures logged but never undoing a saved step).
 * `VacancyWorkflow` + `VacancyService`: the same map / record / gatekeeper pattern as requests.
-* **Background jobs** live in `Grsms.Web/Workers`. `ScheduledJobsWorker` runs every hour in its own scope with no signed-in user (recorded as "System") and simply calls `VacancyService.CloseExpiredAsync`, so the rule itself stays testable in the Application layer.
+* **Background jobs** live in `Grsms.Web/Workers`. `ScheduledJobsWorker` (called `VacancyAutoCloseWorker` until 10 November 2026) runs every hour in its own scope with no signed-in user (recorded as "System") and calls the date-driven jobs of the services (vacancy closing, advert schedule, offer expiry, reminders, surveys), so the rules themselves stay testable in the Application layer.
+* **Shared helpers** (codebase audit, 10 November 2026, [27](27-codebase-audit.md)): services use `Text.Clean`, `Signatures.SameName` and `unitOfWork.TrySaveAsync(conflictMessage, ct)` from `Application/Common/ServiceHelpers.cs` instead of private copies; controllers derive from `AppController` and use `Fail(result)` and `RunAsync(action, message, redirect)` for the "post, show the outcome, go back" step. The onboarding and probation dashboards and reports live in `Application/Workforce`.
 * Modules avoid depending on each other directly: the request page asks `IVacancyLookup` ("is there a vacancy for this request?") instead of using the whole vacancy service.
 
 Added with the home dashboard (November 2026, see [11 Home dashboard](11-home-dashboard.md#for-developers)):
@@ -148,7 +149,7 @@ Grsms.Web/Helpers/EnumExtensions.cs  ← friendly enum names on screen
 
 ```
 Grsms.Domain/Vacancies/              ← Vacancy (+ requirements, history), enums, VacancyWorkflow
-Grsms.Application/Common/            ← AccessScope, WorkflowMailer (shared by all workflows)
+Grsms.Application/Common/            ← AccessScope, WorkflowMailer (shared by all workflows); ServiceHelpers.cs (Text.Clean, Signatures.SameName, IUnitOfWork.TrySaveAsync: codebase audit, 10 Nov 2026)
 Grsms.Application/Vacancies/         ← DTOs, IVacancyRepository, VacancyService
 Grsms.Infrastructure/Persistence/    ← VacancyRepository, VacancyConfigurations
 Grsms.Web/Controllers/VacanciesController.cs

@@ -20,6 +20,12 @@ GRSMS uses **role-based access control with permissions**:
 | Open vacancies / job adverts / applications / reports | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
 | Read survey results | 🔒 | ✅ | | ✅ | ✅ | ✅ | | | |
 | Open personnel files (Phase 20) | 🔒 | | | ✅ | | ✅ | | | |
+| Open onboarding: every onboarding, documents, personal record (Phase 27) | 🔒 | | | ✅ | | ✅ | | | |
+| Manage onboarding: start, letter, documents required, first day, checklist, cancel (Phase 27) | 🔒 | | | | | ✅ | | | |
+| Verify onboarding documents; ask for corrections (Phase 27) | 🔒 | | | | | ✅ | | | |
+| Activate employees and close the induction (Phase 27) | 🔒 | | | ✅ | | ✅ | | | |
+| Open probation: every probation and the probation reports (10 Nov 2026) | 🔒 | | | ✅ | | ✅ | | | |
+| Decide probation outcomes: confirm, extend, do not confirm (10 Nov 2026) | 🔒 | | | ✅ | | | | | |
 | See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | | |
 | Manage roles and permissions | 🔒 only | | | | | | | | |
 | Create privileged accounts (a rule of the Super Admin role, not a permission since 10 Nov 2026) | 🔒 only | | | | | | | | |
@@ -29,7 +35,9 @@ GRSMS uses **role-based access control with permissions**:
 
 🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission. **Everyone** (candidates included) can always open **My audit trail** (below); it is not a permission.
 
-**Probation (Phase 21)** follows the roles, not a separate permission, and every rule is checked in `ProbationService`: Recruitment Officers, HR Managers and holders of *See all departments* see every probation; a Head of Department sees and assesses only the departments they head; only an **HR Manager** decides the outcome, and never on an assessment they recorded; the employee sees only their own probation and confirmation letter. Signatures must match the signer's own full name. The reports *Missing documents*, *Document verification* and *Beneficiaries* need *Open personnel files*. See [25 Probation management](25-probation-management.md#who-can-see-and-do-what).
+**Onboarding and probation actions** are also guarded on each controller action by these permissions (codebase audit, 10 November 2026), on top of the checks in the services; the onboarding and probation pages themselves stay open to the task owners and HODs who need them.
+
+**Probation (Phase 21; permissions since 10 November 2026)**: every rule is checked in `ProbationService`: holders of *Open probation* (Recruitment Officers, HR Managers) and of *See all departments* see every probation; a Head of Department sees and assesses only the departments they head; only a holder of *Decide probation outcomes* (the **HR Manager** by default) decides the outcome, and never on an assessment they recorded; the employee sees only their own probation and confirmation letter. Signatures must match the signer's own full name. The reports *Missing documents*, *Document verification* and *Beneficiaries* need *Open personnel files*. See [25 Probation management](25-probation-management.md#who-can-see-and-do-what).
 
 ### The three administrator levels (5 November 2026)
 

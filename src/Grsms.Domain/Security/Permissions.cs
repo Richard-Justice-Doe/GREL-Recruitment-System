@@ -62,6 +62,13 @@ public static class Permissions
     /// <summary>Activate the employee (staff number, staff account) and close the induction.</summary>
     public const string CompleteOnboarding = "onboarding.complete";
 
+    // ---------------------------------------------------------------- Probation (codebase audit decision, 10 November 2026)
+    /// <summary>See every probation and the probation reports (the HOD still sees their own department without it).</summary>
+    public const string ViewProbation = "probation.view";
+
+    /// <summary>Decide the outcome of a probation (confirm, extend, do not confirm) and issue the confirmation letter.</summary>
+    public const string DecideProbation = "probation.decide";
+
     // ---------------------------------------------------------------- Data visibility
     /// <summary>See the records of every department (otherwise a HOD sees only their own departments).</summary>
     public const string SeeAllDepartments = "data.all-departments";
@@ -114,6 +121,10 @@ public static class Permissions
             "Review, verify and reject new-hire documents (Ghana Card, medical report, police clearance, ...) and ask the new employee for corrections."),
         new(CompleteOnboarding, "Onboarding", "Activate employees",
             "Activate a new employee who is ready (staff number, staff account) and close the departmental induction."),
+        new(ViewProbation, "Probation", "Open probation",
+            "See every probation, its objectives, assessments and confirmation letter, and the probation reports."),
+        new(DecideProbation, "Probation", "Decide probation outcomes",
+            "Confirm the employment, extend the probation or decide not to confirm, on the HOD's recommendation (issues the confirmation letter)."),
 
         new(SeeAllDepartments, "Data visibility", "See all departments",
             "See the records of every department. Without it, a Head of Department sees only their own departments."),
@@ -149,14 +160,14 @@ public static class Permissions
         [Roles.HrManager] =
         [
             ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports,
-            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding
+            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding, ViewProbation, DecideProbation
         ],
         [Roles.ManagingDirector] =
             [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments],
         [Roles.RecruitmentOfficer] =
         [
             ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles,
-            ViewOnboarding, ManageOnboarding, VerifyOnboardingDocuments, CompleteOnboarding
+            ViewOnboarding, ManageOnboarding, VerifyOnboardingDocuments, CompleteOnboarding, ViewProbation
         ],
         [Roles.HeadOfDepartment] =
             [ViewRecruitmentRequests, RaiseRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports],

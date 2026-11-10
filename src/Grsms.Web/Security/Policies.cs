@@ -44,6 +44,15 @@ public static class Policies
     /// <summary>Read survey results (Phase 10).</summary>
     public const string SurveyResults = nameof(SurveyResults);
 
+    /// <summary>Codebase audit B8 (10 Nov 2026): onboarding actions by permission (the pages stay open to task owners and HODs).</summary>
+    public const string ViewOnboarding = nameof(ViewOnboarding);
+    public const string ManageOnboarding = nameof(ManageOnboarding);
+    public const string VerifyOnboardingDocuments = nameof(VerifyOnboardingDocuments);
+    public const string CompleteOnboarding = nameof(CompleteOnboarding);
+
+    /// <summary>Codebase audit: the HR decision on a probation.</summary>
+    public const string DecideProbation = nameof(DecideProbation);
+
     /// <summary>Phase 20: open employees' electronic personnel files.</summary>
     public const string PersonnelFiles = nameof(PersonnelFiles);
 
@@ -80,6 +89,11 @@ public static class Policies
             .AddPermissionPolicy(Applications, Permissions.ViewApplications)
             .AddPermissionPolicy(SurveyResults, Permissions.ViewSurveyResults)
             .AddPermissionPolicy(PersonnelFiles, Permissions.ViewPersonnelFiles)
+            .AddPermissionPolicy(ViewOnboarding, Permissions.ViewOnboarding)
+            .AddPermissionPolicy(ManageOnboarding, Permissions.ManageOnboarding)
+            .AddPermissionPolicy(VerifyOnboardingDocuments, Permissions.VerifyOnboardingDocuments)
+            .AddPermissionPolicy(CompleteOnboarding, Permissions.CompleteOnboarding)
+            .AddPermissionPolicy(DecideProbation, Permissions.DecideProbation)
             .AddPermissionPolicy(Reports, Permissions.ViewReports)
             .AddPermissionPolicy(RolesAndPermissions, Permissions.ManagePermissions)
             .AddPermissionPolicy(SystemSettings, Permissions.ViewSystemSettings)

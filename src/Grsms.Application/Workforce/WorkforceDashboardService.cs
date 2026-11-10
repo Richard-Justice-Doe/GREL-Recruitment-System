@@ -36,7 +36,7 @@ public class WorkforceDashboardService(
 
     public async Task<WorkforcePanelDto> GetAsync(CancellationToken ct = default)
     {
-        var isHr = OnboardingWorkflow.HrRoles.Any(me.IsInRole);
+        var isHr = me.HasPermission(Permissions.ViewOnboarding) || me.HasPermission(Permissions.ViewProbation); // audit: permissions, not roles
         var hodDepts = me.IsInRole(Roles.HeadOfDepartment) ? await scope.HodDepartmentIdsAsync(ct) : [];
         if (!isHr && hodDepts.Count == 0) return new([], []);
 

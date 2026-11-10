@@ -56,7 +56,7 @@ public class WorkforceReportService(
             };
 
         var depts = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id);
-        var all = OnboardingWorkflow.HrRoles.Any(me.IsInRole) || me.HasPermission(Permissions.SeeAllDepartments);
+        var all = me.HasPermission(Permissions.ViewOnboarding) || me.HasPermission(Permissions.ViewProbation) || me.HasPermission(Permissions.SeeAllDepartments);
         var mine = me.IsInRole(Roles.HeadOfDepartment) ? await scope.HodDepartmentIdsAsync(ct) : [];
         bool Visible(int deptId) =>
             (all || mine.Contains(deptId)) && (f.DepartmentId is null || f.DepartmentId == deptId) &&

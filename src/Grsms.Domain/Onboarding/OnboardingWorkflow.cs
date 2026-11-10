@@ -29,9 +29,6 @@ namespace Grsms.Domain.Onboarding;
 /// </summary>
 public static class OnboardingWorkflow
 {
-    /// <summary>Who ran onboarding before Phase 27 (still used by probation and the workforce dashboard).</summary>
-    public static readonly IReadOnlyList<string> HrRoles = [Roles.RecruitmentOfficer, Roles.HrManager];
-
     /// <summary>Department code of the IT department, whose Head receives the IT tasks by default.</summary>
     public const string ItDepartmentCode = "IT";
 

@@ -36,6 +36,7 @@ public class ProbationController(ProbationService probation) : AppController
         Act(id, () => probation.AssessAsync(id, form, ct), "Assessment recorded and filed in the personnel file.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.DecideProbation)]
     public Task<IActionResult> HrDecide(int id, bool approve, string? comments, CancellationToken ct) =>
         Act(id, () => probation.HrDecideAsync(id, approve, comments, ct), approve ? "Decision recorded. The employee and the HOD have been emailed." : "Returned to the Head of Department.");
 

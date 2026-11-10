@@ -57,7 +57,7 @@ internal class VacancyConfiguration : IEntityTypeConfiguration<Vacancy>
         b.HasMany(v => v.KnockoutQuestions).WithOne().HasForeignKey(q => q.VacancyId).OnDelete(DeleteBehavior.Cascade); // Phase 15
         b.HasMany(v => v.Actions).WithOne().HasForeignKey(a => a.VacancyId).OnDelete(DeleteBehavior.Restrict);
 
-        b.HasIndex(v => v.Status);
+        // (Codebase audit B7, 10 Nov 2026: the single Status index was dropped; (Status, ClosingDate) below starts with Status.)
         b.HasIndex(v => new { v.DepartmentId, v.Status });
         b.HasIndex(v => new { v.DivisionId, v.Status }); // reports by division
         b.HasIndex(v => new { v.Status, v.ClosingDate }); // the automatic-closing query

@@ -1,6 +1,6 @@
 # 27. Codebase audit and cleanup plan
 
-**Status:** ANALYSIS ONLY: nothing has been changed. Waiting for approval (§14).
+**Status:** APPROVED and carried out on 10 November 2026 (decisions §15, results §16), except B6 (splitting `OnboardingService`), which waits for Phase 27 stages B and C.
 **Date:** 10 November 2026 · **Branch:** `feature/ats-and-super-admin` (after commit 93f6385, Phase 27 stage A)
 
 **How it was done.** Every type declared in `src` (557) and every public method in Domain, Application and Infrastructure (497) was searched for by whole word across all `.cs` and `.cshtml` files in `src` and `tests` (excluding `bin`, `obj` and migrations). Views were matched to controller actions; partials, scripts and stylesheets to the pages that load them; CSS class selectors to every view, script and C# file; DI registrations to constructor parameters; permission constants to their checks. EF: `dotnet ef migrations has-pending-model-changes` and a match of the 25 migrations against the 24 SQL scripts. The build has 0 warnings and the 188 tests pass.
@@ -236,3 +236,18 @@ B6 (splitting `OnboardingService`) waits until Phase 27 stages B and C are finis
 5. **A real virus scanner is planned**: keep the placeholder and document how to connect one.
 6. **Cleanup first**, then Phase 27 stages B and C, then the `OnboardingService` split (B6).
 7. **Approved:** A (safe deletions), B1/B3 (performance), B4/B5 (names and folders), B7/B8 (index and policies). Category D is left alone.
+
+## 16. Results (10 November 2026)
+
+Each step was its own commit; the full suite ran after each (188 → **190 tests**, all passing; a full rebuild has no warnings).
+
+| Commit | Step | What changed |
+|---|---|---|
+| `3b4d76b` | A1-A5 | 6 dead methods removed (D1-D6), plus 2 found by a full rebuild (an unread `PersonnelFileService` constructor parameter and an unused view helper); permission `users.manage-privileged` removed; 11 unused CSS rules and ~9.3 MB of unused vendor files removed; `SystemSettingsController.cs` split into 4 files; `IRoleAdminService` in its own file |
+| `0a79ee1` | B1 | Onboarding page **71 → 16 queries** (measured with the new `QueryCounter` test helper; a test keeps it at 20 or fewer); requirements and personnel-file filing use one attachments query; dead `DocumentVerificationService.LoadAsync` removed |
+| `6054193` | B3 | Pre-activation onboardings, "waiting to start" and workforce reports filtered in the query; reminders, ATS summary and HOD shortlisting tasks prefetch their lookups; lighter sidebar count |
+| `f433d5e` | B2 | `Text.Clean`, `Signatures.SameName`, `TrySaveAsync`, `AppController.Fail` / `RunAsync` replace 11 + 3 + 12 copies, 9 `Act` helpers and 54 error banners |
+| `05e3f6d` | B4/B5 | `ScheduledJobsWorker`; `_ActiveBadge`, `_AdvertStatusBadge`, `_RequestStatusBadge`, `_VacancyStatusBadge`; `Application/Workforce`; `IsHr` → `MayView` |
+| (this commit) | B7/B8, Q3, Q5 | `IX_Vacancies_Status` dropped (migration `AuditDropRedundantVacancyStatusIndex`, script 25); per-action policies on Onboarding (23 actions) and Probation (`HrDecide`); **probation permissions** `probation.view` (RO, HR Manager) and `probation.decide` (HR Manager), `OnboardingWorkflow.HrRoles` removed; virus scanner guide in [06 Configuration](06-configuration.md#virus-scanning-of-uploads-connect-before-go-live) |
+
+**Still open:** B6 (split `OnboardingService`, after Phase 27 B and C); scripts 24 and 25 not yet run on MySQL; the HR-decision email still goes to the HR Manager role (there is no "email every holder of a permission" yet), so a role given *Decide probation outcomes* later is not emailed.

@@ -52,13 +52,13 @@ Each dashboard figure links to the list it counts; figures that need action are 
 
 | | Sees | Does |
 |---|---|---|
-| Recruitment Officers, and anyone with the *See all departments* permission (e.g. the MD) | every probation | — |
-| HR Manager | every probation | the HR decision (not on an assessment they recorded themselves) |
+| Holders of *Open probation* (Recruitment Officers, HR Managers by default) and of *See all departments* (e.g. the MD) | every probation | — |
+| Holders of *Decide probation outcomes* (the HR Manager by default) | every probation | the HR decision (not on an assessment they recorded themselves) |
 | Head of Department | probations in the departments they head | the initial meeting and the assessments |
 | The employee | their own probation | signs the initial meeting, reads the outcome and the letter |
 | Other staff | nothing | — |
 
-Every rule is checked in `ProbationService`, not only on the screens.
+Every rule is checked in `ProbationService`, not only on the screens. Since 10 November 2026 these are **permissions** the Super Admin can change on Roles & permissions (before, they followed the RO and HR Manager roles).
 
 ## Reports
 Six new reports on the [Reports](20-reports.md) page (each downloads as CSV): *Missing documents, Document verification, Beneficiaries, Probation, Probation extensions, Confirmations*. The first three hold personal data, so they need the **Open personnel files** permission; anyone else sees an empty report saying why.

@@ -45,7 +45,9 @@ public class ProbationService(
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
     private string MyId => me.UserId ?? throw new InvalidOperationException("No signed-in user.");
-    private bool IsHr => Domain.Onboarding.OnboardingWorkflow.HrRoles.Any(me.IsInRole);
+    // Codebase audit (10 Nov 2026): permissions instead of the RO / HR Manager roles.
+    private bool MayView => me.HasPermission(Permissions.ViewProbation);
+    private bool MayDecide => me.HasPermission(Permissions.DecideProbation);
 
     // ===================================================================== Start (automatic)
 
@@ -183,8 +185,8 @@ public class ProbationService(
             CanAssess = isHod && !own && assessBlocked is null,
             NextAssessment = ProbationWorkflow.CanBeAssessed(p.Status) ? NextKind(list) : null,
             AssessBlockedReason = isHod && !own && ProbationWorkflow.CanBeAssessed(p.Status) ? assessBlocked : null,
-            CanHrDecide = me.IsInRole(Roles.HrManager) && !own && decisionBlocked is null,
-            HrDecisionBlockedReason = me.IsInRole(Roles.HrManager) && p.Status == ProbationStatus.AwaitingHrDecision ? decisionBlocked : null
+            CanHrDecide = MayDecide && !own && decisionBlocked is null,
+            HrDecisionBlockedReason = MayDecide && p.Status == ProbationStatus.AwaitingHrDecision ? decisionBlocked : null
         };
     }
 
@@ -326,7 +328,7 @@ public class ProbationService(
     /// </summary>
     public async Task<Result> HrDecideAsync(int id, bool approve, string? comments, CancellationToken ct = default)
     {
-        if (!me.IsInRole(Roles.HrManager)) return Result.Failure("Only an HR Manager decides the outcome of a probation.");
+        if (!MayDecide) return Result.Failure("Only an HR Manager (or another holder of \"Decide probation outcomes\") decides the outcome of a probation.");
         var p = await probations.GetFullAsync(id, ct);
         if (p is null || p.EmployeeUserId == MyId) return Result.Failure("Probation not found.");
         var final = (await assessments.ListAsync(a => a.ProbationRecordId == p.Id && a.Kind == ProbationAssessmentKind.Final, ct)).OrderBy(a => a.AssessedAt).LastOrDefault();
@@ -431,7 +433,7 @@ public class ProbationService(
 
     private async Task<(bool All, IReadOnlyCollection<int> Mine)> VisibilityAsync(CancellationToken ct)
     {
-        var all = IsHr || me.HasPermission(Permissions.SeeAllDepartments);
+        var all = MayView || me.HasPermission(Permissions.SeeAllDepartments);
         return (all, me.IsInRole(Roles.HeadOfDepartment) ? await scope.HodDepartmentIdsAsync(ct) : []);
     }
 

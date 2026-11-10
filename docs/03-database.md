@@ -411,6 +411,30 @@ One row per document per onboarding, created (`Pending`) when onboarding starts.
 
 **The files** are rows in `Attachments` with `OwnerType = 'EmployeeDocument'`, `OwnerId = EmployeeDocuments.Id` and category `NewHireDocument`: `OriginalFileName` (as uploaded), `StoredFileName` (the random path on the server, outside the web root), `ContentType`, `SizeBytes`, `Sha256` and `CreatedAt` (the upload date). A document can have several files. Only PDF, JPG and PNG are accepted for these, checked by extension and content.
 
+**Phase 27 changes** (10 November 2026):
+* `DocumentType` now holds an `OnboardingDocumentTypes.Code` (the Phase 18 values are the codes of the first sixteen types; `SchoolCertificates` is the legacy type). New columns: `IsApplicable` (0 = does not apply to this new hire, e.g. expatriate documents for a Ghanaian, or a retired type), `ReviewStartedAt` / `ReviewStartedByUserId`, `RejectionReasonCode` (`Unreadable`, `WrongDocument`, `Expired`, `MissingPages`, `Other`), `RejectionCount`, `Version` (concurrency). New statuses `UnderReview` and `Resubmitted`. Rows are never deleted (the unique index stays valid).
+* Replaced or removed files move to `OwnerType = 'EmployeeDocumentReplaced'` (same `OwnerId`): kept and downloadable as history. DOCX is also accepted for the types with `AllowsWordFiles`.
+* **Onboardings**: `IsExpatriate`, `DocumentsDueDate`, `DocumentsDueDateExtended`, `CorrectionRequestedAt`, `CorrectionMessage`. Status `AwaitingHrApproval` is no longer used; `AwaitingDepartmentalInduction` now means "Induction in progress" (after activation).
+
+### OnboardingDocumentTypes (Phase 27)
+The configurable checklist, seeded with ids 1 to 25 (24 active types + the legacy "School certificates").
+
+| Column | Type | Rules |
+|---|---|---|
+| Code | VARCHAR(40), unique | stable key stored on EmployeeDocuments.DocumentType |
+| Name / Description | VARCHAR(150) / VARCHAR(500) | shown to the new employee |
+| Group | VARCHAR(20) | `Personal`, `Education`, `Employment`, `Banking`, `Family`, `Expatriate` |
+| Requirement | VARCHAR(20) | `Required`, `Optional`, `ChosenPerHire`, `ExpatriateOnly`, `GhanaianOnly` |
+| AllowsWordFiles | TINYINT(1) | DOCX accepted too |
+| MinFiles | INT | files needed before it can be verified (2 for recommendation letters) |
+| PersonnelFileCategoryId | INT **FK → PersonnelFileCategories** | where verified files are filed |
+| SortOrder / IsActive / IsLegacy | INT / TINYINT(1) / TINYINT(1) | retired = not asked for; legacy = read-only, old checklists only |
+| Version | CHAR(36) | concurrency |
+| + standard columns | | |
+
+### EmployeeDocumentEvents (Phase 27)
+One row per step of a document, never edited: `EmployeeDocumentId` (FK), `OnboardingRecordId` (FK), `Action` (`Uploaded`, `Replaced`, `FileRemoved`, `MarkedNotApplicable`, `ReviewStarted`, `Verified`, `Rejected`, `Resubmitted`, `Viewed`, `RequirementChanged`), `FromStatus`, `ToStatus`, `AttachmentId`, `FileName`, `RejectionReason`, `Comments`, `ActorUserId`, `ActorName`, `IpAddress`, `ActionAt`, + standard columns. Indexed on (EmployeeDocumentId, ActionAt).
+
 ## Phase 19 tables (Employee Personal Record Declaration)
 
 Only the new employee and HR can read these (family, bank, health and beneficiary details).
@@ -599,6 +623,8 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `20_phase19_personal_record_declaration.sql` | 19 | EmployeePersonalRecords, EmployeeLanguages, EmployeeBankAccounts, EmployeeSpouses, EmployeeChildren, EmployeeDependants, EmployeeEmergencyContacts, EmployeeBeneficiaries, EmployeeDeclarations. New tables only. Checked on MySQL 8.4 (with script 19) against a copy of the development database. |
 | `21_phase20_induction_and_personnel_file.sql` | 20 | InductionAreaSettings, PersonnelFileCategories (seeded with the 7 categories), PersonnelFiles, PersonnelFileDocuments; `Area`, `Description`, `AssignedAt`, `VerifiedAt`, `VerifiedByUserId` on OnboardingTasks, with existing tasks given their area and assigned date and finished ones counted as verified. The new permission `personnel.view` is added by GRSMS at start-up. Checked on MySQL 8.4 (after scripts 19 and 20) against a copy of the development database. |
 | `22_phase21_probation_and_confirmation.sql` | 21 | ProbationRecords, ProbationObjectives, ProbationDevelopmentPlans, ProbationAssessments, ProbationActions, ConfirmationRecords. New tables only. Checked on MySQL 8.4 (after scripts 19, 20 and 21) against a copy of the development database. |
+| `23_interview_score_validation.sql` | 9 Nov | Interview score validation columns. |
+| `24_phase27_onboarding_document_portal.sql` | 27 | OnboardingDocumentTypes (seeded, 25 rows), EmployeeDocumentEvents; new columns on EmployeeDocuments (existing rows get `IsApplicable` = 1) and Onboardings. **Moves onboardings waiting for HR approval, or in the old pre-activation induction, to `AwaitingActivation`** (their documents were verified). The four `onboarding.*` permissions are added by GRSMS at start-up. Not yet run on MySQL. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

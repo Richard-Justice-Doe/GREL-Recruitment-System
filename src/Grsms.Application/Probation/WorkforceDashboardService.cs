@@ -51,9 +51,9 @@ public class WorkforceDashboardService(
         var hr = new List<WorkforceWidgetDto>();
         if (isHr)
         {
-            var verifying = active.Where(o => o.Status == OnboardingStatus.AwaitingDocumentVerification).Select(o => o.Id).ToList();
+            var verifying = active.Where(o => OnboardingWorkflow.BeforeActivation(o.Status)).Select(o => o.Id).ToList(); // Phase 27: reviewed as they arrive
             var docsWaiting = verifying.Count == 0 ? 0 : await documents.CountAsync(d => verifying.Contains(d.OnboardingRecordId) &&
-                (d.Status == EmployeeDocumentStatus.Submitted || (d.Status == EmployeeDocumentStatus.NotApplicable && d.VerifiedAt == null)), ct);
+                (d.Status == EmployeeDocumentStatus.Submitted || d.Status == EmployeeDocumentStatus.Resubmitted || d.Status == EmployeeDocumentStatus.UnderReview), ct);
             hr.Add(new("Employees onboarding", active.Count, "fa-door-open", "Onboarding", "Index", Tab("progress"), false));
             hr.Add(new("Documents awaiting verification", docsWaiting, "fa-file-circle-check", "Onboarding", "Index", Tab("progress"), docsWaiting > 0));
             var late = active.Count(o => o.ExpectedCompletionDate is { } e && e < Today);

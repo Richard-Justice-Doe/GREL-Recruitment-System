@@ -437,6 +437,46 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 
 **Not tested here:** the add/remove-row buttons and the running total in a real browser (the page and its posted rows were exercised by the web tests).
 
+## 🚧 Phase 27: Candidate onboarding document portal (10 November 2026), stage A of 3 delivered
+
+Numbered 27 because 22 to 26 are reserved for the approved automation plan ([26](26-automation-analysis.md)).
+
+**Asked for:** after an accepted offer, the candidate uploads every onboarding document in a mobile-friendly *My Onboarding* portal; the Recruitment Officer reviews each one (verify, or reject with a reason, then the candidate resubmits); configurable document types (education certificates split, expatriate documents); statuses Not submitted / Submitted / Under review / Verified / Rejected / Resubmitted; upload history; virus-scan placeholder; a tracking dashboard with filters; "ready for activation" logic; notifications; audit of every upload, view, verification, rejection and resubmission; permissions `onboarding.view / .manage / .verify-documents / .complete`.
+
+**Delivery in three committed stages:** **A, rules and data (done)**; B, the candidate's *My Onboarding* dashboard; C, the RO's verification and tracking dashboards, daily digest, reminders, overdue flags and the deadline extension.
+
+**Delivered in stage A** ([user guide](24-onboarding-module.md))
+* **This extends Phase 18; it is not a parallel module.** The spec's `OnboardingRecord` is the existing one, its `OnboardingDocument` is `EmployeeDocument` and its `OnboardingActivity` is `OnboardingActionEntry`. New: `OnboardingDocumentType` (the configurable checklist, seeded with 24 active types plus the legacy "School certificates") and `EmployeeDocumentEvent` (the spec's `OnboardingDocumentVerification`: every upload, replacement, removal, review, verification, rejection, resubmission and **every time a file is opened**, with user, time, IP and status before and after). All of them derive from `BaseEntity` (soft delete, audit interceptor) and have a concurrency `Version`.
+* **The stage follows the facts** (`OnboardingWorkflow.CheckReadiness`, `StageFor`, `OnboardingProgressService`): no letter → *Letter being prepared*; something outstanding for the new employee → *Awaiting the new employee*; documents to verify → *Awaiting document verification*; otherwise → **Ready for activation**. There is no "Submit" and **no HR Manager approval**.
+* **Activation** (RO or HR Manager) grants the staff account, starts the probation and **creates the induction tasks**, which are then finished while the employee is active (*Induction in progress*); closing the induction completes the onboarding and files the induction record.
+* **Documents:** uploads open the moment the RO starts the onboarding (welcome email with the deadline); each document goes to the RO as it arrives; *Start review* locks it; rejection uses a fixed list (unreadable, wrong document, expired, missing pages, other) and emails the candidate at once; the replacement is *Resubmitted, awaiting verification*; replaced or removed files stay in the history and remain downloadable; "Two recommendation letters" cannot be verified with one file.
+* **Requirements per hire:** on the start form (and later on the onboarding page) the RO ticks the **education certificates** this person must provide and whether they are an **expatriate** (passport, non-citizen card, work and residence permits required; Ghana Card not shown).
+* **Onboarding documents screen** (*Organisation → Onboarding documents*, "Maintain organisation data"): add, rename, regroup, retire and reorder types, set when each is required, the files needed, Word files allowed and the personnel-file category. A change **applies at once to onboardings not yet activated**.
+* **Files:** PDF, JPG, JPEG, PNG; DOCX also for the application letter, CV and recommendation letters; 10 MB; extension + magic-byte checks; `IVirusScanner` hook (placeholder `NoVirusScanner` passes every file; a refused file is never stored); stored outside wwwroot with SHA-256.
+* **Permissions** (Super Admin can change): `onboarding.view` RO + HR Manager; `onboarding.manage` and `onboarding.verify-documents` RO; `onboarding.complete` RO + HR Manager.
+* **Deadline:** 10 working days from the start (System settings → *Time a new employee has to provide the onboarding documents*), stored on the onboarding; reminders and the extension come in stage C.
+* **Provisional personnel file** opened at start; filled at activation; the induction record filed when the induction closes.
+* Migration `Phase27_OnboardingDocumentPortal`, script `database/24_phase27_onboarding_document_portal.sql` (onboardings waiting for HR approval, or in the old pre-activation induction, move to *Ready for activation*; existing documents keep their Phase 18 codes).
+
+**Decisions recorded** (user's answers, 10 November 2026)
+* **The RO still clicks "Click to proceed to onboarding"** (not automatic on acceptance). That click creates the onboarding, checklist and provisional file; "employee record" means these. The Employee role is still granted at activation. *(Supersedes the 9 Nov Phase 24 plan to start automatically.)*
+* **Uploads open when onboarding starts**, without waiting for the appointment letter.
+* **Each document is reviewed as it arrives**; the RO gets one email when everything is in (the daily digest comes in stage C).
+* **Only the Recruitment Officer verifies or rejects**, including the medical report and police clearance (no second verifier). **HR Managers view only**, except that they **can activate**.
+* **The RO issues the appointment letter** (it used to be the HR Manager).
+* **Skip HR Manager approval:** documents verified + declaration and letter signed + no rejection ⇒ ready for activation. **Induction runs after activation.** *(Reverses the Phase 18/20 order and the "approver ≠ verifier" rule.)* I added the signed appointment letter to the readiness rule, as before.
+* **Education certificates are ticked by the RO** per hire; unticked ones stay listed as optional. **The RO ticks "Expatriate"**; there is no nationality field.
+* **Family documents stay optional** with "Not applicable". A "not applicable" declaration does not need the RO's acceptance to be ready (it can still be rejected).
+* **DOCX only for the letters and the CV**; replacing a file keeps the old one as history; *Under review* is set by the RO clicking *Start review*; rejection reasons are a list plus *Other*; **no limit** on rejections; the virus scan is a hook that passes everything.
+* **Deadline 10 working days**, reminders every 3 working days (the last copies the RO), **overdue is flagged** and the RO may extend once (up to 14 days) or cancel; the employee may start work with documents outstanding (stage C).
+* **Document type changes apply to running onboardings**; onboardings already running keep their old "School certificates" item.
+* **Dashboard:** everyone with onboarding.view sees every onboarding. Candidates get a new *My Onboarding* menu and keep the link under *My applications* (stage B).
+* **Every opening of a file is recorded.**
+
+**Checked:** 188/188 tests (document checklist tests rewritten for the new flow: open at start, file checks, history, stage automation, RO-only verification, review lock, rejection reasons and resubmission, two recommendation letters, education/expatriate requirements, document-type changes on running onboardings, virus scan refusal; service and web journeys without HR approval and with the induction after activation; a web test for the Onboarding documents screen).
+
+**Not tested here:** the SQL script on MySQL (no database credentials in this session); the pages in a real browser (exercised as HTML by the web tests).
+
 ## ✅ Phase 21: Probation, confirmation, dashboards and reports (6 November 2026)
 
 **Asked for** (stage 4, the last, of the onboarding → probation → confirmation extension): a 6-month probation with an initial meeting within 7 days (objectives and a development plan signed by the employee and the HOD), a first assessment at 3 months and a final one at 6 months recommending *Confirm*, *Extend* (at most 3 months, with a reason, an improvement plan and a new end date) or *Do not confirm*; a confirmation letter and confirmation record; emails to the employee, HR and the HOD; HR and HOD dashboard widgets; seven CSV reports.

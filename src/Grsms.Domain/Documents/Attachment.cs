@@ -74,6 +74,9 @@ public static class AttachmentOwners
     /// <summary>Phase 18: a file of one new-hire document (EmployeeDocument).</summary>
     public const string EmployeeDocument = "EmployeeDocument";
 
+    /// <summary>Phase 27: a file of a new-hire document that was replaced or removed before verification (its history).</summary>
+    public const string EmployeeDocumentReplaced = "EmployeeDocumentReplaced";
+
     /// <summary>Phase 20: a file HR added directly to an employee's personnel file (OwnerId = PersonnelFiles.Id).</summary>
     public const string PersonnelFile = "PersonnelFile";
 }

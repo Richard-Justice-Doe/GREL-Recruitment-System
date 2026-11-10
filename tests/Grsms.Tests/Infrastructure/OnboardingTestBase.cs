@@ -129,7 +129,7 @@ public abstract class OnboardingTestBase : IAsyncLifetime
 
     protected async Task IssueAndSignAsync(int id, int app)
     {
-        AsHrManager();
+        AsRecruiter(); // Phase 27: the Recruitment Officer issues the letter
         Assert.True((await Run(s => s.IssueLetterAsync(id, "Probation: 6 months. Hours: 8:00 to 17:00."))).Succeeded);
         As(_candidate, Roles.Candidate);
         Assert.True((await Run(s => s.SignLetterAsync(app, "Ama Mensah"))).Succeeded);
@@ -146,21 +146,29 @@ public abstract class OnboardingTestBase : IAsyncLifetime
     protected static MemoryStream FakePdf() => new(System.Text.Encoding.ASCII.GetBytes("%PDF-1.4\n% fake scan\n%%EOF"));
 
     protected Task<List<EmployeeDocument>> DocumentsAsync(int id) =>
-        Db(db => db.EmployeeDocuments.Where(d => d.OnboardingRecordId == id).OrderBy(d => d.DocumentType).ToListAsync());
+        Db(db => db.EmployeeDocuments.Where(d => d.OnboardingRecordId == id).OrderBy(d => d.Id).ToListAsync());
+
+    /// <summary>Phase 27: one document of an onboarding by its type code (e.g. "GhanaCard").</summary>
+    protected async Task<EmployeeDocument> DocAsync(int id, string code) => (await DocumentsAsync(id)).Single(d => d.DocumentTypeCode == code);
 
     protected Task<OnboardingRecord> RecordAsync(int id) => Db(db => db.Onboardings.SingleAsync(o => o.Id == id));
 
-    /// <summary>As the new employee: upload a PDF for every required document and mark every optional one not applicable.</summary>
+    /// <summary>
+    /// As the new employee: upload a PDF for every required document that applies (as many files as the type needs, e.g. two
+    /// recommendation letters) and mark every optional one not applicable.
+    /// </summary>
     protected async Task FillDocumentsAsync(int id)
     {
         As(_candidate, Roles.Candidate);
-        foreach (var d in await DocumentsAsync(id))
+        var minFiles = await Db(db => db.OnboardingDocumentTypes.ToDictionaryAsync(t => t.Code, t => t.MinFiles));
+        foreach (var d in (await DocumentsAsync(id)).Where(d => d.IsApplicable))
         {
             if (d.IsRequired)
-            {
-                var up = await RunDocs(s => s.UploadAsync(d.Id, $"{d.DocumentType}.pdf", FakePdf()));
-                Assert.True(up.Succeeded, string.Join(" ", up.Errors));
-            }
+                for (var i = 0; i < minFiles.GetValueOrDefault(d.DocumentTypeCode, 1); i++)
+                {
+                    var up = await RunDocs(s => s.UploadAsync(d.Id, $"{d.DocumentTypeCode}-{i}.pdf", FakePdf()));
+                    Assert.True(up.Succeeded, string.Join(" ", up.Errors));
+                }
             else
                 Assert.True((await RunDocs(s => s.MarkNotApplicableAsync(d.Id, "Does not apply to me"))).Succeeded);
         }
@@ -200,7 +208,10 @@ public abstract class OnboardingTestBase : IAsyncLifetime
         Assert.True(signed.Succeeded, string.Join(" ", signed.Errors));
     }
 
-    /// <summary>Started, letter issued and signed, personal record signed, documents uploaded and submitted: "Awaiting document verification".</summary>
+    /// <summary>
+    /// Started, letter issued and signed, personal record signed and every required document uploaded: Phase 27 moves it to
+    /// "Awaiting document verification" by itself (there is no "Submit").
+    /// </summary>
     protected async Task<(int Id, int App)> SubmittedAsync(DateOnly? start = null)
     {
         var app = await WithOfferAsync(_candidate, "Ama Mensah", OfferStatus.Accepted, start);
@@ -208,39 +219,40 @@ public abstract class OnboardingTestBase : IAsyncLifetime
         await IssueAndSignAsync(id, app);
         await FillPersonalRecordAsync(app);
         await FillDocumentsAsync(id);
-        As(_candidate, Roles.Candidate);
-        var submitted = await Run(s => s.SubmitAsync(id));
-        Assert.True(submitted.Succeeded, string.Join(" ", submitted.Errors));
+        Assert.Equal(OnboardingStatus.AwaitingDocumentVerification, (await RecordAsync(id)).Status);
         return (id, app);
     }
 
-    /// <summary>As the recruiter: verify (or accept) every document.</summary>
+    /// <summary>As the recruiter: verify every uploaded document and accept every "not applicable".</summary>
     protected async Task VerifyAllAsync(int id)
     {
         AsRecruiter();
-        foreach (var d in await DocumentsAsync(id))
-            Assert.True((await RunDocs(s => s.VerifyAsync(d.Id))).Succeeded);
+        foreach (var d in (await DocumentsAsync(id)).Where(d => d.IsApplicable && d.Status != EmployeeDocumentStatus.Pending && d.Status != EmployeeDocumentStatus.Verified))
+        {
+            var r = await RunDocs(s => s.VerifyAsync(d.Id));
+            Assert.True(r.Succeeded, string.Join(" ", r.Errors));
+        }
     }
-    /// <summary>Submitted, verified and sent to the HR Manager: "Awaiting HR approval".</summary>
-    protected async Task<int> AtHrApprovalAsync()
+
+    /// <summary>Everything in and verified: Phase 27 "Ready for activation" (no HR Manager approval any more).</summary>
+    protected async Task<int> ReadyAsync()
     {
         var (id, _) = await SubmittedAsync(Today);
         await VerifyAllAsync(id);
-        Assert.True((await Run(s => s.MarkDocumentsVerifiedAsync(id))).Succeeded);
+        Assert.Equal(OnboardingStatus.AwaitingActivation, (await RecordAsync(id)).Status);
         return id;
     }
 
-    /// <summary>Through to "Completed" (every task done by HR, staff number GREL-0457).</summary>
+    /// <summary>Through to "Completed": activated (staff number GREL-0457), every induction task done by the RO, induction closed.</summary>
     protected async Task<int> ActivatedAsync()
     {
-        var id = await AtHrApprovalAsync();
-        AsHrManager();
-        Assert.True((await Run(s => s.HrDecideAsync(id, true, null))).Succeeded);
+        var id = await ReadyAsync();
         AsRecruiter();
+        Assert.True((await Run(s => s.ActivateAsync(id, "GREL-0457"))).Succeeded);
         foreach (var t in (await TasksAsync(id)).Where(t => t.Status == OnboardingTaskStatus.Open))
             Assert.True((await Run(s => s.UpdateTaskAsync(t.Id, OnboardingTaskStatus.Done, null))).Succeeded);
-        Assert.True((await Run(s => s.CompleteInductionAsync(id))).Succeeded);
-        Assert.True((await Run(s => s.ActivateAsync(id, "GREL-0457"))).Succeeded);
+        var closed = await Run(s => s.CompleteInductionAsync(id));
+        Assert.True(closed.Succeeded, string.Join(" ", closed.Errors));
         return id;
     }
 

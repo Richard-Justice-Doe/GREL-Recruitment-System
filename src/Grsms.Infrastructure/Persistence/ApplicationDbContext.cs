@@ -69,6 +69,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Onboarding.OnboardingTask> OnboardingTasks => Set<Domain.Onboarding.OnboardingTask>();
     public DbSet<Domain.Onboarding.OnboardingActionEntry> OnboardingActions => Set<Domain.Onboarding.OnboardingActionEntry>();
     public DbSet<Domain.Onboarding.EmployeeDocument> EmployeeDocuments => Set<Domain.Onboarding.EmployeeDocument>();
+    public DbSet<Domain.Onboarding.OnboardingDocumentType> OnboardingDocumentTypes => Set<Domain.Onboarding.OnboardingDocumentType>(); // Phase 27
+    public DbSet<Domain.Onboarding.EmployeeDocumentEvent> EmployeeDocumentEvents => Set<Domain.Onboarding.EmployeeDocumentEvent>(); // Phase 27
     public DbSet<Domain.Onboarding.EmployeePersonalRecord> EmployeePersonalRecords => Set<Domain.Onboarding.EmployeePersonalRecord>();
     public DbSet<Domain.Onboarding.EmployeeDeclaration> EmployeeDeclarations => Set<Domain.Onboarding.EmployeeDeclaration>();
     public DbSet<Domain.Onboarding.InductionAreaSetting> InductionAreaSettings => Set<Domain.Onboarding.InductionAreaSetting>();

@@ -4,6 +4,19 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 10 November 2026: Phase 27 stage A, onboarding documents reviewed one by one, no HR approval
+
+**Why:** GREL asked for a candidate onboarding document portal with per-document verification. Stage A (rules and data) of three; details and every decision in [Phase 27](phases.md#-phase-27-candidate-onboarding-document-portal-10-november-2026-stage-a-of-3-delivered).
+
+* **Domain:** `OnboardingDocumentType` (configurable, 24 default types + legacy "School certificates"), `EmployeeDocumentEvent` (history incl. every file opening), new statuses *Under review* and *Resubmitted*, rejection reasons, `IsApplicable`, `Version`; onboarding `IsExpatriate`, `DocumentsDueDate`, correction request; `OnboardingWorkflow.CheckReadiness / StageFor / ApplyRequirement / AddWorkingDays`; four permissions `onboarding.*`; setting *Onboarding:DocumentDeadlineWorkingDays*; three email templates (welcome, document rejected, requirements complete).
+* **Application:** `OnboardingProgressService` (works the stage out after every change), `OnboardingDocumentTypeService`, `DocumentVerificationService` rewritten (replace with history, start review, reject with a reason, requirements, logging opens), `OnboardingService` (RO starts and issues the letter; activation creates the induction; closing the induction completes; HR approval, "Submit" and "Mark verified" removed), `AttachmentService` (`IVirusScanner`, `MoveAsync`), `PersonnelFileService` (provisional file at start), reports and dashboard adapted.
+* **Web:** new *Onboarding documents* screen; start form with education certificates and the expatriate tick; onboarding page *Next step* panel (progress, outstanding, correction, requirements, activation with induction areas); shared document partial grouped by heading with *Start review*, reason list, *Replace*, history; candidate page shows progress and what is still needed (no *Submit* button).
+* **Database:** migration `Phase27_OnboardingDocumentPortal`, script `database/24_phase27_onboarding_document_portal.sql`.
+* **Checked:** 188/188 tests.
+* **Open:** stage B (*My Onboarding* dashboard and menu), stage C (RO tracking dashboard with filters, daily digest, reminders, overdue flag and extension). The script has not been run on MySQL here.
+
+---
+
 ## 9 November 2026: dark mode, text readable again
 
 **Why:** after the redesign some text could not be seen in dark mode.

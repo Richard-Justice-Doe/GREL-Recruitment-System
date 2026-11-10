@@ -135,32 +135,32 @@ public class PersonalRecordServiceTests : OnboardingTestBase
     }
 
     [Fact]
-    public async Task Only_the_employee_edits_it_while_it_is_their_turn_and_only_they_and_hr_see_it()
+    public async Task Only_the_employee_edits_it_until_activation_and_only_they_and_hr_see_it()
     {
-        var (id, app) = await SubmittedAsync(); // personal record signed, documents submitted
+        var id = await ReadyAsync(); // personal record signed, documents verified
+        var app = (await RecordAsync(id)).JobApplicationId;
 
-        // With HR now: the employee can read it but not change it.
+        // Phase 27: until activation the employee may still change it (and must then sign again).
         As(_candidate, Roles.Candidate);
-        var mine = (await RunRecord(s => s.GetMineAsync(app)))!;
-        Assert.False(mine.CanEdit);
-        Assert.False((await RunRecord(s => s.SaveAsync(app, ValidRecord()))).Succeeded);
+        Assert.True((await RunRecord(s => s.GetMineAsync(app)))!.CanEdit);
 
-        // Others cannot see it at all; HR can.
+        // Others cannot see it at all; HR (onboarding.view) can.
         As(_candidate2, Roles.Candidate);
         Assert.Null(await RunRecord(s => s.GetMineAsync(app)));
         As(_hod, Roles.HeadOfDepartment);
         Assert.Null(await RunRecord(s => s.GetForHrAsync(id)));
         Assert.Null((await Run(s => s.GetAsync(id)))!.PersonalRecordSigned);
-        AsRecruiter();
+        AsHrManager();
         var hr = (await RunRecord(s => s.GetForHrAsync(id)))!;
         Assert.Equal(("Ama Mensah", "C123456789012", 2), (hr.EmployeeName, hr.Form.SsnitNumber, hr.Form.Beneficiaries.Count));
         Assert.Single(hr.Declarations);
         Assert.True((await Run(s => s.GetAsync(id)))!.PersonalRecordSigned);
 
-        // HR sends it back to correct the personal record (no document rejected): a message is required.
-        Assert.False((await Run(s => s.ReturnToEmployeeAsync(id, null))).Succeeded);
-        Assert.True((await Run(s => s.ReturnToEmployeeAsync(id, "Please add your second bank account."))).Succeeded);
+        // Once activated, the employee can read it but not change it.
+        AsRecruiter();
+        Assert.True((await Run(s => s.ActivateAsync(id, "GREL-0457"))).Succeeded);
         As(_candidate, Roles.Candidate);
-        Assert.True((await RunRecord(s => s.GetMineAsync(app)))!.CanEdit);
+        Assert.False((await RunRecord(s => s.GetMineAsync(app)))!.CanEdit);
+        Assert.False((await RunRecord(s => s.SaveAsync(app, ValidRecord()))).Succeeded);
     }
 }

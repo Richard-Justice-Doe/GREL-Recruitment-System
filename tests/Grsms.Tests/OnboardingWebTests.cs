@@ -137,11 +137,11 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         return (url, int.Parse(url.Split('/').Last()));
     }
 
-    /// <summary>The HR Manager issues the letter; the new employee signs it.</summary>
+    /// <summary>The recruiter issues the letter (Phase 27); the new employee signs it.</summary>
     private async Task LetterIssuedAndSignedAsync(Cast c, string url, int id, string fullName)
     {
-        var hrm = await SignedInAsync(c.Email("hrm"));
-        Assert.Equal(HttpStatusCode.Redirect, (await hrm.PostFormAsync(url, $"/Onboarding/IssueLetter/{id}",
+        var recruiter = await SignedInAsync(c.Email("ro"));
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/IssueLetter/{id}",
             new() { ["terms"] = "Probation: 6 months. Hours: 7:30 to 16:30, Monday to Friday." })).StatusCode);
         var employee = await SignedInAsync(c.Email("cand"));
         var letterPage = $"/MyApplications/Appointment/{c.ApplicationId}";
@@ -150,7 +150,7 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
     }
 
     private Task<List<EmployeeDocument>> DocumentsAsync(int onboardingId) =>
-        Db(db => db.EmployeeDocuments.Where(d => d.OnboardingRecordId == onboardingId).OrderBy(d => d.DocumentType).ToListAsync());
+        Db(db => db.EmployeeDocuments.Where(d => d.OnboardingRecordId == onboardingId).OrderBy(d => d.Id).ToListAsync());
 
     /// <summary>Uploads one PDF through a multipart form, with the page's anti-forgery token.</summary>
     private static async Task<HttpResponseMessage> UploadAsync(HttpClient client, string pageUrl, string postUrl, int documentId, string fileName)
@@ -168,23 +168,29 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         return await client.PostAsync(postUrl, form);
     }
 
-    /// <summary>In the portal, the new employee uploads every required document, marks the optional ones not applicable and submits.</summary>
+    /// <summary>
+    /// In the portal, the new employee uploads every required document (two recommendation letters), marks the optional ones not
+    /// applicable and signs the personal record. Phase 27: nothing to submit; the documents reach the RO as they are uploaded.
+    /// </summary>
     private async Task<HttpClient> EmployeeSubmitsDocumentsAsync(Cast c, int onboardingId)
     {
         var employee = await SignedInAsync(c.Email("cand"));
         var page = $"/MyApplications/Documents/{c.ApplicationId}";
         var html = await employee.GetStringAsync(page);
-        Assert.Contains("New-hire documents", html);
+        Assert.Contains("Onboarding documents", html);
         Assert.Contains("Police clearance", html);
-        foreach (var d in await DocumentsAsync(onboardingId))
+        Assert.Contains("Education documents", html);
+        foreach (var d in (await DocumentsAsync(onboardingId)).Where(d => d.IsApplicable))
         {
-            var r = d.IsRequired
-                ? await UploadAsync(employee, page, $"/MyApplications/UploadDocument/{c.ApplicationId}", d.Id, $"{d.DocumentType}.pdf")
-                : await employee.PostFormAsync(page, $"/MyApplications/MarkNotApplicable/{c.ApplicationId}",
-                    new() { ["documentId"] = d.Id.ToString(), ["reason"] = "Does not apply to me" });
-            Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
+            if (d.IsRequired)
+                for (var i = 0; i < (d.DocumentTypeCode == DefaultDocumentTypes.RecommendationLetters ? 2 : 1); i++)
+                    Assert.Equal(HttpStatusCode.Redirect,
+                        (await UploadAsync(employee, page, $"/MyApplications/UploadDocument/{c.ApplicationId}", d.Id, $"{d.DocumentTypeCode}-{i}.pdf")).StatusCode);
+            else
+                Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(page, $"/MyApplications/MarkNotApplicable/{c.ApplicationId}",
+                    new() { ["documentId"] = d.Id.ToString(), ["reason"] = "Does not apply to me" })).StatusCode);
         }
-        Assert.All(await DocumentsAsync(onboardingId), d => Assert.True(OnboardingWorkflow.ReadyToSubmit(d.Status)));
+        Assert.All((await DocumentsAsync(onboardingId)).Where(d => d.IsApplicable && d.IsRequired), d => Assert.Equal(EmployeeDocumentStatus.Submitted, d.Status));
 
         // Phase 19: the Personal Record Declaration, filled in and signed on its page (rows posted with their ".Index" keys).
         var recordPage = $"/MyApplications/PersonalRecord/{c.ApplicationId}";
@@ -209,14 +215,14 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
             new() { ["fullName"] = fullName, ["confirm"] = "true" })).StatusCode);
         Assert.NotNull(await Db(db => db.EmployeePersonalRecords.Where(r => r.OnboardingRecordId == onboardingId).Select(r => r.DeclaredAt).SingleAsync()));
 
-        Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(page, $"/MyApplications/SubmitDocuments/{c.ApplicationId}", new())).StatusCode);
-        Assert.Contains("Your documents are with HR", await employee.GetStringAsync(page));
+        Assert.Contains("HR is checking your documents", await employee.GetStringAsync(page));
         return employee;
     }
 
+    /// <summary>The recruiter verifies every uploaded document and accepts every "not applicable".</summary>
     private static async Task VerifyAllAsync(HttpClient hr, string url, int id, IEnumerable<EmployeeDocument> docs)
     {
-        foreach (var d in docs)
+        foreach (var d in docs.Where(d => d.IsApplicable && d.Status is not (EmployeeDocumentStatus.Pending or EmployeeDocumentStatus.Verified)))
             Assert.Equal(HttpStatusCode.Redirect, (await hr.PostFormAsync(url, $"/Onboarding/VerifyDocument/{id}", new() { ["documentId"] = d.Id.ToString() })).StatusCode);
     }
 
@@ -227,20 +233,18 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
     // ------------------------------------------------------------------ tests
 
 
-    /// <summary>Documents verified, HR Manager approval, every task ticked, induction closed, activated: the probation starts.</summary>
+    /// <summary>Phase 27: documents verified (→ ready), activated (the probation starts), every induction task ticked, induction closed.</summary>
     private async Task<HttpClient> ActivatedThroughPagesAsync(Cast c, string url, int id, string staffNumber)
     {
         await EmployeeSubmitsDocumentsAsync(c, id);
         var recruiter = await SignedInAsync(c.Email("ro"));
         await VerifyAllAsync(recruiter, url, id, await DocumentsAsync(id));
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/MarkVerified/{id}", new())).StatusCode);
-        var hrm = await SignedInAsync(c.Email("hrm"));
-        Assert.Equal(HttpStatusCode.Redirect, (await hrm.PostFormAsync(url, $"/Onboarding/HrDecide/{id}", new() { ["approve"] = "true" })).StatusCode);
+        Assert.Equal(OnboardingStatus.AwaitingActivation, await StageAsync(id));
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/Activate/{id}", new() { ["staffNumber"] = staffNumber })).StatusCode);
         foreach (var taskId in await Db(db => db.OnboardingTasks.Where(t => t.OnboardingRecordId == id).Select(t => t.Id).ToListAsync()))
             Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/UpdateTask/{id}",
                 new() { ["taskId"] = taskId.ToString(), ["status"] = "Done" })).StatusCode);
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/CompleteInduction/{id}", new())).StatusCode);
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/Activate/{id}", new() { ["staffNumber"] = staffNumber })).StatusCode);
         Assert.Equal(OnboardingStatus.Completed, await StageAsync(id));
         return recruiter;
     }
@@ -328,11 +332,13 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Contains("Start onboarding", await recruiter.GetStringAsync($"/Hiring/Case/{c.ApplicationId}"));
         var (details, id) = await StartAsync(c, start);
         Assert.Contains("Open the onboarding", await recruiter.GetStringAsync($"/Hiring/Case/{c.ApplicationId}"));
-        Assert.Contains("Draft", await recruiter.GetStringAsync(details));
+        Assert.Contains("Letter being prepared", await recruiter.GetStringAsync(details));
 
-        // ---- HR Manager: issue the appointment letter
+        // ---- Phase 27: the recruiter issues the appointment letter (the HR Manager only views)
         var hrm = await SignedInAsync(c.Email("hrm"));
-        Assert.Equal(HttpStatusCode.Redirect, (await hrm.PostFormAsync(details, $"/Onboarding/IssueLetter/{id}",
+        await hrm.PostFormAsync(details, $"/Onboarding/IssueLetter/{id}", new() { ["terms"] = "Probation: 6 months. Hours: 7:30 to 16:30, Monday to Friday." });
+        Assert.Null(await Db(db => db.Onboardings.Where(o => o.Id == id).Select(o => o.LetterIssuedAt).SingleAsync()));
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(details, $"/Onboarding/IssueLetter/{id}",
             new() { ["terms"] = "Probation: 6 months. Hours: 7:30 to 16:30, Monday to Friday." })).StatusCode);
 
         // ---- Head of IT: the task is on their home page; tick it on the onboarding page
@@ -342,7 +348,7 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
             .Where(t => t.OnboardingRecordId == id && t.Team == OnboardingTeam.InformationTechnology).Select(t => t.Id).FirstAsync());
         Assert.Equal(HttpStatusCode.Redirect, (await it.PostFormAsync(details, $"/Onboarding/UpdateTask/{id}",
             new() { ["taskId"] = itTaskId.ToString(), ["status"] = "Done", ["notes"] = "efua.asante@grel.example" })).StatusCode);
-        Assert.DoesNotContain("New-hire documents", await it.GetStringAsync(details)); // personal documents are HR's only
+        Assert.DoesNotContain("Onboarding documents", await it.GetStringAsync(details)); // personal documents are HR's only
 
         // ---- New employee: first-day information, then read and sign the letter
         var employee = await SignedInAsync(c.Email("cand"));
@@ -374,42 +380,39 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         var (url, id) = await StartAsync(c, Today);
         await LetterIssuedAndSignedAsync(c, url, id, "Kwame Owusu");
 
-        // ---- The new employee uploads the documents in the portal and submits them
+        // ---- The new employee uploads the documents in the portal: they reach the recruiter one by one
         await EmployeeSubmitsDocumentsAsync(c, id);
         Assert.Equal(OnboardingStatus.AwaitingDocumentVerification, await StageAsync(id));
 
-        // ---- The recruiter verifies every document and sends the onboarding to the HR Manager
+        // ---- The recruiter verifies every document: "Ready for activation" (no HR Manager approval)
         var recruiter = await SignedInAsync(c.Email("ro"));
         var page = await recruiter.GetStringAsync(url);
-        Assert.Contains("New-hire documents", page);
+        Assert.Contains("Onboarding documents", page);
         Assert.Contains("Verified against the original", page);
-        await VerifyAllAsync(recruiter, url, id, await DocumentsAsync(id));
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/MarkVerified/{id}", new())).StatusCode);
-        Assert.Equal(OnboardingStatus.AwaitingHrApproval, await StageAsync(id));
-
-        // ---- The HR Manager approves: the induction begins
+        Assert.Contains("Start review", page);
         var hrm = await SignedInAsync(c.Email("hrm"));
-        var approvePage = await hrm.GetStringAsync(url);
-        Assert.Contains("Approve: start the induction", approvePage);
-        Assert.Contains("Departmental induction areas", approvePage);                       // Phase 20: the 12 areas to tick
-        Assert.Contains("TBU Operations", approvePage);
-        Assert.Equal(HttpStatusCode.Redirect, (await hrm.PostFormAsync(url, $"/Onboarding/HrDecide/{id}",
-            new() { ["approve"] = "true", ["areas"] = "Security" })).StatusCode);
-        Assert.Equal(OnboardingStatus.AwaitingDepartmentalInduction, await StageAsync(id));
-        Assert.Contains("Access card", await recruiter.GetStringAsync(url));                 // the Security area's tasks were added
+        Assert.DoesNotContain("Verified against the original", await hrm.GetStringAsync(url)); // the HR Manager only views
+        await VerifyAllAsync(recruiter, url, id, await DocumentsAsync(id));
+        Assert.Equal(OnboardingStatus.AwaitingActivation, await StageAsync(id));
 
-        // ---- Every checklist item ticked (HR may tick any), then the induction is closed
+        // ---- Activation, with the induction areas: the account becomes a GREL staff account and the induction begins
+        var activatePage = await recruiter.GetStringAsync(url);
+        Assert.Contains("Activate the employee", activatePage);
+        Assert.Contains("Departmental induction areas", activatePage);                     // Phase 20: the 12 areas to tick
+        Assert.Contains("TBU Operations", activatePage);
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/Activate/{id}",
+            new() { ["staffNumber"] = "GREL-9001", ["areas"] = "Security" })).StatusCode);
+        Assert.Equal(OnboardingStatus.AwaitingDepartmentalInduction, await StageAsync(id));
+        var account = await Db(db => db.Users.SingleAsync(u => u.Id == c.Candidate));
+        Assert.Equal(("GREL-9001", false), (account.StaffNumber, account.IsCandidate));
+        Assert.Contains("Access card", await recruiter.GetStringAsync(url));                // the Security area's tasks were added
+
+        // ---- Every checklist item ticked (the RO may tick any), then the induction is closed
         foreach (var taskId in await Db(db => db.OnboardingTasks.Where(t => t.OnboardingRecordId == id).Select(t => t.Id).ToListAsync()))
             Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/UpdateTask/{id}",
                 new() { ["taskId"] = taskId.ToString(), ["status"] = "Done" })).StatusCode);
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/CompleteInduction/{id}", new())).StatusCode);
-        Assert.Contains("Activate the employee", await recruiter.GetStringAsync(url));
-
-        // ---- Activation: the account becomes a GREL staff account
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/Activate/{id}", new() { ["staffNumber"] = "GREL-9001" })).StatusCode);
         Assert.Equal(OnboardingStatus.Completed, await StageAsync(id));
-        var account = await Db(db => db.Users.SingleAsync(u => u.Id == c.Candidate));
-        Assert.Equal(("GREL-9001", false), (account.StaffNumber, account.IsCandidate));
 
         // ---- Phase 20: the personnel file was opened and filled; the recruiter opens it, a filed letter and a filed file
         var onboardingPage = await recruiter.GetStringAsync(url);
@@ -439,26 +442,26 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         await LetterIssuedAndSignedAsync(c, url, id, "Abena Darko");
         var employee = await EmployeeSubmitsDocumentsAsync(c, id);
 
-        // ---- HR rejects the medical report and sends it back
+        // ---- The recruiter starts the review of the medical report, then rejects it with a reason: it goes straight back
         var recruiter = await SignedInAsync(c.Email("ro"));
-        var medical = (await DocumentsAsync(id)).Single(d => d.DocumentType == EmployeeDocumentType.MedicalReport);
+        var medical = (await DocumentsAsync(id)).Single(d => d.DocumentTypeCode == "MedicalReport");
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/StartReview/{id}",
+            new() { ["documentId"] = medical.Id.ToString() })).StatusCode);
+        Assert.Contains("Under review", await recruiter.GetStringAsync(url));
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/RejectDocument/{id}",
-            new() { ["documentId"] = medical.Id.ToString(), ["reason"] = "Not signed by the doctor." })).StatusCode);
-        Assert.Contains("Send back to the new employee", await recruiter.GetStringAsync(url));
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/ReturnToEmployee/{id}", new())).StatusCode);
+            new() { ["documentId"] = medical.Id.ToString(), ["reasonCode"] = "Other", ["reason"] = "Not signed by the doctor." })).StatusCode);
         Assert.Equal(OnboardingStatus.AwaitingEmployeeSubmission, await StageAsync(id));
 
-        // ---- The new employee sees why, uploads it again and resubmits
+        // ---- The new employee sees why and uploads a replacement: it is resubmitted, no "Submit" needed
         var page = $"/MyApplications/Documents/{c.ApplicationId}";
         Assert.Contains("Rejected: Not signed by the doctor.", await employee.GetStringAsync(page));
         Assert.Equal(HttpStatusCode.Redirect, (await UploadAsync(employee, page, $"/MyApplications/UploadDocument/{c.ApplicationId}", medical.Id, "medical-signed.pdf")).StatusCode);
-        Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(page, $"/MyApplications/SubmitDocuments/{c.ApplicationId}", new())).StatusCode);
+        Assert.Equal(EmployeeDocumentStatus.Resubmitted, (await DocumentsAsync(id)).Single(d => d.Id == medical.Id).Status);
         Assert.Equal(OnboardingStatus.AwaitingDocumentVerification, await StageAsync(id));
 
-        // ---- HR verifies everything; the files download for HR, never for another candidate
+        // ---- The recruiter verifies everything; the files download for HR, never for another candidate
         await VerifyAllAsync(recruiter, url, id, await DocumentsAsync(id));
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/MarkVerified/{id}", new())).StatusCode);
-        Assert.Equal(OnboardingStatus.AwaitingHrApproval, await StageAsync(id));
+        Assert.Equal(OnboardingStatus.AwaitingActivation, await StageAsync(id));
 
         var fileId = await Db(db => db.Attachments.Where(a => a.OwnerType == "EmployeeDocument" && a.OwnerId == medical.Id)
             .OrderByDescending(a => a.Id).Select(a => a.Id).FirstAsync());
@@ -493,5 +496,35 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         // Recruiters run onboardings but do not change the areas.
         var ro = await SignedInAsync("ia.ro@grel.test");
         Assert.Contains("/Account/AccessDenied", (await ro.GetAsync("/InductionAreas")).Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Hr_administrator_maintains_the_onboarding_documents()
+    {
+        await UserAsync("od.admin@grel.test", "HR Admin", 1, Roles.HrAdministrator);
+        await UserAsync("od.ro@grel.test", "Recruiter", 1, Roles.RecruitmentOfficer);
+
+        var admin = await SignedInAsync("od.admin@grel.test");
+        var page = await admin.GetStringAsync("/OnboardingDocuments");
+        foreach (var text in new[] { "Personal documents", "Education documents", "Expatriate documents", "WASSCE / SSSCE certificate", "Work permit", "Old checklist" })
+            Assert.Contains(text, page);
+        Assert.Equal(HttpStatusCode.Redirect, (await admin.PostFormAsync("/OnboardingDocuments", "/OnboardingDocuments/Save", new()
+        {
+            ["Name"] = "Food handler's certificate", ["Description"] = "For canteen staff.", ["Group"] = "Employment", ["Requirement"] = "Optional",
+            ["MinFiles"] = "1", ["PersonnelFileCategoryId"] = "4", ["SortOrder"] = "170", ["IsActive"] = "true"
+        })).StatusCode);
+        var added = await Db(db => db.OnboardingDocumentTypes.SingleAsync(t => t.Code == "FoodHandlersCertificate"));
+        Assert.Equal((DocumentRequirement.Optional, true, false), (added.Requirement, added.IsActive, added.AllowsWordFiles));
+
+        // Retiring: an unticked "Active" box posts false.
+        Assert.Equal(HttpStatusCode.Redirect, (await admin.PostFormAsync("/OnboardingDocuments", "/OnboardingDocuments/Save", new()
+        {
+            ["Id"] = added.Id.ToString(), ["Version"] = added.Version.ToString(), ["Name"] = added.Name, ["Group"] = "Employment",
+            ["Requirement"] = "Optional", ["MinFiles"] = "1", ["PersonnelFileCategoryId"] = "4", ["SortOrder"] = "170", ["IsActive"] = "false"
+        })).StatusCode);
+        Assert.False(await Db(db => db.OnboardingDocumentTypes.Where(t => t.Id == added.Id).Select(t => t.IsActive).SingleAsync()));
+
+        var ro = await SignedInAsync("od.ro@grel.test");
+        Assert.Contains("/Account/AccessDenied", (await ro.GetAsync("/OnboardingDocuments")).Headers.Location!.ToString());
     }
 }

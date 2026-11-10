@@ -73,14 +73,15 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     [HttpPost]
     [RequestSizeLimit(DocumentUploadLimitBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = DocumentUploadLimitBytes)]
-    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, CancellationToken ct)
+    /// <param name="replacesAttachmentId">Phase 27: the file this one replaces (the old one stays in the history).</param>
+    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, int? replacesAttachmentId, CancellationToken ct)
     {
         if (file is null || file.Length == 0) Error("Choose a file to upload.");
         else
         {
             await using var stream = file.OpenReadStream();
-            var result = await documents.UploadAsync(documentId, file.FileName, stream, ct);
-            if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded.");
+            var result = await documents.UploadAsync(documentId, file.FileName, stream, ct, replacesAttachmentId);
+            if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded. HR will check it and email you if anything needs attention.");
             else Error(string.Join(" ", result.Errors));
         }
         return RedirectToAction(nameof(Documents), new { id });
@@ -94,14 +95,14 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     public Task<IActionResult> MarkNotApplicable(int id, int documentId, string? reason, CancellationToken ct) =>
         DocumentAct(id, () => documents.MarkNotApplicableAsync(documentId, reason, ct), "Marked not applicable.");
 
-    /// <summary>Submit my signed letter and documents to HR for verification.</summary>
+    /// <summary>Phase 27: I have made the correction HR asked for (documents go to HR one by one; there is no "submit" any more).</summary>
     [HttpPost]
-    public async Task<IActionResult> SubmitDocuments(int id, CancellationToken ct)
+    public async Task<IActionResult> ConfirmCorrection(int id, CancellationToken ct)
     {
         var mine = await documents.GetMineAsync(id, ct);
         if (mine is null) return NotFound();
-        var result = await onboarding.SubmitAsync(mine.OnboardingId, ct);
-        if (result.Succeeded) Success("Thank you! Your documents have been sent to HR for verification. We will email you if anything needs attention.");
+        var result = await onboarding.ConfirmCorrectionAsync(mine.OnboardingId, ct);
+        if (result.Succeeded) Success("Thank you! HR has been told that you made the correction.");
         else Error(string.Join(" ", result.Errors));
         return RedirectToAction(nameof(Documents), new { id });
     }

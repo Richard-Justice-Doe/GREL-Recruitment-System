@@ -40,6 +40,7 @@ internal class OnboardingRecordConfiguration : IEntityTypeConfiguration<Onboardi
         b.Property(o => o.CancelReason).HasColumnType("text");
         b.Property(o => o.Status).HasConversion<string>().HasMaxLength(40); // Phase 18: the 8 workflow stages
         b.Property(o => o.Notes).HasColumnType("text");
+        b.Property(o => o.CorrectionMessage).HasColumnType("text"); // Phase 27
         b.HasMany(o => o.Actions).WithOne().HasForeignKey(a => a.OnboardingRecordId).OnDelete(DeleteBehavior.Restrict);
         foreach (var p in new[] { nameof(OnboardingRecord.RequestingHodUserId), nameof(OnboardingRecord.EmployeeUserId),
                      nameof(OnboardingRecord.ContactPersonUserId), nameof(OnboardingRecord.LetterIssuedByUserId), nameof(OnboardingRecord.CreatedByUserId) })
@@ -121,7 +122,11 @@ internal class EmployeeDocumentConfiguration : IEntityTypeConfiguration<Employee
     {
         b.ToTable("EmployeeDocuments");
         b.ConfigureBase();
-        b.Property(d => d.DocumentType).HasConversion<string>().HasMaxLength(40);
+        // Phase 27: the type code (an OnboardingDocumentTypes.Code). The column keeps its Phase 18 name and values.
+        b.Property(d => d.DocumentTypeCode).HasColumnName("DocumentType").HasMaxLength(40).IsRequired();
+        b.Property(d => d.RejectionReasonCode).HasConversion<string>().HasMaxLength(20);
+        b.Property(d => d.ReviewStartedByUserId).HasMaxLength(255);
+        b.Property(d => d.Version).IsConcurrencyToken();
         b.Property(d => d.Status).HasConversion<string>().HasMaxLength(20);
         b.Property(d => d.EmployeeUserId).HasMaxLength(255).IsRequired();
         b.Property(d => d.VerifiedByUserId).HasMaxLength(255);
@@ -132,7 +137,59 @@ internal class EmployeeDocumentConfiguration : IEntityTypeConfiguration<Employee
         b.HasOne<ApplicationUser>().WithMany().HasForeignKey(d => d.EmployeeUserId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<ApplicationUser>().WithMany().HasForeignKey(d => d.VerifiedByUserId).OnDelete(DeleteBehavior.Restrict);
 
-        b.HasIndex(d => new { d.OnboardingRecordId, d.DocumentType }).IsUnique(); // one row per document type
+        b.HasIndex(d => new { d.OnboardingRecordId, d.DocumentTypeCode }).IsUnique(); // one row per document type (never deleted: see IsApplicable)
         b.HasIndex(d => d.Status);                                                 // "documents awaiting verification"
+    }
+}
+
+/// <summary>
+/// Phase 27: table "OnboardingDocumentTypes": the configurable checklist, seeded with the default GREL list (fixed ids 1-25).
+/// The HR Administrator changes it afterwards on the Onboarding documents screen.
+/// </summary>
+internal class OnboardingDocumentTypeConfiguration : IEntityTypeConfiguration<OnboardingDocumentType>
+{
+    public void Configure(EntityTypeBuilder<OnboardingDocumentType> b)
+    {
+        b.ToTable("OnboardingDocumentTypes");
+        b.ConfigureBase();
+        b.Property(t => t.Code).HasMaxLength(40).IsRequired();
+        b.Property(t => t.Name).HasMaxLength(150).IsRequired();
+        b.Property(t => t.Description).HasMaxLength(500);
+        b.Property(t => t.Group).HasConversion<string>().HasMaxLength(20);
+        b.Property(t => t.Requirement).HasConversion<string>().HasMaxLength(20);
+        b.Property(t => t.Version).IsConcurrencyToken();
+        b.HasOne<PersonnelFileCategory>().WithMany().HasForeignKey(t => t.PersonnelFileCategoryId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(t => t.Code).IsUnique();
+
+        // Seed rows must never change between builds: fixed dates and versions.
+        b.HasData(DefaultDocumentTypes.All.Select(t => new OnboardingDocumentType
+        {
+            Id = t.Id, Code = t.Code, Name = t.Name, Description = t.Description, Group = t.Group, Requirement = t.Requirement,
+            AllowsWordFiles = t.AllowsWordFiles, MinFiles = t.MinFiles, PersonnelFileCategoryId = t.PersonnelFileCategoryId, SortOrder = t.SortOrder,
+            IsActive = t.IsActive, IsLegacy = t.IsLegacy, CreatedAt = BaseEntityConfiguration.SeedDate, CreatedBy = "system",
+            Version = new Guid($"00000000-0000-0000-0027-{t.Id:000000000000}")
+        }));
+    }
+}
+
+/// <summary>Phase 27: table "EmployeeDocumentEvents": the history of every new-hire document (never edited).</summary>
+internal class EmployeeDocumentEventConfiguration : IEntityTypeConfiguration<EmployeeDocumentEvent>
+{
+    public void Configure(EntityTypeBuilder<EmployeeDocumentEvent> b)
+    {
+        b.ToTable("EmployeeDocumentEvents");
+        b.ConfigureBase();
+        b.Property(e => e.Action).HasConversion<string>().HasMaxLength(30);
+        b.Property(e => e.FromStatus).HasConversion<string>().HasMaxLength(20);
+        b.Property(e => e.ToStatus).HasConversion<string>().HasMaxLength(20);
+        b.Property(e => e.RejectionReason).HasConversion<string>().HasMaxLength(20);
+        b.Property(e => e.FileName).HasMaxLength(200);
+        b.Property(e => e.Comments).HasColumnType("text");
+        b.Property(e => e.ActorUserId).HasMaxLength(255).IsRequired();
+        b.Property(e => e.ActorName).HasMaxLength(200).IsRequired();
+        b.Property(e => e.IpAddress).HasMaxLength(64);
+        b.HasOne<EmployeeDocument>().WithMany().HasForeignKey(e => e.EmployeeDocumentId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<OnboardingRecord>().WithMany().HasForeignKey(e => e.OnboardingRecordId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(e => new { e.EmployeeDocumentId, e.ActionAt });
     }
 }

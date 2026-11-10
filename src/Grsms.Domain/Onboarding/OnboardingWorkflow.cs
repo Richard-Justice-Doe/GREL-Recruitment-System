@@ -3,33 +3,33 @@ using Grsms.Domain.Security;
 namespace Grsms.Domain.Onboarding;
 
 /// <summary>
-/// The rules of onboarding (Module 9, extended in Phase 18), in one place:
+/// The rules of onboarding (Module 9, extended in Phase 18 and changed in Phase 27, 10 November 2026), in one place:
 ///
-///   Draft ─letter issued─► Awaiting employee submission ─submit─► Awaiting document verification ─verified─► Awaiting HR approval
-///                               ▲             │                         │                                       │
-///                               └─ returned ──┴──── (documents rejected) ┘ ◄──────── returned for verification ──┘
-///                                                                                                               │ approved
-///   Completed ◄─activate─ Awaiting activation ◄─induction complete─ Awaiting departmental induction ◄────────────┘
+///   Start (RO) ─► Draft ──letter issued──► Awaiting the new employee ◄──► Awaiting document verification ──► Ready for activation
+///                   └──────────── (worked out automatically from the documents, the letter and the personal record) ───────┘
+///   Ready for activation ─activate (RO or HR Manager)─► Induction in progress ─induction closed─► Completed
 ///   (any stage before Completed) ─cancel─► Cancelled
 ///
-///   Start      : a Recruitment Officer or HR Manager starts onboarding once the candidate has ACCEPTED the offer (one per
-///                application): the record (Draft), the document checklist and the departmental checklist are created.
-///   Letter     : an HR Manager issues the appointment letter (and may revise it until it is signed). The first issue moves
-///                the onboarding to "Awaiting employee submission".
-///   Submit     : the new employee (or HR on their behalf) submits once the letter is signed and every document is uploaded
-///                (or, for the optional ones, declared not applicable).
-///   Verify     : HR verifies or rejects each document. Rejected documents go back to the new employee; when everything is
-///                verified, HR sends the onboarding to the HR Manager.
-///   Approve    : an HR Manager who did not verify the documents approves (→ induction) or returns them for verification.
-///   Induction  : each checklist task is done by its owner, the department's HOD (department tasks) or HR. HR closes the
-///                induction once no task is still "To do" and the start date has come.
-///   Activate   : HR records the staff number; the account becomes a GREL staff account. Completed.
-///   Cancel     : HR cancels with a reason at any stage before Completed.
-/// Nobody acts on their own onboarding.
+///   Start      : the Recruitment Officer clicks "Click to proceed to onboarding" once the candidate has ACCEPTED the offer (one
+///                per application): the record, the document checklist, the departmental checklist and a provisional personnel
+///                file are created, and the new employee can start uploading at once. The RO ticks the education certificates
+///                this person must provide and whether they are an expatriate.
+///   Letter     : the RO issues the appointment letter (and may revise it until it is signed).
+///   Documents  : each document goes to the RO as soon as it is uploaded. The RO may "Start review" (the file is then locked),
+///                verify it, or reject it with a reason (the new employee is emailed and uploads a replacement).
+///   Stage      : before activation the stage follows the facts (<see cref="StageFor"/>): no letter yet → Draft; anything
+///                outstanding for the new employee → Awaiting the new employee; documents still to verify → Awaiting document
+///                verification; otherwise → Ready for activation. There is no HR Manager approval any more.
+///   Activate   : the RO or an HR Manager records the staff number: the account becomes a GREL staff account, the probation
+///                starts and the departmental induction tasks are created. The induction is then finished while the employee
+///                is already active, and closing it completes the onboarding.
+///   Cancel     : the RO cancels with a reason at any stage before Completed.
+/// Who may do what is set by the permissions onboarding.view / .manage / .verify-documents / .complete (see
+/// <see cref="Permissions"/>). Nobody acts on their own onboarding.
 /// </summary>
 public static class OnboardingWorkflow
 {
-    /// <summary>Who runs onboarding: the same people who run recruitment.</summary>
+    /// <summary>Who ran onboarding before Phase 27 (still used by probation and the workforce dashboard).</summary>
     public static readonly IReadOnlyList<string> HrRoles = [Roles.RecruitmentOfficer, Roles.HrManager];
 
     /// <summary>Department code of the IT department, whose Head receives the IT tasks by default.</summary>
@@ -38,63 +38,146 @@ public static class OnboardingWorkflow
     /// <summary>Days after the start date by which an onboarding is expected to be finished.</summary>
     public const int ExpectedCompletionDays = 30;
 
+    /// <summary>Phase 27: working days the new employee has to provide every document (changeable in System settings).</summary>
+    public const int DocumentDeadlineWorkingDays = 10;
+
+    /// <summary>Phase 27: longest extension of the document deadline the RO may give (once).</summary>
+    public const int MaxDeadlineExtensionDays = 14;
+
     /// <summary>The stages in order, for steppers and reports.</summary>
     public static readonly IReadOnlyList<OnboardingStatus> Stages =
     [
         OnboardingStatus.Draft,
         OnboardingStatus.AwaitingEmployeeSubmission,
         OnboardingStatus.AwaitingDocumentVerification,
-        OnboardingStatus.AwaitingHrApproval,
-        OnboardingStatus.AwaitingDepartmentalInduction,
         OnboardingStatus.AwaitingActivation,
+        OnboardingStatus.AwaitingDepartmentalInduction,
         OnboardingStatus.Completed
     ];
 
     /// <summary>True while the onboarding can still move (not Completed or Cancelled).</summary>
     public static bool IsActive(OnboardingStatus s) => s is not (OnboardingStatus.Completed or OnboardingStatus.Cancelled);
 
-    /// <summary>The new employee may upload documents and declare them not applicable only while it is their turn.</summary>
-    public static bool EmployeeMayEditDocuments(OnboardingStatus s) =>
-        s is OnboardingStatus.Draft or OnboardingStatus.AwaitingEmployeeSubmission;
+    /// <summary>Phase 27: before activation (the stages worked out by <see cref="StageFor"/>).</summary>
+    public static bool BeforeActivation(OnboardingStatus s) =>
+        s is OnboardingStatus.Draft or OnboardingStatus.AwaitingEmployeeSubmission or OnboardingStatus.AwaitingDocumentVerification
+            or OnboardingStatus.AwaitingHrApproval or OnboardingStatus.AwaitingActivation;
 
-    /// <summary>HR may upload documents for the new employee (e.g. originals brought in) until HR has approved.</summary>
-    public static bool HrMayEditDocuments(OnboardingStatus s) =>
-        s is OnboardingStatus.Draft or OnboardingStatus.AwaitingEmployeeSubmission or OnboardingStatus.AwaitingDocumentVerification;
+    /// <summary>The new employee may upload documents and change the personal record until activation.</summary>
+    public static bool EmployeeMayEditDocuments(OnboardingStatus s) => BeforeActivation(s);
 
-    /// <summary>The appointment letter can be issued or revised (until it is signed) up to HR approval.</summary>
-    public static bool LetterMayBeIssued(OnboardingStatus s) =>
-        s is OnboardingStatus.Draft or OnboardingStatus.AwaitingEmployeeSubmission;
+    /// <summary>The RO may upload documents for the new employee (e.g. originals brought in) until activation.</summary>
+    public static bool HrMayEditDocuments(OnboardingStatus s) => BeforeActivation(s);
 
-    /// <summary>The departmental checklist can be worked on from the start until activation.</summary>
+    /// <summary>Documents are reviewed as they arrive, until activation.</summary>
+    public static bool DocumentsMayBeReviewed(OnboardingStatus s) => BeforeActivation(s);
+
+    /// <summary>The appointment letter can be issued or revised (until it is signed) before activation.</summary>
+    public static bool LetterMayBeIssued(OnboardingStatus s) => BeforeActivation(s);
+
+    /// <summary>The departmental checklist can be worked on from the start until the onboarding is completed.</summary>
     public static bool ChecklistOpen(OnboardingStatus s) => IsActive(s);
 
-    // ---------------------------------------------------------------- New Hire Administrative Records
+    // ---------------------------------------------------------------- New-hire documents
 
-    /// <summary>
-    /// Documents that do not apply to everyone, so the new employee may declare them "not applicable" (with a reason).
-    /// Every other document on the form is required.
-    /// </summary>
-    public static readonly IReadOnlySet<EmployeeDocumentType> OptionalDocuments = new HashSet<EmployeeDocumentType>
-    {
-        EmployeeDocumentType.MarriageCertificate,
-        EmployeeDocumentType.ChildBirthCertificates,
-        EmployeeDocumentType.DependantPhotographs,
-        EmployeeDocumentType.PassportBiodataPage,
-        EmployeeDocumentType.NonCitizenCard
-    };
-
-    /// <summary>File types accepted for new-hire documents (scans and photographs).</summary>
+    /// <summary>File types accepted for every document (scans and photographs).</summary>
     public static readonly IReadOnlyList<string> DocumentFileTypes = [".pdf", ".jpg", ".jpeg", ".png"];
 
-    /// <summary>Most files one document may hold (e.g. several school certificates).</summary>
+    /// <summary>File types accepted for the types that allow Word files (letters and the CV).</summary>
+    public static readonly IReadOnlyList<string> WordDocumentFileTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
+
+    public static IReadOnlyList<string> FileTypesFor(OnboardingDocumentType type) => type.AllowsWordFiles ? WordDocumentFileTypes : DocumentFileTypes;
+
+    /// <summary>Most files one document may hold (e.g. several professional certificates).</summary>
     public const int MaxFilesPerDocument = 10;
 
-    /// <summary>True when the document counts as dealt with for the employee's submission.</summary>
-    public static bool ReadyToSubmit(EmployeeDocumentStatus s) =>
-        s is EmployeeDocumentStatus.Submitted or EmployeeDocumentStatus.Verified or EmployeeDocumentStatus.NotApplicable;
+    /// <summary>The new employee may change the files of a document unless it is verified or the RO is reviewing it.</summary>
+    public static bool EmployeeMayChange(EmployeeDocumentStatus s) => s is not (EmployeeDocumentStatus.Verified or EmployeeDocumentStatus.UnderReview);
 
-    /// <summary>True when HR has finished with the document (verified, or "not applicable" accepted).</summary>
+    /// <summary>Uploaded and waiting for the RO.</summary>
+    public static bool AwaitsReview(EmployeeDocumentStatus s) =>
+        s is EmployeeDocumentStatus.Submitted or EmployeeDocumentStatus.Resubmitted or EmployeeDocumentStatus.UnderReview;
+
+    /// <summary>True when the RO has finished with the document (verified, or a "not applicable" declaration).</summary>
     public static bool Settled(EmployeeDocumentStatus s) => s is EmployeeDocumentStatus.Verified or EmployeeDocumentStatus.NotApplicable;
+
+    /// <summary>
+    /// Applies a document type's requirement to one onboarding's document: whether it is required and whether it applies at all.
+    /// Legacy documents are left as they are; for "chosen per hire" types the RO's choice (<see cref="EmployeeDocument.IsRequired"/>)
+    /// is kept. A document that no longer applies stays visible while it has files.
+    /// </summary>
+    public static void ApplyRequirement(OnboardingDocumentType type, OnboardingRecord o, EmployeeDocument d, bool hasFiles)
+    {
+        if (type.IsLegacy) return;
+        (d.IsRequired, d.IsApplicable) = !type.IsActive ? (false, hasFiles) : type.Requirement switch
+        {
+            DocumentRequirement.Required => (true, true),
+            DocumentRequirement.Optional => (false, true),
+            DocumentRequirement.ChosenPerHire => (d.IsRequired, true),
+            DocumentRequirement.ExpatriateOnly => (o.IsExpatriate, o.IsExpatriate || hasFiles),
+            DocumentRequirement.GhanaianOnly => (!o.IsExpatriate, !o.IsExpatriate || hasFiles),
+            _ => (d.IsRequired, d.IsApplicable)
+        };
+    }
+
+    /// <summary>One document with what <see cref="CheckReadiness"/> needs to know about it.</summary>
+    public record DocumentState(EmployeeDocument Document, string Name, int Files, int MinFiles);
+
+    /// <summary>What is still outstanding before an onboarding is ready for activation.</summary>
+    /// <param name="ForEmployee">What the new employee must still do, in plain words (empty = nothing).</param>
+    /// <param name="AwaitingVerification">Documents uploaded and waiting for the RO.</param>
+    public record Readiness(IReadOnlyList<string> ForEmployee, int AwaitingVerification, int Rejected, int RequiredTotal, int RequiredVerified)
+    {
+        public bool EmployeeDone => ForEmployee.Count == 0;
+        public bool Ready => EmployeeDone && AwaitingVerification == 0;
+    }
+
+    /// <summary>
+    /// The readiness rule: every required document uploaded (with enough files) and verified, the Personal Record Declaration and
+    /// the appointment letter signed, no correction pending and no rejected document. Documents that do not apply are ignored.
+    /// </summary>
+    public static Readiness CheckReadiness(OnboardingRecord o, IReadOnlyCollection<DocumentState> docs, bool personalRecordSigned)
+    {
+        var todo = new List<string>();
+        if (!o.LetterIssued) todo.Add("Wait for your appointment letter, then sign it");
+        else if (!o.LetterAcknowledged) todo.Add("Sign your appointment letter");
+        if (!personalRecordSigned) todo.Add("Fill in and sign your personal record");
+        if (o.CorrectionRequestedAt is not null) todo.Add($"Make the correction HR asked for: {o.CorrectionMessage}");
+        var applicable = docs.Where(x => x.Document.IsApplicable).ToList();
+        foreach (var x in applicable)
+        {
+            var d = x.Document;
+            if (d.Status == EmployeeDocumentStatus.Rejected)
+                todo.Add($"Replace the {x.Name.ToLowerInvariant()} (rejected: {d.RejectionReason})");
+            else if (d.IsRequired && d.Status != EmployeeDocumentStatus.Verified && x.Files < Math.Max(1, x.MinFiles))
+                todo.Add(x.MinFiles > 1 && x.Files > 0
+                    ? $"Upload {x.MinFiles} files for the {x.Name.ToLowerInvariant()} ({x.Files} so far)"
+                    : $"Upload the {x.Name.ToLowerInvariant()}");
+        }
+        var required = applicable.Where(x => x.Document.IsRequired).ToList();
+        return new Readiness(todo, applicable.Count(x => AwaitsReview(x.Document.Status)),
+            applicable.Count(x => x.Document.Status == EmployeeDocumentStatus.Rejected),
+            required.Count, required.Count(x => x.Document.Status == EmployeeDocumentStatus.Verified));
+    }
+
+    /// <summary>The stage an onboarding before activation should be at, from the facts (see the class summary).</summary>
+    public static OnboardingStatus StageFor(OnboardingRecord o, Readiness r) =>
+        !o.LetterIssued ? OnboardingStatus.Draft
+        : !r.EmployeeDone ? OnboardingStatus.AwaitingEmployeeSubmission
+        : r.AwaitingVerification > 0 ? OnboardingStatus.AwaitingDocumentVerification
+        : OnboardingStatus.AwaitingActivation;
+
+    /// <summary><paramref name="days"/> working days (Monday to Friday) after <paramref name="from"/>.</summary>
+    public static DateOnly AddWorkingDays(DateOnly from, int days)
+    {
+        var d = from;
+        while (days > 0)
+        {
+            d = d.AddDays(1);
+            if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) days--;
+        }
+        return d;
+    }
 
     // ---------------------------------------------------------------- Departmental checklist
 
@@ -141,13 +224,13 @@ public static class OnboardingWorkflow
         _ => OnboardingTeam.Department
     };
 
-    /// <summary>Areas ticked by default when the HR Manager approves (until changed on the Induction areas screen).</summary>
+    /// <summary>Areas ticked by default at activation (until changed on the Induction areas screen).</summary>
     public static readonly IReadOnlySet<InductionArea> DefaultAreas = new HashSet<InductionArea>
     {
         InductionArea.HumanResource, InductionArea.CorporateIt, InductionArea.Security, InductionArea.HealthAndSafety
     };
 
-    /// <summary>Days after the induction starts (the later of the start date and the HR approval) by which area tasks are due.</summary>
+    /// <summary>Days after the induction starts (the later of the start date and the activation) by which area tasks are due.</summary>
     public const int InductionTaskDueDays = 7;
 
     /// <summary>The built-in tasks of each area (one per line on the Induction areas screen, where they can be changed).</summary>

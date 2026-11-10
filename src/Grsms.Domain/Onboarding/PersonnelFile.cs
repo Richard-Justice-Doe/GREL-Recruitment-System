@@ -38,16 +38,6 @@ public static class PersonnelFileCategories
         new() { Id = ProbationRecords, Name = "Probation Records", SortOrder = 6 },
         new() { Id = GeneratedLetters, Name = "Generated Letters", SortOrder = 7 }
     ];
-
-    /// <summary>Where each new-hire document is filed.</summary>
-    public static int For(EmployeeDocumentType type) => type switch
-    {
-        EmployeeDocumentType.ApplicationLetter or EmployeeDocumentType.Cv or EmployeeDocumentType.RecommendationLetters => RecruitmentDocuments,
-        EmployeeDocumentType.PassportPicture or EmployeeDocumentType.BirthCertificate or EmployeeDocumentType.GhanaCard or
-            EmployeeDocumentType.SsnitCard or EmployeeDocumentType.PassportBiodataPage or EmployeeDocumentType.NonCitizenCard => IdentificationRecords,
-        EmployeeDocumentType.MedicalReport or EmployeeDocumentType.PoliceClearance or EmployeeDocumentType.BankConfirmationLetter => ComplianceRecords,
-        _ => EmployeeRecords // school certificates, marriage certificate, children's birth certificates, dependants' photographs
-    };
 }
 
 /// <summary>What a personnel file document is.</summary>

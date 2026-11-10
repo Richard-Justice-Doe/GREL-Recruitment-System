@@ -30,20 +30,21 @@ public class InductionAndPersonnelFileTests : OnboardingTestBase
     // ------------------------------------------------------------------ induction
 
     [Fact]
-    public async Task Approval_adds_the_chosen_areas_tasks_to_their_owners_once()
+    public async Task Activation_adds_the_chosen_areas_tasks_to_their_owners_once()
     {
         var security = await _db.CreateUserAsync("security@grel.test", 1, Roles.Employee);
         As("admin", Roles.HrAdministrator);
         Assert.True((await RunAreas(s => s.SaveAsync(InductionArea.Security, security, true, "Access card\nSecurity induction\nGate pass"))).Succeeded);
 
-        var id = await AtHrApprovalAsync();
+        var id = await ReadyAsync();
         AsHrManager();
         var choices = (await Run(s => s.GetAsync(id)))!.InductionChoices;
         Assert.Equal(12, choices.Count);
         Assert.True(choices.Single(c => c.Area == InductionArea.Security).Ticked);
         Assert.False(choices.Single(c => c.Area == InductionArea.TbuOperations).Ticked);
 
-        Assert.True((await Run(s => s.HrDecideAsync(id, true, null, areas: [InductionArea.Security, InductionArea.TbuOperations, InductionArea.CorporateIt]))).Succeeded);
+        AsRecruiter(); // Phase 27: the areas are ticked when activating
+        Assert.True((await Run(s => s.ActivateAsync(id, "GREL-0457", areas: [InductionArea.Security, InductionArea.TbuOperations, InductionArea.CorporateIt]))).Succeeded);
         var list = await TasksAsync(id);
         var sec = list.Where(t => t.Area == InductionArea.Security).ToList();
         Assert.Equal(["Access card", "Security induction", "Gate pass"], sec.Select(t => t.Title));
@@ -60,9 +61,9 @@ public class InductionAndPersonnelFileTests : OnboardingTestBase
     [Fact]
     public async Task Tasks_done_outside_hr_need_hr_verification_before_the_induction_closes()
     {
-        var id = await AtHrApprovalAsync();
+        var id = await ReadyAsync();
         AsHrManager();
-        Assert.True((await Run(s => s.HrDecideAsync(id, true, null, areas: []))).Succeeded);
+        Assert.True((await Run(s => s.ActivateAsync(id, "GREL-0457", areas: []))).Succeeded);
 
         var deptTask = (await TasksAsync(id)).First(t => t.Team == OnboardingTeam.Department);
         As(_hod, Roles.HeadOfDepartment);
@@ -113,7 +114,7 @@ public class InductionAndPersonnelFileTests : OnboardingTestBase
         IReadOnlyList<string> In(int category) => file.Folders.Single(f => f.CategoryId == category).Documents.Select(d => d.Title).ToList();
         Assert.Contains(In(PersonnelFileCategories.IdentificationRecords), t => t.StartsWith("Ghana Card"));
         Assert.Contains(In(PersonnelFileCategories.ComplianceRecords), t => t.StartsWith("Police clearance"));
-        Assert.Contains(In(PersonnelFileCategories.RecruitmentDocuments), t => t.StartsWith("CV"));
+        Assert.Contains(In(PersonnelFileCategories.RecruitmentDocuments), t => t.StartsWith("Updated CV"));
         Assert.Contains("Employee Personal Record Declaration (signed)", In(PersonnelFileCategories.EmployeeRecords));
         Assert.Contains(In(PersonnelFileCategories.GeneratedLetters), t => t.StartsWith("Letter of appointment APT-"));
         Assert.Contains(In(PersonnelFileCategories.OnboardingRecords), t => t.StartsWith("Onboarding and induction record"));
@@ -144,6 +145,7 @@ public class InductionAndPersonnelFileTests : OnboardingTestBase
         {
             var o = await db.Onboardings.SingleAsync(x => x.Id == id);
             (o.Status, o.EmployeeNumber) = (OnboardingStatus.Completed, "GREL-0100"); // as an older, already completed onboarding
+            await db.PersonnelFiles.Where(f => f.EmployeeUserId == _candidate).ExecuteDeleteAsync(); // Phase 27 opens one at start; older ones had none
             return await db.SaveChangesAsync();
         });
 

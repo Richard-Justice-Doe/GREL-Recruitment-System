@@ -49,6 +49,19 @@ public static class Permissions
     /// <summary>Phase 20: open employees' electronic personnel files (personal and identification documents).</summary>
     public const string ViewPersonnelFiles = "personnel.view";
 
+    // ---------------------------------------------------------------- Phase 27: onboarding
+    /// <summary>See every onboarding, the new-hire documents and the personal record (read-only) and the tracking dashboard.</summary>
+    public const string ViewOnboarding = "onboarding.view";
+
+    /// <summary>Start onboarding, issue the letter, set the document requirements, first-day details, checklist, notes, cancel.</summary>
+    public const string ManageOnboarding = "onboarding.manage";
+
+    /// <summary>Start the review of, verify and reject new-hire documents, and ask the new employee for corrections.</summary>
+    public const string VerifyOnboardingDocuments = "onboarding.verify-documents";
+
+    /// <summary>Activate the employee (staff number, staff account) and close the induction.</summary>
+    public const string CompleteOnboarding = "onboarding.complete";
+
     // ---------------------------------------------------------------- Data visibility
     /// <summary>See the records of every department (otherwise a HOD sees only their own departments).</summary>
     public const string SeeAllDepartments = "data.all-departments";
@@ -94,6 +107,15 @@ public static class Permissions
         new(ViewPersonnelFiles, "Recruitment", "Open personnel files",
             "See employees' electronic personnel files (identification, compliance and onboarding records) and file documents in them."),
 
+        new(ViewOnboarding, "Onboarding", "Open onboarding",
+            "See every onboarding, the new-hire documents, the personal record (read-only) and the onboarding tracking dashboard."),
+        new(ManageOnboarding, "Onboarding", "Manage onboarding",
+            "Start onboarding for an accepted offer, issue the appointment letter, choose the documents each new hire must provide, change first-day details, the checklist and notes, and cancel."),
+        new(VerifyOnboardingDocuments, "Onboarding", "Verify onboarding documents",
+            "Review, verify and reject new-hire documents (Ghana Card, medical report, police clearance, ...) and ask the new employee for corrections."),
+        new(CompleteOnboarding, "Onboarding", "Activate employees",
+            "Activate a new employee who is ready (staff number, staff account) and close the departmental induction."),
+
         new(SeeAllDepartments, "Data visibility", "See all departments",
             "See the records of every department. Without it, a Head of Department sees only their own departments."),
 
@@ -131,12 +153,15 @@ public static class Permissions
         [Roles.HrManager] =
         [
             ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports,
-            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles
+            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding
         ],
         [Roles.ManagingDirector] =
             [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments],
         [Roles.RecruitmentOfficer] =
-            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles],
+        [
+            ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles,
+            ViewOnboarding, ManageOnboarding, VerifyOnboardingDocuments, CompleteOnboarding
+        ],
         [Roles.HeadOfDepartment] =
             [ViewRecruitmentRequests, RaiseRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports],
         [Roles.PanelMember] = [],

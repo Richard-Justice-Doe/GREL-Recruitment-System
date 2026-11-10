@@ -72,6 +72,7 @@ public static class DependencyInjection
         services.Configure<StorageOptions>(config.GetSection("Storage"));
         services.Configure<UploadOptions>(config.GetSection("Uploads"));
         services.AddSingleton<IFileStorage, LocalFileStorage>();
+        services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>(); // Phase 27: placeholder, every file passes
 
         // Phase 3: vacancies. The same repository also answers "is there a vacancy for this request?".
         services.AddScoped<IVacancyRepository, VacancyRepository>();

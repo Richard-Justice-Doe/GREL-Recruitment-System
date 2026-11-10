@@ -62,6 +62,8 @@ public static class DependencyInjection
         // Phase 9: appointment letters and onboarding
         services.AddScoped<Onboarding.OnboardingService>();
         services.AddScoped<Onboarding.DocumentVerificationService>(); // Phase 18
+        services.AddScoped<Onboarding.OnboardingProgressService>(); // Phase 27
+        services.AddScoped<Onboarding.OnboardingDocumentTypeService>(); // Phase 27
         services.AddScoped<Onboarding.PersonalRecordService>(); // Phase 19
         services.AddScoped<Onboarding.InductionAreaService>(); // Phase 20
         services.AddScoped<Onboarding.PersonnelFileService>(); // Phase 20

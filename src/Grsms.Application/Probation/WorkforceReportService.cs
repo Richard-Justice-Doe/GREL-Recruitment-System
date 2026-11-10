@@ -23,6 +23,7 @@ namespace Grsms.Application.Probation;
 public class WorkforceReportService(
     IRepository<OnboardingRecord> onboardings,
     IRepository<EmployeeDocument> documents,
+    IRepository<OnboardingDocumentType> documentTypes,
     IPersonalRecordRepository personalRecords,
     IRepository<ProbationRecord> probations,
     IRepository<ProbationAssessment> assessments,
@@ -80,11 +81,12 @@ public class WorkforceReportService(
                                                         o.Status == OnboardingStatus.AwaitingDocumentVerification, ct))
             .Where(o => visible(o.DepartmentId) && InPeriod(f, o.StartDate)).ToList();
         var ids = waiting.Select(o => o.Id).ToList();
-        var docs = (await documents.ListAsync(d => ids.Contains(d.OnboardingRecordId), ct)).GroupBy(d => d.OnboardingRecordId).ToDictionary(g => g.Key, g => g.ToList());
+        var docs = (await documents.ListAsync(d => ids.Contains(d.OnboardingRecordId) && d.IsApplicable, ct)).GroupBy(d => d.OnboardingRecordId).ToDictionary(g => g.Key, g => g.ToList());
+        var types = await TypesAsync(ct);
         var rows = waiting.Select(o =>
             {
-                var missing = (docs.GetValueOrDefault(o.Id) ?? []).Where(d => d.Status is EmployeeDocumentStatus.Pending or EmployeeDocumentStatus.Rejected)
-                    .OrderBy(d => d.DocumentType).ToList();
+                var missing = (docs.GetValueOrDefault(o.Id) ?? []).Where(d => d.IsRequired && d.Status == EmployeeDocumentStatus.Pending || d.Status == EmployeeDocumentStatus.Rejected)
+                    .OrderBy(d => types.GetValueOrDefault(d.DocumentTypeCode)?.SortOrder ?? int.MaxValue).ToList();
                 return (o, missing);
             })
             .Where(x => x.missing.Count > 0)
@@ -92,7 +94,7 @@ public class WorkforceReportService(
             .Select(x => new ReportRow([
                 x.o.Number, x.o.EmployeeName, dept(x.o.DepartmentId), x.o.StartDate, EnumText.Label(x.o.Status), x.missing.Count,
                 x.missing.Count(d => d.Status == EmployeeDocumentStatus.Rejected),
-                string.Join("; ", x.missing.Select(d => EnumText.Label(d.DocumentType) + (d.Status == EmployeeDocumentStatus.Rejected ? " (rejected)" : "")))
+                string.Join("; ", x.missing.Select(d => TypeName(types, d) + (d.Status == EmployeeDocumentStatus.Rejected ? " (rejected)" : "")))
             ], new ReportLink("Onboarding", "Details", x.o.Id))).ToList();
         return new ReportResult
         {
@@ -112,10 +114,11 @@ public class WorkforceReportService(
             .Where(d => InPeriod(f, d.SubmittedAt is { } s ? DateOnly.FromDateTime(s) : null))
             .Where(d => f.Status is null || d.Status.ToString() == f.Status).ToList();
         var names = await users.GetDisplayNamesAsync(docs.Select(d => d.VerifiedByUserId).OfType<string>().Distinct(), ct);
-        var rows = docs.OrderBy(d => obs[d.OnboardingRecordId].Number).ThenBy(d => d.DocumentType).Select(d =>
+        var types = await TypesAsync(ct);
+        var rows = docs.OrderBy(d => obs[d.OnboardingRecordId].Number).ThenBy(d => types.GetValueOrDefault(d.DocumentTypeCode)?.SortOrder ?? int.MaxValue).Select(d =>
         {
             var o = obs[d.OnboardingRecordId];
-            return new ReportRow([o.Number, o.EmployeeName, dept(o.DepartmentId), EnumText.Label(d.DocumentType), EnumText.Label(d.Status),
+            return new ReportRow([o.Number, o.EmployeeName, dept(o.DepartmentId), TypeName(types, d), EnumText.Label(d.Status),
                 d.SubmittedAt, d.VerifiedByUserId is null ? null : names.GetValueOrDefault(d.VerifiedByUserId), d.VerifiedAt,
                 d.RejectionReason ?? d.NotApplicableReason], new ReportLink("Onboarding", "Details", o.Id));
         }).ToList();
@@ -129,7 +132,7 @@ public class WorkforceReportService(
             [
                 new("Documents submitted", docs.Count.ToString(Gb)),
                 new("Verified", docs.Count(d => d.Status == EmployeeDocumentStatus.Verified).ToString(Gb)),
-                new("Awaiting verification", docs.Count(d => d.Status == EmployeeDocumentStatus.Submitted).ToString(Gb)),
+                new("Awaiting verification", docs.Count(d => OnboardingWorkflow.AwaitsReview(d.Status)).ToString(Gb)),
                 new("Rejected", docs.Count(d => d.Status == EmployeeDocumentStatus.Rejected).ToString(Gb))
             ],
             Table = new ReportTable([new("Onboarding"), new("New employee"), new("Department"), new("Document"), new("Status"), new("Submitted"),
@@ -239,4 +242,11 @@ public class WorkforceReportService(
 
     private static bool InPeriod(ReportFilter f, DateOnly? date) =>
         (f.From is null || date >= f.From) && (f.To is null || date <= f.To) || (f.From is null && f.To is null);
+
+    // Phase 27: document names come from the configurable types.
+    private async Task<IReadOnlyDictionary<string, OnboardingDocumentType>> TypesAsync(CancellationToken ct) =>
+        (await documentTypes.ListAsync(ct: ct)).ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
+
+    private static string TypeName(IReadOnlyDictionary<string, OnboardingDocumentType> types, EmployeeDocument d) =>
+        types.GetValueOrDefault(d.DocumentTypeCode)?.Name ?? d.DocumentTypeCode;
 }

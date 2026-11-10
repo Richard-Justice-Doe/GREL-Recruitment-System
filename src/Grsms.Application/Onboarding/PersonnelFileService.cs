@@ -50,7 +50,8 @@ public class PersonnelFileService(
     INumberGenerator numbers,
     IUnitOfWork unitOfWork,
     ICurrentUserService me,
-    IRichTextSanitizer sanitizer)
+    IRichTextSanitizer sanitizer,
+    IRepository<OnboardingDocumentType> documentTypes)
 {
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
     public bool CanView => me.HasPermission(Permissions.ViewPersonnelFiles);
@@ -58,10 +59,31 @@ public class PersonnelFileService(
     // ===================================================================== Opening and filing
 
     /// <summary>
-    /// Opens the employee's personnel file (or reuses it) and files everything from the onboarding that is not filed yet.
-    /// Called by <see cref="OnboardingService.ActivateAsync"/>; not a user action, so no permission check here.
+    /// Phase 27: opens a provisional personnel file when onboarding starts (nothing filed yet; the staff number comes at
+    /// activation). Reuses the employee's existing file. Not a user action, so no permission check here.
     /// </summary>
-    public async Task<int> OpenForOnboardingAsync(OnboardingRecord o, CancellationToken ct = default)
+    public async Task<int> OpenProvisionalAsync(OnboardingRecord o, CancellationToken ct = default)
+    {
+        var file = (await files.ListAsync(f => f.EmployeeUserId == o.EmployeeUserId, ct)).FirstOrDefault();
+        if (file is not null) return file.Id;
+        var now = DateTime.UtcNow;
+        var n = await numbers.NextAsync($"PF-{now.Year}", ct);
+        file = new PersonnelFile
+        {
+            FileNumber = $"PF-{now.Year}-{n:0000}", EmployeeUserId = o.EmployeeUserId, EmployeeName = o.EmployeeName,
+            StaffNumber = o.EmployeeNumber, JobTitle = o.JobTitle, DepartmentId = o.DepartmentId, OnboardingRecordId = o.Id, OpenedAt = now
+        };
+        files.Add(file);
+        await unitOfWork.SaveChangesAsync(ct);
+        return file.Id;
+    }
+
+    /// <summary>
+    /// Opens the employee's personnel file (or reuses it) and files everything from the onboarding that is not filed yet.
+    /// Called at activation (without the induction record) and when the induction closes (with it); not a user action, so no
+    /// permission check here.
+    /// </summary>
+    public async Task<int> OpenForOnboardingAsync(OnboardingRecord o, CancellationToken ct = default, bool includeInductionRecord = true)
     {
         var file = (await files.ListAsync(f => f.EmployeeUserId == o.EmployeeUserId, ct)).FirstOrDefault();
         var now = DateTime.UtcNow;
@@ -95,11 +117,16 @@ public class PersonnelFileService(
         }
 
         // The new-hire documents (verified ones only), each file in its category.
+        // Phase 27: each type says where its files go.
+        var types = (await documentTypes.ListAsync(ct: ct)).ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
         foreach (var d in (await employeeDocuments.ListAsync(x => x.OnboardingRecordId == o.Id && x.Status == EmployeeDocumentStatus.Verified, ct))
-                     .OrderBy(x => x.DocumentType))
+                     .OrderBy(x => types.GetValueOrDefault(x.DocumentTypeCode)?.SortOrder ?? int.MaxValue))
+        {
+            var t = types.GetValueOrDefault(d.DocumentTypeCode);
             foreach (var a in await storage.ListAsync(AttachmentOwners.EmployeeDocument, d.Id, ct))
-                Add(PersonnelFileCategories.For(d.DocumentType), $"{EnumText.Label(d.DocumentType)}: {a.FileName}", PersonnelDocumentKind.File,
-                    a.UploadedAt, nameof(Attachment), a.Id, attachmentId: a.Id);
+                Add(t?.PersonnelFileCategoryId ?? PersonnelFileCategories.EmployeeRecords, $"{t?.Name ?? d.DocumentTypeCode}: {a.FileName}",
+                    PersonnelDocumentKind.File, a.UploadedAt, nameof(Attachment), a.Id, attachmentId: a.Id);
+        }
 
         // The application's own files (CV, certificates, cover letter as sent).
         foreach (var a in await storage.ListAsync(AttachmentOwners.JobApplication, o.JobApplicationId, ct))
@@ -116,8 +143,9 @@ public class PersonnelFileService(
             Add(PersonnelFileCategories.GeneratedLetters, $"Letter of appointment {o.LetterNumber}", PersonnelDocumentKind.Letter,
                 o.LetterAcknowledgedAt!.Value, "AppointmentLetter", o.Id, content: await AppointmentLetterHtmlAsync(o, ct));
 
-        // The completed induction checklist: who did and verified each task.
-        Add(PersonnelFileCategories.OnboardingRecords, $"Onboarding and induction record {o.Number}", PersonnelDocumentKind.Letter,
+        // The completed induction checklist: who did and verified each task (Phase 27: once the induction is closed).
+        if (includeInductionRecord)
+            Add(PersonnelFileCategories.OnboardingRecords, $"Onboarding and induction record {o.Number}", PersonnelDocumentKind.Letter,
             now, nameof(OnboardingRecord), o.Id, content: await InductionRecordHtmlAsync(o, ct));
 
         await unitOfWork.SaveChangesAsync(ct);

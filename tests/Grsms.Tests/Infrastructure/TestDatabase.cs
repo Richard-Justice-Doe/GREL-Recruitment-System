@@ -60,7 +60,8 @@ public sealed class TestDatabase : IDisposable
 
     public string MailFolder => Path.Combine(TempFolder, "mail");
 
-    public TestDatabase(int maxUploadMb = 10)
+    /// <param name="configure">Phase 27: replaces services for one test (e.g. a virus scanner that refuses files).</param>
+    public TestDatabase(int maxUploadMb = 10, Action<IServiceCollection>? configure = null)
     {
         // An in-memory SQLite database lives only while this connection stays open.
         _connection = new SqliteConnection("DataSource=:memory:");
@@ -92,6 +93,7 @@ public sealed class TestDatabase : IDisposable
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
 
+        configure?.Invoke(services);
         Services = services.BuildServiceProvider();
         CreateSchema(_connection);
     }

@@ -46,7 +46,7 @@
     var inOnboard = In("Onboarding", "Probation", "PersonnelFiles");
     var inInsights = In("Reports", "Surveys") && action != "Take";
     var inMe = In("Careers", "MyApplications", "Profile", "MyProbation", "MyAuditTrail");
-    var inAdmin = In("Divisions", "Departments", "Units", "Sites", "InductionAreas", "Users", "Roles", "SystemSettings",
+    var inAdmin = In("Divisions", "Departments", "Units", "Sites", "InductionAreas", "OnboardingDocuments", "Users", "Roles", "SystemSettings",
                      "EmailTemplates", "Backups", "AuditMonitor", "AuditLogs") || atsSettingsPage;
 
     // Badge totals on a closed group's header, so nothing waiting for you is hidden.
@@ -248,6 +248,9 @@
                     </a>
                     <a class="nav-link @Active("InductionAreas")" asp-controller="InductionAreas" asp-action="Index">
                         <i class="fa-solid fa-list-check"></i> Induction areas
+                    </a>
+                    <a class="nav-link @Active("OnboardingDocuments")" asp-controller="OnboardingDocuments" asp-action="Index">
+                        <i class="fa-solid fa-file-circle-check"></i> Onboarding documents
                     </a>
                 }
                 @if (canUsers)

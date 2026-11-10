@@ -39,6 +39,11 @@ public static partial class EmailTemplateCatalogue
     public const string OnboardingDocumentsReturned = "onboarding.documents-returned";
     public const string OnboardingActivated = "onboarding.activated";
 
+    // Phase 27: the onboarding document portal
+    public const string OnboardingWelcome = "onboarding.welcome";
+    public const string OnboardingDocumentRejected = "onboarding.document-rejected";
+    public const string OnboardingDocumentsComplete = "onboarding.documents-complete";
+
     // Phase 21: probation outcome emails to the employee
     public const string ProbationConfirmed = "probation.confirmed";
     public const string ProbationExtended = "probation.extended";
@@ -108,14 +113,26 @@ public static partial class EmailTemplateCatalogue
             ["SignInEmail", "Roles"], "Open GRSMS"),
 
         // Phase 18 (6 November 2026): onboarding emails to the new employee.
-        new(OnboardingDocumentsRequested, "Onboarding: letter and documents", "When the HR Manager first issues the appointment letter",
-            "Your appointment letter and new-hire documents: {{JobTitle}}",
-            "Your appointment letter for the position of {{JobTitle}} is ready. Please read and sign it in your portal.\n\nPlease also upload your new-hire documents (Ghana Card, SSNIT card, certificates, medical report, police clearance, bank confirmation letter and the others listed), then click \"Submit to HR\". Your first day is {{StartDate}}.",
-            ["JobTitle", "StartDate"], "Open my onboarding"),
-        new(OnboardingDocumentsReturned, "Onboarding: documents need attention", "When HR sends the onboarding back to the new employee (rejected documents or a correction to the personal record)",
-            "Some of your documents need attention",
-            "HR has checked your new-hire documents and personal record. Please see to the following:\n\n{{Documents}}\n\nThen click \"Submit to HR\" again.",
-            ["Documents"], "Open my onboarding"),
+        new(OnboardingWelcome, "Onboarding: welcome and documents required", "When the Recruitment Officer starts the onboarding (after the offer is accepted)",
+            "Welcome to {{Organisation}}: your onboarding has started",
+            "Congratulations again on accepting the position of {{JobTitle}}. Your onboarding has started.\n\nPlease open My Onboarding and upload the documents listed there (you can use your phone's camera). Each document is checked as soon as you upload it. Please provide everything by {{DueDate}}. Your first day is {{StartDate}}.",
+            ["JobTitle", "StartDate", "DueDate"], "Open My Onboarding"),
+        new(OnboardingDocumentsRequested, "Onboarding: appointment letter ready", "When the Recruitment Officer first issues the appointment letter",
+            "Your appointment letter: {{JobTitle}}",
+            "Your appointment letter for the position of {{JobTitle}} is ready. Please read and sign it in your portal.\n\nIf you have not done so yet, please also upload your onboarding documents in My Onboarding. Your first day is {{StartDate}}.",
+            ["JobTitle", "StartDate"], "Open My Onboarding"),
+        new(OnboardingDocumentRejected, "Onboarding: a document was rejected", "When the Recruitment Officer rejects one of the new employee's documents",
+            "Please upload your {{Document}} again",
+            "We could not accept the {{Document}} you uploaded.\n\nReason: {{Reason}}\n\nPlease upload a replacement in My Onboarding.",
+            ["Document", "Reason"], "Open My Onboarding"),
+        new(OnboardingDocumentsReturned, "Onboarding: correction needed", "When the Recruitment Officer asks the new employee to correct something (e.g. the personal record)",
+            "Your onboarding needs a correction",
+            "HR has checked your onboarding and asks you to see to the following:\n\n{{Documents}}\n\nWhen you have made the correction, click \"I have made the correction\" in My Onboarding.",
+            ["Documents"], "Open My Onboarding"),
+        new(OnboardingDocumentsComplete, "Onboarding: requirements complete", "When every required document is verified and nothing is outstanding",
+            "Your onboarding documents are complete",
+            "Thank you. All your onboarding documents have been verified and your onboarding requirements are complete. HR will now activate your staff account.",
+            [], "Open My Onboarding"),
         new(OnboardingActivated, "Onboarding: staff account active", "When HR activates the new employee at the end of onboarding",
             "Welcome to {{Organisation}}: your staff account is active",
             "Your onboarding as {{JobTitle}} is complete and your GRSMS account is now a staff account. Your staff number is {{StaffNumber}}.\n\nWelcome to the team!",

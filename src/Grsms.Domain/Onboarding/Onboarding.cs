@@ -11,25 +11,28 @@ namespace Grsms.Domain.Onboarding;
 /// </summary>
 public enum OnboardingStatus
 {
-    /// <summary>HR is preparing the onboarding (first-day details, appointment letter).</summary>
-    [Display(Name = "Draft")] Draft,
+    // Phase 27 (10 November 2026): the first four stages before activation are worked out automatically from the documents,
+    // the letter and the personal record (OnboardingWorkflow.StageFor); HR approval is gone and the induction follows activation.
 
-    /// <summary>The letter is issued: the new employee signs it and uploads the new-hire documents.</summary>
-    [Display(Name = "Awaiting employee submission")] AwaitingEmployeeSubmission,
+    /// <summary>Started; the Recruitment Officer prepares the appointment letter. The new employee can already upload documents.</summary>
+    [Display(Name = "Letter being prepared")] Draft,
 
-    /// <summary>The new employee has submitted; HR verifies each document.</summary>
+    /// <summary>Something is outstanding on the new employee's side: the letter signature, the personal record, a document or a correction.</summary>
+    [Display(Name = "Awaiting the new employee")] AwaitingEmployeeSubmission,
+
+    /// <summary>Everything is in; the Recruitment Officer still has documents to verify.</summary>
     [Display(Name = "Awaiting document verification")] AwaitingDocumentVerification,
 
-    /// <summary>Documents verified; the HR Manager approves the new hire's records.</summary>
-    [Display(Name = "Awaiting HR approval")] AwaitingHrApproval,
+    /// <summary>Before Phase 27 only (HR Manager approval). Onboardings that were here moved to "Ready for activation".</summary>
+    [Display(Name = "Awaiting HR approval (no longer used)")] AwaitingHrApproval,
 
-    /// <summary>Approved; the departments complete their induction tasks.</summary>
-    [Display(Name = "Awaiting departmental induction")] AwaitingDepartmentalInduction,
+    /// <summary>Phase 27: the employee is active (staff account, probation started); the departments complete their induction tasks.</summary>
+    [Display(Name = "Induction in progress")] AwaitingDepartmentalInduction,
 
-    /// <summary>Induction done; HR records the staff number and activates the employee's staff account.</summary>
-    [Display(Name = "Awaiting activation")] AwaitingActivation,
+    /// <summary>Every required document verified, the declaration and the letter signed, nothing rejected: the RO or HR Manager activates.</summary>
+    [Display(Name = "Ready for activation")] AwaitingActivation,
 
-    /// <summary>The employee is active. Final.</summary>
+    /// <summary>Activated and the induction closed. Final.</summary>
     [Display(Name = "Completed")] Completed,
 
     /// <summary>Stopped (e.g. the new employee did not report). Final.</summary>
@@ -41,14 +44,16 @@ public enum OnboardingAction
 {
     [Display(Name = "Started")] Started,
     [Display(Name = "Appointment letter issued")] LetterIssued,
-    [Display(Name = "Submitted by the new employee")] Submitted,
-    [Display(Name = "Returned to the new employee")] ReturnedToEmployee,
-    [Display(Name = "Documents verified")] DocumentsVerified,
+    [Display(Name = "Everything submitted by the new employee")] Submitted,
+    [Display(Name = "Back with the new employee")] ReturnedToEmployee,
+    [Display(Name = "All documents verified: ready for activation")] DocumentsVerified,
     [Display(Name = "Approved by HR")] HrApproved,
     [Display(Name = "Returned for verification")] ReturnedForVerification,
     [Display(Name = "Induction completed")] InductionCompleted,
     [Display(Name = "Employee activated")] Activated,
-    [Display(Name = "Cancelled")] Cancelled
+    [Display(Name = "Cancelled")] Cancelled,
+    [Display(Name = "Correction requested")] CorrectionRequested,
+    [Display(Name = "Document requirements changed")] RequirementsChanged
 }
 
 /// <summary>Who an onboarding task belongs to.</summary>
@@ -70,7 +75,7 @@ public enum OnboardingTaskStatus
 }
 
 /// <summary>
-/// The onboarding of one new employee: started by HR once the candidate has accepted the offer. Holds the
+/// The onboarding of one new employee: started by the Recruitment Officer once the candidate has accepted the offer. Holds the
 /// appointment letter, the first-day information and (in <see cref="OnboardingTask"/>) the checklist.
 /// Stores the division, department and requesting HOD of its vacancy, like every recruitment record.
 /// </summary>
@@ -146,6 +151,23 @@ public class OnboardingRecord : BaseEntity
 
     /// <summary>Why the onboarding was cancelled (e.g. the new employee did not report).</summary>
     public string? CancelReason { get; set; }
+
+    // ---- Phase 27: document requirements and deadline
+    /// <summary>Ticked by the RO for a non-Ghanaian: the expatriate documents apply and the Ghana Card does not.</summary>
+    public bool IsExpatriate { get; set; }
+
+    /// <summary>When every document should be in (by default 10 working days after onboarding started).</summary>
+    public DateOnly? DocumentsDueDate { get; set; }
+
+    /// <summary>True once the RO has used the one extension of <see cref="DocumentsDueDate"/>.</summary>
+    public bool DocumentsDueDateExtended { get; set; }
+
+    /// <summary>
+    /// Set when the RO asks the new employee to correct something that is not a document (e.g. the personal record). The onboarding
+    /// stays with the new employee until they confirm the correction.
+    /// </summary>
+    public DateTime? CorrectionRequestedAt { get; set; }
+    public string? CorrectionMessage { get; set; }
 
     public Guid Version { get; set; } = Guid.NewGuid();
 

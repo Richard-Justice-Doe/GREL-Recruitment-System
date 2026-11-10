@@ -28,14 +28,15 @@ public class PersonalRecordService(
     IRepository<EmployeeDeclaration> declarations,
     IRepository<Department> departments,
     IUnitOfWork unitOfWork,
-    ICurrentUserService me)
+    ICurrentUserService me,
+    OnboardingProgressService progress)
 {
     /// <summary>The words the employee signs.</summary>
     public const string DeclarationText = "I declare that the above information is accurate and correct to the best of my knowledge.";
 
     private const int MaxRows = 30, MaxSpouses = 4, MaxEmergencyContacts = 3;
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
-    private bool IsHr => OnboardingWorkflow.HrRoles.Any(me.IsInRole);
+    private bool IsHr => me.HasPermission(Domain.Security.Permissions.ViewOnboarding); // Phase 27: onboarding.view
 
     private static readonly JsonSerializerOptions SnapshotJson = new()
     {
@@ -116,7 +117,9 @@ public class PersonalRecordService(
         r.DeclaredAt = null;            // any change needs a new signature
         r.CurrentDeclarationId = null;
         r.Version = Guid.NewGuid();
-        return await SaveChangesAsync(ct);
+        var saved = await SaveChangesAsync(ct);
+        if (saved.Succeeded) await progress.RefreshAsync(o.Id, ct); // Phase 27: unsigned again → back with the new employee
+        return saved;
     }
 
     /// <summary>
@@ -161,7 +164,9 @@ public class PersonalRecordService(
         r.DeclaredAt = now;
         r.CurrentDeclarationId = declaration.Id;
         r.Version = Guid.NewGuid();
-        return await SaveChangesAsync(ct);
+        saved = await SaveChangesAsync(ct);
+        if (saved.Succeeded) await progress.RefreshAsync(o.Id, ct); // Phase 27
+        return saved;
     }
 
     // ===================================================================== Rules

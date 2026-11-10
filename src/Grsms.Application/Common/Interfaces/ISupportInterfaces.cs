@@ -26,6 +26,24 @@ public interface IFileStorage
     Task<Stream?> OpenReadAsync(string storedName, CancellationToken ct = default);
 }
 
+/// <summary>The answer of a virus scan.</summary>
+/// <param name="Clean">False = the file must be refused.</param>
+/// <param name="Threat">What was found (shown to the uploader), when not clean.</param>
+public record VirusScanResult(bool Clean, string? Threat = null)
+{
+    public static readonly VirusScanResult Passed = new(true);
+}
+
+/// <summary>
+/// Phase 27: scans every uploaded file before it is stored. The built-in implementation (Infrastructure/Storage/NoVirusScanner)
+/// lets every file through; GREL IT can plug in a real scanner (e.g. ClamAV or Microsoft Defender) by registering another
+/// implementation. A file that is not clean is refused and never written to disk.
+/// </summary>
+public interface IVirusScanner
+{
+    Task<VirusScanResult> ScanAsync(Stream content, string fileName, CancellationToken ct = default);
+}
+
 /// <summary>
 /// Builds full web addresses for links inside emails ("Open the request: https://.../RecruitmentRequests/Details/12").
 /// Implemented in the Web project, which knows the site's address.

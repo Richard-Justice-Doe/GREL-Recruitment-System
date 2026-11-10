@@ -276,7 +276,7 @@ public class ProbationServiceTests : OnboardingTestBase
         AsHrManager();
         Assert.Single((await Report(ReportKeys.Probation)).Table.Rows);
         Assert.Equal(2, (await Report(ReportKeys.Beneficiaries)).Table.Rows.Count); // 60% + 40%
-        Assert.Equal(11, (await Report(ReportKeys.DocumentVerification)).Table.Rows.Count(r => (string)r.Cells[4]! == "Verified"));
+        Assert.Equal(10, (await Report(ReportKeys.DocumentVerification)).Table.Rows.Count(r => (string)r.Cells[4]! == "Verified")); // the 10 required documents
         Assert.Empty((await Report(ReportKeys.MissingDocuments)).Table.Rows); // everything was provided
         Assert.True((await RunProbation(s => s.HrDecideAsync(id, true, null))).Succeeded);
         Assert.Single((await Report(ReportKeys.Confirmations)).Table.Rows);

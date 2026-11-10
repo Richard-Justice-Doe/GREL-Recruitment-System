@@ -16,13 +16,16 @@ namespace Grsms.Application.Onboarding;
 /// <summary>
 /// Appointment letters and onboarding (Module 9). See <see cref="OnboardingWorkflow"/>.
 ///
-/// WHO MAY DO WHAT (every rule is checked here, on the server):
-///   * Start onboarding, change first-day details and the checklist, complete, cancel : Recruitment Officer or HR Manager.
-///   * Issue or revise the appointment letter                                          : HR Manager.
-///   * Tick off a checklist item                     : its owner, the department's HOD (department items), or HR (any item).
+/// WHO MAY DO WHAT (every rule is checked here, on the server; Phase 27 = permissions, defaults in brackets):
+///   * Start onboarding, issue or revise the letter, set the document requirements, change first-day details, the checklist and
+///     notes, cancel                                                   : onboarding.manage (Recruitment Officer).
+///   * Ask the new employee for a correction                          : onboarding.verify-documents (Recruitment Officer).
+///   * Activate a ready employee, close the induction                 : onboarding.complete (Recruitment Officer, HR Manager).
+///   * See every onboarding, its documents and personal record        : onboarding.view (Recruitment Officer, HR Manager).
+///   * Tick off a checklist item                     : its owner, the department's HOD (department items), or onboarding.manage.
 ///   * Read and sign the appointment letter, see the first-day information             : the new employee, in their portal.
-///   * See an onboarding  : the roles that see every department, the department's HOD, and anyone with a task on it.
-/// Nobody manages the onboarding of their own application.
+///   * See an onboarding  : onboarding.view, the roles that see every department, the department's HOD, and anyone with a task.
+/// Nobody manages the onboarding of their own application. There is no HR Manager approval any more (user's decision, 10 Nov 2026).
 /// </summary>
 public class OnboardingService(
     IApplicationRepository applications,
@@ -46,21 +49,39 @@ public class OnboardingService(
     IEmployeeAccounts accounts,
     InductionAreaService induction,
     PersonnelFileService personnelFiles,
-    Probation.ProbationService probation)
+    Probation.ProbationService probation,
+    OnboardingProgressService progress,
+    IRepository<OnboardingDocumentType> documentTypes,
+    Settings.ISettingsStore settings)
 {
     private const string ConflictMessage = "Someone else updated this record at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
     private string MyId => me.UserId ?? throw new InvalidOperationException("No signed-in user.");
-    private bool IsHr => OnboardingWorkflow.HrRoles.Any(me.IsInRole);
+
+    /// <summary>Phase 27: working days the new employee has to provide the documents (System settings, default 10).</summary>
+    private int DocumentDeadlineDays
+    {
+        get
+        {
+            var days = settings.GetInt(Domain.Settings.SettingCatalogue.OnboardingDocumentDays);
+            return days > 0 ? days : OnboardingWorkflow.DocumentDeadlineWorkingDays;
+        }
+    }
+
+    // Phase 27: permissions instead of the RO / HR Manager roles.
+    private bool MayView => me.HasPermission(Permissions.ViewOnboarding);
+    private bool MayManage => me.HasPermission(Permissions.ManageOnboarding);
+    private bool MayVerify => me.HasPermission(Permissions.VerifyOnboardingDocuments);
+    private bool MayComplete => me.HasPermission(Permissions.CompleteOnboarding);
 
     // ===================================================================== Starting
 
-    /// <summary>Accepted offers with no onboarding yet (HR only; empty for everyone else).</summary>
+    /// <summary>Accepted offers with no onboarding yet (onboarding.manage only; empty for everyone else).</summary>
     public async Task<IReadOnlyList<OnboardingToStartDto>> ToStartAsync(OnboardingFilter? filter = null, CancellationToken ct = default)
     {
-        if (!IsHr) return [];
+        if (!MayManage) return [];
         var started = (await onboardings.ListAsync(ct: ct)).Select(o => o.JobApplicationId).ToHashSet();
         IEnumerable<Offer> q = (await offers.ListAsync(o => o.Status == OfferStatus.Accepted, ct)).Where(o => !started.Contains(o.JobApplicationId));
         if (filter?.DivisionId is { } div) q = q.Where(o => o.DivisionId == div);
@@ -112,9 +133,14 @@ public class OnboardingService(
         form.OfferNumber = offer?.Number ?? "";
         form.DepartmentName = (await departments.GetByIdAsync(app.DepartmentId, ct))?.Name ?? "";
         form.Staff = await users.GetActiveStaffAsync(null, ct);
+        form.EducationOptions = await documentService.EducationChoicesAsync(null, form.RequiredEducation, ct);
     }
 
-    /// <summary>HR starts onboarding: the record and the default checklist (with owners) are created, and each owner is emailed.</summary>
+    /// <summary>
+    /// The RO starts onboarding ("Click to proceed to onboarding"): the record, the document checklist (with the education
+    /// certificates ticked and the expatriate documents if ticked), the default departmental checklist (with owners) and a
+    /// provisional personnel file are created. The new employee is welcomed and can upload at once; each task owner is emailed.
+    /// </summary>
     public async Task<Result<int>> StartAsync(StartOnboardingForm form, CancellationToken ct = default)
     {
         var (app, offer, error) = await LoadStartableAsync(form.ApplicationId, ct);
@@ -123,6 +149,10 @@ public class OnboardingService(
         var notes = Clean(form.FirstDayNotes);
         if (FirstDayProblem(form.StartDate, location, notes) is { } problem) return Result.Failure<int>(problem);
         if (await ContactProblemAsync(form.ContactPersonUserId, app.ApplicantUserId, ct) is { } contactProblem) return Result.Failure<int>(contactProblem);
+        var allTypes = await documentTypes.ListAsync(ct: ct);
+        var education = form.RequiredEducation.Where(c => !string.IsNullOrWhiteSpace(c)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (education.Any(c => !allTypes.Any(t => t.IsActive && t.Requirement == DocumentRequirement.ChosenPerHire && string.Equals(t.Code, c, StringComparison.OrdinalIgnoreCase))))
+            return Result.Failure<int>("Choose the education certificates from the list.");
 
         var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
         var start = form.StartDate!.Value;
@@ -151,7 +181,9 @@ public class OnboardingService(
             Status = OnboardingStatus.Draft,
             StatusChangedAt = now,
             ExpectedCompletionDate = start.AddDays(OnboardingWorkflow.ExpectedCompletionDays),
-            CreatedByUserId = MyId
+            CreatedByUserId = MyId,
+            IsExpatriate = form.IsExpatriate,
+            DocumentsDueDate = OnboardingWorkflow.AddWorkingDays(Today, DocumentDeadlineDays)
         };
         record.RecordStep(OnboardingAction.Started, OnboardingStatus.Draft, MyId, scope.UserName, $"Starting {start:dd MMM yyyy}", now);
         onboardings.Add(record);
@@ -159,8 +191,8 @@ public class OnboardingService(
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
 
-        // Phase 18: the New Hire Administrative Records checklist (one Pending row per document).
-        foreach (var d in DocumentVerificationService.NewChecklist(record)) documents.Add(d);
+        // Phase 18 / 27: the document checklist (one "Not submitted" row per active document type).
+        foreach (var d in DocumentVerificationService.NewChecklist(record, allTypes, education)) documents.Add(d);
 
         // The checklist, with a default owner per team.
         var owners = await DefaultOwnersAsync(v.RecruiterUserId, app, ct);
@@ -179,6 +211,16 @@ public class OnboardingService(
         saved = await SaveAsync(ct);
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
 
+        // Phase 27: the provisional personnel file (filled when the employee is activated and the induction closed).
+        await personnelFiles.OpenProvisionalAsync(record, ct);
+        await mailer.TemplateToUserAsync(record.EmployeeUserId, Domain.Settings.EmailTemplateCatalogue.OnboardingWelcome,
+            new Dictionary<string, string?>
+            {
+                ["JobTitle"] = record.JobTitle, ["StartDate"] = start.ToString("dddd d MMMM yyyy", Gb),
+                ["DueDate"] = record.DocumentsDueDate?.ToString("dddd d MMMM yyyy", Gb)
+            },
+            links.MyApplication(record.JobApplicationId), ct: ct);
+
         foreach (var group in created.Where(t => t.AssignedToUserId is not null && t.AssignedToUserId != MyId).GroupBy(t => t.AssignedToUserId))
             await mailer.ToUserAsync(group.Key, $"Onboarding {record.Number}: {group.Count()} task(s) for you",
                 $"<b>{WorkflowMailer.Enc(app.FullName)}</b> joins GREL as {WorkflowMailer.Enc(record.JobTitle)} on {start.ToString("d MMMM yyyy", Gb)}. " +
@@ -196,7 +238,8 @@ public class OnboardingService(
         if (o is null) return null;
         var list = (await tasks.ListAsync(t => t.OnboardingRecordId == o.Id, ct)).OrderBy(t => t.SortOrder).ThenBy(t => t.Id).ToList();
         var isHod = await IsHodOfAsync(o.DepartmentId, ct);
-        if (!me.HasPermission(Permissions.SeeAllDepartments) && !isHod && !list.Any(t => t.AssignedToUserId == me.UserId) && o.ContactPersonUserId != me.UserId)
+        if (!MayView && !me.HasPermission(Permissions.SeeAllDepartments) && !isHod && !list.Any(t => t.AssignedToUserId == me.UserId) &&
+            o.ContactPersonUserId != me.UserId)
             return null;
 
         var app = (await applications.GetByIdAsync(o.JobApplicationId, ct))!;
@@ -207,11 +250,10 @@ public class OnboardingService(
         string? Name(string? uid) => uid is null ? null : names.GetValueOrDefault(uid);
 
         var own = o.EmployeeUserId == me.UserId;
-        var hr = IsHr && !own;
-        var manage = hr && OnboardingWorkflow.IsActive(o.Status);
-        var docs = await documentService.LoadAsync(o.Id, ct);
-        var verifiedBlocked = DocumentVerificationService.VerifiedProblem(docs);
-        var hrDecisionBlocked = o.Status == OnboardingStatus.AwaitingHrApproval ? await HrDecisionProblemAsync(o, ct) : null;
+        var hr = MayView && !own;
+        var manage = MayManage && !own && OnboardingWorkflow.IsActive(o.Status);
+        var complete = MayComplete && !own;
+        var snap = await progress.SnapshotAsync(o, ct);
         var inductionBlocked = InductionProblem(o, list);
         var steps = (await history.ListAsync(a => a.OnboardingRecordId == o.Id, ct)).OrderBy(a => a.ActionAt).ThenBy(a => a.Id)
             .Select(a => new OnboardingHistoryDto(a.Action, a.FromStatus, a.ToStatus, a.ActorName, a.Comments, a.ActionAt)).ToList();
@@ -256,28 +298,29 @@ public class OnboardingService(
                     CanVerify = manage && t.Status != OnboardingTaskStatus.Open && t.VerifiedAt is null
                 })
                 .ToList(),
-            InductionChoices = me.IsInRole(Roles.HrManager) && hr && o.Status == OnboardingStatus.AwaitingHrApproval
-                ? await InductionChoicesAsync(o, list, ct) : [],
+            InductionChoices = complete && o.Status == OnboardingStatus.AwaitingActivation ? await InductionChoicesAsync(o, list, ct) : [],
             PersonnelFileId = personnelFiles.CanView ? await personnelFiles.IdForEmployeeAsync(o.EmployeeUserId, ct) : null,
             ExpectedCompletionDate = o.ExpectedCompletionDate,
             CompletedAt = o.CompletedAt,
             Notes = hr ? o.Notes : null,
             History = steps,
             Documents = hr ? await documentService.GetForHrAsync(o.Id, ct) : null,
-            PersonalRecordSigned = hr ? await documentService.PersonalRecordSignedAsync(o.Id, ct) : null,
+            PersonalRecordSigned = hr ? snap.PersonalRecordSigned : null,
             CanManage = manage,
             CanEditStartDate = manage && !o.LetterAcknowledged,
-            CanIssueLetter = me.IsInRole(Roles.HrManager) && !own && OnboardingWorkflow.LetterMayBeIssued(o.Status) && !o.LetterAcknowledged,
-            CanSubmitForEmployee = hr && DocumentVerificationService.SubmitProblem(o, docs, await documentService.PersonalRecordSignedAsync(o.Id, ct)) is null,
-            CanReturnToEmployee = hr && o.Status == OnboardingStatus.AwaitingDocumentVerification,
-
-            CanMarkVerified = hr && o.Status == OnboardingStatus.AwaitingDocumentVerification && verifiedBlocked is null,
-            VerifiedBlockedReason = hr && o.Status == OnboardingStatus.AwaitingDocumentVerification ? verifiedBlocked : null,
-            CanHrDecide = hr && o.Status == OnboardingStatus.AwaitingHrApproval && hrDecisionBlocked is null,
-            HrDecisionBlockedReason = hr && o.Status == OnboardingStatus.AwaitingHrApproval ? hrDecisionBlocked : null,
-            CanCompleteInduction = hr && o.Status == OnboardingStatus.AwaitingDepartmentalInduction && inductionBlocked is null,
-            InductionBlockedReason = hr && o.Status == OnboardingStatus.AwaitingDepartmentalInduction ? inductionBlocked : null,
-            CanActivate = hr && o.Status == OnboardingStatus.AwaitingActivation
+            CanIssueLetter = manage && OnboardingWorkflow.LetterMayBeIssued(o.Status) && !o.LetterAcknowledged,
+            CanRequestCorrection = MayVerify && !own && OnboardingWorkflow.BeforeActivation(o.Status),
+            CorrectionMessage = hr ? o.CorrectionMessage : null,
+            CanSetRequirements = manage && OnboardingWorkflow.BeforeActivation(o.Status),
+            IsExpatriate = o.IsExpatriate,
+            EducationChoices = hr ? await documentService.EducationChoicesAsync(o.Id, ct: ct) : [],
+            DocumentsDueDate = o.DocumentsDueDate,
+            DocumentsDueDateExtended = o.DocumentsDueDateExtended,
+            Outstanding = hr ? snap.Readiness.ForEmployee : [],
+            Percent = snap.Percent,
+            CanCompleteInduction = complete && o.Status == OnboardingStatus.AwaitingDepartmentalInduction && inductionBlocked is null,
+            InductionBlockedReason = complete && o.Status == OnboardingStatus.AwaitingDepartmentalInduction ? inductionBlocked : null,
+            CanActivate = complete && o.Status == OnboardingStatus.AwaitingActivation
         };
     }
 
@@ -330,10 +373,10 @@ public class OnboardingService(
 
     // ===================================================================== Appointment letter
 
-    /// <summary>The HR Manager issues the appointment letter (or revises it before it is signed). The new employee is emailed.</summary>
+    /// <summary>The RO issues the appointment letter (or revises it before it is signed). The new employee is emailed.</summary>
     public async Task<Result> IssueLetterAsync(int id, string? terms, CancellationToken ct = default)
     {
-        if (!me.IsInRole(Roles.HrManager)) return Result.Failure("Only an HR Manager can issue the appointment letter.");
+        if (!MayManage) return Result.Failure("Only a Recruitment Officer can issue the appointment letter.");
         var o = await onboardings.GetByIdAsync(id, ct);
         if (o is null) return Result.Failure("Onboarding not found.");
         if (o.EmployeeUserId == MyId) return Result.Failure("This is your own appointment.");
@@ -355,8 +398,8 @@ public class OnboardingService(
         o.LetterIssuedAt = now;
         o.LetterIssuedByUserId = MyId;
         o.Version = Guid.NewGuid();
-        // Phase 18: the first issue hands the onboarding to the new employee (sign the letter, upload the documents).
-        o.RecordStep(OnboardingAction.LetterIssued, OnboardingStatus.AwaitingEmployeeSubmission, MyId, scope.UserName,
+        // Phase 27: the stage now follows from the facts (usually "Awaiting the new employee": the letter is to be signed).
+        o.RecordStep(OnboardingAction.LetterIssued, await progress.TargetAsync(o, ct), MyId, scope.UserName,
             $"{o.LetterNumber}{(revised ? " (revised)" : "")}", now);
         app.RecordStep(ApplicationAction.LetterIssued, app.Status, MyId, scope.UserName, $"{o.LetterNumber}{(revised ? " (revised)" : "")}", now);
         var saved = await SaveAsync(ct);
@@ -429,6 +472,7 @@ public class OnboardingService(
         app.RecordStep(ApplicationAction.LetterSigned, app.Status, MyId, o.EmployeeName, o.LetterNumber, now);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return saved;
+        await progress.RefreshAsync(o.Id, ct);
 
         foreach (var uid in new[] { o.LetterIssuedByUserId, o.CreatedByUserId }.OfType<string>().Distinct())
             await mailer.ToUserAsync(uid, $"{o.LetterNumber} signed",
@@ -457,7 +501,7 @@ public class OnboardingService(
         var now = DateTime.UtcNow;
         (t.CompletedAt, t.CompletedByUserId) = status == OnboardingTaskStatus.Open ? ((DateTime?)null, (string?)null) : (now, MyId);
         // Phase 20: what HR marks done is verified at once; what anyone else marks done waits for HR to verify it.
-        (t.VerifiedAt, t.VerifiedByUserId) = status != OnboardingTaskStatus.Open && IsHr ? (now, MyId) : ((DateTime?)null, (string?)null);
+        (t.VerifiedAt, t.VerifiedByUserId) = status != OnboardingTaskStatus.Open && MayManage ? (now, MyId) : ((DateTime?)null, (string?)null);
         // The record's Version is deliberately not changed, so two people ticking different items at once both succeed.
         return await SaveAsync(ct);
     }
@@ -534,166 +578,83 @@ public class OnboardingService(
         return await SaveAsync(ct);
     }
 
-    // ===================================================================== Phase 18: the workflow stages
+    // ===================================================================== Phase 27: the workflow stages
 
     /// <summary>
-    /// The new employee (their own onboarding, by application) or HR (by onboarding id) submits the signed letter and the
-    /// documents: "Awaiting employee submission" → "Awaiting document verification". HR is emailed.
+    /// The RO asks the new employee to correct something that is not a document (usually the personal record). The onboarding
+    /// stays with the new employee until they confirm the correction (<see cref="ConfirmCorrectionAsync"/>). The new employee is
+    /// emailed the message and the rejected documents, if any.
     /// </summary>
-    public async Task<Result> SubmitAsync(int onboardingId, CancellationToken ct = default)
+    public async Task<Result> RequestCorrectionAsync(int id, string? message, CancellationToken ct = default)
+    {
+        if (!MayVerify) return Result.Failure("Only a Recruitment Officer can ask for a correction.");
+        var o = await onboardings.GetByIdAsync(id, ct);
+        if (o is null || o.EmployeeUserId == MyId) return Result.Failure("Onboarding not found.");
+        if (!OnboardingWorkflow.BeforeActivation(o.Status)) return Result.Failure("The employee is activated; corrections are no longer requested here.");
+        message = Clean(message);
+        if (message is null || message.Length < 5) return Result.Failure("Write what the new employee must correct (e.g. in the personal record).");
+        if (message.Length > 2000) return Result.Failure("Keep the message under 2,000 characters.");
+
+        var now = DateTime.UtcNow;
+        o.CorrectionRequestedAt = now;
+        o.CorrectionMessage = message;
+        o.RecordStep(OnboardingAction.CorrectionRequested, o.Status, MyId, scope.UserName, message, now);
+        var saved = await SaveAsync(ct);
+        if (!saved.Succeeded) return saved;
+
+        var rejected = (await progress.SnapshotAsync(o, ct)).Documents.Where(x => x.Document.Status == EmployeeDocumentStatus.Rejected).ToList();
+        await mailer.TemplateToUserAsync(o.EmployeeUserId, Domain.Settings.EmailTemplateCatalogue.OnboardingDocumentsReturned,
+            new Dictionary<string, string?>
+            {
+                ["Documents"] = message + (rejected.Count == 0 ? "" : "\n\n" + string.Join("\n", rejected.Select(x => $"- {x.Type.Name}: {x.Document.RejectionReason}")))
+            },
+            links.MyApplication(o.JobApplicationId), ct: ct);
+        await progress.RefreshAsync(o.Id, ct);
+        return saved;
+    }
+
+    /// <summary>The new employee confirms they made the correction the RO asked for. The RO is told.</summary>
+    public async Task<Result> ConfirmCorrectionAsync(int onboardingId, CancellationToken ct = default)
     {
         var o = await onboardings.GetByIdAsync(onboardingId, ct);
-        if (o is null) return Result.Failure("Onboarding not found.");
-        var own = o.EmployeeUserId == me.UserId;
-        if (!own && !IsHr) return Result.Failure("Onboarding not found.");
-        if (DocumentVerificationService.SubmitProblem(o, await documentService.LoadAsync(o.Id, ct), await documentService.PersonalRecordSignedAsync(o.Id, ct)) is { } problem)
-            return Result.Failure(problem);
-
-        var now = DateTime.UtcNow;
-        o.RecordStep(OnboardingAction.Submitted, OnboardingStatus.AwaitingDocumentVerification, MyId, own ? o.EmployeeName : scope.UserName,
-            own ? null : "Submitted by HR for the new employee", now);
+        if (o is null || o.EmployeeUserId != me.UserId) return Result.Failure("Onboarding not found.");
+        if (o.CorrectionRequestedAt is null) return Result.Failure("HR has not asked you for a correction.");
+        var message = o.CorrectionMessage;
+        o.CorrectionRequestedAt = null;
+        o.CorrectionMessage = null;
+        o.RecordStep(OnboardingAction.Submitted, o.Status, MyId, o.EmployeeName, $"Correction made: {message}", DateTime.UtcNow);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return saved;
-
-        foreach (var uid in await HrOwnersAsync(o, ct))
-            await mailer.ToUserAsync(uid, $"Onboarding {o.Number}: documents to verify",
-                $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}) has signed the appointment letter and submitted the " +
-                "new-hire documents. Please verify each document against the original.", links.Onboarding(o.Id), "Verify the documents", ct);
-        return saved;
-    }
-
-    /// <summary>HR sends rejected documents back to the new employee: → "Awaiting employee submission". The employee is emailed the list.</summary>
-    public async Task<Result> ReturnToEmployeeAsync(int id, string? comments, CancellationToken ct = default)
-    {
-        var (o, error) = await LoadForHrAsync(id, ct);
-        if (o is null) return Result.Failure(error!);
-        if (o.Status != OnboardingStatus.AwaitingDocumentVerification) return Result.Failure("Documents can be sent back only while HR is verifying them.");
-        var rejected = (await documentService.LoadAsync(o.Id, ct)).Where(d => d.Status == EmployeeDocumentStatus.Rejected).ToList();
-        comments = Clean(comments);
-        // Phase 19: HR may also send it back to correct the personal record, with a message, when no document was rejected.
-        if (rejected.Count == 0 && (comments is null || comments.Length < 5))
-            return Result.Failure("Reject at least one document, or write what the new employee must correct (e.g. in the personal record).");
-        if (comments?.Length > 2000) return Result.Failure("Keep the comments under 2,000 characters.");
-
-        o.RecordStep(OnboardingAction.ReturnedToEmployee, OnboardingStatus.AwaitingEmployeeSubmission, MyId, scope.UserName,
-            comments ?? string.Join("; ", rejected.Select(d => EnumText.Label(d.DocumentType))), DateTime.UtcNow);
-        var saved = await SaveAsync(ct);
-        if (saved.Succeeded)
-            await mailer.TemplateToUserAsync(o.EmployeeUserId, Domain.Settings.EmailTemplateCatalogue.OnboardingDocumentsReturned,
-                new Dictionary<string, string?>
-                {
-                    ["Documents"] = string.Join("\n", rejected.Select(d => $"- {EnumText.Label(d.DocumentType)}: {d.RejectionReason}"))
-                        + (comments is null ? "" : $"\n\n{comments}")
-                },
-                links.MyApplication(o.JobApplicationId), ct: ct);
-        return saved;
-    }
-
-    /// <summary>HR has verified every document: → "Awaiting HR approval". The HR Managers are emailed.</summary>
-    public async Task<Result> MarkDocumentsVerifiedAsync(int id, CancellationToken ct = default)
-    {
-        var (o, error) = await LoadForHrAsync(id, ct);
-        if (o is null) return Result.Failure(error!);
-        if (o.Status != OnboardingStatus.AwaitingDocumentVerification) return Result.Failure("The documents are not waiting for verification.");
-        if (DocumentVerificationService.VerifiedProblem(await documentService.LoadAsync(o.Id, ct)) is { } problem) return Result.Failure(problem);
-
-        o.RecordStep(OnboardingAction.DocumentsVerified, OnboardingStatus.AwaitingHrApproval, MyId, scope.UserName, null, DateTime.UtcNow);
-        var saved = await SaveAsync(ct);
-        if (saved.Succeeded)
-            await mailer.ToRoleAsync(Roles.HrManager, [o.EmployeeUserId], $"Onboarding {o.Number} needs your approval",
-                $"The new-hire documents of <b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}) have been verified " +
-                $"by {WorkflowMailer.Enc(scope.UserName)}. Please approve the onboarding so the departmental induction can begin.",
+        foreach (var uid in await progress.HrOwnersAsync(o, ct))
+            await mailer.ToUserAsync(uid, $"Onboarding {o.Number}: correction made",
+                $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> says the correction you asked for is made: {WorkflowMailer.Enc(message)}",
                 links.Onboarding(o.Id), "Open the onboarding", ct);
+        await progress.RefreshAsync(o.Id, ct);
         return saved;
     }
 
     /// <summary>
-    /// The HR Manager approves (→ "Awaiting departmental induction"; the checklist owners and the HOD are emailed) or returns it
-    /// for verification (comments required). Not the person who verified the documents.
+    /// The RO or HR Manager (onboarding.complete) activates a ready employee with their staff number: the account becomes a GREL
+    /// staff account (Employee role, department, site), the personnel file is filled, the probation starts and the departmental
+    /// induction tasks of the ticked areas are created (→ "Induction in progress"). The employee, the task owners and the HOD are
+    /// emailed.
     /// </summary>
-    /// <param name="areas">
-    /// Phase 20: the induction areas whose tasks are added on approval; null = the areas ticked by default on the Induction
-    /// areas screen. Tasks already on the checklist (same title) are not added twice.
-    /// </param>
-    public async Task<Result> HrDecideAsync(int id, bool approve, string? comments, CancellationToken ct = default,
-        IReadOnlyCollection<InductionArea>? areas = null)
+    /// <param name="areas">The induction areas whose tasks are added; null = the areas ticked by default on the Induction areas screen.</param>
+    public async Task<Result> ActivateAsync(int id, string? staffNumber, CancellationToken ct = default, IReadOnlyCollection<InductionArea>? areas = null)
     {
-        if (!me.IsInRole(Roles.HrManager)) return Result.Failure("Only an HR Manager can approve the onboarding.");
-        var (o, error) = await LoadForHrAsync(id, ct);
-        if (o is null) return Result.Failure(error!);
-        if (o.Status != OnboardingStatus.AwaitingHrApproval) return Result.Failure("This onboarding is not waiting for HR approval.");
-        if (await HrDecisionProblemAsync(o, ct) is { } problem) return Result.Failure(problem);
-        comments = Clean(comments);
-        if (!approve && (comments is null || comments.Length < 5)) return Result.Failure("Say what needs checking again.");
-        if (comments?.Length > 2000) return Result.Failure("Keep the comments under 2,000 characters.");
-
-        var now = DateTime.UtcNow;
-        if (approve)
+        if (!MayComplete) return Result.Failure("Only a Recruitment Officer or HR Manager can activate the employee.");
+        var o = await onboardings.GetByIdAsync(id, ct);
+        if (o is null || o.EmployeeUserId == MyId) return Result.Failure("Onboarding not found.");
+        if (o.Status != OnboardingStatus.AwaitingActivation)
+            return Result.Failure(o.Status is OnboardingStatus.AwaitingDepartmentalInduction or OnboardingStatus.Completed
+                ? "The employee is already activated."
+                : "The employee can be activated once every required document is verified and the letter and personal record are signed.");
+        // The stage is worked out from the facts, but check them again: a document may have changed a moment ago.
+        if (await progress.TargetAsync(o, ct) != OnboardingStatus.AwaitingActivation)
         {
-            // Phase 20: the departmental induction tasks of the chosen areas, each to the area's owner (HR when it has none).
-            var rules = await induction.RulesAsync(ct);
-            var chosen = (areas ?? rules.Values.Where(r => r.IsDefault).Select(r => r.Area).ToList()).Where(Enum.IsDefined).Distinct().Order().ToList();
-            var existing = await tasks.ListAsync(t => t.OnboardingRecordId == o.Id, ct);
-            var titles = existing.Select(t => t.Title).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var order = existing.Select(t => t.SortOrder).DefaultIfEmpty(0).Max();
-            var due = (o.StartDate > Today ? o.StartDate : Today).AddDays(OnboardingWorkflow.InductionTaskDueDays);
-            var hrOwner = await HrFallbackOwnerAsync(o, ct);
-            foreach (var area in chosen.OrderBy(a => a))
-            {
-                var owner = rules[area].OwnerUserId is { } ow && ow != o.EmployeeUserId ? ow : hrOwner;
-                foreach (var title in rules[area].Tasks.Where(titles.Add))
-                    tasks.Add(new OnboardingTask
-                    {
-                        OnboardingRecordId = o.Id, Area = area, Team = OnboardingWorkflow.TeamOf(area), Title = title, DueDate = due,
-                        AssignedToUserId = owner, AssignedAt = now, SortOrder = ++order
-                    });
-            }
-            o.RecordStep(OnboardingAction.HrApproved, OnboardingStatus.AwaitingDepartmentalInduction, MyId, scope.UserName,
-                Clean(string.Join(" ", new[] { comments, chosen.Count == 0 ? null : $"Induction areas: {string.Join(", ", chosen.Select(a => EnumText.Label(a)))}." }.OfType<string>())),
-                now);
+            await progress.RefreshAsync(o.Id, ct);
+            return Result.Failure("Something changed: not every required document is verified any more. Reload the page.");
         }
-        else
-            o.RecordStep(OnboardingAction.ReturnedForVerification, OnboardingStatus.AwaitingDocumentVerification, MyId, scope.UserName, comments, now);
-        var saved = await SaveAsync(ct);
-        if (!saved.Succeeded) return saved;
-
-        if (approve)
-        {
-            var owners = (await tasks.ListAsync(t => t.OnboardingRecordId == o.Id && t.Status == OnboardingTaskStatus.Open, ct))
-                .Select(t => t.AssignedToUserId).OfType<string>().Concat(await HodsAsync(o, ct)).Distinct();
-            foreach (var uid in owners)
-                await mailer.ToUserAsync(uid, $"Onboarding {o.Number}: induction can begin",
-                    $"HR has approved the onboarding of <b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}, starts " +
-                    $"{o.StartDate.ToString("d MMMM yyyy", Gb)}). Please complete your induction tasks.", links.Onboarding(o.Id), "Open the onboarding", ct);
-        }
-        else
-            foreach (var uid in await HrOwnersAsync(o, ct))
-                await mailer.ToUserAsync(uid, $"Onboarding {o.Number} returned for verification",
-                    $"The HR Manager returned the documents of <b>{WorkflowMailer.Enc(o.EmployeeName)}</b>: {WorkflowMailer.Enc(comments)}",
-                    links.Onboarding(o.Id), "Open the onboarding", ct);
-        return saved;
-    }
-
-    /// <summary>Every checklist task is done (or not needed) and the start date has come: → "Awaiting activation".</summary>
-    public async Task<Result> CompleteInductionAsync(int id, CancellationToken ct = default)
-    {
-        var (o, error) = await LoadForHrAsync(id, ct);
-        if (o is null) return Result.Failure(error!);
-        if (InductionProblem(o, await tasks.ListAsync(t => t.OnboardingRecordId == o.Id, ct)) is { } problem) return Result.Failure(problem);
-
-        o.RecordStep(OnboardingAction.InductionCompleted, OnboardingStatus.AwaitingActivation, MyId, scope.UserName, null, DateTime.UtcNow);
-        return await SaveAsync(ct);
-    }
-
-    /// <summary>
-    /// HR activates the employee with their staff number: the account becomes a GREL staff account (Employee role, department,
-    /// site) and the onboarding is Completed. The employee and the HOD are emailed.
-    /// </summary>
-    public async Task<Result> ActivateAsync(int id, string? staffNumber, CancellationToken ct = default)
-    {
-        var (o, error) = await LoadForHrAsync(id, ct);
-        if (o is null) return Result.Failure(error!);
-        if (o.Status != OnboardingStatus.AwaitingActivation) return Result.Failure("Complete the departmental induction first.");
         staffNumber = Clean(staffNumber)?.ToUpperInvariant() ?? o.EmployeeNumber;
         if (staffNumber is null) return Result.Failure("Enter the staff number from payroll.");
         if (staffNumber.Length > 30) return Result.Failure("The staff number must be 30 characters or fewer.");
@@ -701,24 +662,70 @@ public class OnboardingService(
         var activated = await accounts.ActivateAsStaffAsync(o.EmployeeUserId, staffNumber, o.DepartmentId, o.SiteId, ct);
         if (!activated.Succeeded) return activated;
 
-        var app = (await applications.GetWithHistoryAsync(o.JobApplicationId, ct))!;
         var now = DateTime.UtcNow;
+        // Phase 20 / 27: the departmental induction tasks of the chosen areas, each to the area's owner (HR when it has none).
+        var rules = await induction.RulesAsync(ct);
+        var chosen = (areas ?? rules.Values.Where(r => r.IsDefault).Select(r => r.Area).ToList()).Where(Enum.IsDefined).Distinct().Order().ToList();
+        var existing = await tasks.ListAsync(t => t.OnboardingRecordId == o.Id, ct);
+        var titles = existing.Select(t => t.Title).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var order = existing.Select(t => t.SortOrder).DefaultIfEmpty(0).Max();
+        var due = (o.StartDate > Today ? o.StartDate : Today).AddDays(OnboardingWorkflow.InductionTaskDueDays);
+        var hrOwner = await HrFallbackOwnerAsync(o, ct);
+        foreach (var area in chosen)
+        {
+            var owner = rules[area].OwnerUserId is { } ow && ow != o.EmployeeUserId ? ow : hrOwner;
+            foreach (var title in rules[area].Tasks.Where(titles.Add))
+                tasks.Add(new OnboardingTask
+                {
+                    OnboardingRecordId = o.Id, Area = area, Team = OnboardingWorkflow.TeamOf(area), Title = title, DueDate = due,
+                    AssignedToUserId = owner, AssignedAt = now, SortOrder = ++order
+                });
+        }
+
+        var app = (await applications.GetWithHistoryAsync(o.JobApplicationId, ct))!;
         o.EmployeeNumber = staffNumber;
-        o.CompletedAt = now;
-        o.RecordStep(OnboardingAction.Activated, OnboardingStatus.Completed, MyId, scope.UserName, $"Staff number {staffNumber}", now);
-        app.RecordStep(ApplicationAction.OnboardingCompleted, app.Status, MyId, scope.UserName, o.Number, now);
+        o.RecordStep(OnboardingAction.Activated, OnboardingStatus.AwaitingDepartmentalInduction, MyId, scope.UserName,
+            $"Staff number {staffNumber}." + (chosen.Count == 0 ? "" : $" Induction areas: {string.Join(", ", chosen.Select(a => EnumText.Label(a)))}."), now);
+        app.RecordStep(ApplicationAction.OnboardingCompleted, app.Status, MyId, scope.UserName, $"{o.Number}: activated", now);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return saved;
 
-        // Phase 20: open the electronic personnel file and file everything from the onboarding.
-        await personnelFiles.OpenForOnboardingAsync(o, ct);
+        // Phase 20: fill the personnel file (the induction record is filed when the induction closes).
+        await personnelFiles.OpenForOnboardingAsync(o, ct, includeInductionRecord: false);
         // Phase 21: the probation starts automatically (the HOD and the employee are emailed).
         await probation.StartForOnboardingAsync(o, ct);
         await mailer.TemplateToUserAsync(o.EmployeeUserId, Domain.Settings.EmailTemplateCatalogue.OnboardingActivated,
             new Dictionary<string, string?> { ["JobTitle"] = o.JobTitle, ["StaffNumber"] = staffNumber }, links.MyApplication(o.JobApplicationId), ct: ct);
+        var owners = (await tasks.ListAsync(t => t.OnboardingRecordId == o.Id && t.Status == OnboardingTaskStatus.Open, ct))
+            .Select(t => t.AssignedToUserId).OfType<string>().Concat(await HodsAsync(o, ct)).Distinct();
+        foreach (var uid in owners)
+            await mailer.ToUserAsync(uid, $"Onboarding {o.Number}: induction can begin",
+                $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}, starts {o.StartDate.ToString("d MMMM yyyy", Gb)}) is now an " +
+                $"active GREL employee, staff number {WorkflowMailer.Enc(staffNumber)}. Please complete your induction tasks.",
+                links.Onboarding(o.Id), "Open the onboarding", ct);
+        return saved;
+    }
+
+    /// <summary>
+    /// Every induction task is done (or not needed) and verified, and the start date has come: the onboarding is Completed and the
+    /// induction record is filed in the personnel file.
+    /// </summary>
+    public async Task<Result> CompleteInductionAsync(int id, CancellationToken ct = default)
+    {
+        if (!MayComplete) return Result.Failure("Only a Recruitment Officer or HR Manager can close the induction.");
+        var o = await onboardings.GetByIdAsync(id, ct);
+        if (o is null || o.EmployeeUserId == MyId) return Result.Failure("Onboarding not found.");
+        if (InductionProblem(o, await tasks.ListAsync(t => t.OnboardingRecordId == o.Id, ct)) is { } problem) return Result.Failure(problem);
+
+        var now = DateTime.UtcNow;
+        o.CompletedAt = now;
+        o.RecordStep(OnboardingAction.InductionCompleted, OnboardingStatus.Completed, MyId, scope.UserName, null, now);
+        var saved = await SaveAsync(ct);
+        if (!saved.Succeeded) return saved;
+        await personnelFiles.OpenForOnboardingAsync(o, ct);
         foreach (var hod in await HodsAsync(o, ct))
             await mailer.ToUserAsync(hod, $"Onboarding {o.Number} completed",
-                $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}) is now an active GREL employee, staff number {WorkflowMailer.Enc(staffNumber)}.",
+                $"The induction of <b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}) is complete.",
                 links.Onboarding(o.Id), "Open the onboarding", ct);
         return saved;
     }
@@ -729,7 +736,7 @@ public class OnboardingService(
     /// </summary>
     public async Task<Result<int>> OpenPersonnelFileAsync(int id, CancellationToken ct = default)
     {
-        if (!IsHr || !personnelFiles.CanView) return Result.Failure<int>("Only HR with access to personnel files can do this.");
+        if (!MayView || !personnelFiles.CanView) return Result.Failure<int>("Only HR with access to personnel files can do this.");
         var o = await onboardings.GetByIdAsync(id, ct);
         if (o is null || o.EmployeeUserId == MyId) return Result.Failure<int>("Onboarding not found.");
         if (o.Status != OnboardingStatus.Completed) return Result.Failure<int>("A personnel file is opened when the onboarding is completed.");
@@ -777,8 +784,9 @@ public class OnboardingService(
         var visibility = await scope.VisibilityAsync(ct);
         var hodDepts = (await scope.HodDepartmentIdsAsync(ct)).ToList();
         var myRecords = (await tasks.ListAsync(t => t.AssignedToUserId == visibility.UserId, ct)).Select(t => t.OnboardingRecordId).Distinct().ToList();
+        var seeAll = visibility.SeeAll || MayView;
         IEnumerable<OnboardingRecord> q = await onboardings.ListAsync(o =>
-            visibility.SeeAll || hodDepts.Contains(o.DepartmentId) || myRecords.Contains(o.Id) || o.ContactPersonUserId == visibility.UserId, ct);
+            seeAll || hodDepts.Contains(o.DepartmentId) || myRecords.Contains(o.Id) || o.ContactPersonUserId == visibility.UserId, ct);
 
         if (filter.Tab == "progress") q = q.Where(o => OnboardingWorkflow.IsActive(o.Status));
         if (filter.Status is { } s) q = q.Where(o => o.Status == s);
@@ -823,7 +831,7 @@ public class OnboardingService(
 
     private async Task<(JobApplication? Application, Offer? Offer, string? Error)> LoadStartableAsync(int applicationId, CancellationToken ct)
     {
-        if (!IsHr) return (null, null, "Only a Recruitment Officer or HR Manager can start onboarding.");
+        if (!MayManage) return (null, null, "Only a Recruitment Officer can start onboarding.");
         var app = await applications.GetWithHistoryAsync(applicationId, ct);
         if (app is null) return (null, null, "Application not found.");
         if (app.ApplicantUserId == MyId) return (null, null, "This is your own application.");
@@ -835,7 +843,7 @@ public class OnboardingService(
 
     private async Task<(OnboardingRecord? Record, string? Error)> LoadForHrAsync(int id, CancellationToken ct)
     {
-        if (!IsHr) return (null, "Only a Recruitment Officer or HR Manager can do this.");
+        if (!MayManage) return (null, "Only a Recruitment Officer can do this.");
         var o = await onboardings.GetByIdAsync(id, ct);
         if (o is null) return (null, "Onboarding not found.");
         if (o.EmployeeUserId == MyId) return (null, "This is your own appointment.");
@@ -884,23 +892,10 @@ public class OnboardingService(
             .ToList();
     }
 
-    /// <summary>Segregation of duties: the HR Manager who approves must not be the person who marked the documents verified.</summary>
-    private async Task<string?> HrDecisionProblemAsync(OnboardingRecord o, CancellationToken ct)
-    {
-        var verifier = (await history.ListAsync(a => a.OnboardingRecordId == o.Id && a.Action == OnboardingAction.DocumentsVerified, ct))
-            .OrderBy(a => a.ActionAt).ThenBy(a => a.Id).LastOrDefault()?.ActorUserId;
-        return verifier == me.UserId ? "You verified the documents, so another HR Manager must approve this onboarding." : null;
-    }
-
-    /// <summary>HR people to tell about this onboarding: whoever started it and the vacancy's recruiter.</summary>
-    private async Task<IReadOnlyList<string>> HrOwnersAsync(OnboardingRecord o, CancellationToken ct) =>
-        new[] { o.CreatedByUserId, (await vacancies.GetByIdAsync(o.VacancyId, ct))?.RecruiterUserId }
-            .OfType<string>().Distinct().Where(id => id != o.EmployeeUserId && id != me.UserId).ToList();
-
     private bool CanUpdateTask(OnboardingTask t, OnboardingRecord o, bool isHod)
     {
         if (o.EmployeeUserId == me.UserId) return false;
-        return IsHr || t.AssignedToUserId == me.UserId || isHod && t.Team == OnboardingTeam.Department;
+        return MayManage || t.AssignedToUserId == me.UserId || isHod && t.Team == OnboardingTeam.Department;
     }
 
     /// <summary>

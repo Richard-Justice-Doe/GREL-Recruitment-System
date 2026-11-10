@@ -1831,15 +1831,19 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
-                    b.Property<string>("DocumentType")
+                    b.Property<string>("DocumentTypeCode")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("varchar(40)");
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("DocumentType");
 
                     b.Property<string>("EmployeeUserId")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("IsApplicable")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
@@ -1854,9 +1858,23 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("OnboardingRecordId")
                         .HasColumnType("int");
 
+                    b.Property<int>("RejectionCount")
+                        .HasColumnType("int");
+
                     b.Property<string>("RejectionReason")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("RejectionReasonCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("ReviewStartedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ReviewStartedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1880,6 +1898,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeUserId");
@@ -1890,10 +1912,103 @@ namespace Grsms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("VerifiedByUserId");
 
-                    b.HasIndex("OnboardingRecordId", "DocumentType")
+                    b.HasIndex("OnboardingRecordId", "DocumentTypeCode")
                         .IsUnique();
 
                     b.ToTable("EmployeeDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.EmployeeDocumentEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("ActionAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("ActorUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int?>("AttachmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("EmployeeDocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("OnboardingRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("OnboardingRecordId");
+
+                    b.HasIndex("EmployeeDocumentId", "ActionAt");
+
+                    b.ToTable("EmployeeDocumentEvents", (string)null);
                 });
 
             modelBuilder.Entity("Grsms.Domain.Onboarding.EmployeeEmergencyContact", b =>
@@ -2253,6 +2368,571 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("OnboardingActions", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingDocumentType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<bool>("AllowsWordFiles")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Group")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsLegacy")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("MinFiles")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int>("PersonnelFileCategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Requirement")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("PersonnelFileCategoryId");
+
+                    b.ToTable("OnboardingDocumentTypes", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            AllowsWordFiles = true,
+                            Code = "ApplicationLetter",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "The letter you sent when applying.",
+                            Group = "Personal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Application letter",
+                            PersonnelFileCategoryId = 1,
+                            Requirement = "Required",
+                            SortOrder = 10,
+                            Version = new Guid("00000000-0000-0000-0027-000000000001")
+                        },
+                        new
+                        {
+                            Id = 2,
+                            AllowsWordFiles = true,
+                            Code = "Cv",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Your current CV.",
+                            Group = "Personal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Updated CV",
+                            PersonnelFileCategoryId = 1,
+                            Requirement = "Required",
+                            SortOrder = 20,
+                            Version = new Guid("00000000-0000-0000-0027-000000000002")
+                        },
+                        new
+                        {
+                            Id = 3,
+                            AllowsWordFiles = false,
+                            Code = "PassportPicture",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "A recent passport-size photograph with a plain background.",
+                            Group = "Personal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Passport-size photograph",
+                            PersonnelFileCategoryId = 3,
+                            Requirement = "Required",
+                            SortOrder = 30,
+                            Version = new Guid("00000000-0000-0000-0027-000000000003")
+                        },
+                        new
+                        {
+                            Id = 4,
+                            AllowsWordFiles = false,
+                            Code = "GhanaCard",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Both sides of your Ghana Card.",
+                            Group = "Personal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Ghana Card / National ID",
+                            PersonnelFileCategoryId = 3,
+                            Requirement = "GhanaianOnly",
+                            SortOrder = 40,
+                            Version = new Guid("00000000-0000-0000-0027-000000000004")
+                        },
+                        new
+                        {
+                            Id = 5,
+                            AllowsWordFiles = false,
+                            Code = "SsnitCard",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Your SSNIT card or biometric registration slip.",
+                            Group = "Personal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "SSNIT card",
+                            PersonnelFileCategoryId = 3,
+                            Requirement = "Required",
+                            SortOrder = 50,
+                            Version = new Guid("00000000-0000-0000-0027-000000000005")
+                        },
+                        new
+                        {
+                            Id = 6,
+                            AllowsWordFiles = false,
+                            Code = "BirthCertificate",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Your birth certificate.",
+                            Group = "Personal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Birth certificate",
+                            PersonnelFileCategoryId = 3,
+                            Requirement = "Required",
+                            SortOrder = 60,
+                            Version = new Guid("00000000-0000-0000-0027-000000000006")
+                        },
+                        new
+                        {
+                            Id = 7,
+                            AllowsWordFiles = false,
+                            Code = "BeceCertificate",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Basic Education Certificate Examination results.",
+                            Group = "Education",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "BECE certificate",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "ChosenPerHire",
+                            SortOrder = 70,
+                            Version = new Guid("00000000-0000-0000-0027-000000000007")
+                        },
+                        new
+                        {
+                            Id = 8,
+                            AllowsWordFiles = false,
+                            Code = "WassceCertificate",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "West African Senior School Certificate Examination results.",
+                            Group = "Education",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "WASSCE / SSSCE certificate",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "ChosenPerHire",
+                            SortOrder = 80,
+                            Version = new Guid("00000000-0000-0000-0027-000000000008")
+                        },
+                        new
+                        {
+                            Id = 9,
+                            AllowsWordFiles = false,
+                            Code = "DiplomaCertificate",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Diploma certificate (and transcript, if you have it).",
+                            Group = "Education",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Diploma certificate",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "ChosenPerHire",
+                            SortOrder = 90,
+                            Version = new Guid("00000000-0000-0000-0027-000000000009")
+                        },
+                        new
+                        {
+                            Id = 10,
+                            AllowsWordFiles = false,
+                            Code = "HndCertificate",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Higher National Diploma certificate.",
+                            Group = "Education",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "HND certificate",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "ChosenPerHire",
+                            SortOrder = 100,
+                            Version = new Guid("00000000-0000-0000-0027-000000000010")
+                        },
+                        new
+                        {
+                            Id = 11,
+                            AllowsWordFiles = false,
+                            Code = "DegreeCertificate",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Bachelor's degree certificate (and transcript, if you have it).",
+                            Group = "Education",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Degree certificate",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "ChosenPerHire",
+                            SortOrder = 110,
+                            Version = new Guid("00000000-0000-0000-0027-000000000011")
+                        },
+                        new
+                        {
+                            Id = 12,
+                            AllowsWordFiles = false,
+                            Code = "MastersCertificate",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Master's degree certificate.",
+                            Group = "Education",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Master's certificate",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "ChosenPerHire",
+                            SortOrder = 120,
+                            Version = new Guid("00000000-0000-0000-0027-000000000012")
+                        },
+                        new
+                        {
+                            Id = 13,
+                            AllowsWordFiles = false,
+                            Code = "ProfessionalCertificates",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Professional or trade certificates (one file each).",
+                            Group = "Education",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Professional certifications",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "ChosenPerHire",
+                            SortOrder = 130,
+                            Version = new Guid("00000000-0000-0000-0027-000000000013")
+                        },
+                        new
+                        {
+                            Id = 14,
+                            AllowsWordFiles = true,
+                            Code = "RecommendationLetters",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Two recommendation letters (one file each).",
+                            Group = "Employment",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 2,
+                            Name = "Recommendation letters",
+                            PersonnelFileCategoryId = 1,
+                            Requirement = "Required",
+                            SortOrder = 140,
+                            Version = new Guid("00000000-0000-0000-0027-000000000014")
+                        },
+                        new
+                        {
+                            Id = 15,
+                            AllowsWordFiles = false,
+                            Code = "PoliceClearance",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Police clearance report from the Ghana Police Service.",
+                            Group = "Employment",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Police clearance report",
+                            PersonnelFileCategoryId = 4,
+                            Requirement = "Required",
+                            SortOrder = 150,
+                            Version = new Guid("00000000-0000-0000-0027-000000000015")
+                        },
+                        new
+                        {
+                            Id = 16,
+                            AllowsWordFiles = false,
+                            Code = "MedicalReport",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Medical examination report from a recognised hospital.",
+                            Group = "Employment",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Medical examination report",
+                            PersonnelFileCategoryId = 4,
+                            Requirement = "Required",
+                            SortOrder = 160,
+                            Version = new Guid("00000000-0000-0000-0027-000000000016")
+                        },
+                        new
+                        {
+                            Id = 17,
+                            AllowsWordFiles = false,
+                            Code = "BankConfirmationLetter",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "A letter from your bank confirming your account name and number.",
+                            Group = "Banking",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Bank confirmation letter",
+                            PersonnelFileCategoryId = 4,
+                            Requirement = "Required",
+                            SortOrder = 170,
+                            Version = new Guid("00000000-0000-0000-0027-000000000017")
+                        },
+                        new
+                        {
+                            Id = 18,
+                            AllowsWordFiles = false,
+                            Code = "MarriageCertificate",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "If you are married.",
+                            Group = "Family",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Marriage certificate",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "Optional",
+                            SortOrder = 180,
+                            Version = new Guid("00000000-0000-0000-0027-000000000018")
+                        },
+                        new
+                        {
+                            Id = 19,
+                            AllowsWordFiles = false,
+                            Code = "ChildBirthCertificates",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "One file per child, if you have children.",
+                            Group = "Family",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Children's birth certificates",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "Optional",
+                            SortOrder = 190,
+                            Version = new Guid("00000000-0000-0000-0027-000000000019")
+                        },
+                        new
+                        {
+                            Id = 20,
+                            AllowsWordFiles = false,
+                            Code = "DependantPhotographs",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Passport-size photographs of your dependants, if any.",
+                            Group = "Family",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Dependants' passport photographs",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "Optional",
+                            SortOrder = 200,
+                            Version = new Guid("00000000-0000-0000-0027-000000000020")
+                        },
+                        new
+                        {
+                            Id = 21,
+                            AllowsWordFiles = false,
+                            Code = "PassportBiodataPage",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "The photo page of your passport.",
+                            Group = "Expatriate",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Passport biodata page",
+                            PersonnelFileCategoryId = 3,
+                            Requirement = "ExpatriateOnly",
+                            SortOrder = 210,
+                            Version = new Guid("00000000-0000-0000-0027-000000000021")
+                        },
+                        new
+                        {
+                            Id = 22,
+                            AllowsWordFiles = false,
+                            Code = "NonCitizenCard",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Your Ghana non-citizen identification card.",
+                            Group = "Expatriate",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Non-citizen card",
+                            PersonnelFileCategoryId = 3,
+                            Requirement = "ExpatriateOnly",
+                            SortOrder = 220,
+                            Version = new Guid("00000000-0000-0000-0027-000000000022")
+                        },
+                        new
+                        {
+                            Id = 23,
+                            AllowsWordFiles = false,
+                            Code = "WorkPermit",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Your Ghana Immigration Service work permit.",
+                            Group = "Expatriate",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Work permit",
+                            PersonnelFileCategoryId = 4,
+                            Requirement = "ExpatriateOnly",
+                            SortOrder = 230,
+                            Version = new Guid("00000000-0000-0000-0027-000000000023")
+                        },
+                        new
+                        {
+                            Id = 24,
+                            AllowsWordFiles = false,
+                            Code = "ResidencePermit",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Your residence permit.",
+                            Group = "Expatriate",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsLegacy = false,
+                            MinFiles = 1,
+                            Name = "Residence permit",
+                            PersonnelFileCategoryId = 4,
+                            Requirement = "ExpatriateOnly",
+                            SortOrder = 240,
+                            Version = new Guid("00000000-0000-0000-0027-000000000024")
+                        },
+                        new
+                        {
+                            Id = 25,
+                            AllowsWordFiles = false,
+                            Code = "SchoolCertificates",
+                            CreatedAt = new DateTime(2026, 11, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "system",
+                            Description = "Kept for onboardings started before 10 November 2026.",
+                            Group = "Education",
+                            IsActive = false,
+                            IsDeleted = false,
+                            IsLegacy = true,
+                            MinFiles = 1,
+                            Name = "School certificates (old checklist)",
+                            PersonnelFileCategoryId = 2,
+                            Requirement = "Required",
+                            SortOrder = 250,
+                            Version = new Guid("00000000-0000-0000-0027-000000000025")
+                        });
+                });
+
             modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingRecord", b =>
                 {
                     b.Property<int>("Id")
@@ -2268,6 +2948,12 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<string>("ContactPersonUserId")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<string>("CorrectionMessage")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CorrectionRequestedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -2294,6 +2980,12 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("DivisionId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("DocumentsDueDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("DocumentsDueDateExtended")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("EmployeeName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2315,6 +3007,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsExpatriate")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<int>("JobApplicationId")
@@ -5623,6 +6318,21 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Onboarding.EmployeeDocumentEvent", b =>
+                {
+                    b.HasOne("Grsms.Domain.Onboarding.EmployeeDocument", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeDocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Grsms.Domain.Onboarding.OnboardingRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OnboardingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Grsms.Domain.Onboarding.EmployeeEmergencyContact", b =>
                 {
                     b.HasOne("Grsms.Domain.Onboarding.EmployeePersonalRecord", null)
@@ -5684,6 +6394,15 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasOne("Grsms.Domain.Onboarding.OnboardingRecord", null)
                         .WithMany("Actions")
                         .HasForeignKey("OnboardingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Onboarding.OnboardingDocumentType", b =>
+                {
+                    b.HasOne("Grsms.Domain.Onboarding.PersonnelFileCategory", null)
+                        .WithMany()
+                        .HasForeignKey("PersonnelFileCategoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

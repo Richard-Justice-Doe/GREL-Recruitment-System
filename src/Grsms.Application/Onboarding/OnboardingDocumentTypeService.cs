@@ -51,7 +51,8 @@ public class OnboardingDocumentTypeService(
     /// <summary>The settings screen, in checklist order.</summary>
     public async Task<IReadOnlyList<OnboardingDocumentTypeForm>> GetAllAsync(CancellationToken ct = default)
     {
-        var running = (await onboardings.ListAsync(ct: ct)).Where(o => OnboardingWorkflow.BeforeActivation(o.Status)).Select(o => o.Id).ToList();
+        var stages = OnboardingWorkflow.BeforeActivationStatuses;
+        var running = (await onboardings.ListAsync(o => stages.Contains(o.Status), ct)).Select(o => o.Id).ToList();
         var inUse = (await documents.ListAsync(d => running.Contains(d.OnboardingRecordId) && d.IsApplicable, ct))
             .GroupBy(d => d.DocumentTypeCode, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
         return (await types.ListAsync(ct: ct)).OrderBy(t => t.IsLegacy).ThenBy(t => t.Group).ThenBy(t => t.SortOrder).ThenBy(t => t.Name)
@@ -120,7 +121,8 @@ public class OnboardingDocumentTypeService(
     /// <summary>Adds the type to (or re-applies it on) every onboarding not yet activated, then refreshes their stage.</summary>
     private async Task ApplyToRunningAsync(OnboardingDocumentType t, CancellationToken ct)
     {
-        var running = (await onboardings.ListAsync(ct: ct)).Where(o => OnboardingWorkflow.BeforeActivation(o.Status)).ToList();
+        var stages = OnboardingWorkflow.BeforeActivationStatuses;
+        var running = (await onboardings.ListAsync(o => stages.Contains(o.Status), ct)).ToList();
         if (running.Count == 0) return;
         var ids = running.Select(o => o.Id).ToList();
         var docs = (await documents.ListAsync(d => ids.Contains(d.OnboardingRecordId) && d.DocumentTypeCode == t.Code, ct)).ToDictionary(d => d.OnboardingRecordId);

@@ -303,12 +303,17 @@ public class AtsService(
         var apps = await applications.ListAsync(a => a.Status != ApplicationStatus.Withdrawn &&
             (visibility.SeeAll || hodDepts.Contains(a.DepartmentId)), ct);
 
+        // Audit P7: the vacancies and departments in two queries, not two per vacancy.
+        var vacancyIds = apps.Select(a => a.VacancyId).Distinct().ToList();
+        var byId = (await vacancies.ListAsync(v => vacancyIds.Contains(v.Id), ct)).ToDictionary(v => v.Id);
+        var deptIds = byId.Values.Select(v => v.DepartmentId).Distinct().ToList();
+        var deptNames = (await departments.ListAsync(d => deptIds.Contains(d.Id), ct)).ToDictionary(d => d.Id, d => d.Name);
         var result = new List<AtsVacancySummaryDto>();
         foreach (var g in apps.GroupBy(a => a.VacancyId))
         {
-            if (await vacancies.GetByIdAsync(g.Key, ct) is not { } v) continue;
+            if (byId.GetValueOrDefault(g.Key) is not { } v) continue;
             int Band(AtsClassification c) => g.Count(a => a.AtsClassification == c);
-            result.Add(new AtsVacancySummaryDto(v.Id, v.VacancyNumber, v.JobTitle, (await departments.GetByIdAsync(v.DepartmentId, ct))?.Name ?? "",
+            result.Add(new AtsVacancySummaryDto(v.Id, v.VacancyNumber, v.JobTitle, deptNames.GetValueOrDefault(v.DepartmentId, ""),
                 v.Status, g.Count(), g.Count(a => a.AtsClassification is not null),
                 Band(AtsClassification.HighlyRecommended), Band(AtsClassification.Recommended), Band(AtsClassification.ReviewRequired),
                 Band(AtsClassification.LowMatch), Band(AtsClassification.AutoReject),

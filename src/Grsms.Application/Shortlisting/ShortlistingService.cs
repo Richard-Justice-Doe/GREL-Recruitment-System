@@ -221,9 +221,11 @@ public class ShortlistingService(
         var waiting = await applications.ListAsync(a => depts.Contains(a.DepartmentId) && a.Status == ApplicationStatus.UnderReview &&
             a.RecruiterRecommendation != ShortlistRecommendation.None && a.HodRecommendation == ShortlistRecommendation.None &&
             a.ApplicantUserId != MyId, ct);
+        var vacancyIds = waiting.Select(a => a.VacancyId).Distinct().ToList();
+        var byId = (await vacancies.ListAsync(v => vacancyIds.Contains(v.Id), ct)).ToDictionary(v => v.Id); // audit P7: one query
         var result = new List<HodShortlistTaskDto>();
         foreach (var g in waiting.GroupBy(a => a.VacancyId))
-            if (await vacancies.GetByIdAsync(g.Key, ct) is { } v)
+            if (byId.GetValueOrDefault(g.Key) is { } v)
                 result.Add(new HodShortlistTaskDto(v.Id, v.VacancyNumber, v.JobTitle, g.Count(), g.Min(a => a.RecruiterRecommendedAt ?? a.SubmittedAt)));
         return result;
     }

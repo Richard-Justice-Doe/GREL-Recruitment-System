@@ -82,8 +82,10 @@ public class OnboardingService(
     public async Task<IReadOnlyList<OnboardingToStartDto>> ToStartAsync(OnboardingFilter? filter = null, CancellationToken ct = default)
     {
         if (!MayManage) return [];
-        var started = (await onboardings.ListAsync(ct: ct)).Select(o => o.JobApplicationId).ToHashSet();
-        IEnumerable<Offer> q = (await offers.ListAsync(o => o.Status == OfferStatus.Accepted, ct)).Where(o => !started.Contains(o.JobApplicationId));
+        var accepted = await offers.ListAsync(o => o.Status == OfferStatus.Accepted, ct);
+        var acceptedApps = accepted.Select(o => o.JobApplicationId).ToList();
+        var started = (await onboardings.ListAsync(o => acceptedApps.Contains(o.JobApplicationId), ct)).Select(o => o.JobApplicationId).ToHashSet(); // audit P3
+        IEnumerable<Offer> q = accepted.Where(o => !started.Contains(o.JobApplicationId));
         if (filter?.DivisionId is { } div) q = q.Where(o => o.DivisionId == div);
         if (filter?.DepartmentId is { } dep) q = q.Where(o => o.DepartmentId == dep);
         var list = q.ToList();
@@ -825,7 +827,17 @@ public class OnboardingService(
             .ToList();
     }
 
-    public async Task<int> CountMyTasksAsync(CancellationToken ct = default) => (await MyTasksAsync(ct)).Count;
+    /// <summary>The sidebar badge: open tasks assigned to me on onboardings in progress (two small queries, no DTOs; audit P6).</summary>
+    public async Task<int> CountMyTasksAsync(CancellationToken ct = default)
+    {
+        if (me.UserId is not { } uid) return 0;
+        var mine = await tasks.ListAsync(t => t.AssignedToUserId == uid && t.Status == OnboardingTaskStatus.Open, ct);
+        if (mine.Count == 0) return 0;
+        var ids = mine.Select(t => t.OnboardingRecordId).Distinct().ToList();
+        var active = (await onboardings.ListAsync(o => ids.Contains(o.Id) && o.Status != OnboardingStatus.Completed && o.Status != OnboardingStatus.Cancelled, ct))
+            .Select(o => o.Id).ToHashSet();
+        return mine.Count(t => active.Contains(t.OnboardingRecordId));
+    }
 
     // ===================================================================== Helpers
 

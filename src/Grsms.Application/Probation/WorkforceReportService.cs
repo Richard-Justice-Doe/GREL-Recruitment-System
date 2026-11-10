@@ -108,7 +108,7 @@ public class WorkforceReportService(
 
     private async Task<ReportResult> DocumentVerificationAsync(ReportFilter f, Func<int, bool> visible, Func<int, string> dept, CancellationToken ct)
     {
-        var obs = (await onboardings.ListAsync(ct: ct)).Where(o => visible(o.DepartmentId)).ToDictionary(o => o.Id);
+        var obs = (await onboardings.ListAsync(o => f.DepartmentId == null || o.DepartmentId == f.DepartmentId, ct)).Where(o => visible(o.DepartmentId)).ToDictionary(o => o.Id);
         var ids = obs.Keys.ToList();
         var docs = (await documents.ListAsync(d => ids.Contains(d.OnboardingRecordId) && d.Status != EmployeeDocumentStatus.Pending, ct))
             .Where(d => InPeriod(f, d.SubmittedAt is { } s ? DateOnly.FromDateTime(s) : null))
@@ -142,7 +142,7 @@ public class WorkforceReportService(
 
     private async Task<ReportResult> BeneficiariesAsync(ReportFilter f, Func<int, bool> visible, Func<int, string> dept, CancellationToken ct)
     {
-        var obs = (await onboardings.ListAsync(ct: ct)).Where(o => visible(o.DepartmentId) && InPeriod(f, o.StartDate)).ToDictionary(o => o.Id);
+        var obs = (await onboardings.ListAsync(o => f.DepartmentId == null || o.DepartmentId == f.DepartmentId, ct)).Where(o => visible(o.DepartmentId) && InPeriod(f, o.StartDate)).ToDictionary(o => o.Id);
         var records = (await personalRecords.ListWithBeneficiariesAsync(ct)).Where(r => obs.ContainsKey(r.OnboardingRecordId)).ToList();
         var rows = records.OrderBy(r => obs[r.OnboardingRecordId].EmployeeName).SelectMany(r => r.Beneficiaries.OrderBy(b => b.Id).Select(b =>
         {
@@ -169,7 +169,7 @@ public class WorkforceReportService(
 
     private async Task<ReportResult> ProbationAsync(ReportFilter f, Func<int, bool> visible, Func<int, string> dept, CancellationToken ct)
     {
-        var list = (await probations.ListAsync(ct: ct)).Where(p => visible(p.DepartmentId) && InPeriod(f, p.StartDate))
+        var list = (await probations.ListAsync(p => f.DepartmentId == null || p.DepartmentId == f.DepartmentId, ct)).Where(p => visible(p.DepartmentId) && InPeriod(f, p.StartDate))
             .Where(p => f.Status is null || p.Status.ToString() == f.Status).OrderBy(p => p.EndDate).ToList();
         var ids = list.Select(p => p.Id).ToList();
         var byProbation = (await assessments.ListAsync(a => ids.Contains(a.ProbationRecordId), ct)).GroupBy(a => a.ProbationRecordId).ToDictionary(g => g.Key, g => g.ToList());
@@ -219,7 +219,7 @@ public class WorkforceReportService(
 
     private async Task<ReportResult> ConfirmationsAsync(ReportFilter f, Func<int, bool> visible, Func<int, string> dept, CancellationToken ct)
     {
-        var probs = (await probations.ListAsync(ct: ct)).Where(p => visible(p.DepartmentId)).ToDictionary(p => p.Id);
+        var probs = (await probations.ListAsync(p => f.DepartmentId == null || p.DepartmentId == f.DepartmentId, ct)).Where(p => visible(p.DepartmentId)).ToDictionary(p => p.Id);
         var list = (await confirmations.ListAsync(ct: ct)).Where(c => probs.ContainsKey(c.ProbationRecordId) && InPeriod(f, c.ConfirmationDate))
             .OrderByDescending(c => c.ConfirmationDate).ToList();
         var names = await users.GetDisplayNamesAsync(list.Select(c => c.ApprovedByUserId).Distinct(), ct);

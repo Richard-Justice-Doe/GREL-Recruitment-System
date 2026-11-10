@@ -58,10 +58,13 @@ public static class OnboardingWorkflow
     /// <summary>True while the onboarding can still move (not Completed or Cancelled).</summary>
     public static bool IsActive(OnboardingStatus s) => s is not (OnboardingStatus.Completed or OnboardingStatus.Cancelled);
 
+    /// <summary>The stages before activation, for database queries (same list as <see cref="BeforeActivation"/>).</summary>
+    public static readonly IReadOnlyList<OnboardingStatus> BeforeActivationStatuses =
+        [OnboardingStatus.Draft, OnboardingStatus.AwaitingEmployeeSubmission, OnboardingStatus.AwaitingDocumentVerification,
+         OnboardingStatus.AwaitingHrApproval, OnboardingStatus.AwaitingActivation];
+
     /// <summary>Phase 27: before activation (the stages worked out by <see cref="StageFor"/>).</summary>
-    public static bool BeforeActivation(OnboardingStatus s) =>
-        s is OnboardingStatus.Draft or OnboardingStatus.AwaitingEmployeeSubmission or OnboardingStatus.AwaitingDocumentVerification
-            or OnboardingStatus.AwaitingHrApproval or OnboardingStatus.AwaitingActivation;
+    public static bool BeforeActivation(OnboardingStatus s) => BeforeActivationStatuses.Contains(s);
 
     /// <summary>The new employee may upload documents and change the personal record until activation.</summary>
     public static bool EmployeeMayEditDocuments(OnboardingStatus s) => BeforeActivation(s);

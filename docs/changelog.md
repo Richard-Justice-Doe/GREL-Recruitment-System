@@ -4,6 +4,37 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 9 November 2026: dark mode, text readable again
+
+**Why:** after the redesign some text could not be seen in dark mode.
+
+* **Cause:** `--bs-emphasis-color` and `--bs-border-color` were set only in the light block of `site.css`. The page's `<html>` matches both `:root` and `[data-bs-theme="dark"]`, and `site.css` loads after Bootstrap, so the light values (near-black text) won in dark mode. Bootstrap uses the emphasis colour for **table text**, emphasised text and some headings, which therefore turned near-black on the dark background.
+* **Fix:** both are now set in the dark block too (white emphasis, a soft light border), with a comment saying every variable of the light block must also be set there.
+* **Also:** in dark mode the brand and stage colours are light, so white text on them failed contrast. **Primary and danger buttons**, the logo mark, red menu counts, completed stepper dots, the "today" date chip and checked tick boxes now use dark text; the avatar keeps a strong purple.
+* **Checked:** CSS only; the Content-Security-Policy already allows the `data:` image used for the tick. Not checked in a browser here.
+
+---
+
+## 9 November 2026: interview score validation by the Recruitment Officer
+
+**Why:** GREL asked that, after a candidate has been scored, **all scores go to the Recruitment Officer for validation** before anything else happens. Until now a session could be "marked completed" with only one scorecard, and the HOD and MD saw the scores and ranking straight away.
+
+**Decisions (user's choices):** the **vacancy's Recruitment Officer** validates (another may stand in); **every panel member who took part** must submit (Absent/Excused members exempt); the RO **validates or returns one scorecard** with a reason and never changes scores; scores stay **hidden until validated** from the HOD, MD, HR and the results. Added safeguard: the **HOD cannot be marked absent** (their scorecard is required). (A first version also stopped a Recruitment Officer on the panel from validating; the user asked for the validate button to be available, so **any Recruitment Officer validates**, only never returning their own scorecard. When the vacancy owner is not a Recruitment Officer, all of them are asked.)
+
+* **Domain:** `InterviewStatus.AwaitingValidation` (set automatically when the last expected scorecard arrives); `InterviewPanelMember.Attendance` (+ note, who, when; ready for Phase 23's attendance); `Scorecard.ReturnedAt/ReturnReason/ReturnedByUserId`; `Interview.ValidatedAt/ValidatedByUserId/ValidationNote`; rules in `InterviewWorkflow`.
+* **Application:** `InterviewService.ValidateAsync`, `ReturnScorecardAsync`, `SetAttendanceAsync`, `ListAwaitingMyValidationAsync` (replaces `CompleteAsync`); emails to the RO (ready), the panel member (returned) and panel + HOD (validated). Results, lists and the hiring case count **validated scores only**; a hiring recommendation needs a validated interview. Home to-do card *Validate the scores*; the *Interviews* menu count includes validations.
+* **Web:** interview page with the redesign's **Your next step** panel, a *Validate the scores* card, panel statuses (Scored / Returned / Absent / Excused); *To validate* tab.
+* **Database:** migration `InterviewScoreValidation`, script `database/23_interview_score_validation.sql` (existing panel members get Attendance = NotRecorded).
+* **Docs:** [16 Interviews](16-interviews.md#3-score-validation-recruitment-officer).
+* **Checked:** 179/179 tests (two new: the validate / return / resubmit journey with visibility, and absent / excused rules; the web journey now validates before the HOD sees results).
+* **Hiring and offers (same day):** the hiring case shows an **Interview scores** panel (every round, each panel member's validated score, recommendation and comments, average, who validated; or what an unvalidated round is waiting for), and the Hiring list has an *Interview score* column. Scores never reach the candidate or the offer letter. Tests: 181/181.
+* **Validation → hiring (same day):** validating takes the Recruitment Officer straight to the hiring case (*Your next step: write the hiring recommendation*, justification pre-filled from the validated scores); the vacancy's Recruitment Officer is emailed and gets a *Recommend for hire* to-do; new tab **Hiring and offers → Ready to recommend** (`HiringService.ListReadyToRecommendAsync`). 181/181 tests.
+* **Proceed with chosen candidates (same day, user's choice):** validating now lands on *Ready to recommend* for the vacancy; the Recruitment Officer ticks who to proceed with, and GRSMS starts the hiring process for each: new `HiringStatus.Draft` recommendation (advertised minimum salary, start in 30 days, justification from the validated scores) and the five standard background checks as Pending (`HiringService.ProceedAsync`, `DiscardDraftAsync`; `RecommendAsync` submits a draft to the HOD). Nobody decides on a draft. No database change (status stored as text). 182/182 tests.
+* **Recruitment Officer approval only (same day, user's decision):** after *Proceed*, the Recruitment Officer clicks **Approve hire** and the hire is approved at once: **no HOD, HR Manager or MD approval** (reverses the 4 Nov rule; recorded in phases.md). Only Recruitment Officers approve; selections are capped at the vacancy's positions (`SelectionProblemAsync`). The hiring case leads through *Send the offer* and, once accepted, **Click to proceed to onboarding**. Recommendations already waiting in the old chain still finish there. No database change. 183/183 tests.
+* **Open:** sessions already fully scored but still *Scheduled* before this change can be validated from their page, but appear on *To validate* only after another scorecard change. The 3-person quorum is not enforced yet (Phase 23).
+
+---
+
 ## 6 November 2026: Phase 21, probation, confirmation, dashboards and reports
 
 **Why:** stage 4, the last, of GREL's onboarding → probation → confirmation request. Details in [Phase 21](phases.md#-phase-21-probation-confirmation-dashboards-and-reports-6-november-2026).

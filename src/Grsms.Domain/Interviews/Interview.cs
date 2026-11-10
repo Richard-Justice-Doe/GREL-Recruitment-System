@@ -21,10 +21,16 @@ public enum InterviewMode
 
 public enum InterviewStatus
 {
+    /// <summary>Planned, or taking place; panel members submit their scorecards from the start time.</summary>
     [Display(Name = "Scheduled")] Scheduled,
-    [Display(Name = "Completed")] Completed,
+
+    /// <summary>The scores are validated by the Recruitment Officer: final, and visible to the HOD, MD and in the results.</summary>
+    [Display(Name = "Completed (scores validated)")] Completed,
     [Display(Name = "Cancelled")] Cancelled,
-    [Display(Name = "Did not attend")] NoShow
+    [Display(Name = "Did not attend")] NoShow,
+
+    /// <summary>Every panel member who took part has submitted; the vacancy's Recruitment Officer checks and validates the scores.</summary>
+    [Display(Name = "Awaiting score validation")] AwaitingValidation
 }
 
 /// <summary>A panel member's overall recommendation on their scorecard.</summary>
@@ -73,6 +79,11 @@ public class Interview : BaseEntity
     public string? StatusReason { get; set; }
     public string ScheduledByUserId { get; set; } = string.Empty;
 
+    /// <summary>Who validated the scores, when, and their optional note (status Completed). Null for sessions completed before 9 Nov 2026.</summary>
+    public DateTime? ValidatedAt { get; set; }
+    public string? ValidatedByUserId { get; set; }
+    public string? ValidationNote { get; set; }
+
     /// <summary>Concurrency stamp.</summary>
     public Guid Version { get; set; } = Guid.NewGuid();
 
@@ -90,6 +101,24 @@ public class InterviewPanelMember
 
     /// <summary>The chair leads the session. One per panel.</summary>
     public bool IsChair { get; set; }
+
+    /// <summary>
+    /// Whether the member took part (score validation, 9 Nov 2026). A member marked Absent or Excused does not have to submit a
+    /// scorecard before the scores can be validated. Submitting a scorecard counts as taking part.
+    /// </summary>
+    public PanelAttendance Attendance { get; set; } = PanelAttendance.NotRecorded;
+    public string? AttendanceNote { get; set; }
+    public string? AttendanceRecordedByUserId { get; set; }
+    public DateTime? AttendanceRecordedAt { get; set; }
+}
+
+/// <summary>Whether a panel member took part in the session.</summary>
+public enum PanelAttendance
+{
+    [Display(Name = "Not recorded")] NotRecorded,
+    [Display(Name = "Present")] Present,
+    [Display(Name = "Absent")] Absent,
+    [Display(Name = "Excused")] Excused
 }
 
 /// <summary>One thing the panel scores, e.g. "Technical knowledge", with its weight (all weights add up to 100).</summary>
@@ -114,6 +143,17 @@ public class Scorecard : BaseEntity
 
     /// <summary>The weighted total out of 100: Σ (rating ÷ 5 × weight).</summary>
     public decimal WeightedScore { get; set; }
+
+    /// <summary>
+    /// Set when the validating Recruitment Officer sends the scorecard back to its panel member to correct (with the reason).
+    /// A returned scorecard does not count until the member submits it again, which clears these fields.
+    /// </summary>
+    public DateTime? ReturnedAt { get; set; }
+    public string? ReturnReason { get; set; }
+    public string? ReturnedByUserId { get; set; }
+
+    /// <summary>True when the scorecard counts: submitted and not sent back for correction.</summary>
+    public bool IsValid => ReturnedAt is null;
 
     public ICollection<ScorecardRating> Ratings { get; set; } = new List<ScorecardRating>();
 }

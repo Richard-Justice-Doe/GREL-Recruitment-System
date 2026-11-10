@@ -1,5 +1,7 @@
 @* One interview or assessment: when and where, the panel (who has scored), my scorecard, the scorecards I may see
-   (panel members see the others only after submitting their own), and the recruiter's actions. *@
+   (panel members see the others only after submitting their own), and the recruiter's actions.
+   Score validation (9 Nov 2026): when every panel member who took part has scored, a Recruitment Officer who is not on the
+   panel validates the scores or returns a scorecard for correction. "Your next step" at the top says what the viewer does. *@
 @model InterviewDetailsDto
 @{
     ViewData["Title"] = $"{Model.Type.DisplayName()}: {Model.ApplicantName}";
@@ -10,19 +12,110 @@
         PanelRecommendation.WithReservations => "badge-soft-warning",
         _ => "badge-soft-danger"
     };
+    var statusCss = Model.Status switch
+    {
+        InterviewStatus.Scheduled => "badge-soft-primary",
+        InterviewStatus.AwaitingValidation => "badge-soft-warning",
+        InterviewStatus.Completed => "badge-soft-success",
+        _ => "badge-soft-secondary"
+    };
     var ratingLabels = new[] { "", "1 Poor", "2 Below", "3 Meets", "4 Above", "5 Outstanding" };
+    var open = Model.Status is InterviewStatus.Scheduled or InterviewStatus.AwaitingValidation;
+    var validCards = Model.Scorecards.Where(s => s.ReturnedAt is null).ToList();
+    var canMarkAbsent = Model.Panel.Where(p => !p.HasSubmitted && p.Attendance is not (PanelAttendance.Absent or PanelAttendance.Excused)).ToList();
+    var marked = Model.Panel.Where(p => p.Attendance is PanelAttendance.Absent or PanelAttendance.Excused).ToList();
+    var validator = Model.ValidatorName ?? "a Recruitment Officer";
+    var myId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 }
 
 <div class="page-header">
     <div>
         <h1>@Model.Type.DisplayName(): @Model.ApplicantName
-            <span class="badge rounded-pill @(Model.Status == InterviewStatus.Scheduled ? "badge-soft-primary" : Model.Status == InterviewStatus.Completed ? "badge-soft-success" : "badge-soft-secondary")">@Model.Status.DisplayName()</span>
+            <span class="badge @statusCss align-middle fs-6">@Model.Status.DisplayName()</span>
         </h1>
         <p>Round @Model.Round · <a asp-controller="Applications" asp-action="Details" asp-route-id="@Model.ApplicationId">@Model.ApplicationNumber</a>
             · @Model.VacancyNumber @Model.JobTitle · @Model.DepartmentName</p>
     </div>
-    <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>Interviews</a>
+    <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left"></i>Interviews</a>
 </div>
+
+@* ---------------------------------------------------------------- Your next step *@
+@if (Model.MyScorecardReturned && mine is not null)
+{
+    <section class="next-step tone-offer">
+        <div class="next-step-text">
+            <span class="next-step-label">Your next step</span>
+            <h2>Correct your scorecard and submit it again</h2>
+            <p>@(mine.ReturnedByName ?? validator) sent it back: <em>@mine.ReturnReason</em></p>
+        </div>
+        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-primary">Correct my scorecard</a></div>
+    </section>
+}
+else if (Model.CanScore && mine is null)
+{
+    <section class="next-step tone-interview">
+        <div class="next-step-text">
+            <span class="next-step-label">Your next step</span>
+            <h2>Submit your scorecard</h2>
+            <p>Rate each criterion and give your recommendation. You will see the other panel members' scorecards once yours is in.</p>
+        </div>
+        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-primary">Open my scorecard</a></div>
+    </section>
+}
+else if (Model.IsValidator && Model.CanValidate)
+{
+    <section class="next-step tone-hire">
+        <div class="next-step-text">
+            <span class="next-step-label">Your next step</span>
+            <h2>Check and validate the scores</h2>
+            <p>All @validCards.Count scorecards are in. Check them below, then validate, or return one to its panel member to correct.
+               The Head of Department and the interview results see the scores only after you validate them.</p>
+        </div>
+        <div class="next-step-actions"><a href="#validate" class="btn btn-primary">Validate the scores</a></div>
+    </section>
+}
+else if (open && Model.MissingScorers.Count > 0)
+{
+    <section class="next-step is-waiting">
+        <div class="next-step-text">
+            <span class="next-step-label">Waiting for scorecards</span>
+            <h2>@Model.MissingScorers.Count of @Model.Panel.Count panel members still to score</h2>
+            <p>Waiting for @string.Join(", ", Model.MissingScorers). When everyone who took part has scored, @validator checks and validates the scores.</p>
+        </div>
+    </section>
+}
+else if (Model.Status == InterviewStatus.AwaitingValidation)
+{
+    <section class="next-step is-waiting">
+        <div class="next-step-text">
+            <span class="next-step-label">Waiting for validation</span>
+            <h2>All scorecards are in</h2>
+            <p>@validator is checking the scores. They become final, and visible to the Head of Department and in the results, once validated.</p>
+        </div>
+    </section>
+}
+else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } validatedAt)
+{
+    <section class="next-step tone-onboard">
+        <div class="next-step-text">
+            <span class="next-step-label">Scores validated</span>
+            <h2>The scores are final</h2>
+            <p>Validated by @Model.ValidatedByName on @validatedAt.ToString("d MMMM yyyy, HH:mm") GMT.@if (Model.ValidationNote is not null) { <text> “@Model.ValidationNote”</text> }</p>
+        </div>
+        <div class="next-step-actions">
+            @if (User.IsInRole(Roles.RecruitmentOfficer) || User.IsInRole(Roles.HrManager))
+            {
+                @* Next step after validation: hiring (recommendation, approvals, offer). *@
+                <a asp-controller="Hiring" asp-action="Case" asp-route-id="@Model.ApplicationId" class="btn btn-primary">Go to hiring &amp; offer <i class="fa-solid fa-arrow-right"></i></a>
+                <a asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-outline-secondary">All results for this vacancy</a>
+            }
+            else
+            {
+                <a asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-primary">See all results for this vacancy</a>
+            }
+        </div>
+    </section>
+}
 
 <div class="row g-3">
     <div class="col-xl-7">
@@ -40,6 +133,7 @@
                     {
                         <dt>Reason</dt><dd>@Model.StatusReason</dd>
                     }
+                    <dt>Scores validated by</dt><dd>@(Model.ValidatedByName ?? (Model.ValidatorName is null ? "A Recruitment Officer" : $"{Model.ValidatorName} (vacancy's Recruitment Officer)"))</dd>
                 </dl>
             </div>
         </div>
@@ -47,9 +141,14 @@
         @* ---- My scorecard *@
         @if (Model.IsPanelMember)
         {
-            <div class="card glass mb-3 @(Model.CanScore && mine is null ? "border border-primary" : "")">
+            <div id="my-scorecard" class="card glass mb-3 @(Model.CanScore && (mine is null || Model.MyScorecardReturned) ? "border border-primary" : "")">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">My scorecard @(mine is null ? "" : $"(submitted {mine.SubmittedAt:dd MMM HH:mm}, {mine.WeightedScore:0.0}/100)")</h2>
+                    <h2 class="h5 mb-3">My scorecard @if (mine is not null) { <span class="fs-6 fw-semibold text-body-secondary">(submitted @mine.SubmittedAt.ToString("dd MMM HH:mm"), @mine.WeightedScore.ToString("0.0")/100)</span> }</h2>
+                    @if (Model.MyScorecardReturned && mine is not null)
+                    {
+                        <div class="alert alert-warning small"><i class="fa-solid fa-rotate-left me-1"></i><strong>Returned for correction</strong>
+                            by @(mine.ReturnedByName ?? "the Recruitment Officer"): @mine.ReturnReason</div>
+                    }
                     @if (Model.ScoreNotYetReason is not null)
                     {
                         <p class="small text-body-secondary mb-0"><i class="fa-regular fa-clock me-1"></i>@Model.ScoreNotYetReason</p>
@@ -100,9 +199,9 @@
                                         <option value="@r" selected="@(mine?.Recommendation == r)">@r.DisplayName()</option>
                                     }
                                 </select>
-                                <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>@(mine is null ? "Submit scorecard" : "Update scorecard")</button>
+                                <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-floppy-disk"></i>@(mine is null ? "Submit scorecard" : Model.MyScorecardReturned ? "Submit corrected scorecard" : "Update scorecard")</button>
                             </div>
-                            <div class="form-text">You can update it until the session is marked completed.</div>
+                            <div class="form-text">You can update it until the Recruitment Officer validates the scores.</div>
                         </form>
                     }
                     else if (mine is null)
@@ -117,15 +216,26 @@
         <div class="card glass mb-3">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Scorecards</h2>
+                    <h2 class="h5 mb-0">Scorecards</h2>
                     @if (Model.AverageScore is decimal avg)
                     {
-                        <span>Average <strong class="fs-5">@avg.ToString("0.0")</strong> / 100</span>
+                        <span>Average <strong class="fs-5">@avg.ToString("0.0")</strong> / 100
+                            @if (Model.Status != InterviewStatus.Completed) { <span class="badge badge-soft-warning ms-1">Not validated yet</span> }
+                        </span>
                     }
                 </div>
                 @if (Model.ScorecardsHidden)
                 {
-                    <p class="small text-body-secondary mb-0"><i class="fa-solid fa-eye-slash me-1"></i>Submit your own scorecard first. You will then see the others, so everyone scores independently.</p>
+                    <p class="small text-body-secondary mb-0"><i class="fa-solid fa-eye-slash me-1"></i>
+                        @if (Model.IsPanelMember)
+                        {
+                            <text>Submit your own scorecard first. You will then see the others, so everyone scores independently.</text>
+                        }
+                        else
+                        {
+                            <text>The scores are shown once @validator has checked and validated them.</text>
+                        }
+                    </p>
                 }
                 else if (Model.Scorecards.Count == 0)
                 {
@@ -137,31 +247,35 @@
                         <table class="table table-sm small">
                             <thead>
                             <tr><th>Criterion (weight)</th>
-                                @foreach (var s in Model.Scorecards) { <th class="text-center">@s.PanelName</th> }
+                                @foreach (var s in Model.Scorecards)
+                                {
+                                    <th class="text-center">@s.PanelName @if (s.ReturnedAt is not null) { <br /><span class="badge badge-soft-warning">Returned</span> }</th>
+                                }
                             </tr>
                             </thead>
                             <tbody>
                             @foreach (var c in Model.Criteria)
                             {
                                 <tr><td>@c.Name (@c.Weight)</td>
-                                    @foreach (var s in Model.Scorecards) { <td class="text-center">@s.Ratings.GetValueOrDefault(c.Id)</td> }
+                                    @foreach (var s in Model.Scorecards) { <td class="text-center @(s.ReturnedAt is null ? "" : "text-body-secondary")">@s.Ratings.GetValueOrDefault(c.Id)</td> }
                                 </tr>
                             }
                             <tr class="fw-semibold"><td>Weighted score / 100</td>
-                                @foreach (var s in Model.Scorecards) { <td class="text-center">@s.WeightedScore.ToString("0.0")</td> }
+                                @foreach (var s in Model.Scorecards) { <td class="text-center @(s.ReturnedAt is null ? "" : "text-body-secondary text-decoration-line-through")">@s.WeightedScore.ToString("0.0")</td> }
                             </tr>
                             <tr><td>Recommendation</td>
-                                @foreach (var s in Model.Scorecards) { <td class="text-center"><span class="badge rounded-pill @RecCss(s.Recommendation)">@s.Recommendation.DisplayName()</span></td> }
+                                @foreach (var s in Model.Scorecards) { <td class="text-center"><span class="badge @RecCss(s.Recommendation)">@s.Recommendation.DisplayName()</span></td> }
                             </tr>
                             </tbody>
                         </table>
                     </div>
-                    @foreach (var s in Model.Scorecards.Where(s => s.Strengths is not null || s.Concerns is not null))
+                    @foreach (var s in Model.Scorecards.Where(s => s.Strengths is not null || s.Concerns is not null || s.ReturnReason is not null))
                     {
                         <div class="border-top pt-2 mt-2 small">
                             <strong>@s.PanelName</strong>
-                            @if (s.Strengths is not null) { <div><span class="text-success">Strengths:</span> @s.Strengths</div> }
-                            @if (s.Concerns is not null) { <div><span class="text-danger">Concerns:</span> @s.Concerns</div> }
+                            @if (s.Strengths is not null) { <div><span class="text-success fw-semibold">Strengths:</span> @s.Strengths</div> }
+                            @if (s.Concerns is not null) { <div><span class="text-danger fw-semibold">Concerns:</span> @s.Concerns</div> }
+                            @if (s.ReturnReason is not null) { <div class="text-body-secondary"><i class="fa-solid fa-rotate-left me-1"></i>Returned by @s.ReturnedByName: @s.ReturnReason</div> }
                         </div>
                     }
                 }
@@ -172,19 +286,29 @@
     <div class="col-xl-5">
         <div class="card glass mb-3">
             <div class="card-body p-4">
-                <h2 class="h6 text-uppercase text-body-secondary mb-3">Panel</h2>
+                <h2 class="h5 mb-3">Panel</h2>
                 <ul class="list-unstyled mb-0">
                     @foreach (var p in Model.Panel)
                     {
-                        <li class="d-flex justify-content-between align-items-center py-1">
-                            <span>@p.Name @if (p.IsChair) { <span class="badge rounded-pill badge-soft-primary ms-1">Chair</span> }</span>
+                        <li class="d-flex justify-content-between align-items-start gap-2 py-2 border-bottom">
+                            <span>@p.Name @if (p.IsChair) { <span class="badge badge-soft-primary ms-1">Chair</span> }
+                                @if (p.AttendanceNote is not null) { <br /><small class="text-body-secondary">@p.AttendanceNote</small> }
+                            </span>
                             @if (p.HasSubmitted)
                             {
-                                <span class="small text-success"><i class="fa-solid fa-circle-check me-1"></i>Scored</span>
+                                <span class="pill tone-onboard"><i class="fa-solid fa-circle-check" aria-hidden="true"></i>Scored</span>
+                            }
+                            else if (p.ScorecardReturned)
+                            {
+                                <span class="pill pill-warning"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i>Returned</span>
+                            }
+                            else if (p.Attendance is PanelAttendance.Absent or PanelAttendance.Excused)
+                            {
+                                <span class="pill pill-muted">@p.Attendance.DisplayName()</span>
                             }
                             else
                             {
-                                <span class="small text-body-secondary">Waiting</span>
+                                <span class="pill pill-muted">Waiting</span>
                             }
                         </li>
                     }
@@ -192,16 +316,79 @@
             </div>
         </div>
 
+        @* ---- Score validation (any Recruitment Officer; nobody returns their own scorecard) *@
+        @if (Model.IsValidator)
+        {
+            <div id="validate" class="card glass mb-3 @(Model.CanValidate ? "border border-primary" : "")">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-1">Validate the scores</h2>
+                    <p class="small text-body-secondary">Check every scorecard: are all criteria rated, do the comments support the ratings, and are
+                        concerns given where the applicant is not recommended? You cannot change scores; return a scorecard if it needs correcting.</p>
+
+                    @if (Model.CanValidate)
+                    {
+                        <form asp-action="Validate" asp-route-id="@Model.Id" method="post" class="mb-4">
+                            <label for="note" class="form-label small">Note (optional)</label>
+                            <textarea id="note" name="note" class="form-control form-control-sm mb-2" rows="2" maxlength="2000" placeholder="e.g. Checked against the panel's notes."></textarea>
+                            <button type="submit" class="btn btn-primary w-100" data-confirm="Validate these scores? They become final and visible to the Head of Department and in the results.">
+                                <i class="fa-solid fa-circle-check"></i>Validate the scores
+                            </button>
+                        </form>
+                    }
+                    else if (Model.ValidationBlockedReason is not null)
+                    {
+                        <div class="alert alert-secondary small"><i class="fa-solid fa-hourglass-half me-1"></i>@Model.ValidationBlockedReason</div>
+                    }
+
+                    @if (validCards.Any(s => s.PanelUserId != myId))
+                    {
+                        <form asp-action="ReturnScorecard" asp-route-id="@Model.Id" method="post" class="mb-4">
+                            <h3 class="h6 mb-2">Return a scorecard for correction</h3>
+                            <select name="panelUserId" class="form-select form-select-sm mb-2" required aria-label="Scorecard to return">
+                                <option value="">Whose scorecard?</option>
+                                @foreach (var s in validCards.Where(s => s.PanelUserId != myId)) { <option value="@s.PanelUserId">@s.PanelName (@s.WeightedScore.ToString("0.0"))</option> }
+                            </select>
+                            <textarea name="reason" class="form-control form-control-sm mb-2" rows="2" minlength="10" maxlength="2000" required
+                                      placeholder="What needs correcting, e.g. no concerns given although not recommended." aria-label="What needs correcting"></textarea>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-rotate-left"></i>Return to the panel member</button>
+                        </form>
+                    }
+
+                    @if (canMarkAbsent.Count > 0 && DateTime.UtcNow >= Model.StartsAt)
+                    {
+                        <form asp-action="Attendance" asp-route-id="@Model.Id" method="post">
+                            <h3 class="h6 mb-1">A panel member did not take part?</h3>
+                            <p class="small text-body-secondary mb-2">Mark them absent or excused so their scorecard is not waited for. The Head of Department cannot be marked absent.</p>
+                            <select name="panelUserId" class="form-select form-select-sm mb-2" required aria-label="Panel member">
+                                <option value="">Who?</option>
+                                @foreach (var p in canMarkAbsent) { <option value="@p.UserId">@p.Name</option> }
+                            </select>
+                            <select name="attendance" class="form-select form-select-sm mb-2" aria-label="Absent or excused">
+                                <option value="@PanelAttendance.Excused">Excused</option>
+                                <option value="@PanelAttendance.Absent">Absent</option>
+                            </select>
+                            <input name="note" class="form-control form-control-sm mb-2" minlength="5" maxlength="1000" required placeholder="Reason, e.g. on leave" aria-label="Reason" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Record</button>
+                        </form>
+                    }
+                    @foreach (var p in marked)
+                    {
+                        <form asp-action="Attendance" asp-route-id="@Model.Id" method="post" class="d-flex align-items-center justify-content-between gap-2 mt-2 small">
+                            <input type="hidden" name="panelUserId" value="@p.UserId" />
+                            <input type="hidden" name="attendance" value="@PanelAttendance.NotRecorded" />
+                            <span>@p.Name: @p.Attendance.DisplayName().ToLowerInvariant()</span>
+                            <button type="submit" class="btn btn-sm btn-link">Undo</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+
         @if (Model.CanManage)
         {
             <div class="card glass mb-3">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Manage</h2>
-                    <form asp-action="Complete" asp-route-id="@Model.Id" method="post" class="mb-3">
-                        <button type="submit" class="btn btn-sm btn-success w-100" data-confirm="Mark this session completed? Scorecards become final.">
-                            <i class="fa-solid fa-flag-checkered me-1"></i>Mark completed
-                        </button>
-                    </form>
+                    <h2 class="h5 mb-3">Manage</h2>
                     <form asp-action="Reschedule" asp-route-id="@Model.Id" method="post" class="mb-3">
                         <label class="form-label small" for="startsAt">Reschedule (only before any scorecard)</label>
                         <input id="startsAt" name="startsAt" type="datetime-local" class="form-control form-control-sm mb-1" required />
@@ -217,10 +404,11 @@
                             <button type="submit" class="btn btn-outline-danger" data-confirm="Cancel this session? The applicant and panel will be emailed.">Cancel</button>
                         </div>
                     </form>
+                    <p class="form-text mb-0 mt-3">Scores are validated by a Recruitment Officer.</p>
                 </div>
             </div>
         }
 
-        <a asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-outline-primary w-100"><i class="fa-solid fa-ranking-star me-1"></i>All interview results for this vacancy</a>
+        <a asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-outline-primary w-100"><i class="fa-solid fa-ranking-star"></i>All interview results for this vacancy</a>
     </div>
 </div>

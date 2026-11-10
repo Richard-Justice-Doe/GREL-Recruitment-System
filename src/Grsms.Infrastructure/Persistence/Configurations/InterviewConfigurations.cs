@@ -26,6 +26,8 @@ internal class InterviewConfiguration : IEntityTypeConfiguration<Interview>
         b.Property(i => i.StatusReason).HasColumnType("text");
         b.Property(i => i.RequestingHodUserId).HasMaxLength(255).IsRequired();
         b.Property(i => i.ScheduledByUserId).HasMaxLength(255).IsRequired();
+        b.Property(i => i.ValidatedByUserId).HasMaxLength(255);   // score validation (9 Nov 2026)
+        b.Property(i => i.ValidationNote).HasColumnType("text");
         b.Property(i => i.Version).IsConcurrencyToken();
 
         b.HasOne<JobApplication>().WithMany().HasForeignKey(i => i.JobApplicationId).OnDelete(DeleteBehavior.Restrict);
@@ -55,6 +57,9 @@ internal class InterviewPanelMemberConfiguration : IEntityTypeConfiguration<Inte
         b.ToTable("InterviewPanelMembers");
         b.HasKey(p => p.Id);
         b.Property(p => p.UserId).HasMaxLength(255).IsRequired();
+        b.Property(p => p.Attendance).HasConversion<string>().HasMaxLength(20);   // score validation (9 Nov 2026)
+        b.Property(p => p.AttendanceNote).HasMaxLength(1000);
+        b.Property(p => p.AttendanceRecordedByUserId).HasMaxLength(255);
         b.HasOne<ApplicationUser>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(p => new { p.InterviewId, p.UserId }).IsUnique();
         b.HasIndex(p => p.UserId); // "My interviews"
@@ -83,6 +88,9 @@ internal class ScorecardConfiguration : IEntityTypeConfiguration<Scorecard>
         b.Property(s => s.Strengths).HasColumnType("text");
         b.Property(s => s.Concerns).HasColumnType("text");
         b.Property(s => s.WeightedScore).HasPrecision(5, 1);
+        b.Property(s => s.ReturnReason).HasColumnType("text");             // score validation (9 Nov 2026)
+        b.Property(s => s.ReturnedByUserId).HasMaxLength(255);
+        b.Ignore(s => s.IsValid);
         b.HasOne<ApplicationUser>().WithMany().HasForeignKey(s => s.PanelUserId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(s => s.Ratings).WithOne().HasForeignKey(r => r.ScorecardId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(s => new { s.InterviewId, s.PanelUserId }).IsUnique();

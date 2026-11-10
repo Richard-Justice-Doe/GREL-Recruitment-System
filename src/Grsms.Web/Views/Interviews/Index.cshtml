@@ -1,6 +1,7 @@
 @* Interviews and assessments:
      My panels         - sessions where I am on the panel
      Scorecards to do  - my sessions that have started and still need my scorecard
+     To validate       - Recruitment Officers: sessions whose scores are all in and wait for validation (9 Nov 2026)
      Upcoming          - all scheduled sessions I may see (reviewers, HODs for their departments)
      All               - everything I may see, newest first *@
 @model PagedResult<InterviewListItemDto>
@@ -9,6 +10,7 @@
     ViewData["Title"] = "Interviews";
     var f = (InterviewFilter)ViewBag.Filter;
     var pending = (int)ViewBag.PendingScorecards;
+    var toValidate = (int)(ViewBag.ToValidate ?? 0);
     var seesOthers = Scope.SeesAllDepartments || User.IsInRole(Roles.HeadOfDepartment);
 
     Dictionary<string, string> Route(int page)
@@ -24,6 +26,7 @@
     }
 
     var tabs = new List<(string Key, string Label, int? Count)> { ("mine", "My panels", null), ("scorecards", "Scorecards to do", pending) };
+    if (User.IsInRole(Roles.RecruitmentOfficer)) tabs.Add(("validate", "To validate", toValidate));
     if (seesOthers)
     {
         tabs.Add(("upcoming", "Upcoming", null));
@@ -99,7 +102,7 @@
                         <td class="small text-break">@i.Location</td>
                         <td class="text-center">@i.ScorecardsIn / @i.PanelSize</td>
                         <td>@(i.AverageScore is decimal avg ? avg.ToString("0.0") : "—")</td>
-                        <td><span class="badge rounded-pill @(i.Status == InterviewStatus.Scheduled ? "badge-soft-primary" : i.Status == InterviewStatus.Completed ? "badge-soft-success" : "badge-soft-secondary")">@i.Status.DisplayName()</span></td>
+                        <td><span class="badge rounded-pill @(i.Status == InterviewStatus.Scheduled ? "badge-soft-primary" : i.Status == InterviewStatus.AwaitingValidation ? "badge-soft-warning" : i.Status == InterviewStatus.Completed ? "badge-soft-success" : "badge-soft-secondary")">@i.Status.DisplayName()</span></td>
                     </tr>
                 }
                 </tbody>

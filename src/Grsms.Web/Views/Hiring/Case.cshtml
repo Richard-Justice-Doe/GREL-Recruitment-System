@@ -1,5 +1,5 @@
 @* The hiring case of one applicant: results so far, background checks, the hiring recommendation and its
-   approvals (HOD → HR Manager → MD), and the offer. Each panel only shows the actions the user may take now. *@
+   approval by the Recruitment Officer (9 Nov 2026; older recommendations: HOD → HR Manager → MD), the offer and onboarding. Each panel only shows the actions the user may take now. *@
 @model HiringCaseDto
 @{
     ViewData["Title"] = $"Hiring: {Model.ApplicantName}";
@@ -18,6 +18,12 @@
         HiringDecision.Reject => "Not supported",
         _ => "Waiting"
     };
+
+    // The recommendation starts from the validated interview scores (9 Nov 2026); the recruiter adds references and fit.
+    var scoreSummary = string.Join("\n", Model.InterviewRounds.Where(x => x.Average is not null).Select(x =>
+        $"Round {x.Round} ({x.Type.DisplayName().ToLowerInvariant()}): {x.Average:0.0}/100 from {x.Scores.Count} validated scorecards; " +
+        string.Join(", ", x.Scores.GroupBy(s => s.Recommendation).OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key.DisplayName().ToLowerInvariant()}")) + "."));
+    var justificationStart = scoreSummary.Length == 0 ? "" : $"Interview results:\n{scoreSummary}\n\nReferences and fit: ";
 }
 
 <div class="page-header">
@@ -33,16 +39,163 @@
     </div>
 </div>
 
+@* ---- Your next step (redesign, 9 Nov 2026): validated → proceed with the candidate → the Recruitment Officer approves
+        (no HOD / HR / MD) → offer → candidate accepts → proceed to onboarding. *@
+@{
+    var acceptedOffer = Model.Offer?.Status == OfferStatus.Accepted;
+    var hasOnboarding = ViewBag.OnboardingId is int;
+}
+@if (Model.CanRecommend)
+{
+    <section class="next-step tone-offer">
+        <div class="next-step-text">
+            <span class="next-step-label">Your next step</span>
+            <h2>Proceed with this candidate?</h2>
+            <p>The interview scores are validated@(Model.InterviewAverage is decimal avg ? $" (average {avg:0.0}/100)" : "").
+               Proceeding starts the hiring process: a draft from the scores and the standard background checks.
+               A Recruitment Officer then approves the hire; no other approval is needed.</p>
+        </div>
+        <div class="next-step-actions">
+            <form asp-action="Proceed" method="post">
+                <input type="hidden" name="applicationIds" value="@Model.ApplicationId" />
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-play"></i>Proceed with this candidate</button>
+            </form>
+        </div>
+    </section>
+}
+else if (Model.CanSubmitDraft)
+{
+    <section class="next-step tone-offer">
+        <div class="next-step-text">
+            <span class="next-step-label">Your next step</span>
+            <h2>Review and approve the hire</h2>
+            <p>The hiring process has started for @Model.ApplicantName. Check the salary, start date and justification below
+               (add the references and fit), then click <strong>Approve hire</strong>. The background checks are open further down.</p>
+        </div>
+        <div class="next-step-actions"><a href="#recommend" class="btn btn-primary">Review the draft</a></div>
+    </section>
+}
+else if (Model.CanOffer)
+{
+    <section class="next-step tone-offer">
+        <div class="next-step-text">
+            <span class="next-step-label">Your next step</span>
+            <h2>Send the offer</h2>
+            <p>The hire is approved and the background checks are complete. Send the offer letter to @Model.ApplicantName.</p>
+        </div>
+        <div class="next-step-actions"><a href="#send-offer" class="btn btn-primary">Send the offer</a></div>
+    </section>
+}
+else if (Model.Recommendation?.Status == HiringStatus.Approved && Model.Offer is null && Model.OfferBlockedReason is not null)
+{
+    <section class="next-step is-waiting">
+        <div class="next-step-text">
+            <span class="next-step-label">Before the offer</span>
+            <h2>Hire approved</h2>
+            <p>@Model.OfferBlockedReason</p>
+        </div>
+    </section>
+}
+else if (Model.Offer?.Status == OfferStatus.Sent)
+{
+    <section class="next-step is-waiting">
+        <div class="next-step-text">
+            <span class="next-step-label">Waiting for the candidate</span>
+            <h2>Offer sent</h2>
+            <p>@Model.ApplicantName has until @Model.Offer.ExpiresOn.ToString("d MMMM yyyy") to accept or decline. You are emailed when they reply.</p>
+        </div>
+    </section>
+}
+else if (acceptedOffer && !hasOnboarding)
+{
+    <section class="next-step tone-onboard">
+        <div class="next-step-text">
+            <span class="next-step-label">Your next step</span>
+            <h2>@Model.ApplicantName accepted the offer</h2>
+            <p>Start the onboarding: the first-day details, then the appointment letter and the new-hire documents.</p>
+        </div>
+        <div class="next-step-actions">
+            <a asp-controller="Onboarding" asp-action="Start" asp-route-id="@Model.ApplicationId" class="btn btn-primary btn-lg"><i class="fa-solid fa-door-open"></i>Click to proceed to onboarding</a>
+        </div>
+    </section>
+}
+else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
+{
+    <section class="next-step tone-onboard">
+        <div class="next-step-text">
+            <span class="next-step-label">Onboarding</span>
+            <h2>Onboarding has started</h2>
+            <p>Follow the new employee's onboarding from its page.</p>
+        </div>
+        <div class="next-step-actions"><a asp-controller="Onboarding" asp-action="Details" asp-route-id="@startedOnboarding" class="btn btn-primary">Open the onboarding</a></div>
+    </section>
+}
+
 <div class="row g-3">
     <div class="col-xl-7">
-        @* ---- Results so far *@
+        @* ---- Results so far: screening and the validated interview scores (9 Nov 2026), in view for the recommendation,
+                each approval and the offer. Never shown to the candidate. *@
         <div class="card glass mb-3">
-            <div class="card-body p-4 d-flex flex-wrap gap-4">
-                <div><div class="small text-body-secondary">Screening score</div><div class="fs-4 fw-semibold">@(Model.ScreeningScore?.ToString() ?? "—")</div></div>
-                <div><div class="small text-body-secondary">Interview average</div><div class="fs-4 fw-semibold">@(Model.InterviewAverage?.ToString("0.0") ?? "—")</div></div>
-                <div><div class="small text-body-secondary">Completed sessions</div><div class="fs-4 fw-semibold">@Model.CompletedInterviews</div></div>
-                <div><div class="small text-body-secondary">Advertised salary</div><div class="fs-6 fw-semibold">
-                    @(Model.VacancySalaryMin is null && Model.VacancySalaryMax is null ? "Not set" : $"GHS {Model.VacancySalaryMin:N0} – {Model.VacancySalaryMax:N0}")</div></div>
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    <div class="pill tone-hire" style="font-size:.85rem;padding:.5rem .9rem">Screening <strong class="ms-1">@(Model.ScreeningScore?.ToString() ?? "—")</strong></div>
+                    <div class="pill tone-interview" style="font-size:.85rem;padding:.5rem .9rem">Interview average <strong class="ms-1">@(Model.InterviewAverage is decimal ia ? $"{ia:0.0} / 100" : "not validated yet")</strong></div>
+                    <div class="pill pill-muted" style="font-size:.85rem;padding:.5rem .9rem">Validated rounds <strong class="ms-1">@Model.CompletedInterviews</strong></div>
+                    <div class="pill pill-muted" style="font-size:.85rem;padding:.5rem .9rem">Advertised salary <strong class="ms-1">
+                        @(Model.VacancySalaryMin is null && Model.VacancySalaryMax is null ? "not set" : $"GHS {Model.VacancySalaryMin:N0} – {Model.VacancySalaryMax:N0}")</strong></div>
+                </div>
+
+                <h2 class="h5 mb-2">Interview scores</h2>
+                @if (Model.InterviewRounds.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0">No interview or assessment yet.</p>
+                }
+                @foreach (var round in Model.InterviewRounds)
+                {
+                    var recs = round.Scores.GroupBy(x => x.Recommendation).OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key.DisplayName().ToLowerInvariant()}");
+                    <div class="border rounded-4 p-3 mb-2">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <strong>Round @round.Round · @round.Type.DisplayName()</strong>
+                            <span class="small text-body-secondary">@round.StartsAt.ToString("d MMM yyyy")</span>
+                            @if (round.Average is decimal avg)
+                            {
+                                <span class="ms-auto fs-5 fw-bold">@avg.ToString("0.0") <span class="fs-6 fw-semibold text-body-secondary">/ 100</span></span>
+                            }
+                            else
+                            {
+                                <span class="ms-auto badge @(round.Status == InterviewStatus.AwaitingValidation ? "badge-soft-warning" : "badge-soft-secondary")">@round.Status.DisplayName()</span>
+                            }
+                        </div>
+                        @if (round.WaitingFor is not null)
+                        {
+                            <p class="small text-body-secondary mb-1"><i class="fa-solid fa-hourglass-half me-1"></i>@round.WaitingFor</p>
+                        }
+                        @if (round.Scores.Count > 0)
+                        {
+                            <p class="small text-body-secondary mb-2">Validated by @round.ValidatedBy@(round.ValidatedAt is DateTime va ? $" on {va:d MMM yyyy}" : "") · @string.Join(", ", recs)</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm small mb-0">
+                                    <thead><tr><th>Panel member</th><th class="text-end">Score</th><th>Recommendation</th><th>Comments</th></tr></thead>
+                                    <tbody>
+                                    @foreach (var s in round.Scores)
+                                    {
+                                        <tr>
+                                            <td class="text-nowrap">@s.PanelName @if (s.IsChair) { <span class="badge badge-soft-primary">Chair</span> }</td>
+                                            <td class="text-end fw-semibold">@s.Score.ToString("0.0")</td>
+                                            <td><span class="badge @(s.Recommendation is PanelRecommendation.StronglyRecommend or PanelRecommendation.Recommend ? "badge-soft-success" : s.Recommendation == PanelRecommendation.WithReservations ? "badge-soft-warning" : "badge-soft-danger")">@s.Recommendation.DisplayName()</span></td>
+                                            <td>
+                                                @if (s.Strengths is not null) { <div><span class="text-success fw-semibold">+</span> @s.Strengths</div> }
+                                                @if (s.Concerns is not null) { <div><span class="text-danger fw-semibold">−</span> @s.Concerns</div> }
+                                            </td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        <a asp-controller="Interviews" asp-action="Details" asp-route-id="@round.InterviewId" class="small fw-semibold text-decoration-none">Open the full scorecards</a>
+                    </div>
+                }
             </div>
         </div>
 
@@ -54,7 +207,7 @@
                 {
                     @if (Model.CanRecommend)
                     {
-                        <form asp-action="Recommend" asp-route-id="@Model.ApplicationId" method="post">
+                        <form id="recommend" asp-action="Recommend" asp-route-id="@Model.ApplicationId" method="post">
                             <div class="row g-2 mb-2">
                                 <div class="col-md-6">
                                     <label for="salary" class="form-label small">Proposed monthly salary (GHS)</label>
@@ -66,8 +219,8 @@
                                 </div>
                             </div>
                             <label for="justification" class="form-label small">Why this candidate (interview results, references, fit)</label>
-                            <textarea id="justification" name="justification" class="form-control mb-2" rows="4" maxlength="4000" required></textarea>
-                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane me-1"></i>Recommend and ask the HOD to endorse</button>
+                            <textarea id="justification" name="justification" class="form-control mb-2" rows="6" maxlength="4000" required>@justificationStart</textarea>
+                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
                         </form>
                     }
                     else
@@ -75,20 +228,54 @@
                         <p class="small text-body-secondary mb-0">@(Model.RecommendBlockedReason ?? "No recommendation yet.")</p>
                     }
                 }
+                else if (Model.CanSubmitDraft)
+                {
+                    @* ---- The draft started by "Proceed" (9 Nov 2026): review, then approve (Recruitment Officer), or discard. *@
+                    <p class="mb-2"><span class="badge badge-soft-warning">@r.Status.DisplayName()</span>
+                        <span class="small text-body-secondary ms-1">started by @r.CreatedBy on @r.CreatedAt.ToString("dd MMM yyyy")</span></p>
+                    <form id="recommend" asp-action="Recommend" asp-route-id="@Model.ApplicationId" method="post">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label for="salary" class="form-label small">Proposed monthly salary (GHS)</label>
+                                <input id="salary" name="salary" type="number" step="0.01" min="1" class="form-control" required value="@(r.ProposedSalary > 0 ? r.ProposedSalary.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "")" />
+                                @if (Model.VacancySalaryMin is not null || Model.VacancySalaryMax is not null)
+                                {
+                                    <div class="form-text">Advertised: GHS @Model.VacancySalaryMin?.ToString("N0") – @Model.VacancySalaryMax?.ToString("N0")</div>
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                <label for="startDate" class="form-label small">Proposed start date</label>
+                                <input id="startDate" name="startDate" type="date" class="form-control" required min="@today.ToString("yyyy-MM-dd")" value="@r.ProposedStartDate.ToString("yyyy-MM-dd")" />
+                            </div>
+                        </div>
+                        <label for="justification" class="form-label small">Why this candidate (started from the validated scores: add references and fit)</label>
+                        <textarea id="justification" name="justification" class="form-control mb-2" rows="7" maxlength="4000" required>@r.Justification</textarea>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
+                            <button type="submit" form="discard-draft" class="btn btn-outline-secondary" data-confirm="Discard this draft? The candidate goes back to Ready to recommend; the background checks are kept.">Discard draft</button>
+                        </div>
+                    </form>
+                    <form id="discard-draft" asp-action="DiscardDraft" asp-route-id="@Model.ApplicationId" method="post"></form>
+                }
                 else
                 {
                     <p class="mb-2"><span class="badge rounded-pill @(r.Status == HiringStatus.Approved ? "badge-soft-success" : r.Status == HiringStatus.Rejected ? "badge-soft-danger" : "badge-soft-warning")">@r.Status.DisplayName()</span></p>
+                    var roApproved = r.Status == HiringStatus.Approved && r.HodDecision == HiringDecision.None && r.HrDecision == HiringDecision.None;
                     <dl class="details-grid small">
-                        <dt>Proposed by</dt><dd>@r.CreatedBy, @r.CreatedAt.ToString("dd MMM yyyy")</dd>
+                        <dt>@(roApproved ? "Approved by" : "Proposed by")</dt><dd>@r.CreatedBy@(roApproved ? " (Recruitment Officer)" : ""), @r.CreatedAt.ToString("dd MMM yyyy")</dd>
                         <dt>Salary</dt><dd>GHS @r.ProposedSalary.ToString("N2") per month</dd>
                         <dt>Start date</dt><dd>@r.ProposedStartDate.ToString("dd MMM yyyy")</dd>
                         <dt>Justification</dt><dd style="white-space: pre-wrap">@r.Justification</dd>
                     </dl>
-                    <ol class="list-unstyled small mb-0">
-                        <li class="py-1"><strong>1. Head of Department:</strong> @DecisionText(r.HodDecision, "Endorsed")@(r.HodName is null ? "" : $" by {r.HodName}")@(r.HodComment is null ? "" : $": {r.HodComment}")</li>
-                        <li class="py-1"><strong>2. HR Manager:</strong> @DecisionText(r.HrDecision, "Approved")@(r.HrName is null ? "" : $" by {r.HrName}")@(r.HrComment is null ? "" : $": {r.HrComment}")</li>
-                        <li class="py-1"><strong>3. Managing Director:</strong> @DecisionText(r.MdDecision, "Approved")@(r.MdName is null ? "" : $" by {r.MdName}")@(r.MdComment is null ? "" : $": {r.MdComment}")</li>
-                    </ol>
+                    @if (!roApproved && r.Status != HiringStatus.Draft)
+                    {
+                        @* Recommendations from before 9 Nov 2026 went through the HOD, HR Manager and MD; new hires need the Recruitment Officer only. *@
+                        <ol class="list-unstyled small mb-0">
+                            <li class="py-1"><strong>1. Head of Department:</strong> @DecisionText(r.HodDecision, "Endorsed")@(r.HodName is null ? "" : $" by {r.HodName}")@(r.HodComment is null ? "" : $": {r.HodComment}")</li>
+                            <li class="py-1"><strong>2. HR Manager:</strong> @DecisionText(r.HrDecision, "Approved")@(r.HrName is null ? "" : $" by {r.HrName}")@(r.HrComment is null ? "" : $": {r.HrComment}")</li>
+                            <li class="py-1"><strong>3. Managing Director:</strong> @DecisionText(r.MdDecision, "Approved")@(r.MdName is null ? "" : $" by {r.MdName}")@(r.MdComment is null ? "" : $": {r.MdComment}")</li>
+                        </ol>
+                    }
 
                     @if (Model.CanHodDecide || Model.CanHrDecide || Model.CanMdDecide)
                     {
@@ -158,7 +345,7 @@
                 }
                 else if (Model.CanOffer)
                 {
-                    <form asp-action="SendOffer" asp-route-id="@Model.ApplicationId" method="post">
+                    <form id="send-offer" asp-action="SendOffer" asp-route-id="@Model.ApplicationId" method="post">
                         <div class="row g-2 mb-2">
                             <div class="col-md-4">
                                 <label for="offerSalary" class="form-label small">Monthly salary (GHS)</label>

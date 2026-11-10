@@ -1,4 +1,5 @@
 @* Hiring recommendations (hiring reports):
+     Ready to recommend   - candidates whose interview scores are validated, with no recommendation yet (9 Nov 2026)
      Awaiting my decision - for the HOD (endorse), HR Manager and MD (approve)
      Approved             - ready for (or with) an offer
      With offers          - an offer has been sent
@@ -7,7 +8,8 @@
 @{
     ViewData["Title"] = "Hiring";
     var f = (HiringFilter)ViewBag.Filter;
-    var tabs = new[] { ("awaiting", "Awaiting my decision"), ("approved", "Approved"), ("offers", "With offers"), ("all", "All") };
+    var ready = (IReadOnlyList<ReadyToRecommendDto>)ViewBag.Ready;
+    var tabs = new[] { ("ready", "Ready to recommend"), ("awaiting", "Awaiting my decision"), ("approved", "Approved"), ("offers", "With offers"), ("all", "All") };
 }
 
 <div class="page-header">
@@ -20,10 +22,78 @@
 <ul class="nav nav-pills mb-3 flex-wrap">
     @foreach (var (key, label) in tabs)
     {
-        <li class="nav-item"><a class="nav-link @(f.Tab == key ? "active" : "")" asp-action="Index" asp-route-tab="@key">@label</a></li>
+        <li class="nav-item"><a class="nav-link @(f.Tab == key ? "active" : "")" asp-action="Index" asp-route-tab="@key">@label
+            @if (key == "ready" && ready.Count > 0) { <span class="badge rounded-pill text-bg-danger ms-1">@ready.Count</span> }</a></li>
     }
 </ul>
 
+@if (f.Tab == "ready")
+{
+    @* ---- Validated interview scores, no recommendation yet: the next step after score validation (9 Nov 2026).
+            The Recruitment Officer ticks who to proceed with; GRSMS then starts the hiring process for each one. *@
+    var shown = f.VacancyId is int onlyVacancy ? ready.Where(c => c.VacancyId == onlyVacancy).ToList() : ready.ToList();
+    var canProceed = User.IsInRole(Roles.RecruitmentOfficer) || User.IsInRole(Roles.HrManager);
+    <section class="next-step tone-offer">
+        <div class="next-step-text">
+            <span class="next-step-label">Your next step</span>
+            <h2>Choose the candidate(s) to proceed with</h2>
+            <p>These candidates' interview scores are validated, best score first for each vacancy. Tick who you want to take forward:
+               GRSMS starts the hiring process for each one (a draft recommendation and the background checks), and you then submit the
+               recommendation to the Head of Department.</p>
+        </div>
+    </section>
+    <form asp-action="Proceed" method="post" class="card glass">
+        <input type="hidden" name="vacancyId" value="@f.VacancyId" />
+        <div class="card-body">
+            @if (f.VacancyId is not null)
+            {
+                <p class="small mb-2">Showing one vacancy. <a asp-action="Index" asp-route-tab="ready">Show all vacancies</a></p>
+            }
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead><tr>@if (canProceed) { <th style="width:3rem"><span class="visually-hidden">Proceed</span></th> }<th>#</th><th>Candidate</th><th>Vacancy</th><th>Department</th><th class="text-end">Interview score</th><th class="text-center">Validated rounds</th><th>Validated</th><th></th></tr></thead>
+                    <tbody>
+                    @if (shown.Count == 0)
+                    {
+                        <tr><td colspan="9" class="text-center text-body-secondary py-4">No candidate is waiting. Candidates appear here once their interview scores are validated.</td></tr>
+                    }
+                    @{ var rank = 0; string? lastVacancy = null; }
+                    @foreach (var c in shown)
+                    {
+                        rank = c.VacancyNumber == lastVacancy ? rank + 1 : 1;
+                        lastVacancy = c.VacancyNumber;
+                        <tr>
+                            @if (canProceed)
+                            {
+                                <td><input type="checkbox" class="form-check-input" name="applicationIds" value="@c.ApplicationId" id="proceed-@c.ApplicationId" aria-label="Proceed with @c.ApplicantName" /></td>
+                            }
+                            <td class="text-body-secondary">@rank</td>
+                            <td><label for="proceed-@c.ApplicationId" class="fw-bold mb-0">@c.ApplicantName</label><div class="small text-body-secondary">@c.ApplicationNumber</div></td>
+                            <td>@c.VacancyNumber<div class="small text-body-secondary">@c.JobTitle</div></td>
+                            <td>@c.DepartmentName</td>
+                            <td class="text-end fs-5 fw-bold">@(c.InterviewAverage is decimal a ? a.ToString("0.0") : "—")</td>
+                            <td class="text-center">@c.ValidatedRounds</td>
+                            <td class="small text-nowrap">@c.LastValidatedAt.ToString("dd MMM yyyy")</td>
+                            <td class="text-end"><a asp-action="Case" asp-route-id="@c.ApplicationId" class="btn btn-sm btn-outline-secondary">Hiring case</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            @if (canProceed && shown.Count > 0)
+            {
+                <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+                    <button type="submit" class="btn btn-primary" data-confirm="Start the hiring process for the ticked candidate(s)? A draft recommendation and the background checks are opened for each.">
+                        <i class="fa-solid fa-play"></i>Proceed with the selected candidates
+                    </button>
+                    <span class="small text-body-secondary">Candidates you don't tick stay here.</span>
+                </div>
+            }
+        </div>
+    </form>
+}
+else
+{
 <form method="get" class="card glass mb-3">
     <input type="hidden" name="tab" value="@f.Tab" />
     <div class="card-body row g-2 align-items-end">
@@ -52,11 +122,11 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover">
-                <thead><tr><th>Reference</th><th>Candidate</th><th>Vacancy</th><th>Department</th><th class="text-end">Salary (GHS / month)</th><th>Start</th><th>Status</th><th>Offer</th></tr></thead>
+                <thead><tr><th>Reference</th><th>Candidate</th><th>Vacancy</th><th>Department</th><th class="text-end">Interview score</th><th class="text-end">Salary (GHS / month)</th><th>Start</th><th>Status</th><th>Offer</th></tr></thead>
                 <tbody>
                 @if (Model.Count == 0)
                 {
-                    <tr><td colspan="8" class="text-center text-body-secondary py-4">@(f.Tab == "awaiting" ? "Nothing is waiting for your decision." : "Nothing here.")</td></tr>
+                    <tr><td colspan="9" class="text-center text-body-secondary py-4">@(f.Tab == "awaiting" ? "Nothing is waiting for your decision." : "Nothing here.")</td></tr>
                 }
                 @foreach (var r in Model)
                 {
@@ -65,6 +135,7 @@
                         <td>@r.ApplicantName</td>
                         <td>@r.VacancyNumber<div class="small text-body-secondary">@r.JobTitle</div></td>
                         <td>@r.DepartmentName<div class="small text-body-secondary">@r.DivisionName</div></td>
+                        <td class="text-end fw-semibold">@(r.InterviewAverage is decimal ia ? ia.ToString("0.0") : "—")</td>
                         <td class="text-end">@r.ProposedSalary.ToString("N2")</td>
                         <td class="small text-nowrap">@r.ProposedStartDate.ToString("dd MMM yyyy")</td>
                         <td><span class="badge rounded-pill @(r.Status == HiringStatus.Approved ? "badge-soft-success" : r.Status is HiringStatus.Rejected or HiringStatus.Withdrawn ? "badge-soft-secondary" : "badge-soft-warning")">@r.Status.DisplayName()</span></td>
@@ -76,3 +147,4 @@
         </div>
     </div>
 </div>
+}

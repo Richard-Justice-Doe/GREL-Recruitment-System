@@ -46,8 +46,8 @@
         DashboardTaskTarget.Request => Url.Action("Details", "RecruitmentRequests", new { id = t.Id }),
         DashboardTaskTarget.Vacancy => Url.Action("Details", "Vacancies", new { id = t.Id }),
         DashboardTaskTarget.Shortlist => Url.Action("Vacancy", "Shortlisting", new { id = t.Id }),
-        DashboardTaskTarget.Interview => Url.Action("Details", "Interviews", new { id = t.Id }),
-        DashboardTaskTarget.Hiring => Url.Action("Case", "Hiring", new { id = t.Id }),
+        DashboardTaskTarget.Interview or DashboardTaskTarget.InterviewValidation => Url.Action("Details", "Interviews", new { id = t.Id }),
+        DashboardTaskTarget.Hiring or DashboardTaskTarget.HiringRecommendation => Url.Action("Case", "Hiring", new { id = t.Id }),
         DashboardTaskTarget.Onboarding => Url.Action("Details", "Onboarding", new { id = t.Id }),
         DashboardTaskTarget.NewOnboarding => Url.Action("Start", "Onboarding", new { id = t.Id }),
         _ => Url.Action("Create", "Vacancies", new { requestId = t.Id })
@@ -61,7 +61,9 @@
         DashboardTaskTarget.NewVacancyForRequest => ("tone-hire", "Vacancy", "Create the vacancy"),
         DashboardTaskTarget.Shortlist => ("tone-hire", "Shortlist", "Open shortlist"),
         DashboardTaskTarget.Interview => ("tone-interview", "Interview", "Open scorecard"),
+        DashboardTaskTarget.InterviewValidation => ("tone-interview", "Score validation", "Check the scores"),
         DashboardTaskTarget.Hiring => ("tone-offer", "Hiring decision", "Open hiring case"),
+        DashboardTaskTarget.HiringRecommendation => ("tone-offer", "Ready for hiring", "Decide"),
         DashboardTaskTarget.NewOnboarding => ("tone-onboard", "Onboarding", "Start onboarding"),
         _ => ("tone-onboard", "Onboarding", "Open checklist")
     };

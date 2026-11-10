@@ -115,8 +115,72 @@ public class InterviewWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWeb
         })).StatusCode);
         Assert.Contains("88.0/100", await panel.GetStringAsync(interviewUrl)); // 4/5×60 + 5/5×40
 
-        // ---- The HOD reviews the results
+        // ---- The HOD scores too; the results show no score until the Recruitment Officer validates (9 Nov 2026)
         var hodClient = await SignedInAsync("i.hod@grel.test");
+        Assert.DoesNotContain("88.0", await hodClient.GetStringAsync($"/Interviews/Results/{vacancyId}"));
+        Assert.Equal(HttpStatusCode.Redirect, (await hodClient.PostFormAsync(interviewUrl, $"/Interviews/Scorecard/{interviewId}", new()
+        {
+            [$"ratings[{criteria[0]}]"] = "4", [$"ratings[{criteria[1]}]"] = "5",
+            ["recommendation"] = "Recommend", ["strengths"] = "Good field experience"
+        })).StatusCode);
+
+        // ---- The vacancy's Recruitment Officer (not on the panel) is told, checks and validates the scores
+        var validatorPage = await recruiter.GetStringAsync(interviewUrl);
+        Assert.Contains("Check and validate the scores", validatorPage);
+        var validated = await recruiter.PostFormAsync(interviewUrl, $"/Interviews/Validate/{interviewId}", new()
+        {
+            ["note"] = "Checked."
+        });
+        Assert.Equal(HttpStatusCode.Redirect, validated.StatusCode);
+
+        // ---- Validation leads straight to hiring: the hiring case, with the scores and "write the hiring recommendation"
+        // The Recruitment Officer lands on "Ready to recommend" for the vacancy and chooses who to proceed with.
+        Assert.Equal($"/Hiring?tab=ready&vacancyId={vacancyId}", validated.Headers.Location!.ToString());
+        var readyPage = await recruiter.GetStringAsync($"/Hiring?tab=ready&vacancyId={vacancyId}");
+        Assert.Contains("Esi Mensah", readyPage);
+        Assert.Contains("Proceed with the selected candidates", readyPage);
+        var hiringCase = await recruiter.GetStringAsync($"/Hiring/Case/{applicationId}");
+        Assert.Contains("Proceed with this candidate", hiringCase);
+        Assert.Contains("88.0", hiringCase);
+
+        // Proceeding starts the hiring process: a draft recommendation to review and submit, and the background checks.
+        var proceeded = await recruiter.PostFormAsync($"/Hiring?tab=ready&vacancyId={vacancyId}", "/Hiring/Proceed", new()
+        {
+            ["applicationIds"] = applicationId.ToString(), ["vacancyId"] = vacancyId.ToString()
+        });
+        Assert.Equal(HttpStatusCode.Redirect, proceeded.StatusCode);
+        var draftCase = await recruiter.GetStringAsync($"/Hiring/Case/{applicationId}");
+        Assert.Contains("Referees named by the candidate", draftCase);
+        Assert.Contains("Approve hire", draftCase);
+
+        // ---- The Recruitment Officer approves the hire: no HOD, HR Manager or MD step (9 Nov 2026)
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync($"/Hiring/Case/{applicationId}", $"/Hiring/Recommend/{applicationId}", new()
+        {
+            ["salary"] = "6500", ["startDate"] = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"),
+            ["justification"] = "Interview results 88.0/100; references from two outgrower schemes confirm field experience."
+        })).StatusCode);
+        Assert.Contains("Approved by", await recruiter.GetStringAsync($"/Hiring/Case/{applicationId}"));
+
+        // ---- Background checks cleared (as the recruiter would record them), the offer goes out and the candidate accepts
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            foreach (var check in db.BackgroundChecks.Where(c => c.JobApplicationId == applicationId)) check.Status = Grsms.Domain.Hiring.CheckStatus.Cleared;
+            await db.SaveChangesAsync();
+        }
+        Assert.Contains("Send the offer", await recruiter.GetStringAsync($"/Hiring/Case/{applicationId}"));
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync($"/Hiring/Case/{applicationId}", $"/Hiring/SendOffer/{applicationId}", new())).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await applicant.PostFormAsync($"/MyApplications/Offer/{applicationId}", $"/MyApplications/RespondOffer/{applicationId}", new()
+        {
+            ["accept"] = "true", ["confirm"] = "true"
+        })).StatusCode);
+
+        // ---- The hiring case now offers the click to proceed to onboarding
+        var acceptedCase = await recruiter.GetStringAsync($"/Hiring/Case/{applicationId}");
+        Assert.Contains("Click to proceed to onboarding", acceptedCase);
+        Assert.Contains($"/Onboarding/Start/{applicationId}", acceptedCase);
+
+        // ---- The HOD reviews the results
         var results = await hodClient.GetStringAsync($"/Interviews/Results/{vacancyId}");
         Assert.Contains("Esi Mensah", results);
         Assert.Contains("88.0", results);

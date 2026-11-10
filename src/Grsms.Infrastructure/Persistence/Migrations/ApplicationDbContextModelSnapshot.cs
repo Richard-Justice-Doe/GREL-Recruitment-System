@@ -1333,6 +1333,16 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("VacancyId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("ValidatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ValidatedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("ValidationNote")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("char(36)");
@@ -1391,6 +1401,22 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    b.Property<string>("Attendance")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("AttendanceNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime?>("AttendanceRecordedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AttendanceRecordedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<int>("InterviewId")
                         .HasColumnType("int");
@@ -1451,6 +1477,16 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
+
+                    b.Property<string>("ReturnReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReturnedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ReturnedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Strengths")
                         .HasColumnType("text");

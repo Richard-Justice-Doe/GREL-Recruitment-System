@@ -14,12 +14,13 @@ namespace Grsms.Web.Controllers;
 [Authorize(Policy = Policies.Applications)]
 public class HiringController(HiringService hiring, Application.Onboarding.OnboardingService onboarding) : AppController
 {
-    /// <param name="filter">Tab "awaiting" (my decision), "approved", "offers" or "all", plus the report filters.</param>
+    /// <param name="filter">Tab "ready" (validated, to recommend), "awaiting" (my decision), "approved", "offers" or "all", plus the report filters.</param>
     public async Task<IActionResult> Index([FromQuery] HiringFilter filter, CancellationToken ct)
     {
         ViewBag.Filter = filter;
+        ViewBag.Ready = await hiring.ListReadyToRecommendAsync(ct: ct); // 9 Nov 2026: candidates with validated interview scores
         await LoadFilterListsAsync(filter.DivisionId, filter.DepartmentId, ct);
-        return View(await hiring.SearchAsync(filter, ct));
+        return View(filter.Tab == "ready" ? [] : await hiring.SearchAsync(filter, ct));
     }
 
     /// <param name="id">The application id.</param>
@@ -51,6 +52,33 @@ public class HiringController(HiringService hiring, Application.Onboarding.Onboa
     [HttpPost]
     public Task<IActionResult> WithdrawRecommendation(int id, string? reason, CancellationToken ct) =>
         Act(id, () => hiring.WithdrawRecommendationAsync(id, reason, ct), "Recommendation withdrawn.");
+
+    /// <summary>
+    /// Proceed with the ticked candidates (9 Nov 2026): the hiring process starts for each (draft recommendation + pending
+    /// background checks). From one hiring case it returns to that case; from the "Ready to recommend" list, to the first one.
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> Proceed(int[] applicationIds, int? vacancyId, CancellationToken ct)
+    {
+        var result = await hiring.ProceedAsync(applicationIds, ct);
+        if (!result.Succeeded)
+        {
+            Error(string.Join(" ", result.Errors));
+            return applicationIds.Length == 1
+                ? RedirectToAction(nameof(Case), new { id = applicationIds[0] })
+                : RedirectToAction(nameof(Index), new { tab = "ready", vacancyId });
+        }
+        Success(result.Value == 1
+            ? "Hiring process started: a draft recommendation and the background checks are ready. Review the draft and submit it to the Head of Department."
+            : $"Hiring process started for {result.Value} candidates. Review each draft recommendation and submit it to the Head of Department.");
+        return applicationIds.Length == 1
+            ? RedirectToAction(nameof(Case), new { id = applicationIds[0] })
+            : RedirectToAction(nameof(Index), new { tab = "awaiting" });
+    }
+
+    [HttpPost]
+    public Task<IActionResult> DiscardDraft(int id, CancellationToken ct) =>
+        Act(id, () => hiring.DiscardDraftAsync(id, ct), "Draft discarded. The candidate is back in \"Ready to recommend\".");
 
     [HttpPost]
     public Task<IActionResult> SendOffer(int id, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, CancellationToken ct) =>

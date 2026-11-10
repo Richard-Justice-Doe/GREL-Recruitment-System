@@ -175,14 +175,34 @@ public class DashboardService(
         tasks.AddRange(toScore.Items.Select(i => new DashboardTaskDto(DashboardTaskTarget.Interview, i.Id, $"{EnumText.Label(i.Type)}: {i.ApplicantName}",
             i.VacancyNumber, "Submit your scorecard", "Recruitment", i.Status, i.StartsAt)));
 
+        // Score validation (9 Nov 2026): every scorecard is in and the vacancy's Recruitment Officer checks them.
+        var toValidate = await interviews.ListAwaitingMyValidationAsync(ct);
+        taskTotal += toValidate.Count;
+        tasks.AddRange(toValidate.Take(TaskRows).Select(i => new DashboardTaskDto(DashboardTaskTarget.InterviewValidation, i.Id,
+            $"Validate the scores: {i.ApplicantName}", i.VacancyNumber, $"{EnumText.Label(i.Type)}, round {i.Round}: all {i.ScorecardsIn} scorecards are in",
+            "Recruitment", i.Status, i.StartsAt)));
+
         // ------------------------------------------------------------ Hiring (Phase 8): recommendations waiting for my decision
         if (access.Vacancies)
         {
             var decisions = await hiring.AwaitingMyDecisionAsync(ct);
             taskTotal += decisions.Count;
             tasks.AddRange(decisions.Take(TaskRows).Select(h => new DashboardTaskDto(DashboardTaskTarget.Hiring, h.ApplicationId,
-                $"Hire {h.ApplicantName}", h.Number, h.Status == Domain.Hiring.HiringStatus.AwaitingHod ? "Endorse or not" : "Approve or reject",
+                $"Hire {h.ApplicantName}", h.Number, h.Status switch
+                {
+                    Domain.Hiring.HiringStatus.Draft => "Review the draft recommendation and submit it to the HOD",
+                    Domain.Hiring.HiringStatus.AwaitingHod => "Endorse or not",
+                    _ => "Approve or reject"
+                },
                 "Recruitment", h.Status, h.CreatedAt)));
+
+            // 9 Nov 2026: interview scores validated, so the next step is the hiring recommendation (vacancy's recruiter).
+            var toRecommend = await hiring.ListReadyToRecommendAsync(onlyMine: true, ct);
+            taskTotal += toRecommend.Count;
+            tasks.AddRange(toRecommend.Take(TaskRows).Select(r => new DashboardTaskDto(DashboardTaskTarget.HiringRecommendation, r.ApplicationId,
+                $"Proceed with {r.ApplicantName}?", r.VacancyNumber,
+                $"Interview scores validated{(r.InterviewAverage is decimal a ? $" ({a:0.0}/100)" : "")}: decide whether to start the hiring process",
+                "Recruitment", Domain.Applications.ApplicationStatus.Interview, r.LastValidatedAt)));
         }
 
         // ------------------------------------------------------------ Onboarding (Phase 9): accepted offers to start (HR), my checklist items (anyone)

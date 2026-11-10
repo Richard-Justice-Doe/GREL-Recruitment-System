@@ -1,5 +1,6 @@
 using Grsms.Domain.Applications;
 using Grsms.Domain.Hiring;
+using Grsms.Domain.Interviews;
 
 namespace Grsms.Application.Hiring;
 
@@ -32,6 +33,12 @@ public record HiringCaseDto
     public int? ScreeningScore { get; init; }
     public decimal? InterviewAverage { get; init; }
     public int CompletedInterviews { get; init; }
+
+    /// <summary>
+    /// Every interview or assessment round with its scores, so the recommendation, the approvals and the offer are made with the
+    /// panel's scores in view (9 Nov 2026). Scores are filled only for rounds the Recruitment Officer has validated.
+    /// </summary>
+    public IReadOnlyList<InterviewRoundScoresDto> InterviewRounds { get; init; } = [];
     public decimal? VacancySalaryMin { get; init; }
     public decimal? VacancySalaryMax { get; init; }
 
@@ -49,6 +56,9 @@ public record HiringCaseDto
     public bool HrNeedsOverride { get; init; }
     public bool CanMdDecide { get; init; }
     public bool CanWithdrawRecommendation { get; init; }
+
+    /// <summary>A draft recommendation (hiring process started with "Proceed") that the recruiter can review and submit to the HOD, or discard.</summary>
+    public bool CanSubmitDraft { get; init; }
     public bool CanOffer { get; init; }
     public string? OfferBlockedReason { get; init; }
     public bool CanWithdrawOffer { get; init; }
@@ -64,13 +74,28 @@ public class HiringFilter
     public int? DepartmentId { get; set; }
     public DateOnly? From { get; set; }
     public DateOnly? To { get; set; }
+
+    /// <summary>"Ready to recommend" tab: only this vacancy's candidates (where score validation leads).</summary>
+    public int? VacancyId { get; set; }
 }
 
 public record HiringListItemDto(int RecommendationId, string Number, int ApplicationId, string ApplicantName, string VacancyNumber,
     string JobTitle, string DivisionName, string DepartmentName, HiringStatus Status, decimal ProposedSalary, DateOnly ProposedStartDate,
-    DateTime CreatedAt, OfferStatus? OfferStatus);
+    DateTime CreatedAt, OfferStatus? OfferStatus, decimal? InterviewAverage = null);
 
 /// <summary>The offer as the candidate sees it (the offer letter).</summary>
 public record MyOfferDto(int Id, string Number, string CandidateName, string JobTitle, string DepartmentName, string SiteName, string? ReportingTo,
     decimal MonthlySalary, DateOnly StartDate, DateOnly ExpiresOn, string? Terms, OfferStatus Status, DateTime SentAt, DateTime? RespondedAt,
     bool CanRespond);
+
+/// <summary>One interview round on the hiring case. <see cref="Scores"/> is empty until the scores are validated.</summary>
+public record InterviewRoundScoresDto(int InterviewId, int Round, InterviewType Type, DateTime StartsAt, InterviewStatus Status,
+    int ScorecardsIn, int PanelSize, decimal? Average, string? ValidatedBy, DateTime? ValidatedAt, string? WaitingFor,
+    IReadOnlyList<PanelScoreDto> Scores);
+
+/// <summary>One panel member's validated score on the hiring case.</summary>
+public record PanelScoreDto(string PanelName, bool IsChair, decimal Score, PanelRecommendation Recommendation, string? Strengths, string? Concerns);
+
+/// <summary>A candidate whose interview scores are validated and who is ready for a hiring recommendation (9 Nov 2026).</summary>
+public record ReadyToRecommendDto(int ApplicationId, string ApplicationNumber, string ApplicantName, int VacancyId, string VacancyNumber,
+    string JobTitle, string DepartmentName, decimal? InterviewAverage, int ValidatedRounds, DateTime LastValidatedAt);

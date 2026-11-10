@@ -37,21 +37,35 @@ On the session page, the scorecard **opens when the session starts**:
 
 GRSMS works out the **weighted score out of 100**: each rating ÷ 5 × the criterion's weight, added up. For example, 4/5 on a 60-weight criterion plus 5/5 on a 40-weight one gives 48 + 40 = **88**.
 
-**Independent scoring:** panel members see the other scorecards **only after submitting their own**, so nobody is swayed. You can update your scorecard until the session is marked completed.
+**Independent scoring:** panel members see the other scorecards **only after submitting their own**, so nobody is swayed. You can update your scorecard until the Recruitment Officer validates the scores.
 
-## 3. Close the session (Recruitment Officer or HR Manager)
+## 3. Score validation (Recruitment Officer)
+
+*Added 9 November 2026.* Every set of scores is checked by a Recruitment Officer **before** anyone else relies on it.
+
+1. When **every panel member who took part** has submitted, the session shows **Awaiting score validation** and the vacancy's Recruitment Officer is emailed. It also appears in their *Your to-dos* on Home, in the red number next to *Interviews*, and on the **To validate** tab.
+2. The Recruitment Officer opens the session and checks each scorecard: every criterion rated, comments that support the ratings, concerns given where the applicant is not recommended.
+3. Then either:
+   * **Validate the scores** (optional note). The session becomes **Completed (scores validated)**, the scores are final, and the panel and the HOD are emailed. **GRSMS then takes you straight to the candidate's hiring case** ([17 Hiring](17-hiring.md)): the next step is the hiring recommendation; or
+   * **Return a scorecard** to its panel member with what needs correcting. They are emailed the reason, see *Your next step: correct your scorecard*, and submit it again; the session then comes back for validation.
+4. **A panel member who did not take part?** Mark them **Absent** or **Excused** with a reason, so their scorecard is not waited for (Undo is possible). **The Head of Department cannot be marked absent**: their scorecard is required; reschedule if they could not attend.
+
+**Rules:** the Recruitment Officer **never changes scores**. **Any Recruitment Officer** can validate, also one who sat on the panel, but nobody can return their own scorecard. If the vacancy's owner is not a Recruitment Officer, every Recruitment Officer is emailed and gets the to-do. HR Managers do not validate.
+
+**Until the scores are validated** they are seen only by panel members who have submitted their own and by Recruitment Officers. The HOD (unless on the panel and scored), the MD, HR Managers and HR Administrators, the **interview results** and the **hiring case** show validated scores only, and a **hiring recommendation needs at least one validated interview**.
+
+## 4. Other actions (Recruitment Officer or HR Manager)
 
 | Action | When | Effect |
 |---|---|---|
-| **Mark completed** | After it started, with at least one scorecard | Scorecards become final |
 | **Reschedule** | Before any scorecard is in | New time and place; the applicant and panel are emailed |
 | **Applicant did not attend** | After it started | Recorded on the application's history |
-| **Cancel** | Any time while scheduled, with a reason | The applicant and panel are emailed |
+| **Cancel** | Any time before the scores are validated, with a reason | The applicant and panel are emailed |
 
-## 4. Review the results (HOD, recruiters, HR Manager, MD)
+## 5. Review the results (HOD, recruiters, HR Manager, MD)
 
-* **Session page:** every scorecard side by side, with ratings per criterion, weighted scores, recommendations and comments, plus the panel average. The department's HOD, Recruitment Officers, HR Managers, the MD and HR Administrators always see all scorecards.
-* **Interview results** (from the session page, the application page or the shortlisting board): every applicant for the vacancy who had a session, ranked by their **average interview score**, with their screening score, each round and how the panel recommended. This is the starting point for the hiring recommendation (Phase 8).
+* **Session page:** every scorecard side by side, with ratings per criterion, weighted scores, recommendations and comments, plus the panel average and who validated the scores.
+* **Interview results** (from the session page, the application page or the shortlisting board): every applicant for the vacancy who had a session, ranked by their **average validated interview score**, with their screening score, each round and how the panel recommended. A session still awaiting validation shows no score. This is the starting point for the hiring recommendation (Phase 8).
 
 ## What the applicant sees
 
@@ -59,9 +73,11 @@ The date, time, place, how long it takes and your instructions, on their tracker
 
 ## Who can do what
 
-| | Recruitment Officer / HR Manager | Panel member | Department HOD | MD, HR Admin |
-|---|:-:|:-:|:-:|:-:|
-| Schedule, reschedule, complete, cancel, record no-show | ✅ (not for their own application) | | | |
-| Submit a scorecard | if on the panel | ✅ | ✅ (always on the panel) | if on the panel |
-| See all scorecards of a session | ✅ | after submitting their own | ✅ | ✅ |
-| Interview results per vacancy | ✅ | | ✅ | ✅ |
+| | Recruitment Officer | HR Manager | Panel member | Department HOD | MD, HR Admin |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Schedule, reschedule, cancel, record no-show | ✅ (not for their own application) | ✅ (not for their own application) | | | |
+| Submit a scorecard | if on the panel | if on the panel | ✅ | ✅ (always on the panel) | if on the panel |
+| Validate scores, return a scorecard (not their own), mark a member absent | ✅ | | | | |
+| See all scorecards before validation | ✅ | if on the panel and scored | after submitting their own | if scored | if on the panel and scored |
+| See all scorecards once validated | ✅ | ✅ | after submitting their own | ✅ | ✅ |
+| Interview results per vacancy (validated scores) | ✅ | ✅ | | ✅ | ✅ |

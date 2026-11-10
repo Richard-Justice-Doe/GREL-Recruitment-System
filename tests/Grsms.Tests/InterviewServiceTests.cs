@@ -14,20 +14,21 @@ namespace Grsms.Tests;
 /// <summary>
 /// Interviews, assessments and scorecards (Module 7): scheduling rules (shortlisted only, panel with the HOD, criteria
 /// adding up to 100), invitations, scorecards (timing, completeness, weighted score, independent scoring), closing a
-/// session, the applicant's view, results and lists.
+/// session, score validation by a Recruitment Officer not on the panel (9 Nov 2026), the applicant's view, results and lists.
 /// </summary>
 public class InterviewServiceTests : IAsyncLifetime
 {
     private const int Apm = 31, Finance = 3;
 
     private readonly TestDatabase _db = new();
-    private string _hod = "", _otherHod = "", _ro = "", _hrm = "", _engineer = "", _candidate = "", _candidate2 = "";
+    private string _hod = "", _otherHod = "", _ro = "", _ro2 = "", _hrm = "", _engineer = "", _candidate = "", _candidate2 = "";
 
     public async Task InitializeAsync()
     {
         _hod = await _db.CreateUserAsync("hod@grel.test", Apm, Roles.HeadOfDepartment);
         _otherHod = await _db.CreateUserAsync("finhod@grel.test", Finance, Roles.HeadOfDepartment);
         _ro = await _db.CreateUserAsync("ro@grel.test", 1, Roles.RecruitmentOfficer);
+        _ro2 = await _db.CreateUserAsync("ro2@grel.test", 1, Roles.RecruitmentOfficer); // validates: not on the panels below
         _hrm = await _db.CreateUserAsync("hrm@grel.test", 1, Roles.HrManager);
         _engineer = await _db.CreateUserAsync("eng@grel.test", Apm, Roles.Employee);
         _candidate = await _db.CreateUserAsync("ama@mail.test", null, Roles.Candidate);
@@ -49,6 +50,7 @@ public class InterviewServiceTests : IAsyncLifetime
 
     private void As(string userId, params string[] roles) => _db.CurrentUser.SignInAs(userId, userId, roles);
     private void AsRecruiter() => As(_ro, Roles.RecruitmentOfficer);
+    private void AsValidator() => As(_ro2, Roles.RecruitmentOfficer);
 
     private async Task<T> Run<T>(Func<InterviewService, Task<T>> call)
     {
@@ -188,11 +190,11 @@ public class InterviewServiceTests : IAsyncLifetime
         var engineerView = (await Run(s => s.GetDetailsAsync(id)))!;
         Assert.Equal(60.0m, engineerView.MyScorecard!.WeightedScore);
 
-        // The department's HOD reviews every scorecard, even before submitting their own.
+        // Before validation, the HOD (on the panel) sees the others only after submitting their own, like everyone on it.
         As(_hod, Roles.HeadOfDepartment);
         var hodView = (await Run(s => s.GetDetailsAsync(id)))!;
-        Assert.Single(hodView.Scorecards);
-        Assert.False(hodView.ScorecardsHidden);
+        Assert.True(hodView.ScorecardsHidden);
+        Assert.Empty(hodView.Scorecards);
 
         // Another panel member without a scorecard cannot see the others.
         As(_ro, Roles.Employee); // signed in only as staff, not as a reviewer
@@ -205,20 +207,22 @@ public class InterviewServiceTests : IAsyncLifetime
         Assert.Equal(2, after.Scorecards.Count);
         Assert.Equal(80.0m, after.AverageScore);
 
-        // Scorecards can be updated until the session is completed.
+        // Scorecards can be updated until the scores are validated.
         Assert.True((await ScoreAsync(id, _engineer, 4)).Succeeded);
-        AsRecruiter();
-        Assert.True((await Run(s => s.CompleteAsync(id))).Succeeded);
+        Assert.True((await ScoreAsync(id, _hod, 4)).Succeeded);
+        AsValidator();
+        Assert.True((await Run(s => s.ValidateAsync(id, null))).Succeeded);
         Assert.False((await ScoreAsync(id, _engineer, 1)).Succeeded);
         Assert.Equal(InterviewStatus.Completed, (await Db(db => db.Interviews.SingleAsync(i => i.Id == id))).Status);
     }
 
     [Fact]
-    public async Task Closing_rules_cancel_needs_a_reason_and_completing_needs_a_scorecard()
+    public async Task Closing_rules_cancel_needs_a_reason_and_validating_needs_the_scorecards()
     {
         var future = await ScheduledAsync(await ApplicationAsync(_candidate, "Ama"), DateTime.UtcNow.AddDays(3));
+        AsValidator();
+        Assert.False((await Run(s => s.ValidateAsync(future, null))).Succeeded); // not started
         AsRecruiter();
-        Assert.False((await Run(s => s.CompleteAsync(future))).Succeeded); // not started
         Assert.False((await Run(s => s.NoShowAsync(future))).Succeeded);
         Assert.False((await Run(s => s.CancelAsync(future, ""))).Succeeded);
         Assert.True((await Run(s => s.CancelAsync(future, "Panel chair unavailable"))).Succeeded);
@@ -226,8 +230,9 @@ public class InterviewServiceTests : IAsyncLifetime
         Assert.False((await Run(s => s.CancelAsync(future, "Again"))).Succeeded); // already closed
 
         var now = await ScheduledAsync(await ApplicationAsync(_candidate2, "Kofi"));
+        AsValidator();
+        Assert.False((await Run(s => s.ValidateAsync(now, null))).Succeeded); // no scorecards yet
         AsRecruiter();
-        Assert.False((await Run(s => s.CompleteAsync(now))).Succeeded); // no scorecards yet
         Assert.True((await Run(s => s.NoShowAsync(now))).Succeeded);
         var history = await Db(db => db.ApplicationActions.Where(a => a.Action == ApplicationAction.InterviewNoShow).CountAsync());
         Assert.Equal(1, history);
@@ -258,6 +263,25 @@ public class InterviewServiceTests : IAsyncLifetime
         Assert.True((await ScoreAsync(amaInterview, _hod, 3)).Succeeded);
         Assert.True((await ScoreAsync(kofiInterview, _hod, 5)).Succeeded);
 
+        // The engineer is on both panels and has two scorecards to do; the HOD has none left.
+        As(_engineer, Roles.Employee);
+        Assert.Equal(2, (await Run(s => s.SearchAsync(new InterviewFilter { Tab = "mine" }))).TotalCount);
+        Assert.Equal(2, await Run(s => s.CountMyPendingScorecardsAsync()));
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.Equal(0, await Run(s => s.CountMyPendingScorecardsAsync()));
+
+        // Not validated yet: the results show no scores.
+        Assert.All((await Run(s => s.GetResultsAsync(_vacancyId)))!.Value.Results, r => Assert.Null(r.OverallAverage));
+
+        // The engineer and the recruiter did not take part; the validator records that and validates both sessions.
+        AsValidator();
+        foreach (var interview in new[] { amaInterview, kofiInterview })
+        {
+            foreach (var member in new[] { _engineer, _ro })
+                Assert.True((await Run(s => s.SetAttendanceAsync(interview, member, PanelAttendance.Excused, "On site visit"))).Succeeded);
+            Assert.True((await Run(s => s.ValidateAsync(interview, null))).Succeeded);
+        }
+
         As(_hod, Roles.HeadOfDepartment);
         var results = (await Run(s => s.GetResultsAsync(_vacancyId)))!.Value.Results;
         Assert.Equal(["Kofi", "Ama"], results.Select(r => r.ApplicantName).ToArray());
@@ -267,17 +291,132 @@ public class InterviewServiceTests : IAsyncLifetime
         Assert.Null(await Run(s => s.GetResultsAsync(_vacancyId)));
         Assert.Null(await Run(s => s.GetDetailsAsync(amaInterview)));
 
-        // The engineer is on both panels and has two scorecards to do; the HOD has none left.
-        As(_engineer, Roles.Employee);
-        Assert.Equal(2, (await Run(s => s.SearchAsync(new InterviewFilter { Tab = "mine" }))).TotalCount);
-        Assert.Equal(2, await Run(s => s.CountMyPendingScorecardsAsync()));
-        As(_hod, Roles.HeadOfDepartment);
-        Assert.Equal(0, await Run(s => s.CountMyPendingScorecardsAsync()));
-
         // Reviewers see every session; filters work.
         AsRecruiter();
         Assert.Equal(2, (await Run(s => s.SearchAsync(new InterviewFilter { Tab = "all", DivisionId = 2, DepartmentId = Apm }))).TotalCount);
         Assert.Equal(0, (await Run(s => s.SearchAsync(new InterviewFilter { Tab = "all", DivisionId = 1 }))).TotalCount);
-        Assert.Equal(2, (await Run(s => s.SearchAsync(new InterviewFilter { Tab = "upcoming", VacancyId = _vacancyId }))).TotalCount);
+        Assert.Equal(2, (await Run(s => s.SearchAsync(new InterviewFilter { Tab = "all", VacancyId = _vacancyId, Status = InterviewStatus.Completed }))).TotalCount);
+        Assert.Equal(0, (await Run(s => s.SearchAsync(new InterviewFilter { Tab = "upcoming", VacancyId = _vacancyId }))).TotalCount); // validated, so no longer upcoming
+    }
+
+    // ------------------------------------------------------------------ score validation (9 Nov 2026)
+
+    [Fact]
+    public async Task All_scorecards_go_to_the_recruitment_officer_who_validates_or_returns_one_before_anyone_else_sees_them()
+    {
+        var app = await ApplicationAsync(_candidate, "Ama");
+        var id = await ScheduledAsync(app); // panel: HOD, engineer, recruiter (_ro, the vacancy's owner)
+
+        Assert.True((await ScoreAsync(id, _engineer, 3)).Succeeded);
+        Assert.True((await ScoreAsync(id, _ro, 4)).Succeeded);
+        Assert.Equal(InterviewStatus.Scheduled, (await Db(db => db.Interviews.SingleAsync(i => i.Id == id))).Status); // HOD still to score
+        AsValidator();
+        var waiting = (await Run(s => s.GetDetailsAsync(id)))!;
+        Assert.False(waiting.CanValidate);
+        Assert.Contains("from hod.", waiting.ValidationBlockedReason);
+
+        // The last scorecard moves it to "awaiting validation" and emails the vacancy's Recruitment Officer.
+        Assert.True((await ScoreAsync(id, _hod, 5)).Succeeded);
+        Assert.Equal(InterviewStatus.AwaitingValidation, (await Db(db => db.Interviews.SingleAsync(i => i.Id == id))).Status);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ro@grel.test") && m.Contains("Scores ready to validate"));
+
+        // Nobody off the panel except Recruitment Officers sees the scores yet: not the HR Manager, not the results.
+        As(_hrm, Roles.HrManager);
+        var hrView = (await Run(s => s.GetDetailsAsync(id)))!;
+        Assert.True(hrView.ScorecardsHidden);
+        Assert.Null(hrView.AverageScore);
+        Assert.Null((await Run(s => s.GetResultsAsync(_vacancyId)))!.Value.Results.Single().OverallAverage);
+
+        // Only Recruitment Officers validate: not the HR Manager. One who sat on the panel (_ro) may validate too,
+        // but never returns their own scorecard.
+        Assert.False((await Run(s => s.ValidateAsync(id, null))).Succeeded);
+        AsRecruiter();
+        Assert.True((await Run(s => s.GetDetailsAsync(id)))!.CanValidate);
+        Assert.False((await Run(s => s.ReturnScorecardAsync(id, _ro, "I would like to change my own ratings."))).Succeeded);
+
+        // The validator returns the engineer's scorecard: it no longer counts, and the engineer is asked to correct it.
+        AsValidator();
+        Assert.True((await Run(s => s.GetDetailsAsync(id)))!.CanValidate);
+        Assert.False((await Run(s => s.ReturnScorecardAsync(id, _engineer, "Fix"))).Succeeded); // reason too short
+        Assert.True((await Run(s => s.ReturnScorecardAsync(id, _engineer, "No comments support the low communication rating."))).Succeeded);
+        Assert.Equal(InterviewStatus.Scheduled, (await Db(db => db.Interviews.SingleAsync(i => i.Id == id))).Status);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: eng@grel.test") && m.Contains("Please correct your scorecard"));
+        Assert.False((await Run(s => s.ValidateAsync(id, null))).Succeeded);
+        As(_engineer, Roles.Employee);
+        Assert.Equal(1, await Run(s => s.CountMyPendingScorecardsAsync()));
+        Assert.True((await Run(s => s.GetDetailsAsync(id)))!.MyScorecardReturned);
+
+        // Corrected and submitted again: back to the validator, who validates.
+        Assert.True((await ScoreAsync(id, _engineer, 4)).Succeeded);
+        Assert.Equal(InterviewStatus.AwaitingValidation, (await Db(db => db.Interviews.SingleAsync(i => i.Id == id))).Status);
+        AsValidator();
+        Assert.True((await Run(s => s.ValidateAsync(id, "Checked against the panel notes."))).Succeeded);
+        var stored = await Db(db => db.Interviews.SingleAsync(i => i.Id == id));
+        Assert.Equal((InterviewStatus.Completed, _ro2, "Checked against the panel notes."), (stored.Status, stored.ValidatedByUserId, stored.ValidationNote));
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: hod@grel.test") && m.Contains("Scores validated"));
+
+        // Now final and visible: Technical/Communication/Safety all 4s = 80, 4s = 80, 5s = 100 → 86.7.
+        As(_hrm, Roles.HrManager);
+        var final = (await Run(s => s.GetDetailsAsync(id)))!;
+        Assert.Equal(3, final.Scorecards.Count);
+        Assert.Equal(86.7m, final.AverageScore);
+        Assert.Equal(86.7m, (await Run(s => s.GetResultsAsync(_vacancyId)))!.Value.Results.Single().OverallAverage);
+        Assert.False((await ScoreAsync(id, _engineer, 1)).Succeeded); // final
+        AsValidator();
+        Assert.False((await Run(s => s.ValidateAsync(id, null))).Succeeded); // already validated
+    }
+
+    [Fact]
+    public async Task When_the_vacancy_owner_is_not_a_recruitment_officer_every_recruitment_officer_is_asked_and_one_on_the_panel_can_validate()
+    {
+        var id = await ScheduledAsync(await ApplicationAsync(_candidate, "Ama"));
+        await Db(async db => { (await db.Vacancies.FindAsync(_vacancyId))!.RecruiterUserId = _hrm; return await db.SaveChangesAsync(); });
+        foreach (var member in new[] { _ro, _engineer, _hod }) // the HOD last: nobody is emailed about their own action
+            Assert.True((await ScoreAsync(id, member, 4)).Succeeded);
+
+        // Both Recruitment Officers are emailed and get the to-do; the page names no single validator.
+        var emails = _db.SentEmails();
+        Assert.Contains(emails, m => m.Contains("To: ro@grel.test") && m.Contains("Scores ready to validate"));
+        Assert.Contains(emails, m => m.Contains("To: ro2@grel.test") && m.Contains("Scores ready to validate"));
+        Assert.DoesNotContain(emails, m => m.Contains("To: hrm@grel.test") && m.Contains("Scores ready to validate"));
+        AsValidator();
+        Assert.Equal(1, await Run(s => s.CountAwaitingMyValidationAsync()));
+        Assert.Null((await Run(s => s.GetDetailsAsync(id)))!.ValidatorName);
+
+        // _ro sat on the panel and still validates.
+        AsRecruiter();
+        Assert.Equal(1, await Run(s => s.CountAwaitingMyValidationAsync()));
+        Assert.True((await Run(s => s.ValidateAsync(id, null))).Succeeded);
+        Assert.Equal(InterviewStatus.Completed, (await Db(db => db.Interviews.SingleAsync(i => i.Id == id))).Status);
+    }
+
+    [Fact]
+    public async Task A_member_who_did_not_take_part_can_be_excused_but_the_hod_never()
+    {
+        var id = await ScheduledAsync(await ApplicationAsync(_candidate, "Ama"));
+        Assert.True((await ScoreAsync(id, _hod, 4)).Succeeded);
+        Assert.True((await ScoreAsync(id, _ro, 4)).Succeeded);
+
+        AsValidator();
+        Assert.False((await Run(s => s.SetAttendanceAsync(id, _engineer, PanelAttendance.Excused, ""))).Succeeded);   // reason needed
+        Assert.False((await Run(s => s.SetAttendanceAsync(id, _ro, PanelAttendance.Absent, "Away"))).Succeeded);      // they scored
+        Assert.True((await Run(s => s.SetAttendanceAsync(id, _engineer, PanelAttendance.Excused, "Called to the plant"))).Succeeded);
+        Assert.Equal(InterviewStatus.AwaitingValidation, (await Db(db => db.Interviews.SingleAsync(i => i.Id == id))).Status);
+
+        // Undo puts the engineer's scorecard back on the list of those waited for.
+        Assert.True((await Run(s => s.SetAttendanceAsync(id, _engineer, PanelAttendance.NotRecorded, null))).Succeeded);
+        Assert.Equal(InterviewStatus.Scheduled, (await Db(db => db.Interviews.SingleAsync(i => i.Id == id))).Status);
+        Assert.True((await Run(s => s.SetAttendanceAsync(id, _engineer, PanelAttendance.Absent, "Did not come"))).Succeeded);
+        As(_engineer, Roles.Employee);
+        Assert.Equal(0, await Run(s => s.CountMyPendingScorecardsAsync()));
+
+        // The HOD's scorecard is required: on another session, they cannot be excused.
+        var other = await ScheduledAsync(await ApplicationAsync(_candidate2, "Kofi"));
+        AsValidator();
+        Assert.False((await Run(s => s.SetAttendanceAsync(other, _hod, PanelAttendance.Excused, "On leave"))).Succeeded);
+
+        Assert.True((await Run(s => s.ValidateAsync(id, null))).Succeeded);
+        As(_hrm, Roles.HrManager);
+        Assert.Equal(80.0m, (await Run(s => s.GetDetailsAsync(id)))!.AverageScore);
     }
 }

@@ -2,14 +2,15 @@
    no "Submit" button any more). The summary on top says what is still needed; HR's reasons are shown on each rejected document. *@
 @model DocumentChecklistDto
 @{
-    ViewData["Title"] = "My onboarding documents";
+    ViewData["Title"] = "My onboarding";
     int applicationId = ViewBag.ApplicationId;
 }
 
 <div class="page-header">
     <div>
-        <h1>My onboarding documents</h1>
-        <p>@Model.JobTitle · onboarding @Model.OnboardingNumber · <strong>@Model.Stage.DisplayName()</strong></p>
+        <h1>My onboarding</h1>
+        <p>Welcome to GREL! Everything you need to do before you start as <strong>@Model.JobTitle</strong>, in one place.</p>
+        <p class="small text-body-secondary mb-0">Onboarding @Model.OnboardingNumber · @Model.Stage.DisplayName() · <a asp-action="Appointment" asp-route-id="@applicationId">Appointment letter and first day</a> · <a asp-action="PersonalRecord" asp-route-id="@applicationId">Personal record</a></p>
     </div>
     <a asp-action="Details" asp-route-id="@applicationId" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>My application</a>
 </div>

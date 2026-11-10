@@ -824,3 +824,25 @@ dl.details-grid dd { margin: 0; }
     .hero-cta { width: 100%; justify-content: center; }
     .topbar .user-btn .user-name { display: none; }
 }
+
+/* ---------- Usability U2 (10 November 2026): phones ----------
+   .table-stack: on a phone each row becomes a small card, each cell labelled from its data-label.
+   .next-step-button: the next-step button sticks to the bottom of the screen on a phone, so it is always one tap away.
+   .doc-upload: large, easy file pickers for document uploads (the phone offers "take a photo" for picture types). */
+@media (max-width: 575.98px) {
+    .table-stack thead { display: none; }
+    .table-stack, .table-stack tbody, .table-stack tr, .table-stack td { display: block; width: 100%; }
+    .table-stack tr { border: 1px solid var(--bs-border-color); border-radius: 0.75rem; margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; }
+    .table-stack td { border: 0; padding: 0.2rem 0; display: flex; justify-content: space-between; gap: 1rem; text-align: right; }
+    .table-stack td::before { content: attr(data-label); font-weight: 600; color: var(--bs-secondary-color); text-align: left; }
+    .next-step { padding-bottom: 4.5rem; }
+    .next-step-button {
+        position: fixed; left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom)); z-index: 1030;
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.2);
+    }
+    .doc-upload .form-control, .doc-upload .btn { min-height: 48px; font-size: 1rem; }
+    .doc-upload .input-group { flex-wrap: wrap; }
+    .doc-upload .input-group > .form-control { width: 100%; border-radius: 0.75rem !important; margin-bottom: 0.5rem; }
+    .doc-upload .input-group > .btn { width: 100%; border-radius: 0.75rem !important; }
+}
+.doc-upload-preview { max-height: 6rem; max-width: 100%; border-radius: 0.5rem; margin-top: 0.5rem; display: block; }

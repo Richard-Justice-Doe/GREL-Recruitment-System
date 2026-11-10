@@ -110,13 +110,13 @@
 
             @if (d.CanAddFile)
             {
-                <form asp-controller="@controller" asp-action="UploadDocument" asp-route-id="@routeId" method="post" enctype="multipart/form-data" class="mt-2">
+                <form asp-controller="@controller" asp-action="UploadDocument" asp-route-id="@routeId" method="post" enctype="multipart/form-data" class="mt-2 doc-upload">
                     <input type="hidden" name="documentId" value="@d.Id" />
                     <div class="input-group input-group-sm">
-                        <input type="file" name="file" class="form-control" accept="@d.Accept" required aria-label="File for @d.Name" />
+                        <input type="file" name="file" class="form-control" accept="@d.Accept" required aria-label="File for @d.Name" data-upload-preview />
                         <button type="submit" class="btn btn-outline-primary"><i class="fa-solid fa-upload me-1"></i>@(d.Files.Count == 0 ? "Upload" : "Add a file")</button>
                     </div>
-                    <div class="form-text">@Types(d)</div>
+                    <div class="form-text">@(forEmployee ? "Take a photo or choose a file · " : "")@Types(d), up to 10 MB</div>
                 </form>
             }
             @if (d.CanMarkNotApplicable)

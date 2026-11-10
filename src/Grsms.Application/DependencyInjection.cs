@@ -42,6 +42,7 @@ public static class DependencyInjection
 
         // Phase 5: candidate profiles and applications
         services.AddScoped<Applications.CandidateProfileService>();
+        services.AddScoped<Applications.MyNextStepService>(); // usability U2
         services.AddScoped<Applications.ApplicationService>();
 
         // Phase 6: CV screening and shortlisting

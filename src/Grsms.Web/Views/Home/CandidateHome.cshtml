@@ -1,6 +1,7 @@
 @* Home page for candidates (external job seekers): profile readiness, their applications and a link to the jobs. *@
 @inject ApplicationService Applications
 @inject CandidateProfileService Profiles
+@inject MyNextStepService NextSteps
 @{
     ViewData["Title"] = "My portal";
     var name = User.FindFirst(AppClaimsPrincipalFactory.FullNameClaim)?.Value ?? "";
@@ -12,6 +13,9 @@
     <h1>Welcome, @name</h1>
     <p>Find a job at GREL, apply online and follow each application step by step.</p>
 </div>
+
+@* Usability U2: the one thing to do now (offer, letter, personal record, documents, interview, profile). *@
+<partial name="_MyNextSteps" model="await NextSteps.GetAsync()" />
 
 <div class="row g-3">
     <div class="col-lg-4">

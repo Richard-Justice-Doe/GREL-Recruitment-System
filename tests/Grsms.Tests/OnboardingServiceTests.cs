@@ -306,4 +306,33 @@ public class OnboardingServiceTests : OnboardingTestBase
         As(_candidate, Roles.Candidate);
         Assert.Empty(await Run(s => s.MyWorkAsync()));
     }
+
+    private async Task<IReadOnlyList<Application.Applications.MyNextStepDto>> NextStepsAsync()
+    {
+        using var scope = _db.NewScope();
+        return await scope.ServiceProvider.GetRequiredService<Application.Applications.MyNextStepService>().GetAsync();
+    }
+
+    [Fact]
+    public async Task The_candidate_home_says_what_to_do_next()
+    {
+        // Usability U2: an offer to answer comes first; then the onboarding steps; nothing for other candidates.
+        var offerApp = await WithOfferAsync(_candidate2, "Kofi Boateng", OfferStatus.Sent);
+        As(_candidate2, Roles.Candidate);
+        var first = (await NextStepsAsync())[0];
+        Assert.Equal((Application.Applications.MyStepTarget.Offer, offerApp, true), (first.Target, first.ApplicationId, first.Urgent));
+
+        var app = await WithOfferAsync(_candidate, "Ama Mensah", OfferStatus.Accepted);
+        var id = await StartAsync(app);
+        As(_candidate, Roles.Candidate);
+        var steps = await NextStepsAsync();
+        Assert.DoesNotContain(steps, s => s.Target == Application.Applications.MyStepTarget.Offer);
+        Assert.Contains(steps, s => s.Target == Application.Applications.MyStepTarget.PersonalRecord);
+        Assert.Contains(steps, s => s.Target == Application.Applications.MyStepTarget.Documents && s.Title.Contains("still needed"));
+
+        AsRecruiter();
+        Assert.True((await Run(s => s.IssueLetterAsync(id, "Probation: 6 months. Hours: 8:00 to 17:00."))).Succeeded);
+        As(_candidate, Roles.Candidate);
+        Assert.Equal(Application.Applications.MyStepTarget.Appointment, (await NextStepsAsync())[0].Target); // sign the letter first
+    }
 }

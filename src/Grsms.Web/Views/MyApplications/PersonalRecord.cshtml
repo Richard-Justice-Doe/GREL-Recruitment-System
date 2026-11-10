@@ -54,11 +54,11 @@
     </div>
 }
 
-<form asp-action="PersonalRecord" asp-route-id="@Model.ApplicationId" method="post" novalidate>
+<form asp-action="PersonalRecord" asp-route-id="@Model.ApplicationId" method="post" novalidate data-steps>
     <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
 
     @* ---------------------------------------------------------------- Employee information *@
-    <div class="card glass mb-3">
+    <div class="card glass mb-3" data-step="About you">
         <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary mb-3">Employee information</h2>
             <dl class="details-grid small mb-3">
@@ -111,7 +111,7 @@
 
     <div class="row g-3">
         @* ---------------------------------------------------------------- Languages *@
-        <div class="col-lg-6">
+        <div class="col-lg-6" data-step="Languages">
             <div class="card glass h-100"><div class="card-body p-4" data-repeater>
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Languages spoken</h2>
                 @{
@@ -135,7 +135,7 @@
         </div>
 
         @* ---------------------------------------------------------------- Bank accounts *@
-        <div class="col-lg-6">
+        <div class="col-lg-6" data-step="Bank account">
             <div class="card glass h-100"><div class="card-body p-4" data-repeater>
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Bank accounts</h2>
                 @{
@@ -163,7 +163,7 @@
     </div>
 
     @* ---------------------------------------------------------------- Family *@
-    <div class="card glass my-3">
+    <div class="card glass my-3" data-step="Family">
         <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary mb-3">Family records</h2>
 
@@ -233,7 +233,7 @@
         </div>
     </div>
 
-    <div class="row g-3">
+    <div class="row g-3" data-step="Next of kin and emergency contacts">
         @* ---------------------------------------------------------------- Next of kin *@
         <div class="col-lg-6">
             <div class="card glass h-100"><div class="card-body p-4">
@@ -278,7 +278,7 @@
     </div>
 
     @* ---------------------------------------------------------------- Beneficiaries *@
-    <div class="card glass my-3">
+    <div class="card glass my-3" data-step="Beneficiaries">
         <div class="card-body p-4" data-repeater>
             <h2 class="h6 text-uppercase text-body-secondary mb-1">Beneficiaries</h2>
             <p class="small text-body-secondary">The shares must add up to exactly <strong>100%</strong>. Total so far: <span><strong data-percent-total>0</strong>%</span></p>
@@ -306,13 +306,16 @@
         </div>
     </div>
 
+    <div data-steps-finish>
     <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save my personal record</button>
     @if (Model.Signed)
     {
         <span class="small text-body-secondary ms-2">Saving changes means signing the declaration again.</span>
     }
+    </div>
 </form>
 
 @section Scripts {
     <script src="~/js/repeater.js" asp-append-version="true"></script>
+    <script src="~/js/form-steps.js" asp-append-version="true"></script>
 }

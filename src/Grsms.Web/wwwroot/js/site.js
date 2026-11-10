@@ -211,3 +211,34 @@
         setTimeout(finish, duration + 150);
     }
 })();
+
+// Usability U2 (10 November 2026): before uploading a document, show which file was chosen, with a small preview for photos
+// (read as a data: URL, which the Content-Security-Policy allows). Works on any <input type="file" data-upload-preview>.
+(function () {
+    document.addEventListener("change", function (e) {
+        var input = e.target;
+        if (!(input instanceof HTMLInputElement) || input.type !== "file" || !input.hasAttribute("data-upload-preview")) return;
+        var holder = input.closest("form");
+        if (!holder) return;
+        var old = holder.querySelector(".doc-upload-preview, .doc-upload-name");
+        if (old) old.remove();
+        var file = input.files && input.files[0];
+        if (!file) return;
+        if (file.type.indexOf("image/") === 0 && file.size < 15 * 1024 * 1024) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                var img = document.createElement("img");
+                img.className = "doc-upload-preview";
+                img.alt = "Preview of " + file.name;
+                img.src = String(reader.result);
+                holder.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            var note = document.createElement("div");
+            note.className = "doc-upload-name small text-body-secondary mt-1";
+            note.textContent = "Chosen: " + file.name + " (" + Math.max(1, Math.round(file.size / 1024)) + " KB)";
+            holder.appendChild(note);
+        }
+    });
+})();

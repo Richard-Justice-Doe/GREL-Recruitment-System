@@ -38,7 +38,7 @@ The onboarding page shows the stages, the **progress %**, the **documents due da
 
 ## For the new employee
 
-1. When the RO starts your onboarding you get a **welcome email**. Sign in, open **My applications**, then your application, then **Upload my new-hire documents**.
+1. When the RO starts your onboarding you get a **welcome email**. Sign in: your home page shows **Your next step**, and the menu has **My onboarding** (with your progress) for everything: documents, letter, first day and personal record.
 2. For each document, choose the file (you can take a photo with your phone) and click **Upload**. It goes to HR **straight away**; you do not need to submit anything. Accepted: **PDF, JPG, JPEG or PNG**, and **Word (.docx)** for the application letter, CV and recommendation letters; up to 10 MB each. Some documents need several files (two recommendation letters; several professional certificates).
 3. Until HR has verified a document you can **Replace** a file or **remove** it; the old file is kept in the document's **History**. While HR shows it **Under review**, wait for the result.
 4. Documents marked *(optional)* can be marked **not applicable**, with a short reason (for example "Not married").

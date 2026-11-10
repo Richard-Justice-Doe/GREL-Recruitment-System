@@ -110,3 +110,13 @@ Every approval step, permission, document rule and email stays as it is. Nothing
 * **X1:** the home to-dos now also show automatic rejections to confirm, appointment letters to issue, documents to verify, employees ready to activate, inductions ready to close, the HOD's probation meetings and assessments (once open) and probation decisions.
 * **W1:** the two developer notes are gone (the interview results page now says the RO chooses and approves); "ATS" replaced by "screening" / "automatic rejection" in what users read (the settings page is "Screening (ATS) settings").
 * Tests: **192** (new: onboarding work on the to-dos; short menus per person).
+
+### U2: candidates and new employees (done, 10 November 2026; with Phase 27 stage B)
+* **X2:** the candidate home starts with **"Your next step"** (`MyNextStepService`, partial `_MyNextSteps`): answer an offer (with the reply-by date) → a correction HR asked for → sign the appointment letter → fill in the personal record → upload documents ("5 still needed", with the deadline) → an interview in the next 7 days → complete the profile. The first step is big with one button; the rest are listed under "Then".
+* **Phase 27 stage B:** a **My onboarding** menu link (with the progress %) while an onboarding is in progress; the documents page is now **My onboarding**, with a welcome line and links to the letter, first-day information and personal record, next to the progress, counts and "Still to do".
+* **W2:** the **personal record in 6 steps** (About you · Languages · Bank account · Family · Next of kin and emergency contacts · Beneficiaries), with "Step 2 of 6", a progress bar and Back / Next (`js/form-steps.js`). It is still **one form saved at the end**, so the rules (e.g. beneficiaries = 100%) are unchanged; without JavaScript, or after an error, every section shows at once. *Not done:* saving each step on its own (it would need partial validation, i.e. a rule change) and keeping an unsaved draft on the phone (personal data on shared phones).
+* **M1:** *My applications* turns into small cards on a phone (`table-stack`).
+* **M2:** document uploads say "Take a photo or choose a file", have large tap targets on phones and show a preview of the chosen photo (or the file name) before uploading.
+* **M3:** on a phone the next-step button sticks to the bottom of the screen.
+* **M4:** done through the CSS above; **not checked on a real phone** here.
+* Tests: **193** (new: the candidate's next steps).

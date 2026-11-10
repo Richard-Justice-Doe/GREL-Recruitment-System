@@ -27,17 +27,17 @@
         else
         {
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0 table-stack">
                     <thead><tr><th>Reference</th><th>Job</th><th>Department</th><th>Applied</th><th>Status</th></tr></thead>
                     <tbody>
                     @foreach (var a in Model)
                     {
                         <tr>
-                            <td class="text-nowrap"><a asp-action="Details" asp-route-id="@a.Id" class="fw-semibold text-decoration-none">@a.ApplicationNumber</a></td>
-                            <td>@a.JobTitle</td>
-                            <td>@a.DepartmentName</td>
-                            <td class="small text-nowrap">@a.SubmittedAt.ToString("dd MMM yyyy")</td>
-                            <td><partial name="_ApplicationStatus" model="a.Status" /></td>
+                            <td data-label="Reference" class="text-nowrap"><a asp-action="Details" asp-route-id="@a.Id" class="fw-semibold text-decoration-none">@a.ApplicationNumber</a></td>
+                            <td data-label="Job">@a.JobTitle</td>
+                            <td data-label="Department">@a.DepartmentName</td>
+                            <td data-label="Applied" class="small text-nowrap">@a.SubmittedAt.ToString("dd MMM yyyy")</td>
+                            <td data-label="Status"><partial name="_ApplicationStatus" model="a.Status" /></td>
                         </tr>
                     }
                     </tbody>

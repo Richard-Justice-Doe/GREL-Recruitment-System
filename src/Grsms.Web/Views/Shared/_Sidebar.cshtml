@@ -11,6 +11,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject IAuthorizationService Auth
 @inject NavCounts Nav
+@inject MyNextStepService NextSteps
 @{
     var controller = ViewContext.RouteData.Values["controller"]?.ToString();
     var action = ViewContext.RouteData.Values["action"]?.ToString();
@@ -66,7 +67,17 @@
             <a class="nav-link @Active("Careers")" asp-controller="Careers" asp-action="Index">
                 <i class="fa-solid fa-magnifying-glass"></i> Current vacancies
             </a>
-            <a class="nav-link @Active("MyApplications")" asp-controller="MyApplications" asp-action="Index">
+            @* Phase 27 stage B / usability U2: shown while the candidate has an onboarding in progress. *@
+            var myOnboarding = await NextSteps.MyOnboardingAsync();
+            var onOnboardingPage = myOnboarding is not null && controller == "MyApplications" && action is "Documents" or "PersonalRecord" or "Appointment";
+            if (myOnboarding is not null)
+            {
+                <a class="nav-link @(onOnboardingPage ? "active" : "")" asp-controller="MyApplications" asp-action="Documents" asp-route-id="@myOnboarding.ApplicationId">
+                    <i class="fa-solid fa-door-open"></i> My onboarding
+                    <span class="nav-count" title="Your onboarding progress">@myOnboarding.Percent%</span>
+                </a>
+            }
+            <a class="nav-link @(controller == "MyApplications" && !onOnboardingPage ? "active" : "")" asp-controller="MyApplications" asp-action="Index">
                 <i class="fa-regular fa-paper-plane"></i> My applications
             </a>
             <a class="nav-link @Active("Profile")" asp-controller="Profile" asp-action="Index">

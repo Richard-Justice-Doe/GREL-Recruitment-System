@@ -4,6 +4,16 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 10 November 2026: candidates see their next step; My onboarding (usability U2, Phase 27 stage B)
+
+* **Candidate home** starts with "Your next step" (offer to answer, letter to sign, personal record, documents, interview, profile), one big button, sticky on phones (`MyNextStepService`, `Views/Shared/_MyNextSteps.cshtml`).
+* **My onboarding**: a menu link with the progress % while onboarding is in progress; the documents page renamed and linked to the letter and personal record.
+* **Personal record in 6 steps** (`js/form-steps.js`), still one form saved at the end: no rule changed.
+* **Phones**: My applications as cards; uploads say "Take a photo or choose a file", bigger, with a preview.
+* **Checked:** 193/193 tests. Not checked on a real phone.
+
+---
+
 ## 10 November 2026: simpler menus and complete to-dos (usability U1)
 
 **Why:** "make the whole project very simple and easy to use". Review, decisions and progress: [28 Usability review](28-usability-review.md). Look and flow only: no business rule or permission changed.

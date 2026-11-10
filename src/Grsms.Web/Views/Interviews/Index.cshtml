@@ -90,7 +90,7 @@
                 <tbody>
                 @if (Model.Items.Count == 0)
                 {
-                    <tr><td colspan="8" class="text-center text-body-secondary py-4">@(f.Tab == "scorecards" ? "No scorecards waiting for you. 🎉" : "No sessions here.")</td></tr>
+                    <tr><td colspan="8" class="text-center text-body-secondary py-4">@(f.Tab == "scorecards" ? "No scorecards waiting for you. 🎉" : "No interview sessions here. Schedule one from a candidate's application.")</td></tr>
                 }
                 @foreach (var i in Model.Items)
                 {

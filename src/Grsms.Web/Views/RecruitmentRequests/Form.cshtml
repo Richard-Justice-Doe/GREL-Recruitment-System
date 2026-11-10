@@ -16,11 +16,11 @@
     <a asp-action="@(isNew ? "Index" : "Details")" asp-route-id="@(isNew ? null : Model.Id)" class="btn btn-outline-secondary">Cancel</a>
 </div>
 
-<form asp-action="@(isNew ? "Create" : "Edit")" asp-route-id="@(isNew ? null : Model.Id)" method="post" novalidate>
+<form asp-action="@(isNew ? "Create" : "Edit")" asp-route-id="@(isNew ? null : Model.Id)" method="post" novalidate data-steps>
     <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
 
     @* ------------------------------------------------------------ 1. Employment details *@
-    <div class="card glass mb-3">
+    <div class="card glass mb-3" data-step="Employment details">
         <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary mb-3">1. Employment details</h2>
             <div class="row g-3">
@@ -96,7 +96,7 @@
     </div>
 
     @* ------------------------------------------------------------ 2. Request information *@
-    <div class="card glass mb-3">
+    <div class="card glass mb-3" data-step="Request information">
         <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary mb-3">2. Request information</h2>
             <div class="row g-3">
@@ -125,7 +125,7 @@
     </div>
 
     @* ------------------------------------------------------------ 3. Description of the post *@
-    <div class="card glass mb-3">
+    <div class="card glass mb-3" data-step="Description of the post">
         <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary mb-3">3. Description of the post</h2>
             <label asp-for="PostDescription" class="form-label" id="postDescriptionLabel"></label>
@@ -166,7 +166,7 @@
     </div>
 
     @* ------------------------------------------------------------ 4. Qualification requirements *@
-    <div class="card glass mb-3">
+    <div class="card glass mb-3" data-step="Qualification requirements">
         <div class="card-body p-4">
             <h2 class="h6 text-uppercase text-body-secondary mb-3">4. Qualification requirements</h2>
             <div class="row g-3">
@@ -230,7 +230,7 @@
     </div>
 
     @* ------------------------------------------------------------ 5. Additional information *@
-            <div class="card glass">
+            <div class="card glass" data-step="Additional information">
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-3">5. Additional information</h2>
                     <label asp-for="Remarks" class="form-label"></label>
@@ -252,4 +252,5 @@
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/rich-text-editor.js" asp-append-version="true"></script>
     <script src="~/js/recruitment-request-form.js" asp-append-version="true"></script>
+    <script src="~/js/form-steps.js" asp-append-version="true"></script>
 }

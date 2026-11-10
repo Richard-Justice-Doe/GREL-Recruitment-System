@@ -4,6 +4,14 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 10 November 2026: shorter forms, helpful empty lists (usability U4)
+
+* **Recruitment request** in 5 steps (one per section of QF-81-11), *Save draft* on every step, site pre-filled; **vacancy form** with *More options* for desirable skills, certifications and knockout questions.
+* **Empty lists** say how things get there; **application status** explains itself on hover.
+* **Checked:** 193/193 tests. Not checked in a browser.
+
+---
+
 ## 10 November 2026: next step on every record page; busy pages in topics (usability U3)
 
 * **"Your next step"** banner on the request, vacancy, application and probation pages (`Views/Shared/_NextStepBanner.cshtml`).

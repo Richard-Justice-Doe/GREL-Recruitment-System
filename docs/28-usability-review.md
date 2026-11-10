@@ -1,6 +1,6 @@
 # 28. Usability review: making GRSMS simple
 
-**Status:** APPROVED 10 November 2026 (all four stages; decisions §9). Built in stages U1 → U4.
+**Status:** APPROVED 10 November 2026 (all four stages; decisions §9) and BUILT the same day (U1 → U4, progress §10).
 **Date:** 10 November 2026 · **Branch:** `feature/ats-and-super-admin` (after commit 754b0d7)
 
 **What you asked for:** make GRSMS very simple and easy to use, for **every kind of user** (candidates and new employees, HODs and panel members, Recruitment Officers and HR, administrators), with **fewer menus and clicks**, a clear **"what to do next"** everywhere, **plainer words and shorter forms**, and pages that **work well on a phone**. **Only the look and the flow change:** every business rule, approval step and permission stays as it is.
@@ -128,3 +128,16 @@ Every approval step, permission, document rule and email stays as it is. Nothing
 * **N7 (part):** after verifying, rejecting or starting the review of a document, and after a candidate uploads one, the page comes back **to that document** instead of the top.
 * *Not done:* **X4** (one primary button on every page) as a sweep; the banners and next-step panels give each page its main button, but some pages still have several primary buttons. Landing on the *next waiting item* after a decision (e.g. the next request to approve) is not done either.
 * Tests: 193.
+
+### U4: forms and lists (done, 10 November 2026)
+* **W5:** the **recruitment request (QF-81-11)** in steps, one per numbered section of the paper form (Employment details · Request information · Description of the post · Qualification requirements · Additional information): **5 steps** rather than the 4 proposed, to keep the form's own numbering. *Save draft* stays visible on every step, so a request can be saved part-way. The **site** is now pre-filled from the account of the person raising it (the department already was, when they have one).
+* **W6:** the **vacancy form** folds the less-used fields (desirable skills, certifications, knockout questions) under **More options**, which opens by itself when one of them is filled in or the form comes back with errors.
+* **W7:** empty lists say **how things get there** (vacancies from approved requests, applications from the careers page, interviews from an application, hiring cases after the interview, probations at activation); the personnel-file text is corrected (a file now opens when onboarding starts).
+* **W8:** the **application status** pill explains itself on hover ("Being reviewed against the vacancy's requirements", ...).
+* **N5:** done in U1 (flat menu for 7 links or fewer).
+* Tests: **193** (assertions added for the request steps and More options).
+
+### Not done, and why
+* **X4** as a full sweep (one primary button per page) and landing on the *next waiting item* after a decision (N7): partly covered by the next-step banners; a page-by-page sweep is still open.
+* Saving each step of the personal record separately, and an unsaved draft on the phone (W2): would change the all-or-nothing rule or keep personal data on shared phones.
+* Nothing was checked **in a real browser or phone** in this session; the pages were exercised as HTML by the web tests.

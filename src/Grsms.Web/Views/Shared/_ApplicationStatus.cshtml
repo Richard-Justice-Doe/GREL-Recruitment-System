@@ -1,4 +1,6 @@
-@* Coloured pill for an application's status. Usage: <partial name="_ApplicationStatus" model="a.Status" /> *@
+@* Coloured pill for an application's status, with a one-line explanation on hover (usability U4).
+   Usage: <partial name="_ApplicationStatus" model="a.Status" />
+   Candidates never see "Automatically rejected": ApplicationService shows them "Under review" until HR confirms. *@
 @model Grsms.Domain.Applications.ApplicationStatus
 @{
     var css = Model switch
@@ -6,8 +8,22 @@
         ApplicationStatus.Submitted => "badge-soft-primary",
         ApplicationStatus.UnderReview => "badge-soft-warning",
         ApplicationStatus.Shortlisted or ApplicationStatus.Interview or ApplicationStatus.Offer or ApplicationStatus.Hired => "badge-soft-success",
-        ApplicationStatus.NotSuccessful or ApplicationStatus.AutoRejected => "badge-soft-danger", // Phase 15: held ATS rejection
+        ApplicationStatus.NotSuccessful or ApplicationStatus.AutoRejected => "badge-soft-danger", // held screening rejection
         _ => "badge-soft-secondary"
     };
+    var hint = Model switch
+    {
+        ApplicationStatus.Submitted => "Received: nobody has started reviewing it yet.",
+        ApplicationStatus.UnderReview => "Being reviewed against the vacancy's requirements.",
+        ApplicationStatus.Shortlisted => "Shortlisted: an interview or assessment comes next.",
+        ApplicationStatus.Interview => "Interviews or assessments are under way.",
+        ApplicationStatus.Offer => "An offer has been made.",
+        ApplicationStatus.Hired => "The offer was accepted.",
+        ApplicationStatus.NotSuccessful => "Not taken further this time.",
+        ApplicationStatus.Withdrawn => "Withdrawn by the applicant.",
+        ApplicationStatus.OfferDeclined => "The applicant declined the offer.",
+        ApplicationStatus.AutoRejected => "Rejected by screening: waiting for HR to confirm or overrule.",
+        _ => null
+    };
 }
-<span class="badge rounded-pill @css">@Model.DisplayName()</span>
+<span class="badge rounded-pill @css" title="@hint">@Model.DisplayName()</span>

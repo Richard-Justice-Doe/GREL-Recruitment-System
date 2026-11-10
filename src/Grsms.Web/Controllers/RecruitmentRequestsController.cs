@@ -56,6 +56,9 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
             return RedirectToAction(nameof(Index));
         }
         if (depts.Count == 1) form.DepartmentId = int.Parse(depts[0].Value); // save a click
+        // Usability U4: the site of the person raising it, as a starting point (they can change it).
+        if (HttpContext.RequestServices.GetRequiredService<Application.Common.Interfaces.ICurrentUserService>().UserId is { } me)
+            form.SiteId ??= await HttpContext.RequestServices.GetRequiredService<Application.Users.IUserDirectory>().GetSiteIdAsync(me, ct);
         await LoadFormListsAsync(form, ct);
         return View("Form", form);
     }

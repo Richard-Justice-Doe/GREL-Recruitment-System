@@ -138,6 +138,11 @@
                             <label asp-for="EssentialSkills" class="form-label"></label>
                             <textarea asp-for="EssentialSkills" class="form-control" rows="5" placeholder="Risk assessment&#10;Incident investigation"></textarea>
                         </div>
+                        @* Usability U4: the less-used fields fold away; open when one is filled in or the form came back with errors. *@
+                        <div class="col-12">
+                        <details class="more-options" open="@(!string.IsNullOrWhiteSpace(Model.DesirableSkills) || !string.IsNullOrWhiteSpace(Model.EssentialCertifications) || !string.IsNullOrWhiteSpace(Model.DesirableCertifications) || !string.IsNullOrWhiteSpace(Model.KnockoutQuestions) || !ViewData.ModelState.IsValid)">
+                            <summary class="fw-semibold">More options: desirable skills, certifications and knockout questions</summary>
+                            <div class="row g-3 mt-1">
                         <div class="col-md-6">
                             <label asp-for="DesirableSkills" class="form-label"></label>
                             <textarea asp-for="DesirableSkills" class="form-control" rows="5" placeholder="Microsoft Excel&#10;Report writing"></textarea>
@@ -160,6 +165,9 @@
                                 a <strong>No</strong> rejects the application automatically (held for HR to confirm or override). At most 10.
                             </div>
                             <span asp-validation-for="KnockoutQuestions" class="text-danger small"></span>
+                        </div>
+                            </div>
+                        </details>
                         </div>
                     </div>
                 </div>

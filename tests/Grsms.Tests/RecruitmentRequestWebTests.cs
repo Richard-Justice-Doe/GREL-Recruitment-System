@@ -64,6 +64,8 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
         // ---- The staff member opens the form: every QF-81-11 section and the rich-text editor are there
         var staff = await SignedInAsync("qa.staff@grel.test");
         var form = await staff.GetStringAsync("/RecruitmentRequests/Create");
+        Assert.Contains("data-steps", form);                       // usability U4: one section per step
+        Assert.Contains("data-step=\"Employment details\"", form);
         foreach (var text in new[] { "Engagement type", "Category", "Purpose", "Internal restructuring", "Request date", "Specific job title",
                                      "Number of staff required", "Proposed starting date", "Description of the post", "data-rich-text",
                                      "Educational level", "Level of training", "Certificate(s) required", "Professional experience",

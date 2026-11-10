@@ -30,6 +30,9 @@ public interface IUserDirectory
     /// <summary>The user's home department (Users.DepartmentId), or null.</summary>
     Task<int?> GetDepartmentIdAsync(string userId, CancellationToken ct = default);
 
+    /// <summary>Usability U4: the user's site (Users.SiteId), or null, to pre-fill forms.</summary>
+    Task<int?> GetSiteIdAsync(string userId, CancellationToken ct = default);
+
     /// <summary>True for an active GREL staff account (not a candidate).</summary>
     Task<bool> IsActiveStaffAsync(string userId, CancellationToken ct = default);
 

@@ -57,7 +57,7 @@ public class SitesController(ISiteService sites) : AppController
     {
         var result = await sites.SetActiveAsync(id, active, ct);
         if (result.Succeeded) Success(active ? "Site activated." : "Site deactivated.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index));
     }
 }

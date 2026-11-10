@@ -9,6 +9,8 @@ using Grsms.Domain.Organization;
 using Grsms.Domain.Probation;
 using Grsms.Domain.Security;
 using Grsms.Domain.Settings;
+using static Grsms.Application.Common.Text;
+using static Grsms.Application.Common.Signatures;
 
 namespace Grsms.Application.Probation;
 
@@ -476,22 +478,7 @@ public class ProbationService(
         "<p>All other terms and conditions of your appointment remain unchanged.</p>" +
         $"<p>Yours faithfully,<br>{E(approver)}<br>HR Manager</p>";
 
-    private static bool SameName(string a, string b) =>
-        string.Equals(string.Join(' ', a.Split(' ', StringSplitOptions.RemoveEmptyEntries)),
-            string.Join(' ', b.Split(' ', StringSplitOptions.RemoveEmptyEntries)), StringComparison.OrdinalIgnoreCase);
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 }

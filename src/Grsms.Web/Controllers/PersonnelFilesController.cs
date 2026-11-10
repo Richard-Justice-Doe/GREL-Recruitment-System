@@ -53,7 +53,7 @@ public class PersonnelFilesController(PersonnelFileService files) : AppControlle
             await using var stream = file.OpenReadStream();
             var result = await files.UploadAsync(id, categoryId, title, file.FileName, stream, ct);
             if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' filed.");
-            else Error(string.Join(" ", result.Errors));
+            else Fail(result);
         }
         return RedirectToAction(nameof(Details), new { id });
     }

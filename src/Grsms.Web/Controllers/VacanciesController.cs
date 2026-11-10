@@ -52,7 +52,7 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
         var result = await service.GetNewFormAsync(requestId, ct);
         if (!result.Succeeded)
         {
-            Error(string.Join(" ", result.Errors));
+            Fail(result);
             return RedirectToAction(nameof(Index), new { tab = "awaiting" });
         }
         await LoadListsAsync(result.Value!, ct);
@@ -132,7 +132,7 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
             : Application.Common.Result.Failure("Choose Approve or Return for changes.");
         if (!result.Succeeded)
         {
-            Error(string.Join(" ", result.Errors));
+            Fail(result);
             return RedirectToAction(nameof(Details), new { id });
         }
         Success(form.Decision == VacancyDecision.Approve
@@ -156,13 +156,8 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
     // ================================================================= Helpers
 
     /// <summary>Runs a workflow action and returns to the details page with a success or error banner.</summary>
-    private async Task<IActionResult> Act(int id, Func<Task<Application.Common.Result>> action, string successMessage)
-    {
-        var result = await action();
-        if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
-        return RedirectToAction(nameof(Details), new { id });
-    }
+    private Task<IActionResult> Act(int id, Func<Task<Application.Common.Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
 
     private async Task LoadListsAsync(VacancyFormDto form, CancellationToken ct)
     {

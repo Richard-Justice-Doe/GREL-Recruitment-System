@@ -25,7 +25,7 @@ public class InductionAreasController(InductionAreaService areas) : AppControlle
     {
         var result = await areas.SaveAsync(area, ownerUserId, isDefault, tasks, ct);
         if (result.Succeeded) Success("Induction area saved. It applies to employees activated from now on.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return Redirect(Url.Action(nameof(Index)) + "#area-" + area);
     }
 }

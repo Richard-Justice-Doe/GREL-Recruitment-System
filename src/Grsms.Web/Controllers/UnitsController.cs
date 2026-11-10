@@ -73,7 +73,7 @@ public class UnitsController(IUnitService units, IDepartmentService departments)
     {
         var result = await units.SetActiveAsync(id, active, ct);
         if (result.Succeeded) Success(active ? "Unit activated." : "Unit deactivated.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
 
         // Go back to wherever the button was pressed.
         return departmentId is null

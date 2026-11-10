@@ -33,7 +33,7 @@ public class SystemSettingsController(SystemSettingsService settings, ISettingsS
             .ToDictionary(d => d.Key, d => (string?)Request.Form[d.Key].FirstOrDefault());
         var result = await settings.SaveGroupAsync(group, values, ct);
         if (result.Succeeded) Success($"{group}: saved. The new values apply straight away.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index), null, Anchor(group));
     }
 
@@ -43,7 +43,7 @@ public class SystemSettingsController(SystemSettingsService settings, ISettingsS
     {
         var result = await settings.ClearSecretAsync(key, ct);
         if (result.Succeeded) Success("The saved secret was removed. The server configuration's value (if any) applies again.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index), null, Anchor(SettingCatalogue.Find(key)?.Group ?? ""));
     }
 
@@ -56,7 +56,7 @@ public class SystemSettingsController(SystemSettingsService settings, ISettingsS
             Success(string.IsNullOrWhiteSpace(store.Get(SettingCatalogue.SmtpHost))
                 ? "No SMTP server is set, so the test email was saved as a file on the server instead of being sent."
                 : $"Test email sent to {to}. Check that mailbox (and its spam folder).");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index), null, Anchor(SettingCatalogue.Smtp));
     }
 

@@ -124,7 +124,7 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
     {
         var result = await service.SubmitAsync(id, ct);
         if (result.Succeeded) Success("Request submitted for approval. The next reviewer has been notified by email.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -147,7 +147,7 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
             return RedirectToAction(nameof(Index), new { tab = "awaiting" });
         }
 
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -156,7 +156,7 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
     {
         var result = await service.CancelAsync(id, reason, ct);
         if (result.Succeeded) Success("Request cancelled.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -176,7 +176,7 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
         await using var stream = file.OpenReadStream();
         var result = await service.AddAttachmentAsync(id, category, file.FileName, stream, ct);
         if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -185,7 +185,7 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
     {
         var result = await service.RemoveAttachmentAsync(id, attachmentId, ct);
         if (result.Succeeded) Success("File removed.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Details), new { id });
     }
 

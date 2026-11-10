@@ -9,6 +9,7 @@ using Grsms.Domain.Applications;
 using Grsms.Domain.Interviews;
 using Grsms.Domain.Organization;
 using Grsms.Domain.Security;
+using static Grsms.Application.Common.Text;
 
 namespace Grsms.Application.Interviews;
 
@@ -695,18 +696,6 @@ public class InterviewService(
         return list;
     }
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 }

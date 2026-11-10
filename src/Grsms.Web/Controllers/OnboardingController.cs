@@ -35,7 +35,7 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         if (await onboarding.IdForApplicationAsync(id, ct) is int existing) return RedirectToAction(nameof(Details), new { id = existing });
         var result = await onboarding.GetStartFormAsync(id, ct);
         if (result.Succeeded) return View(result.Value);
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         return RedirectToAction(nameof(Index), new { tab = "start" });
     }
 
@@ -104,7 +104,7 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
             Success("Personnel file opened.");
             return RedirectToAction("Details", "PersonnelFiles", new { id = result.Value });
         }
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -195,11 +195,6 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     public Task<IActionResult> Cancel(int id, string? reason, CancellationToken ct) =>
         Act(id, () => onboarding.CancelAsync(id, reason, ct), "Onboarding cancelled.");
 
-    private async Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage)
-    {
-        var result = await action();
-        if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
-        return RedirectToAction(nameof(Details), new { id });
-    }
+    private Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
 }

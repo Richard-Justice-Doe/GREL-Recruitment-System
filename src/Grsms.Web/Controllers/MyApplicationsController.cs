@@ -52,7 +52,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
             Success("Thank you! Your appointment letter is signed. See you on your first day.");
             return RedirectToAction(nameof(Details), new { id });
         }
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         return RedirectToAction(nameof(Appointment), new { id });
     }
 
@@ -82,7 +82,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
             await using var stream = file.OpenReadStream();
             var result = await documents.UploadAsync(documentId, file.FileName, stream, ct, replacesAttachmentId);
             if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded. HR will check it and email you if anything needs attention.");
-            else Error(string.Join(" ", result.Errors));
+            else Fail(result);
         }
         return RedirectToAction(nameof(Documents), new { id });
     }
@@ -103,7 +103,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         if (mine is null) return NotFound();
         var result = await onboarding.ConfirmCorrectionAsync(mine.OnboardingId, ct);
         if (result.Succeeded) Success("Thank you! HR has been told that you made the correction.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Documents), new { id });
     }
 
@@ -147,7 +147,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
             Success("Thank you. Your personal record is signed.");
             return RedirectToAction(nameof(Documents), new { id });
         }
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         return RedirectToAction(nameof(PersonalRecord), new { id });
     }
 
@@ -155,7 +155,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     {
         var result = await action();
         if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Documents), new { id });
     }
 
@@ -165,7 +165,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         var result = await applications.GetApplyFormAsync(id, ct);
         if (result.Succeeded) return View(result.Value);
 
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         var status = await applications.GetApplyStatusAsync(id, ct);
         return status.ExistingApplicationId is int existing
             ? RedirectToAction(nameof(Details), new { id = existing })
@@ -209,7 +209,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         }
         var result = await hiring.RespondToOfferAsync(id, accept, reason, ct);
         if (result.Succeeded) Success(accept ? "Thank you! You have accepted the offer. HR will contact you about your first day." : "You have declined the offer.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -218,7 +218,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     {
         var result = await applications.WithdrawAsync(id, ct);
         if (result.Succeeded) Success("Your application has been withdrawn.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Details), new { id });
     }
 

@@ -26,7 +26,7 @@ public class OnboardingDocumentsController(OnboardingDocumentTypeService types) 
                 : "Document saved. The change applies at once to every onboarding not yet activated.");
             return Redirect(Url.Action(nameof(Index)) + "#type-" + result.Value);
         }
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         return Redirect(Url.Action(nameof(Index)) + (form.Id is int id ? "#type-" + id : "#add"));
     }
 }

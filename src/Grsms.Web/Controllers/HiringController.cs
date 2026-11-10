@@ -63,7 +63,7 @@ public class HiringController(HiringService hiring, Application.Onboarding.Onboa
         var result = await hiring.ProceedAsync(applicationIds, ct);
         if (!result.Succeeded)
         {
-            Error(string.Join(" ", result.Errors));
+            Fail(result);
             return applicationIds.Length == 1
                 ? RedirectToAction(nameof(Case), new { id = applicationIds[0] })
                 : RedirectToAction(nameof(Index), new { tab = "ready", vacancyId });
@@ -91,11 +91,6 @@ public class HiringController(HiringService hiring, Application.Onboarding.Onboa
 
     private static Result Plain<T>(Result<T> r) => r.Succeeded ? Result.Success() : Result.Failure([.. r.Errors]);
 
-    private async Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage)
-    {
-        var result = await action();
-        if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
-        return RedirectToAction(nameof(Case), new { id });
-    }
+    private Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => RedirectToAction(nameof(Case), new { id }));
 }

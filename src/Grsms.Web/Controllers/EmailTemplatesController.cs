@@ -54,7 +54,7 @@ public class EmailTemplatesController(SystemSettingsService settings) : AppContr
     {
         var result = await settings.ResetTemplateAsync(id, ct);
         if (result.Succeeded) Success("Back to the built-in wording.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index));
     }
 }

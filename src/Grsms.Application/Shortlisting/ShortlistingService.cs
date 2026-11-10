@@ -6,6 +6,7 @@ using Grsms.Domain.Applications;
 using Grsms.Domain.Organization;
 using Grsms.Domain.Security;
 using Grsms.Domain.Vacancies;
+using static Grsms.Application.Common.Text;
 
 namespace Grsms.Application.Shortlisting;
 
@@ -236,18 +237,6 @@ public class ShortlistingService(
     private async Task<bool> IsHodOfAsync(int departmentId, CancellationToken ct) =>
         me.IsInRole(Roles.HeadOfDepartment) && (await scope.HodDepartmentIdsAsync(ct)).Contains(departmentId);
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 }

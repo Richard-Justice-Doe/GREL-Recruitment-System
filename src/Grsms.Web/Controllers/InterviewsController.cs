@@ -29,7 +29,7 @@ public class InterviewsController(InterviewService interviews) : AppController
     {
         var result = await interviews.GetScheduleFormAsync(applicationId, ct);
         if (result.Succeeded) return View(result.Value);
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         return RedirectToAction("Details", "Applications", new { id = applicationId });
     }
 
@@ -75,7 +75,7 @@ public class InterviewsController(InterviewService interviews) : AppController
         var result = await interviews.ValidateAsync(id, note, ct);
         if (!result.Succeeded)
         {
-            Error(string.Join(" ", result.Errors));
+            Fail(result);
             return RedirectToAction(nameof(Details), new { id });
         }
         Success("Scores validated and final. Next step: tick the candidate(s) you want to proceed with to start the hiring process.");
@@ -113,11 +113,6 @@ public class InterviewsController(InterviewService interviews) : AppController
         return View(results.Value.Results);
     }
 
-    private async Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage)
-    {
-        var result = await action();
-        if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
-        return RedirectToAction(nameof(Details), new { id });
-    }
+    private Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
 }

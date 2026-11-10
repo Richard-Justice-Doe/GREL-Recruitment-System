@@ -28,7 +28,7 @@ public class AtsController(AtsService ats) : AppController
     {
         var result = await ats.RescreenVacancyAsync(vacancyId, ct);
         if (result.Succeeded) Success($"The ATS re-screened {result.Value} application(s) with the current settings.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Vacancy), new { id = vacancyId });
     }
 
@@ -45,7 +45,7 @@ public class AtsController(AtsService ats) : AppController
     {
         var result = await ats.ConfirmAllAsync(vacancyId, ct);
         if (result.Succeeded) Success($"{result.Value} ATS rejection(s) confirmed. The applicants have been emailed.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Vacancy), new { id = vacancyId });
     }
 
@@ -80,13 +80,6 @@ public class AtsController(AtsService ats) : AppController
         return View(form);
     }
 
-    private async Task<IActionResult> Act(int applicationId, int vacancyId, string? returnTo, Func<Task<Result>> action, string successMessage)
-    {
-        var result = await action();
-        if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
-        return returnTo == "application"
-            ? RedirectToAction("Details", "Applications", new { id = applicationId })
-            : RedirectToAction(nameof(Vacancy), new { id = vacancyId });
-    }
+    private Task<IActionResult> Act(int applicationId, int vacancyId, string? returnTo, Func<Task<Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => returnTo == "application" ? RedirectToAction("Details", "Applications", new { id = applicationId }) : RedirectToAction(nameof(Vacancy), new { id = vacancyId }));
 }

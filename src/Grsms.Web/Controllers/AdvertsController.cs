@@ -32,7 +32,7 @@ public class AdvertsController(AdvertService service) : AppController
         var result = await service.GetNewFormAsync(vacancyId, ct);
         if (!result.Succeeded)
         {
-            Error(string.Join(" ", result.Errors));
+            Fail(result);
             return RedirectToAction("Details", "Vacancies", new { id = vacancyId });
         }
         return View("Form", result.Value);
@@ -105,7 +105,7 @@ public class AdvertsController(AdvertService service) : AppController
         var result = await service.CloneAsync(id, null, ct);
         if (!result.Succeeded)
         {
-            Error(string.Join(" ", result.Errors));
+            Fail(result);
             return RedirectToAction(nameof(Details), new { id });
         }
         Success("Copy created as a new draft. Check the dates and channels, then publish it.");
@@ -121,11 +121,6 @@ public class AdvertsController(AdvertService service) : AppController
         Act(id, () => service.MarkRemovedAsync(id, channelId, ct), "Channel recorded as taken down.");
 
     /// <summary>Runs an action and returns to the details page with a success or error banner.</summary>
-    private async Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage)
-    {
-        var result = await action();
-        if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
-        return RedirectToAction(nameof(Details), new { id });
-    }
+    private Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
 }

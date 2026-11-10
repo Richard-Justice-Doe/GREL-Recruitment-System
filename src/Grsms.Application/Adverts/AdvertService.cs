@@ -5,6 +5,7 @@ using Grsms.Application.Vacancies;
 using Grsms.Domain.Advertisements;
 using Grsms.Domain.Organization;
 using Grsms.Domain.Vacancies;
+using static Grsms.Application.Common.Text;
 
 namespace Grsms.Application.Adverts;
 
@@ -523,18 +524,6 @@ public class AdvertService(
             a.Channels.Add(new AdvertChannelPost { Channel = added });
     }
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 }

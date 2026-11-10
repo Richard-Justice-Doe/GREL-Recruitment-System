@@ -22,7 +22,7 @@ public class MyProbationController(ProbationService probation) : AppController
         {
             var result = await probation.SignAsEmployeeAsync(id, fullName, ct);
             if (result.Succeeded) Success("Thank you. Your probation objectives are signed.");
-            else Error(string.Join(" ", result.Errors));
+            else Fail(result);
         }
         return RedirectToAction(nameof(Index));
     }

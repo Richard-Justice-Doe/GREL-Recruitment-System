@@ -48,11 +48,6 @@ public class ProbationController(ProbationService probation) : AppController
         return View("~/Views/Probation/Letter.cshtml", model);
     }
 
-    private async Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage)
-    {
-        var result = await action();
-        if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
-        return RedirectToAction(nameof(Details), new { id });
-    }
+    private Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
 }

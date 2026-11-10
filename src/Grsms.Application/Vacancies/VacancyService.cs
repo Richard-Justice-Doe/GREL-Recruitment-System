@@ -603,16 +603,5 @@ public class VacancyService(
     private static string? Truncate(string? text, int max) =>
         string.IsNullOrWhiteSpace(text) ? null : text.Length <= max ? text : text[..max];
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 }

@@ -7,6 +7,8 @@ using Grsms.Application.Common;
 using Grsms.Application.Common.Interfaces;
 using Grsms.Domain.Onboarding;
 using Grsms.Domain.Organization;
+using static Grsms.Application.Common.Text;
+using static Grsms.Application.Common.Signatures;
 
 namespace Grsms.Application.Onboarding;
 
@@ -345,22 +347,7 @@ public class PersonalRecordService(
         Beneficiaries = r.Beneficiaries.OrderBy(x => x.Id).Select(x => new BeneficiaryRow { Name = x.Name, Relationship = x.Relationship, DateOfBirth = x.DateOfBirth, Percentage = x.Percentage }).ToList()
     };
 
-    private static bool SameName(string a, string b) =>
-        string.Equals(string.Join(' ', a.Split(' ', StringSplitOptions.RemoveEmptyEntries)),
-            string.Join(' ', b.Split(' ', StringSplitOptions.RemoveEmptyEntries)), StringComparison.OrdinalIgnoreCase);
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private async Task<Result> SaveChangesAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure("Your personal record was changed at the same moment elsewhere. Please reload the page and try again.");
-        }
-    }
+    private Task<Result> SaveChangesAsync(CancellationToken ct) => unitOfWork.TrySaveAsync("Your personal record was changed at the same moment elsewhere. Please reload the page and try again.", ct);
 }

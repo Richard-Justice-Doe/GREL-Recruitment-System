@@ -6,6 +6,7 @@ using Grsms.Domain.Documents;
 using Grsms.Domain.Onboarding;
 using Grsms.Domain.Security;
 using Grsms.Domain.Settings;
+using static Grsms.Application.Common.Text;
 
 namespace Grsms.Application.Onboarding;
 
@@ -423,18 +424,6 @@ public class DocumentVerificationService(
 
     private static EmployeeDocumentFileDto ToFile(Attachment a) => new(a.Id, a.OriginalFileName, a.SizeBytes, a.CreatedAt);
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 }

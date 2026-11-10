@@ -8,6 +8,7 @@ using Grsms.Domain.Organization;
 using Grsms.Domain.Security;
 using Grsms.Domain.Vacancies;
 using Microsoft.Extensions.Logging;
+using static Grsms.Application.Common.Text;
 
 namespace Grsms.Application.Applications;
 
@@ -390,18 +391,6 @@ public class AtsService(
 
     // ===================================================================== Helpers
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 }

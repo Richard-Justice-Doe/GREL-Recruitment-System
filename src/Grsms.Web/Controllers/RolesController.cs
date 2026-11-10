@@ -36,7 +36,7 @@ public class RolesController(IRoleAdminService roles) : AppController
             r => r,
             r => (IReadOnlyCollection<string>)ticked.Where(p => p[0] == r).Select(p => p[1]).ToList());
         var result = await roles.SavePermissionsAsync(grants, ct);
-        if (!result.Succeeded) Error(string.Join(" ", result.Errors));
+        if (!result.Succeeded) Fail(result);
         else if (result.Value is (0, 0)) Success("No changes to save.");
         else Success($"Permissions saved: {result.Value.Added} given, {result.Value.Removed} taken away. They apply straight away.");
         return RedirectToAction(nameof(Index));
@@ -93,7 +93,7 @@ public class RolesController(IRoleAdminService roles) : AppController
     {
         var result = await roles.DeleteAsync(id, ct);
         if (result.Succeeded) Success("Role deleted.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index));
     }
 }

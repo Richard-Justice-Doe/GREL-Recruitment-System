@@ -3,6 +3,7 @@ using Grsms.Application.Common.Interfaces;
 using Grsms.Domain.Documents;
 using Grsms.Domain.Onboarding;
 using Grsms.Domain.Security;
+using static Grsms.Application.Common.Text;
 
 namespace Grsms.Application.Onboarding;
 
@@ -168,5 +169,4 @@ public class OnboardingDocumentTypeService(
         return code.Length > 40 ? code[..40] : code;
     }
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 }

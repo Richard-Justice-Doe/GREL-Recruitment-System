@@ -89,7 +89,7 @@ public class UsersController(
     {
         var result = await users.SetActiveAsync(id, active, CurrentUserId, ct);
         if (result.Succeeded) Success(active ? "Account activated." : "Account deactivated. The user will be signed out within 5 minutes.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index), new { candidates });
     }
 
@@ -98,7 +98,7 @@ public class UsersController(
     {
         var result = await users.UnlockAsync(id, ct);
         if (result.Succeeded) Success("Account unlocked.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index), new { candidates });
     }
 

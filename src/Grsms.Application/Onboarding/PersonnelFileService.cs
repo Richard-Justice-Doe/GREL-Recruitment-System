@@ -118,13 +118,17 @@ public class PersonnelFileService(
         // The new-hire documents (verified ones only), each file in its category.
         // Phase 27: each type says where its files go.
         var types = (await documentTypes.ListAsync(ct: ct)).ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
-        foreach (var d in (await employeeDocuments.ListAsync(x => x.OnboardingRecordId == o.Id && x.Status == EmployeeDocumentStatus.Verified, ct))
-                     .OrderBy(x => types.GetValueOrDefault(x.DocumentTypeCode)?.SortOrder ?? int.MaxValue))
+        var verified = (await employeeDocuments.ListAsync(x => x.OnboardingRecordId == o.Id && x.Status == EmployeeDocumentStatus.Verified, ct))
+            .OrderBy(x => types.GetValueOrDefault(x.DocumentTypeCode)?.SortOrder ?? int.MaxValue).ToList();
+        var ids = verified.Select(d => d.Id).ToList();
+        var verifiedFiles = (await attachments.ListAsync(a => a.OwnerType == AttachmentOwners.EmployeeDocument && ids.Contains(a.OwnerId), ct))
+            .OrderByDescending(a => a.CreatedAt).ToLookup(a => a.OwnerId); // one query for every file (audit P2)
+        foreach (var d in verified)
         {
             var t = types.GetValueOrDefault(d.DocumentTypeCode);
-            foreach (var a in await storage.ListAsync(AttachmentOwners.EmployeeDocument, d.Id, ct))
-                Add(t?.PersonnelFileCategoryId ?? PersonnelFileCategories.EmployeeRecords, $"{t?.Name ?? d.DocumentTypeCode}: {a.FileName}",
-                    PersonnelDocumentKind.File, a.UploadedAt, nameof(Attachment), a.Id, attachmentId: a.Id);
+            foreach (var a in verifiedFiles[d.Id])
+                Add(t?.PersonnelFileCategoryId ?? PersonnelFileCategories.EmployeeRecords, $"{t?.Name ?? d.DocumentTypeCode}: {a.OriginalFileName}",
+                    PersonnelDocumentKind.File, a.CreatedAt, nameof(Attachment), a.Id, attachmentId: a.Id);
         }
 
         // The application's own files (CV, certificates, cover letter as sent).

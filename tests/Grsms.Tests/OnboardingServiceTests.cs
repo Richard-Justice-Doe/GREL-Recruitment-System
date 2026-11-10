@@ -268,4 +268,20 @@ public class OnboardingServiceTests : OnboardingTestBase
         As(_candidate, Roles.Candidate);
         Assert.Null(await Run(s => s.GetMyAppointmentAsync(app)));
     }
+
+    [Fact]
+    public async Task The_onboarding_page_loads_with_a_fixed_number_of_queries()
+    {
+        // Codebase audit P1: the page ran 71 queries (the files of each document queried twice, the progress built three times); now 16.
+        var (id, _) = await SubmittedAsync();
+        AsRecruiter();
+        int queries;
+        using (var counter = QueryCounter.Start())
+        {
+            var page = await Run(s => s.GetAsync(id));
+            Assert.Equal(24, page!.Documents!.Documents.Count);
+            queries = counter.Count;
+        }
+        Assert.True(queries <= 20, $"The onboarding page ran {queries} queries.");
+    }
 }

@@ -29,12 +29,21 @@ public class OnboardingProgressService(
     WorkflowMailer mailer,
     IAppLinks links)
 {
-    /// <summary>Everything needed to show an onboarding's documents and progress.</summary>
+    /// <summary>
+    /// Everything needed to show an onboarding's documents and progress, loaded in four queries (documents, types, every file
+    /// of every document, personal record). Build it once per request and pass it on (audit P1, 10 Nov 2026).
+    /// </summary>
+    /// <param name="CurrentFiles">The current files of each document (by EmployeeDocument id), oldest first.</param>
+    /// <param name="ReplacedFiles">The replaced or removed files of each document (its history), oldest first.</param>
+    /// <param name="Types">Every document type (also retired and legacy ones), by code.</param>
     public record Snapshot(
         OnboardingRecord Onboarding,
         IReadOnlyList<(EmployeeDocument Document, OnboardingDocumentType Type, int Files)> Documents,
         bool PersonalRecordSigned,
-        OnboardingWorkflow.Readiness Readiness)
+        OnboardingWorkflow.Readiness Readiness,
+        ILookup<int, Attachment> CurrentFiles,
+        ILookup<int, Attachment> ReplacedFiles,
+        IReadOnlyDictionary<string, OnboardingDocumentType> Types)
     {
         /// <summary>Progress in %: required documents verified, plus the letter and the declaration signed.</summary>
         public int Percent
@@ -54,16 +63,19 @@ public class OnboardingProgressService(
         var docs = await documents.ListAsync(d => d.OnboardingRecordId == o.Id, ct);
         var byCode = (await types.ListAsync(ct: ct)).ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
         var ids = docs.Select(d => d.Id).ToList();
-        var counts = (await attachments.ListAsync(a => a.OwnerType == AttachmentOwners.EmployeeDocument && ids.Contains(a.OwnerId), ct))
-            .GroupBy(a => a.OwnerId).ToDictionary(g => g.Key, g => g.Count());
+        var all = (await attachments.ListAsync(a => (a.OwnerType == AttachmentOwners.EmployeeDocument || a.OwnerType == AttachmentOwners.EmployeeDocumentReplaced)
+                                                    && ids.Contains(a.OwnerId), ct))
+            .OrderBy(a => a.CreatedAt).ThenBy(a => a.Id).ToList();
+        var current = all.Where(a => a.OwnerType == AttachmentOwners.EmployeeDocument).ToLookup(a => a.OwnerId);
+        var replaced = all.Where(a => a.OwnerType == AttachmentOwners.EmployeeDocumentReplaced).ToLookup(a => a.OwnerId);
         var list = docs
-            .Select(d => (Document: d, Type: byCode.GetValueOrDefault(d.DocumentTypeCode) ?? Unknown(d.DocumentTypeCode), Files: counts.GetValueOrDefault(d.Id)))
+            .Select(d => (Document: d, Type: byCode.GetValueOrDefault(d.DocumentTypeCode) ?? Unknown(d.DocumentTypeCode), Files: current[d.Id].Count()))
             .OrderBy(x => x.Type.IsLegacy ? 0 : 1).ThenBy(x => x.Type.Group).ThenBy(x => x.Type.SortOrder).ThenBy(x => x.Type.Name)
             .ToList();
         var signed = (await personalRecords.ListAsync(r => r.OnboardingRecordId == o.Id, ct)).FirstOrDefault()?.DeclaredAt is not null;
         var readiness = OnboardingWorkflow.CheckReadiness(o,
             list.Select(x => new OnboardingWorkflow.DocumentState(x.Document, x.Type.Name, x.Files, x.Type.MinFiles)).ToList(), signed);
-        return new Snapshot(o, list, signed, readiness);
+        return new Snapshot(o, list, signed, readiness, current, replaced, byCode);
     }
 
     /// <summary>The stage the facts call for, without moving it (used when a step records its own history line).</summary>

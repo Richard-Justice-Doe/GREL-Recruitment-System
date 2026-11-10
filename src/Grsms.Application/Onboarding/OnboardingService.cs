@@ -133,7 +133,7 @@ public class OnboardingService(
         form.OfferNumber = offer?.Number ?? "";
         form.DepartmentName = (await departments.GetByIdAsync(app.DepartmentId, ct))?.Name ?? "";
         form.Staff = await users.GetActiveStaffAsync(null, ct);
-        form.EducationOptions = await documentService.EducationChoicesAsync(null, form.RequiredEducation, ct);
+        form.EducationOptions = await documentService.EducationChoicesAsync(form.RequiredEducation, ct);
     }
 
     /// <summary>
@@ -304,7 +304,7 @@ public class OnboardingService(
             CompletedAt = o.CompletedAt,
             Notes = hr ? o.Notes : null,
             History = steps,
-            Documents = hr ? await documentService.GetForHrAsync(o.Id, ct) : null,
+            Documents = hr ? await documentService.GetForHrAsync(snap, ct) : null,
             PersonalRecordSigned = hr ? snap.PersonalRecordSigned : null,
             CanManage = manage,
             CanEditStartDate = manage && !o.LetterAcknowledged,
@@ -313,7 +313,7 @@ public class OnboardingService(
             CorrectionMessage = hr ? o.CorrectionMessage : null,
             CanSetRequirements = manage && OnboardingWorkflow.BeforeActivation(o.Status),
             IsExpatriate = o.IsExpatriate,
-            EducationChoices = hr ? await documentService.EducationChoicesAsync(o.Id, ct: ct) : [],
+            EducationChoices = hr ? DocumentVerificationService.EducationChoices(snap) : [],
             DocumentsDueDate = o.DocumentsDueDate,
             DocumentsDueDateExtended = o.DocumentsDueDateExtended,
             Outstanding = hr ? snap.Readiness.ForEmployee : [],

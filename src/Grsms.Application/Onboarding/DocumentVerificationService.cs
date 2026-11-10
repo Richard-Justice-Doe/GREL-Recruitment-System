@@ -81,9 +81,13 @@ public class DocumentVerificationService(
         return o is null || o.EmployeeUserId == me.UserId ? null : await ChecklistAsync(o, ct);
     }
 
-    private async Task<DocumentChecklistDto> ChecklistAsync(OnboardingRecord o, CancellationToken ct)
+    /// <summary>The same, from a snapshot the caller already built (the onboarding page builds it once).</summary>
+    public async Task<DocumentChecklistDto?> GetForHrAsync(OnboardingProgressService.Snapshot snap, CancellationToken ct = default) =>
+        !MayView || snap.Onboarding.EmployeeUserId == me.UserId ? null : await ChecklistAsync(snap.Onboarding, ct, snap);
+
+    private async Task<DocumentChecklistDto> ChecklistAsync(OnboardingRecord o, CancellationToken ct, OnboardingProgressService.Snapshot? snap = null)
     {
-        var snap = await progress.SnapshotAsync(o, ct);
+        snap ??= await progress.SnapshotAsync(o, ct);
         var ids = snap.Documents.Select(x => x.Document.Id).ToList();
         var history = (await events.ListAsync(e => ids.Contains(e.EmployeeDocumentId), ct))
             .Where(e => e.Action != DocumentEventAction.Viewed || o.EmployeeUserId != me.UserId) // the new employee does not see who opened their files
@@ -98,8 +102,8 @@ public class DocumentVerificationService(
         var dtos = new List<EmployeeDocumentDto>();
         foreach (var (d, t, _) in snap.Documents)
         {
-            var current = (await files.ListAsync(AttachmentOwners.EmployeeDocument, d.Id, ct)).OrderBy(f => f.UploadedAt).Select(ToFile).ToList();
-            var replaced = (await files.ListAsync(AttachmentOwners.EmployeeDocumentReplaced, d.Id, ct)).OrderBy(f => f.UploadedAt).Select(ToFile).ToList();
+            var current = snap.CurrentFiles[d.Id].Select(ToFile).ToList();
+            var replaced = snap.ReplacedFiles[d.Id].Select(ToFile).ToList();
             var reviewable = canReview && (OnboardingWorkflow.AwaitsReview(d.Status) || d.Status == EmployeeDocumentStatus.NotApplicable && d.VerifiedAt is null);
             dtos.Add(new EmployeeDocumentDto(d.Id, t.Code, t.Name, t.Description, t.Group, d.IsRequired, d.IsApplicable, d.Status, d.SubmittedAt,
                 d.NotApplicableReason, d.ReviewStartedAt, own ? null : Name(d.ReviewStartedByUserId), d.VerifiedAt, own ? null : Name(d.VerifiedByUserId),
@@ -112,9 +116,6 @@ public class DocumentVerificationService(
         return new DocumentChecklistDto(o.Id, o.Number, o.JobApplicationId, o.EmployeeName, o.JobTitle, o.Status, dtos, o.LetterIssued,
             o.LetterAcknowledged, snap.PersonalRecordSigned, o.IsExpatriate, o.DocumentsDueDate, o.CorrectionMessage, snap.Readiness.ForEmployee, snap.Percent);
     }
-
-    public async Task<IReadOnlyList<EmployeeDocument>> LoadAsync(int onboardingId, CancellationToken ct = default) =>
-        (await documents.ListAsync(d => d.OnboardingRecordId == onboardingId, ct)).OrderBy(d => d.Id).ToList();
 
     // ===================================================================== The new employee (or the RO on their behalf)
 
@@ -300,10 +301,9 @@ public class DocumentVerificationService(
         if (chosen.Any(c => !byCode.TryGetValue(c, out var t) || t.Requirement != DocumentRequirement.ChosenPerHire || !t.IsActive))
             return Result.Failure("Choose education certificates from the list.");
 
-        var docs = await documents.ListAsync(d => d.OnboardingRecordId == o.Id, ct);
-        var withFiles = new HashSet<int>();
-        foreach (var d in docs)
-            if ((await files.ListAsync(AttachmentOwners.EmployeeDocument, d.Id, ct)).Count > 0) withFiles.Add(d.Id);
+        var snap = await progress.SnapshotAsync(o, ct); // one query for every file (audit P2)
+        var docs = snap.Documents.Select(x => x.Document).ToList();
+        var withFiles = docs.Where(d => snap.CurrentFiles[d.Id].Any()).Select(d => d.Id).ToHashSet();
 
         // Education certificates ticked now but missing from an older checklist are added.
         foreach (var code in chosen.Where(c => docs.All(d => !string.Equals(d.DocumentTypeCode, c, StringComparison.OrdinalIgnoreCase))))
@@ -333,15 +333,20 @@ public class DocumentVerificationService(
         return saved;
     }
 
-    /// <summary>The "chosen per hire" types (education certificates) to tick, with which are ticked for this onboarding (null = a new one).</summary>
-    public async Task<IReadOnlyList<DocumentChoiceDto>> EducationChoicesAsync(int? onboardingId, IReadOnlyCollection<string>? ticked = null, CancellationToken ct = default)
+    /// <summary>The "chosen per hire" types (education certificates) to tick on the start form, with the ones already ticked.</summary>
+    public async Task<IReadOnlyList<DocumentChoiceDto>> EducationChoicesAsync(IReadOnlyCollection<string>? ticked, CancellationToken ct = default)
     {
-        var required = onboardingId is int id
-            ? (await documents.ListAsync(d => d.OnboardingRecordId == id && d.IsRequired, ct)).Select(d => d.DocumentTypeCode).ToHashSet(StringComparer.OrdinalIgnoreCase)
-            : (ticked ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return (await types.ListAsync(t => t.IsActive && !t.IsLegacy && t.Requirement == DocumentRequirement.ChosenPerHire, ct))
-            .OrderBy(t => t.SortOrder).Select(t => new DocumentChoiceDto(t.Code, t.Name, required.Contains(t.Code))).ToList();
+        var required = (ticked ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return Choices(await types.ListAsync(t => t.IsActive && !t.IsLegacy && t.Requirement == DocumentRequirement.ChosenPerHire, ct), required);
     }
+
+    /// <summary>The same for an existing onboarding, from a snapshot the caller already built (no query).</summary>
+    public static IReadOnlyList<DocumentChoiceDto> EducationChoices(OnboardingProgressService.Snapshot snap) =>
+        Choices(snap.Types.Values.Where(t => t.IsActive && !t.IsLegacy && t.Requirement == DocumentRequirement.ChosenPerHire),
+            snap.Documents.Where(x => x.Document.IsRequired).Select(x => x.Document.DocumentTypeCode).ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+    private static IReadOnlyList<DocumentChoiceDto> Choices(IEnumerable<OnboardingDocumentType> types, IReadOnlySet<string> required) =>
+        types.OrderBy(t => t.SortOrder).Select(t => new DocumentChoiceDto(t.Code, t.Name, required.Contains(t.Code))).ToList();
 
     // ===================================================================== Files
 
@@ -416,7 +421,7 @@ public class DocumentVerificationService(
         });
     }
 
-    private static EmployeeDocumentFileDto ToFile(AttachmentDto f) => new(f.Id, f.FileName, f.SizeBytes, f.UploadedAt);
+    private static EmployeeDocumentFileDto ToFile(Attachment a) => new(a.Id, a.OriginalFileName, a.SizeBytes, a.CreatedAt);
 
     private async Task<Result> SaveAsync(CancellationToken ct)
     {

@@ -76,12 +76,12 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
     </div>
 </div>
 
-<div class="row g-3">
+<div class="row g-3" data-section-tabs data-section-default="@(OnboardingWorkflow.BeforeActivation(Model.Status) ? "Documents" : "Checklist")">
     <div class="col-xl-7">
         @* ---- Phase 19: the personal record declaration (HR only) *@
         @if (Model.PersonalRecordSigned is bool prSigned)
         {
-            <div class="card glass mb-3">
+            <div data-section="Documents" class="card glass mb-3">
                 <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
                         <h2 class="h6 text-uppercase text-body-secondary mb-1">Personal record declaration</h2>
@@ -96,7 +96,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         {
             ViewData["DocController"] = "Onboarding";
             ViewData["DocRouteId"] = Model.Id;
-            <div class="card glass mb-3 @(Model.Documents.WaitingForHr > 0 ? "border border-primary" : "")">
+            <div data-section="Documents" class="card glass mb-3 @(Model.Documents.WaitingForHr > 0 ? "border border-primary" : "")">
                 <div class="card-body p-4">
                     <partial name="_EmployeeDocuments" model="Model.Documents" view-data="ViewData" />
                 </div>
@@ -104,7 +104,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         }
 
         @* ---- Checklist *@
-        <div class="card glass mb-3">
+        <div data-section="Checklist" class="card glass mb-3">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h2 class="h6 text-uppercase text-body-secondary mb-0">Checklist and departmental induction</h2>
@@ -242,7 +242,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         </div>
 
         @* ---- Phase 18: history *@
-        <div class="card glass mb-3">
+        <div data-section="History and notes" class="card glass mb-3">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
                 <ul class="timeline">
@@ -380,7 +380,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         }
 
         @* ---- Appointment letter *@
-        <div class="card glass mb-3 @(Model.CanIssueLetter && Model.LetterIssuedAt is null ? "border border-primary" : "")">
+        <div data-section="Letter and first day" class="card glass mb-3 @(Model.CanIssueLetter && Model.LetterIssuedAt is null ? "border border-primary" : "")">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Appointment letter @Model.LetterNumber</h2>
                 @if (Model.LetterSignedAt is not null)
@@ -412,7 +412,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         </div>
 
         @* ---- First day *@
-        <div class="card glass mb-3">
+        <div data-section="Letter and first day" class="card glass mb-3">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">First day</h2>
                 @if (Model.CanManage)
@@ -460,7 +460,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         </div>
 
         @* ---- About *@
-        <div class="card glass mb-3">
+        <div data-section="History and notes" class="card glass mb-3">
             <div class="card-body p-4">
                 <dl class="details-grid small mb-0">
                     <dt>New employee</dt><dd>@Model.EmployeeName@(Model.EmployeeEmail is null ? "" : $" · {Model.EmployeeEmail}")</dd>
@@ -474,7 +474,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         @* ---- Notes and cancel (HR) *@
         @if (Model.CanManage)
         {
-            <div class="card glass mb-3">
+            <div data-section="History and notes" class="card glass mb-3">
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-3">HR notes</h2>
                     <form asp-action="SaveNotes" asp-route-id="@Model.Id" method="post" class="mb-3">
@@ -492,3 +492,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         }
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/section-tabs.js" asp-append-version="true"></script>
+}

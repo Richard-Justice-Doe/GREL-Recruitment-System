@@ -27,6 +27,15 @@
         <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All probations</a>
     </div>
 </div>
+@* Usability U3: what happens next, at the top of the page. *@
+@{
+    (bool Mine, string Title, string? Detail, string? Anchor) nextStep =
+        Model.CanRecordInitialMeeting ? (true, "record the initial meeting", "Objectives and development plan, then sign.", "initial-meeting")
+        : Model.CanAssess && Model.NextAssessment is { } nextKind ? (true, $"record the {nextKind.DisplayName().ToLowerInvariant()}", null, "assessment")
+        : Model.CanHrDecide ? (true, "decide the outcome", "Confirm, extend or do not confirm.", "your-decision")
+        : (false, Model.Status.DisplayName(), null, null);
+}
+<partial name="_NextStepBanner" model="nextStep" />
 
 <div class="card glass mb-3">
     <div class="card-body p-4">
@@ -72,7 +81,7 @@
         {
             <div class="card glass mb-3 border border-primary">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Initial meeting <span class="fw-normal">(due @Model.InitialMeetingDueDate.ToString("dd MMM"))</span></h2>
+                    <h2 id="initial-meeting" class="h6 text-uppercase text-body-secondary mb-3">Initial meeting <span class="fw-normal">(due @Model.InitialMeetingDueDate.ToString("dd MMM"))</span></h2>
                     <form asp-action="InitialMeeting" asp-route-id="@Model.Id" method="post">
                         <label class="form-label small" for="MeetingDate">Date of the meeting</label>
                         <input id="MeetingDate" name="MeetingDate" type="date" class="form-control form-control-sm mb-2" value="@(Model.InitialMeetingDate ?? today).ToString("yyyy-MM-dd")" required />
@@ -143,7 +152,7 @@
         {
             <div class="card glass mb-3 border border-primary">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">@kind.DisplayName()</h2>
+                    <h2 id="assessment" class="h6 text-uppercase text-body-secondary mb-3">@kind.DisplayName()</h2>
                     <form asp-action="Assess" asp-route-id="@Model.Id" method="post">
                         <table class="table table-sm small align-middle">
                             <tbody>
@@ -208,7 +217,7 @@
             var final = Model.Assessments.Last(a => a.Kind == ProbationAssessmentKind.Final);
             <div class="card glass mb-3 border border-primary">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Your decision</h2>
+                    <h2 id="your-decision" class="h6 text-uppercase text-body-secondary mb-3">Your decision</h2>
                     <p class="small">The Head of Department recommends: <strong>@final.Outcome?.DisplayName()</strong>@(final.ExtensionMonths is { } em ? $" by {em} month(s)" : "").</p>
                     <form asp-action="HrDecide" asp-route-id="@Model.Id" method="post">
                         <label class="form-label small" for="hrComments">Comments <span class="text-body-secondary">(required to return)</span></label>

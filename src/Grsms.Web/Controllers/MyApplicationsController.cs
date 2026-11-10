@@ -84,7 +84,7 @@ public class MyApplicationsController(ApplicationService applications, Applicati
             if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded. HR will check it and email you if anything needs attention.");
             else Fail(result);
         }
-        return RedirectToAction(nameof(Documents), new { id });
+        return RedirectToAction(nameof(Documents), null, new { id }, $"doc-{documentId}"); // usability U3: back to that document
     }
 
     [HttpPost]

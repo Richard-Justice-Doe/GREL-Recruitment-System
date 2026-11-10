@@ -36,6 +36,15 @@
         }
     </div>
 </div>
+@* Usability U3: what happens next, at the top of the page. *@
+@{
+    (bool Mine, string Title, string? Detail, string? Anchor) nextStep =
+        Model.CanDecide ? (true, "decide on this request", "Approve it, or return it with a comment.", "your-decision")
+        : Model.CanSubmit ? (true, "submit the request for approval", "Check the form, then submit it.", "your-actions")
+        : Model.CanCreateVacancy ? (true, "create the vacancy", "The request is approved.", "your-actions")
+        : (false, Model.Status.DisplayName(), null, null);
+}
+<partial name="_NextStepBanner" model="nextStep" />
 
 <div class="card glass mb-3">
     <div class="card-body py-4">
@@ -189,7 +198,7 @@
         {
             <div class="card glass mb-3">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Your actions</h2>
+                    <h2 id="your-actions" class="h6 text-uppercase text-body-secondary mb-3">Your actions</h2>
                     @if (Model.CanSubmit)
                     {
                         @if (Model.Status == RecruitmentRequestStatus.Returned)
@@ -231,7 +240,7 @@
         {
             <div class="card glass mb-3 border border-primary">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Your decision (@Model.Status.DisplayName())</h2>
+                    <h2 id="your-decision" class="h6 text-uppercase text-body-secondary mb-3">Your decision (@Model.Status.DisplayName())</h2>
                     <form asp-action="Decide" asp-route-id="@Model.Id" method="post">
                         <input type="hidden" name="ExpectedStatus" value="@Model.Status" />
 

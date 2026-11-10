@@ -4,6 +4,15 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 10 November 2026: next step on every record page; busy pages in topics (usability U3)
+
+* **"Your next step"** banner on the request, vacancy, application and probation pages (`Views/Shared/_NextStepBanner.cshtml`).
+* **Onboarding page** and **hiring case** split into topics with tabs (`js/section-tabs.js`); everything still on the page without JavaScript.
+* After acting on a document you come back to that document.
+* **Checked:** 193/193 tests. Not checked in a browser.
+
+---
+
 ## 10 November 2026: candidates see their next step; My onboarding (usability U2, Phase 27 stage B)
 
 * **Candidate home** starts with "Your next step" (offer to answer, letter to sign, personal record, documents, interview, profile), one big button, sticky on phones (`MyNextStepService`, `Views/Shared/_MyNextSteps.cshtml`).

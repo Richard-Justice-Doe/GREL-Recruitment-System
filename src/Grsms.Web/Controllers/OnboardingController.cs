@@ -192,18 +192,18 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     [HttpPost]
     [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> VerifyDocument(int id, int documentId, CancellationToken ct) =>
-        Act(id, () => documents.VerifyAsync(documentId, ct), "Document verified.");
+        ActAt(id, documentId, () => documents.VerifyAsync(documentId, ct), "Document verified.");
 
     [HttpPost]
     [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> StartReview(int id, int documentId, CancellationToken ct) =>
-        Act(id, () => documents.StartReviewAsync(documentId, ct), "Review started: the new employee cannot change this document until you verify or reject it.");
+        ActAt(id, documentId, () => documents.StartReviewAsync(documentId, ct), "Review started: the new employee cannot change this document until you verify or reject it.");
 
     /// <param name="reasonCode">The reason from the list; <paramref name="reason"/> is the RO's note (required for "Other").</param>
     [HttpPost]
     [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> RejectDocument(int id, int documentId, DocumentRejectionReason? reasonCode, string? reason, CancellationToken ct) =>
-        Act(id, () => documents.RejectAsync(documentId, reasonCode, reason, ct), "Document rejected. The new employee has been emailed the reason.");
+        ActAt(id, documentId, () => documents.RejectAsync(documentId, reasonCode, reason, ct), "Document rejected. The new employee has been emailed the reason.");
 
     /// <summary>Downloads a new-hire document file (onboarding.view; always as a download, never shown inside the site; every opening is recorded).</summary>
     [Authorize(Policy = Policies.ViewOnboarding)]
@@ -220,4 +220,8 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
 
     private Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage) =>
         RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
+
+    /// <summary>Usability U3: after acting on a document, come back to that document (not the top of the page).</summary>
+    private Task<IActionResult> ActAt(int id, int documentId, Func<Task<Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), null, new { id }, $"doc-{documentId}"));
 }

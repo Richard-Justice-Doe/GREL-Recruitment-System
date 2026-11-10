@@ -131,11 +131,11 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
     </section>
 }
 
-<div class="row g-3">
+<div class="row g-3" data-section-tabs data-section-default="@(Model.Offer is not null || Model.Recommendation?.Status == HiringStatus.Approved ? "Offer" : Model.Recommendation is not null ? "Recommendation" : "Interview scores")">
     <div class="col-xl-7">
         @* ---- Results so far: screening and the validated interview scores (9 Nov 2026), in view for the recommendation,
                 each approval and the offer. Never shown to the candidate. *@
-        <div class="card glass mb-3">
+        <div data-section="Interview scores" class="card glass mb-3">
             <div class="card-body p-4">
                 <div class="d-flex flex-wrap gap-3 mb-3">
                     <div class="pill tone-hire" style="font-size:.85rem;padding:.5rem .9rem">Screening <strong class="ms-1">@(Model.ScreeningScore?.ToString() ?? "—")</strong></div>
@@ -200,7 +200,7 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
         </div>
 
         @* ---- Hiring recommendation *@
-        <div class="card glass mb-3">
+        <div data-section="Recommendation" class="card glass mb-3">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Hiring recommendation @(r is null ? "" : $"{r.Number}")</h2>
                 @if (r is null)
@@ -311,7 +311,7 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
         </div>
 
         @* ---- Offer *@
-        <div class="card glass mb-3">
+        <div data-section="Offer" class="card glass mb-3">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Offer</h2>
                 @if (Model.Offer is { } o)
@@ -380,7 +380,7 @@ Benefits: in line with GREL's conditions of service for this grade.</textarea>
 
     <div class="col-xl-5">
         @* ---- Background checks *@
-        <div class="card glass mb-3">
+        <div data-section="Background checks" class="card glass mb-3">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Background checks</h2>
                 @if (Model.Checks.Count == 0)
@@ -431,3 +431,7 @@ Benefits: in line with GREL's conditions of service for this grade.</textarea>
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/section-tabs.js" asp-append-version="true"></script>
+}

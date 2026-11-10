@@ -21,6 +21,14 @@
         <i class="fa-solid fa-arrow-left me-1"></i>All applications for this vacancy
     </a>
 </div>
+@* Usability U3: what happens next, at the top of the page. *@
+@{
+    (bool Mine, string Title, string? Detail, string? Anchor) nextStep =
+        Model.CanDecideAts ? (true, "confirm or overrule the automatic rejection", null, "screening-decision")
+        : Model.CanStartReview ? (true, "start the review", "The applicant then sees \"Under review\".", "review")
+        : (false, Model.Status.DisplayName(), null, null);
+}
+<partial name="_NextStepBanner" model="nextStep" />
 
 <div class="row g-3">
     <div class="col-xl-7">
@@ -142,7 +150,7 @@
         {
             <div class="card glass mb-3 @(Model.CanDecideAts ? "border border-danger" : "")">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-2">Screening decision: @Model.AtsDecision.DisplayName()</h2>
+                    <h2 id="screening-decision" class="h6 text-uppercase text-body-secondary mb-2">Screening decision: @Model.AtsDecision.DisplayName()</h2>
                     @if (Model.AtsRejectionReason is not null)
                     {
                         <div class="small mb-2" style="white-space: pre-line"><strong>Why screening rejected it:</strong>
@@ -240,7 +248,7 @@
         {
             <div class="card glass mb-3 border border-primary">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Review</h2>
+                    <h2 id="review" class="h6 text-uppercase text-body-secondary mb-3">Review</h2>
                     @if (Model.CanStartReview)
                     {
                         <form asp-action="StartReview" asp-route-id="@Model.Id" method="post" class="mb-3">

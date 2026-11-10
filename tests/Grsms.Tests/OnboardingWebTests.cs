@@ -390,6 +390,8 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Contains("Onboarding documents", page);
         Assert.Contains("Verified against the original", page);
         Assert.Contains("Start review", page);
+        Assert.Contains("data-section-tabs", page);                 // usability U3: the page in topics (Documents, Checklist, ...)
+        Assert.Contains("data-section=\"Checklist\"", page);
         var hrm = await SignedInAsync(c.Email("hrm"));
         Assert.DoesNotContain("Verified against the original", await hrm.GetStringAsync(url)); // the HR Manager only views
         await VerifyAllAsync(recruiter, url, id, await DocumentsAsync(id));

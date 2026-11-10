@@ -120,3 +120,11 @@ Every approval step, permission, document rule and email stays as it is. Nothing
 * **M3:** on a phone the next-step button sticks to the bottom of the screen.
 * **M4:** done through the CSS above; **not checked on a real phone** here.
 * Tests: **193** (new: the candidate's next steps).
+
+### U3: staff record pages (done, 10 November 2026)
+* **X3:** a **"Your next step"** banner at the top of the request, vacancy, application and probation pages (`_NextStepBanner`): what *you* can do now, with a *Go* button to the form further down, or what the record is waiting for. (The hiring case, interview and onboarding pages already had their next-step panels.)
+* **W3:** the **onboarding page in topics**: Documents · Checklist · Letter and first day · History and notes · Everything (`js/section-tabs.js`). The next-step panel always stays in view; the page opens on *Documents* before activation and *Checklist* after; your last choice is kept while you work; links into a hidden topic open it.
+* **W4:** the **hiring case in topics** (Interview scores · Recommendation · Offer · Background checks), opening on the current stage; its next-step buttons open the right topic. The interview page keeps its next-step panel as is (it is already one form per stage).
+* **N7 (part):** after verifying, rejecting or starting the review of a document, and after a candidate uploads one, the page comes back **to that document** instead of the top.
+* *Not done:* **X4** (one primary button on every page) as a sweep; the banners and next-step panels give each page its main button, but some pages still have several primary buttons. Landing on the *next waiting item* after a decision (e.g. the next request to approve) is not done either.
+* Tests: 193.

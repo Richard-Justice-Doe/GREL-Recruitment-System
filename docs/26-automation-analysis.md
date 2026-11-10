@@ -23,7 +23,7 @@ Legend: ✅ built and automatic · 🟡 built but manual or partial · ❌ not b
 | Onboarding | 8 stages, document rejection loop, induction tasks created on HR approval, daily overdue summary, personnel file opened **and filled at activation** | HR must click **Start onboarding** after acceptance, no completion %, tasks can't be accepted/returned |
 | Probation | Opens automatically at activation, deadlines calculated, confirmation letter generated and filed | **No reminders** for due meetings/assessments (known gap), objectives have no status, training not tracked |
 
-**Technical baseline:** one `BackgroundService` ([VacancyAutoCloseWorker.cs](../src/Grsms.Web/Workers/VacancyAutoCloseWorker.cs)) runs every 60 minutes and calls the expiry, advert, reminder and survey jobs. Emails are sent **inline** during the web request, with no outbox or retry. Reminders are de-duplicated by key. There is no anonymous token-link mechanism, no Microsoft Graph or Teams integration, and no PDF library (by decision: HTML letters, browser "Save as PDF").
+**Technical baseline:** one `BackgroundService` ([ScheduledJobsWorker.cs](../src/Grsms.Web/Workers/ScheduledJobsWorker.cs)) runs every 60 minutes and calls the expiry, advert, reminder and survey jobs. Emails are sent **inline** during the web request, with no outbox or retry. Reminders are de-duplicated by key. There is no anonymous token-link mechanism, no Microsoft Graph or Teams integration, and no PDF library (by decision: HTML letters, browser "Save as PDF").
 
 ---
 

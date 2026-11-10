@@ -25,7 +25,7 @@
 
 <div class="page-header">
     <div>
-        <h1>@Model.PositionTitle @(Model.NumberOfPositions > 1 ? $"(×{Model.NumberOfPositions})" : "") <partial name="_StatusBadge" model="Model.Status" /></h1>
+        <h1>@Model.PositionTitle @(Model.NumberOfPositions > 1 ? $"(×{Model.NumberOfPositions})" : "") <partial name="_RequestStatusBadge" model="Model.Status" /></h1>
         <p>@Model.RequestNumber · @Model.DepartmentName@(Model.UnitName is null ? "" : $" → {Model.UnitName}") · @Model.SiteName</p>
     </div>
     <div class="d-flex flex-wrap gap-2">

@@ -13,8 +13,10 @@ namespace Grsms.Web.Workers;
 /// Switch it off with "Vacancies:AutoClose" = false (the automated tests do this).
 ///
 /// It runs with no signed-in user, so its history entries and audit rows are recorded as "System".
+/// (Called VacancyAutoCloseWorker until 10 November 2026; the "Vacancies:AutoClose*" setting names are kept so existing
+/// server configurations keep working.)
 /// </summary>
-public class VacancyAutoCloseWorker(IServiceScopeFactory scopes, IConfiguration config, ILogger<VacancyAutoCloseWorker> logger)
+public class ScheduledJobsWorker(IServiceScopeFactory scopes, IConfiguration config, ILogger<ScheduledJobsWorker> logger)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

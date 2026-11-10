@@ -1,3 +1,4 @@
+using Grsms.Application.Probation;
 using System.Globalization;
 using Grsms.Application.Common;
 using Grsms.Application.Common.Interfaces;
@@ -10,7 +11,7 @@ using Grsms.Domain.Organization;
 using Grsms.Domain.Probation;
 using Grsms.Domain.Security;
 
-namespace Grsms.Application.Probation;
+namespace Grsms.Application.Workforce;
 
 /// <summary>
 /// Phase 21: the onboarding and probation reports, in the same shape as the other reports (KPIs and a table, exported to

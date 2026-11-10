@@ -38,7 +38,7 @@ public class PersonalRecordService(
 
     private const int MaxRows = 30, MaxSpouses = 4, MaxEmergencyContacts = 3;
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
-    private bool IsHr => me.HasPermission(Domain.Security.Permissions.ViewOnboarding); // Phase 27: onboarding.view
+    private bool MayView => me.HasPermission(Domain.Security.Permissions.ViewOnboarding); // Phase 27: onboarding.view
 
     private static readonly JsonSerializerOptions SnapshotJson = new()
     {
@@ -59,7 +59,7 @@ public class PersonalRecordService(
     /// <summary>HR's read-only view (null for anyone else).</summary>
     public async Task<PersonalRecordPageDto?> GetForHrAsync(int onboardingId, CancellationToken ct = default)
     {
-        if (!IsHr) return null;
+        if (!MayView) return null;
         var o = await onboardings.GetByIdAsync(onboardingId, ct);
         return o is null || o.EmployeeUserId == me.UserId ? null : await PageAsync(o, canEdit: false, ct);
     }

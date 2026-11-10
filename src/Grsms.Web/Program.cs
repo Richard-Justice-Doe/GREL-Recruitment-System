@@ -51,8 +51,8 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAppLinks, AppLinks>();
 builder.Services.AddScoped<Grsms.Web.Helpers.NavCounts>(); // sidebar badges + notification bell
 
-// Background job: closes vacancies whose closing date has passed (see Workers/VacancyAutoCloseWorker.cs).
-builder.Services.AddHostedService<VacancyAutoCloseWorker>();
+// Background job: every hourly date-driven job (vacancy closing, adverts, offer expiry, reminders, surveys; Workers/ScheduledJobsWorker.cs).
+builder.Services.AddHostedService<ScheduledJobsWorker>();
 
 // Relative folders for saved emails (used until SMTP is configured) and uploaded files are placed
 // inside the application folder.

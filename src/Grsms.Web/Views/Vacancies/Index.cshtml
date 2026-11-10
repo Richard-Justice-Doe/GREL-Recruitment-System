@@ -142,7 +142,7 @@ else
                             <td>@v.DepartmentName</td>
                             <td class="small">@v.VacancyType.DisplayName()</td>
                             <td>@v.RecruiterName</td>
-                            <td><partial name="_StatusBadge" model="v.Status" /></td>
+                            <td><partial name="_VacancyStatusBadge" model="v.Status" /></td>
                             <td class="small text-nowrap">
                                 @v.ClosingDate.ToString("dd MMM yyyy")
                                 @if (v.Status == VacancyStatus.Published && daysLeft is >= 0 and <= 3)

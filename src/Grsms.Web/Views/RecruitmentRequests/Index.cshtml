@@ -107,7 +107,7 @@
                         <td>@r.DivisionName</td>
                         <td>@r.DepartmentName</td>
                         <td>@r.RequestedByName</td>
-                        <td><partial name="_StatusBadge" model="r.Status" /></td>
+                        <td><partial name="_RequestStatusBadge" model="r.Status" /></td>
                         <td class="small text-nowrap">
                             @if (tab == "awaiting")
                             {

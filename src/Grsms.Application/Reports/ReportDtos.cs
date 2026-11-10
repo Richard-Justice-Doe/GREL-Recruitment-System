@@ -7,7 +7,7 @@ public static class ReportKeys
 {
     public const string Overview = "overview", Requests = "requests", Vacancies = "vacancies", Applications = "applications",
         Sources = "sources", Offers = "offers", TimeToHire = "timetohire", Onboarding = "onboarding",
-        // Phase 21: onboarding and probation reports (see Application/Probation/WorkforceReportService.cs)
+        // Phase 21: onboarding and probation reports (see Application/Workforce/WorkforceReportService.cs)
         MissingDocuments = "missingdocs", DocumentVerification = "docverification", Beneficiaries = "beneficiaries",
         Probation = "probation", ProbationExtensions = "extensions", Confirmations = "confirmations";
 

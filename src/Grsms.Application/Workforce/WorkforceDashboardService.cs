@@ -1,10 +1,11 @@
+using Grsms.Application.Probation;
 using Grsms.Application.Common;
 using Grsms.Application.Common.Interfaces;
 using Grsms.Domain.Onboarding;
 using Grsms.Domain.Probation;
 using Grsms.Domain.Security;
 
-namespace Grsms.Application.Probation;
+namespace Grsms.Application.Workforce;
 
 /// <summary>One count on the Home page's onboarding and probation panel, with where clicking it goes.</summary>
 public record WorkforceWidgetDto(string Title, int Count, string Icon, string Controller, string Action, IReadOnlyDictionary<string, string> Route, bool Attention);

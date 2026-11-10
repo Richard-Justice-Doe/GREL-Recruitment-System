@@ -36,7 +36,7 @@
                         <td>@d.DivisionName</td>
                         <td>@(d.HeadOfDepartmentName ?? "Not assigned")</td>
                         <td class="text-center">@d.UnitCount</td>
-                        <td><partial name="_StatusBadge" model="d.IsActive" /></td>
+                        <td><partial name="_ActiveBadge" model="d.IsActive" /></td>
                         <td class="text-end text-nowrap">
                             <a asp-action="Edit" asp-route-id="@d.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
                             <form asp-action="SetActive" asp-route-id="@d.Id" method="post" class="d-inline">

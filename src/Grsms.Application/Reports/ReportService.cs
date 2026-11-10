@@ -31,7 +31,7 @@ public class ReportService(
     IRepository<Department> departments,
     IRepository<Division> divisions,
     AccessScope scope,
-    Probation.WorkforceReportService workforce)
+    Workforce.WorkforceReportService workforce)
 {
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
 
@@ -42,7 +42,7 @@ public class ReportService(
     public async Task<ReportResult> RunAsync(ReportFilter filter, CancellationToken ct = default)
     {
         // Phase 21: the onboarding and probation reports have their own data.
-        if (Probation.WorkforceReportService.Keys.Contains(filter.Report))
+        if (Workforce.WorkforceReportService.Keys.Contains(filter.Report))
         {
             var w = await workforce.RunAsync(filter, ct);
             var winfo = ReportKeys.All.FirstOrDefault(r => r.Key == w.Key);

@@ -6,7 +6,7 @@
 
 <div class="page-header">
     <div>
-        <h1>@Model.Name <partial name="_StatusBadge" model="Model.IsActive" /></h1>
+        <h1>@Model.Name <partial name="_ActiveBadge" model="Model.IsActive" /></h1>
         <p>Code <code>@Model.Code</code></p>
     </div>
     <div class="d-flex gap-2">
@@ -81,7 +81,7 @@
                                 <tr class="@(u.IsActive ? "" : "row-inactive")">
                                     <td>@u.Name</td>
                                     <td><code>@u.Code</code></td>
-                                    <td><partial name="_StatusBadge" model="u.IsActive" /></td>
+                                    <td><partial name="_ActiveBadge" model="u.IsActive" /></td>
                                     <td class="text-end text-nowrap">
                                         <a asp-controller="Units" asp-action="Edit" asp-route-id="@u.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
                                         <form asp-controller="Units" asp-action="SetActive" asp-route-id="@u.Id" method="post" class="d-inline">

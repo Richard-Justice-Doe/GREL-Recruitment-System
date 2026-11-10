@@ -21,7 +21,7 @@ public class HomeController(
     AccessScope scope,
     IDivisionService divisionService,
     IDepartmentService departmentService,
-    Application.Probation.WorkforceDashboardService workforce) : AppController
+    Application.Workforce.WorkforceDashboardService workforce) : AppController
 {
     /// <param name="month">Month shown in the vacancy closing calendar, as "yyyy-MM" (default: this month).</param>
     /// <param name="divisionId">Optional: only count records of this division.</param>

@@ -16,5 +16,5 @@ public class HomeViewModel
     public SelectList? DepartmentList { get; init; }
 
     /// <summary>Phase 21: the onboarding and probation widgets (HR and Head of Department).</summary>
-    public Application.Probation.WorkforcePanelDto Workforce { get; init; } = new([], []);
+    public Application.Workforce.WorkforcePanelDto Workforce { get; init; } = new([], []);
 }

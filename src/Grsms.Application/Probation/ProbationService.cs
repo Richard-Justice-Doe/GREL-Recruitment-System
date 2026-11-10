@@ -108,6 +108,39 @@ public class ProbationService(
         return rows.OrderBy(r => r.NextDue ?? DateOnly.MaxValue).ThenBy(r => r.EmployeeName).ToList();
     }
 
+    /// <summary>
+    /// Usability U1: the probation steps waiting for me: the initial meeting and the assessments of the departments I head, once
+    /// they are open (within <see cref="ProbationWorkflow.AssessmentWindowDays"/> of the due date), and the HR decisions
+    /// (probation.decide). Never my own probation. Oldest first.
+    /// </summary>
+    public async Task<IReadOnlyList<ProbationWorkItemDto>> MyWorkAsync(CancellationToken ct = default)
+    {
+        if (me.UserId is not { } uid) return [];
+        var hodDepts = me.IsInRole(Roles.HeadOfDepartment) ? (await scope.HodDepartmentIdsAsync(ct)).ToList() : [];
+        if (hodDepts.Count == 0 && !MayDecide) return [];
+        var open = await probations.ListAsync(p => p.EmployeeUserId != uid &&
+            ((p.Status == ProbationStatus.AwaitingHrDecision && MayDecide) || hodDepts.Contains(p.DepartmentId)), ct);
+        var ids = open.Select(p => p.Id).ToList();
+        var firstDone = (await assessments.ListAsync(a => ids.Contains(a.ProbationRecordId) && a.Kind == ProbationAssessmentKind.First, ct))
+            .Select(a => a.ProbationRecordId).ToHashSet();
+        var work = new List<ProbationWorkItemDto>();
+        foreach (var p in open)
+        {
+            if (p.Status == ProbationStatus.AwaitingHrDecision)
+            {
+                if (MayDecide) work.Add(new(p.Id, p.Number, p.EmployeeName, "Decide the outcome", null, true, p.StatusChangedAt));
+                continue;
+            }
+            if (!hodDepts.Contains(p.DepartmentId)) continue;
+            var (step, due) = NextStep(p, firstDone.Contains(p.Id));
+            if (step is null || step == "Employee's signature" || due is not { } d) continue;
+            var opens = step == "Initial meeting" ? p.StartDate : d.AddDays(-ProbationWorkflow.AssessmentWindowDays);
+            if (Today < opens) continue;
+            work.Add(new(p.Id, p.Number, p.EmployeeName, step, d, false, opens.ToDateTime(TimeOnly.MinValue)));
+        }
+        return work.OrderBy(w => w.Since).ToList();
+    }
+
     /// <summary>What has to happen next and by when (null when nothing is due from the HOD).</summary>
     public static (string? Step, DateOnly? Due) NextStep(ProbationRecord p, bool firstAssessmentDone) => p.Status switch
     {

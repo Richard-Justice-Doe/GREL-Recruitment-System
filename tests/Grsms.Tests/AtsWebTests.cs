@@ -121,14 +121,14 @@ public class AtsWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFactor
         var recruiter = await SignedInAsync("a.ro@grel.test");
         var home = await recruiter.GetStringAsync("/Ats");
         Assert.Contains("Field Driver", home);
-        Assert.Contains("ATS rejections waiting for HR", home); // sidebar badge
+        Assert.Contains("Automatic rejections waiting for HR", home); // sidebar badge
         var dashboard = await recruiter.GetStringAsync($"/Ats/Vacancy/{vacancyId}");
-        Assert.Contains("Rejected by the ATS: awaiting HR (1)", dashboard);
+        Assert.Contains("Automatically rejected: awaiting HR (1)", dashboard);
         Assert.Contains("driver&#x27;s licence", dashboard);
         Assert.Contains("Missing skill analysis", dashboard);
         Assert.Contains("Defensive driving", dashboard);
         var details = await recruiter.GetStringAsync($"/Applications/Details/{applicationId}");
-        Assert.Contains("ATS decision: Awaiting HR", details);
+        Assert.Contains("Screening decision: Awaiting HR", details);
         Assert.Contains("Knockout questions", details);
 
         // An override without a reason is refused; with one, the application goes to review.

@@ -284,4 +284,26 @@ public class OnboardingServiceTests : OnboardingTestBase
         }
         Assert.True(queries <= 20, $"The onboarding page ran {queries} queries.");
     }
+
+    [Fact]
+    public async Task Onboarding_work_waiting_for_each_person_appears_on_their_to_dos()
+    {
+        // Usability U1: documents to verify (RO), ready to activate (RO and HR Manager), nothing for the HOD or the new employee.
+        var (id, _) = await SubmittedAsync(Today);
+        AsRecruiter();
+        var work = await Run(s => s.MyWorkAsync());
+        var verify = Assert.Single(work, w => w.OnboardingId == id);
+        Assert.Equal(OnboardingWorkKind.VerifyDocuments, verify.Kind);
+        Assert.True(verify.Count >= 10);
+        AsHrManager();
+        Assert.Empty(await Run(s => s.MyWorkAsync())); // verifying is the RO's
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.Empty(await Run(s => s.MyWorkAsync()));
+
+        await VerifyAllAsync(id);
+        AsHrManager();
+        Assert.Equal(OnboardingWorkKind.Activate, Assert.Single(await Run(s => s.MyWorkAsync())).Kind);
+        As(_candidate, Roles.Candidate);
+        Assert.Empty(await Run(s => s.MyWorkAsync()));
+    }
 }

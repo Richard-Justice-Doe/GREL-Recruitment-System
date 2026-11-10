@@ -330,6 +330,19 @@ public class AtsService(
         return (await applications.ListAsync(a => a.Status == ApplicationStatus.AutoRejected && a.ApplicantUserId != MyId, ct)).Count;
     }
 
+    /// <summary>Usability U1: the automatic rejections waiting for HR to confirm, per vacancy (for the home to-dos), oldest first.</summary>
+    public async Task<IReadOnlyList<(int VacancyId, string VacancyNumber, string JobTitle, int Count, DateTime Since)>> AwaitingHrByVacancyAsync(CancellationToken ct = default)
+    {
+        if (!IsReviewer) return [];
+        var waiting = await applications.ListAsync(a => a.Status == ApplicationStatus.AutoRejected && a.ApplicantUserId != MyId, ct);
+        if (waiting.Count == 0) return [];
+        var ids = waiting.Select(a => a.VacancyId).Distinct().ToList();
+        var byId = (await vacancies.ListAsync(v => ids.Contains(v.Id), ct)).ToDictionary(v => v.Id);
+        return waiting.GroupBy(a => a.VacancyId).Where(g => byId.ContainsKey(g.Key))
+            .Select(g => (g.Key, byId[g.Key].VacancyNumber, byId[g.Key].JobTitle, g.Count(), g.Min(a => a.StatusChangedAt)))
+            .OrderBy(x => x.Item5).ToList();
+    }
+
     /// <summary>A vacancy's ATS dashboard, or null if the user may not see it.</summary>
     public async Task<AtsBoardDto?> GetBoardAsync(int vacancyId, CancellationToken ct = default)
     {

@@ -118,6 +118,6 @@ public class SystemSettingsWebTests(GrsmsWebFactory factory) : IClassFixture<Grs
         Assert.True(Denied(await readOnly.PostFormAsync("/EmailTemplates", "/EmailTemplates/Reset/application.received", new())));
         Assert.True(Denied(await readOnly.GetAsync("/Backups")));
         Assert.Equal(HttpStatusCode.OK, (await readOnly.GetAsync("/AuditMonitor")).StatusCode);
-        Assert.Contains("System settings", await readOnly.GetStringAsync("/")); // in the menu
+        Assert.Contains("System settings", await readOnly.GetStringAsync("/Administration")); // on the Administration page (usability U1)
     }
 }

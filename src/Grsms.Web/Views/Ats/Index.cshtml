@@ -2,13 +2,14 @@
    are waiting for HR. Vacancies with rejections waiting come first. *@
 @model IReadOnlyList<AtsVacancySummaryDto>
 @{
-    ViewData["Title"] = "ATS screening";
+    ViewData["Title"] = "Screening";
 }
 
+<partial name="_CandidatesTabs" />
 <div class="page-header">
     <div>
-        <h1>ATS screening</h1>
-        <p>Every application is read and scored by the ATS when it arrives. Rejections are held until HR confirms or overrides them.</p>
+        <h1>Screening</h1>
+        <p>Every application is read and scored automatically when it arrives (the ATS). Automatic rejections wait until HR confirms or overrules them.</p>
     </div>
 </div>
 

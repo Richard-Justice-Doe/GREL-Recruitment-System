@@ -547,4 +547,41 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Contains("/Account/AccessDenied", (await ro.PostFormAsync("/Probation", "/Probation/HrDecide/999999", new() { ["approve"] = "true" })).Headers.Location!.ToString());
         Assert.DoesNotContain("AccessDenied", (await hrm.PostFormAsync("/Probation", "/Probation/HrDecide/999999", new() { ["approve"] = "true" })).Headers.Location!.ToString());
     }
+
+    [Fact]
+    public async Task Each_person_gets_a_short_menu()
+    {
+        // Usability U1: Candidates (applications + screening), one Administration link, HODs without Screening and Hiring,
+        // staff's own job search in the menu under their name, a flat menu for occasional users.
+        await UserAsync("m.ro@grel.test", "Recruiter", 1, Roles.RecruitmentOfficer);
+        await UserAsync("m.hod@grel.test", "Head", 3, Roles.HeadOfDepartment);
+        await UserAsync("m.panel@grel.test", "Panel Member", 3, Roles.PanelMember);
+        await UserAsync("m.admin@grel.test", "HR Admin", 1, Roles.HrAdministrator);
+
+        var ro = await (await SignedInAsync("m.ro@grel.test")).GetStringAsync("/");
+        Assert.Contains(">Candidates", ro.Replace("</i> ", ">"));
+        Assert.Contains("Hiring &amp; offers", ro);
+        Assert.DoesNotContain("ATS screening", ro);
+        Assert.DoesNotContain("My career", ro);
+        Assert.Contains("My applications", ro);              // under the name menu
+        Assert.Contains("<details class=\"nav-group", ro);   // grouped: many links
+
+        var hod = await SignedInAsync("m.hod@grel.test");
+        var hodHome = await hod.GetStringAsync("/");
+        Assert.DoesNotContain("Hiring &amp; offers", hodHome);
+        Assert.DoesNotContain(">Screening<", await hod.GetStringAsync("/Applications"));
+
+        var panel = await (await SignedInAsync("m.panel@grel.test")).GetStringAsync("/");
+        Assert.Contains("Interviews", panel);
+        Assert.DoesNotContain("<details class=\"nav-group", panel); // flat: few links
+
+        var admin = await SignedInAsync("m.admin@grel.test");
+        Assert.Contains("Administration", await admin.GetStringAsync("/"));
+        var adminPage = await admin.GetStringAsync("/Administration");
+        foreach (var screen in new[] { "Departments", "Induction areas", "Onboarding documents", "Users &amp; roles", "Audit trail" })
+            Assert.Contains(screen, adminPage);
+        Assert.DoesNotContain("Backups", adminPage); // Super Admin only
+        var panelClient = await SignedInAsync("m.panel@grel.test");
+        Assert.Contains("/Account/AccessDenied", (await panelClient.GetAsync("/Administration")).Headers.Location!.ToString()); // nothing to administer
+    }
 }

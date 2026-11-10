@@ -29,6 +29,8 @@ public class DashboardService(
     Interviews.InterviewService interviews,
     Hiring.HiringService hiring,
     Onboarding.OnboardingService onboarding,
+    Applications.AtsService ats,
+    Probation.ProbationService probation,
     AccessScope scope)
 {
     private const int TaskRows = 6, ProgressRows = 5, CandidateRows = 5;
@@ -217,6 +219,35 @@ public class DashboardService(
         tasks.AddRange(myOnboarding.Take(TaskRows).Select(t => new DashboardTaskDto(DashboardTaskTarget.Onboarding, t.OnboardingId,
             $"{t.Title}: {t.EmployeeName}", t.Number, t.DueDate is null ? "Onboarding task" : $"Due {t.DueDate:dd MMM}", "Recruitment",
             Domain.Onboarding.OnboardingTaskStatus.Open, t.Since)));
+
+        // ------------------------------------------------------------ Usability U1: the rest of the work waiting for someone
+        var atsWaiting = await ats.AwaitingHrByVacancyAsync(ct);
+        taskTotal += atsWaiting.Count;
+        tasks.AddRange(atsWaiting.Take(TaskRows).Select(x => new DashboardTaskDto(DashboardTaskTarget.AtsConfirm, x.VacancyId, x.JobTitle,
+            x.VacancyNumber, $"{x.Count} automatic rejection(s) to confirm", "Recruitment", Domain.Applications.ApplicationStatus.AutoRejected, x.Since)));
+
+        var onboardingWork = await onboarding.MyWorkAsync(ct);
+        taskTotal += onboardingWork.Count;
+        tasks.AddRange(onboardingWork.Take(TaskRows).Select(w => new DashboardTaskDto(w.Kind switch
+            {
+                Onboarding.OnboardingWorkKind.IssueLetter => DashboardTaskTarget.OnboardingLetter,
+                Onboarding.OnboardingWorkKind.VerifyDocuments => DashboardTaskTarget.OnboardingDocuments,
+                Onboarding.OnboardingWorkKind.Activate => DashboardTaskTarget.OnboardingActivate,
+                _ => DashboardTaskTarget.OnboardingInduction
+            }, w.OnboardingId, w.EmployeeName, w.Number, w.Kind switch
+            {
+                Onboarding.OnboardingWorkKind.IssueLetter => "Issue the appointment letter",
+                Onboarding.OnboardingWorkKind.VerifyDocuments => $"{w.Count} document(s) to verify",
+                Onboarding.OnboardingWorkKind.Activate => "Ready for activation",
+                _ => "Induction done: close the onboarding"
+            }, "Recruitment", Domain.Onboarding.OnboardingTaskStatus.Open, w.Since)));
+
+        var probationWork = await probation.MyWorkAsync(ct);
+        taskTotal += probationWork.Count;
+        tasks.AddRange(probationWork.Take(TaskRows).Select(w => new DashboardTaskDto(
+            w.IsDecision ? DashboardTaskTarget.ProbationDecision : DashboardTaskTarget.ProbationStep, w.ProbationId, w.EmployeeName, w.Number,
+            w.Due is { } due ? $"{w.Step}, due {due:dd MMM}" : w.Step, "Recruitment",
+            w.IsDecision ? Domain.Probation.ProbationStatus.AwaitingHrDecision : Domain.Probation.ProbationStatus.InProgress, w.Since)));
 
         // ------------------------------------------------------------ Applications (Phase 5)
         if (access.Vacancies)

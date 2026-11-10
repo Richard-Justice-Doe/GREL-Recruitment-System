@@ -73,11 +73,11 @@ public class PermissionWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         var page = await admin.GetStringAsync("/Roles");
         Assert.Contains("Roles &amp; permissions", page);
         Assert.Contains("See all departments", page);
-        Assert.Contains("Roles &amp; permissions", await admin.GetStringAsync("/")); // in the menu
+        Assert.Contains("Roles &amp; permissions", await admin.GetStringAsync("/Administration")); // on the Administration page (usability U1)
 
         var hrAdmin = await UserAsync("p.hradmin@grel.test", Roles.HrAdministrator, Roles.Employee);
         Assert.True(Denied(await hrAdmin.GetAsync("/Roles")));
-        Assert.DoesNotContain("Roles &amp; permissions", await hrAdmin.GetStringAsync("/"));
+        Assert.DoesNotContain("Roles &amp; permissions", await hrAdmin.GetStringAsync("/Administration"));
         // The HR Administrator still runs Users & roles, but the privileged roles are locked there.
         var form = await hrAdmin.GetStringAsync("/Users/Create");
         Assert.Contains("can only be given by a Super Admin", form);

@@ -2,14 +2,14 @@
    optional Claude AI CV reader. Every save is in the audit trail (record type AtsSettings). *@
 @model AtsSettingsFormDto
 @{
-    ViewData["Title"] = "ATS settings";
+    ViewData["Title"] = "Screening (ATS) settings";
     var canManage = ViewBag.CanManage == true; // false = read-only (e.g. the Admin)
 }
 
 <div class="page-header">
     <div>
-        <h1>ATS settings</h1>
-        <p>How the ATS scores and rejects applications. Changes apply to applications screened from now on.
+        <h1>Screening (ATS) settings</h1>
+        <p>How screening scores and rejects applications. Changes apply to applications screened from now on.
             @if (Model.UpdatedAt is not null) { <span>Last changed @Model.UpdatedAt.Value.ToString("dd MMM yyyy HH:mm") by @Model.UpdatedBy.</span> }</p>
     </div>
     <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="AtsSettings" class="btn btn-outline-secondary"><i class="fa-solid fa-clock-rotate-left me-1"></i>Change history</a>
@@ -17,7 +17,7 @@
 
 @if (!canManage)
 {
-    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change the ATS settings.</div>
+    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change the screening settings.</div>
 }
 <form asp-action="Settings" method="post" novalidate>
     <fieldset disabled="@(!canManage)">

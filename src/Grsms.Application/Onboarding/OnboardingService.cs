@@ -829,6 +829,41 @@ public class OnboardingService(
             .ToList();
     }
 
+    /// <summary>
+    /// Usability U1: the onboarding work waiting for me, by permission: appointment letters to issue (onboarding.manage),
+    /// documents waiting for verification (onboarding.verify-documents), employees ready to activate and inductions ready to close
+    /// (onboarding.complete). Never my own onboarding. Oldest first.
+    /// </summary>
+    public async Task<IReadOnlyList<OnboardingWorkItemDto>> MyWorkAsync(CancellationToken ct = default)
+    {
+        if (me.UserId is not { } uid || !(MayManage || MayVerify || MayComplete)) return [];
+        var active = await onboardings.ListAsync(o => o.Status != OnboardingStatus.Completed && o.Status != OnboardingStatus.Cancelled && o.EmployeeUserId != uid, ct);
+        var work = new List<OnboardingWorkItemDto>();
+        OnboardingWorkItemDto Item(OnboardingRecord o, OnboardingWorkKind kind, int count, DateTime since) =>
+            new(o.Id, o.Number, o.EmployeeName, o.JobTitle, kind, count, since);
+
+        if (MayManage)
+            work.AddRange(active.Where(o => o.Status == OnboardingStatus.Draft && !o.LetterIssued).Select(o => Item(o, OnboardingWorkKind.IssueLetter, 1, o.CreatedAt)));
+        if (MayVerify)
+        {
+            var ids = active.Where(o => OnboardingWorkflow.BeforeActivation(o.Status)).Select(o => o.Id).ToList();
+            var waiting = (await documents.ListAsync(d => ids.Contains(d.OnboardingRecordId) && d.IsApplicable &&
+                    (d.Status == EmployeeDocumentStatus.Submitted || d.Status == EmployeeDocumentStatus.Resubmitted || d.Status == EmployeeDocumentStatus.UnderReview), ct))
+                .GroupBy(d => d.OnboardingRecordId).ToDictionary(g => g.Key, g => (Count: g.Count(), Since: g.Min(d => d.SubmittedAt ?? d.CreatedAt)));
+            work.AddRange(active.Where(o => waiting.ContainsKey(o.Id)).Select(o => Item(o, OnboardingWorkKind.VerifyDocuments, waiting[o.Id].Count, waiting[o.Id].Since)));
+        }
+        if (MayComplete)
+        {
+            work.AddRange(active.Where(o => o.Status == OnboardingStatus.AwaitingActivation).Select(o => Item(o, OnboardingWorkKind.Activate, 1, o.StatusChangedAt)));
+            var inducting = active.Where(o => o.Status == OnboardingStatus.AwaitingDepartmentalInduction).ToList();
+            var inductingIds = inducting.Select(o => o.Id).ToList();
+            var byRecord = (await tasks.ListAsync(t => inductingIds.Contains(t.OnboardingRecordId), ct)).ToLookup(t => t.OnboardingRecordId);
+            work.AddRange(inducting.Where(o => InductionProblem(o, byRecord[o.Id].ToList()) is null)
+                .Select(o => Item(o, OnboardingWorkKind.CloseInduction, 1, o.StatusChangedAt)));
+        }
+        return work.OrderBy(w => w.Since).ToList();
+    }
+
     /// <summary>The sidebar badge: open tasks assigned to me on onboardings in progress (two small queries, no DTOs; audit P6).</summary>
     public async Task<int> CountMyTasksAsync(CancellationToken ct = default)
     {

@@ -126,3 +126,6 @@ public class ProbationFilter
     public string Tab { get; set; } = "active";
     public int? DepartmentId { get; set; }
 }
+
+/// <summary>Usability U1 (10 Nov 2026): a probation step waiting for the current user (the HOD's meeting or assessment, or the HR decision).</summary>
+public record ProbationWorkItemDto(int ProbationId, string Number, string EmployeeName, string Step, DateOnly? Due, bool IsDecision, DateTime Since);

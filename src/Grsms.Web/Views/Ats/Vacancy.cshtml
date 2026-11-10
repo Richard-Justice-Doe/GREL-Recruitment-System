@@ -5,7 +5,7 @@
    Scores are magnitudes, so they use one colour; bands are always shown as words with an icon. *@
 @model AtsBoardDto
 @{
-    ViewData["Title"] = $"ATS: {Model.JobTitle}";
+    ViewData["Title"] = $"Screening: {Model.JobTitle}";
     var inv = System.Globalization.CultureInfo.InvariantCulture;
     var s = Model.Settings;
     var bands = new (AtsClassification Band, string Range)[]
@@ -23,7 +23,7 @@
 
 <div class="page-header">
     <div>
-        <h1>ATS: @Model.JobTitle</h1>
+        <h1>Screening: @Model.JobTitle</h1>
         <p><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> · @Model.DepartmentName · @Model.VacancyStatus.DisplayName()
             · needs @Model.MinimumEducation.DisplayName(), @Model.MinYearsExperience+ years</p>
     </div>
@@ -33,7 +33,7 @@
         {
             <form asp-action="Rescreen" method="post">
                 <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
-                <button type="submit" class="btn btn-outline-primary" data-confirm="Re-run the ATS for every application still at the screening stage, with the current settings?"><i class="fa-solid fa-rotate me-1"></i>Re-run screening</button>
+                <button type="submit" class="btn btn-outline-primary" data-confirm="Re-run screening for every application still at the screening stage, with the current settings?"><i class="fa-solid fa-rotate me-1"></i>Re-run screening</button>
             </form>
         }
     </div>
@@ -90,7 +90,7 @@
         <div class="card glass mb-3 @(held.Count > 0 ? "border border-danger" : "")">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Rejected by the ATS: awaiting HR (@held.Count)</h2>
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Automatically rejected: awaiting HR (@held.Count)</h2>
                     @if (Model.IsReviewer && held.Any(r => r.CanDecide))
                     {
                         <form asp-action="ConfirmAll" method="post">
@@ -120,12 +120,12 @@
                                 <form asp-action="Confirm" asp-route-id="@r.ApplicationId" method="post">
                                     <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
                                     <button type="submit" class="btn btn-sm btn-outline-danger"
-                                            data-confirm="Confirm the ATS rejection of @r.FullName? The applicant will be emailed.">Confirm rejection</button>
+                                            data-confirm="Confirm the automatic rejection of @r.FullName? The applicant will be emailed.">Confirm rejection</button>
                                 </form>
                                 <form asp-action="Override" asp-route-id="@r.ApplicationId" method="post" class="d-flex gap-2 flex-grow-1">
                                     <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
                                     <input type="text" name="reason" class="form-control form-control-sm" maxlength="2000" required minlength="5"
-                                           placeholder="Why should it be reviewed?" aria-label="Reason for overriding the ATS for @r.FullName" />
+                                           placeholder="Why should it be reviewed?" aria-label="Reason for overruling screening for @r.FullName" />
                                     <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">Override</button>
                                 </form>
                             </div>
@@ -138,7 +138,7 @@
                 }
                 @if (rejectedOther.Count > 0)
                 {
-                    <p class="small text-body-secondary mt-2 mb-0">Plus @rejectedOther.Count ATS rejection(s) already confirmed by HR.</p>
+                    <p class="small text-body-secondary mt-2 mb-0">Plus @rejectedOther.Count automatic rejection(s) already confirmed by HR.</p>
                 }
             </div>
         </div>

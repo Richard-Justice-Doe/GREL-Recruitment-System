@@ -97,6 +97,13 @@
                         <li><span class="dropdown-item-text small text-body-secondary">@User.Identity?.Name</span></li>
                         <li><hr class="dropdown-divider" /></li>
                         <li><a class="dropdown-item" asp-controller="Profile" asp-action="Index"><i class="fa-regular fa-id-card me-2"></i>My profile</a></li>
+                        @if (!User.IsInRole(Roles.Candidate))
+                        {
+                            @* Usability U1: a staff member's own job search and probation (they left the sidebar). *@
+                            <li><a class="dropdown-item" asp-controller="MyProbation" asp-action="Index"><i class="fa-solid fa-seedling me-2"></i>My probation</a></li>
+                            <li><a class="dropdown-item" asp-controller="Careers" asp-action="Index"><i class="fa-solid fa-magnifying-glass me-2"></i>Job openings</a></li>
+                            <li><a class="dropdown-item" asp-controller="MyApplications" asp-action="Index"><i class="fa-regular fa-paper-plane me-2"></i>My applications</a></li>
+                        }
                         <li><a class="dropdown-item" asp-controller="MyAuditTrail" asp-action="Index"><i class="fa-solid fa-clock-rotate-left me-2"></i>My audit trail</a></li>
                         <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword"><i class="fa-solid fa-key me-2"></i>Change password</a></li>
                         <li>

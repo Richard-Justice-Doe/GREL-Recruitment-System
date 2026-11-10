@@ -4,6 +4,18 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 10 November 2026: simpler menus and complete to-dos (usability U1)
+
+**Why:** "make the whole project very simple and easy to use". Review, decisions and progress: [28 Usability review](28-usability-review.md). Look and flow only: no business rule or permission changed.
+
+* **Menu:** Candidates (applications + screening), one Administration page instead of 13 links, survey results under Reports, staff's own job search in the menu under their name, a flat menu for people with few links, no Screening or Hiring & offers for Heads of Department.
+* **Home to-dos** now include screening rejections to confirm, letters to issue, documents to verify, employees to activate, inductions to close, probation meetings, assessments and decisions.
+* **Words:** "ATS" → "screening" where users read it; two outdated developer notes removed.
+* **Files:** `Controllers/AdministrationController.cs`, `Views/Administration/Index.cshtml`, `Views/Shared/_CandidatesTabs.cshtml`, `Helpers/MenuRules.cs`, `_Sidebar.cshtml`, `_Layout.cshtml`; `OnboardingService.MyWorkAsync`, `ProbationService.MyWorkAsync`, `AtsService.AwaitingHrByVacancyAsync`, `DashboardService`.
+* **Checked:** 192/192 tests. Not checked in a browser.
+
+---
+
 ## 10 November 2026: codebase audit and cleanup
 
 **Why:** a full audit of the codebase (dead code, duplicates, structure, database, security, performance) before Phase 27 stages B and C. Report, decisions and results: [27 Codebase audit](27-codebase-audit.md). No business rule changed except the two decisions below.

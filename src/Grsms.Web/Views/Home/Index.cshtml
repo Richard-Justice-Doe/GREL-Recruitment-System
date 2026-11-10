@@ -50,6 +50,10 @@
         DashboardTaskTarget.Hiring or DashboardTaskTarget.HiringRecommendation => Url.Action("Case", "Hiring", new { id = t.Id }),
         DashboardTaskTarget.Onboarding => Url.Action("Details", "Onboarding", new { id = t.Id }),
         DashboardTaskTarget.NewOnboarding => Url.Action("Start", "Onboarding", new { id = t.Id }),
+        DashboardTaskTarget.AtsConfirm => Url.Action("Vacancy", "Ats", new { id = t.Id }),
+        DashboardTaskTarget.OnboardingLetter or DashboardTaskTarget.OnboardingDocuments or DashboardTaskTarget.OnboardingActivate
+            or DashboardTaskTarget.OnboardingInduction => Url.Action("Details", "Onboarding", new { id = t.Id }),
+        DashboardTaskTarget.ProbationStep or DashboardTaskTarget.ProbationDecision => Url.Action("Details", "Probation", new { id = t.Id }),
         _ => Url.Action("Create", "Vacancies", new { requestId = t.Id })
     };
 
@@ -65,6 +69,13 @@
         DashboardTaskTarget.Hiring => ("tone-offer", "Hiring decision", "Open hiring case"),
         DashboardTaskTarget.HiringRecommendation => ("tone-offer", "Ready for hiring", "Decide"),
         DashboardTaskTarget.NewOnboarding => ("tone-onboard", "Onboarding", "Start onboarding"),
+        DashboardTaskTarget.AtsConfirm => ("tone-hire", "Screening", "Confirm or overrule"),
+        DashboardTaskTarget.OnboardingLetter => ("tone-onboard", "Appointment letter", "Issue the letter"),
+        DashboardTaskTarget.OnboardingDocuments => ("tone-onboard", "Documents", "Verify the documents"),
+        DashboardTaskTarget.OnboardingActivate => ("tone-onboard", "Ready for activation", "Activate"),
+        DashboardTaskTarget.OnboardingInduction => ("tone-onboard", "Induction", "Close the onboarding"),
+        DashboardTaskTarget.ProbationStep => ("tone-probation", "Probation", "Open the probation"),
+        DashboardTaskTarget.ProbationDecision => ("tone-probation", "Probation decision", "Decide"),
         _ => ("tone-onboard", "Onboarding", "Open checklist")
     };
 

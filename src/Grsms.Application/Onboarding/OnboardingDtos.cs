@@ -224,3 +224,10 @@ public record DocumentChecklistDto(
     public int WaitingForHr => Visible.Count(d => OnboardingWorkflow.AwaitsReview(d.Status));
     public bool ReadyForActivation => Stage == OnboardingStatus.AwaitingActivation;
 }
+
+/// <summary>Usability U1 (10 Nov 2026): kinds of onboarding work that appear on the home to-dos.</summary>
+public enum OnboardingWorkKind { IssueLetter, VerifyDocuments, Activate, CloseInduction }
+
+/// <summary>One piece of onboarding work waiting for the current user (letter to issue, documents to verify, ...).</summary>
+/// <param name="Count">How many items (e.g. documents waiting for verification).</param>
+public record OnboardingWorkItemDto(int OnboardingId, string Number, string EmployeeName, string JobTitle, OnboardingWorkKind Kind, int Count, DateTime Since);

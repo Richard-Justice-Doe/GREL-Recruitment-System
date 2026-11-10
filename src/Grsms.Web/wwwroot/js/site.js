@@ -179,7 +179,7 @@
                     countUp(entry.target);
                 });
             }, { threshold: 0.4 });
-            document.querySelectorAll(".kpi-value, .stat-value, .ats-tile-value").forEach(function (el) { seen.observe(el); });
+            document.querySelectorAll(".kpi-value, .ats-tile-value").forEach(function (el) { seen.observe(el); });
         }
     });
 

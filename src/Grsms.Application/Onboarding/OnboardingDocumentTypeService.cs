@@ -48,10 +48,6 @@ public class OnboardingDocumentTypeService(
 
     public bool CanManage => me.HasPermission(Permissions.ManageMasterData);
 
-    /// <summary>Every type (also retired and legacy ones) by code, for names and rules.</summary>
-    public async Task<IReadOnlyDictionary<string, OnboardingDocumentType>> AllByCodeAsync(CancellationToken ct = default) =>
-        (await types.ListAsync(ct: ct)).ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
-
     /// <summary>The settings screen, in checklist order.</summary>
     public async Task<IReadOnlyList<OnboardingDocumentTypeForm>> GetAllAsync(CancellationToken ct = default)
     {

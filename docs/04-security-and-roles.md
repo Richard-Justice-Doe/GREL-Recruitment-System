@@ -22,7 +22,7 @@ GRSMS uses **role-based access control with permissions**:
 | Open personnel files (Phase 20) | 🔒 | | | ✅ | | ✅ | | | |
 | See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | | |
 | Manage roles and permissions | 🔒 only | | | | | | | | |
-| Create privileged accounts | 🔒 only | | | | | | | | |
+| Create privileged accounts (a rule of the Super Admin role, not a permission since 10 Nov 2026) | 🔒 only | | | | | | | | |
 | Configure the ATS (weights, bands, auto-rejection rules, AI reader; Phase 15) | 🔒 only | | | | | | | | |
 | Change system settings and email templates (Phase 16) | 🔒 only | | | | | | | | |
 | Manage backups: see, back up now, download a database dump (Phase 16) | 🔒 only | | | | | | | | |

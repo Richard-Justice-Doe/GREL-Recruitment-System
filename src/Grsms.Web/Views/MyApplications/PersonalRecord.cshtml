@@ -8,7 +8,6 @@
     var f = Model.Form;
     var today = DateOnly.FromDateTime(DateTime.UtcNow);
     string D(DateOnly? d) => d?.ToString("yyyy-MM-dd") ?? "";
-    string Sel(bool on) => on ? "selected" : "";
 
     // A row is shown for each saved entry, plus one blank row when the list is empty (so the form works without JavaScript).
     IEnumerable<(string Key, T Row)> Rows<T>(List<T> list) where T : new() =>

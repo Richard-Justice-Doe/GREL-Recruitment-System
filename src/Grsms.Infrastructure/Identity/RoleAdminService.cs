@@ -146,10 +146,6 @@ public partial class RoleAdminService(
         }
     }
 
-    public async Task<IReadOnlyList<string>> GetCustomRoleNamesAsync(CancellationToken ct = default) =>
-        (await db.Roles.AsNoTracking().Select(r => r.Name!).ToListAsync(ct))
-            .Where(n => !Roles.IsBuiltIn(n)).OrderBy(n => n).ToList();
-
     public async Task<Result<(int Added, int Removed)>> SavePermissionsAsync(
         IReadOnlyDictionary<string, IReadOnlyCollection<string>> grants, CancellationToken ct = default)
     {

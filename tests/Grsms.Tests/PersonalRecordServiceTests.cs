@@ -105,7 +105,9 @@ public class PersonalRecordServiceTests : OnboardingTestBase
         changed.Beneficiaries[1].Percentage = 50m;
         Assert.True((await RunRecord(s => s.SaveAsync(app, changed))).Succeeded);
         Assert.False((await RunRecord(s => s.GetMineAsync(app)))!.Signed);
-        Assert.False(await RunDocs(s => s.PersonalRecordSignedAsync(id)));
+        AsRecruiter();
+        Assert.False((await Run(s => s.GetAsync(id)))!.PersonalRecordSigned); // what the RO sees
+        As(_candidate, Roles.Candidate);
         Assert.True((await RunRecord(s => s.SignAsync(app, "Ama Mensah", true))).Succeeded);
 
         var all = await Db(db => db.EmployeeDeclarations.OrderBy(d => d.Id).ToListAsync());

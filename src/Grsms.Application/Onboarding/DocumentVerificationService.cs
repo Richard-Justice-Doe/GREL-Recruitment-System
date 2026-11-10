@@ -47,10 +47,6 @@ public class DocumentVerificationService(
     private bool MayManage => me.HasPermission(Permissions.ManageOnboarding);
     private bool MayVerify => me.HasPermission(Permissions.VerifyOnboardingDocuments);
 
-    /// <summary>True when the RO has finished with the document: verified, or "not applicable" accepted.</summary>
-    public static bool IsSettled(EmployeeDocument d) =>
-        d.Status == EmployeeDocumentStatus.Verified || (d.Status == EmployeeDocumentStatus.NotApplicable && d.VerifiedAt is not null);
-
     /// <summary>The checklist for a new onboarding: one "Not submitted" row per active document type, with its requirement applied.</summary>
     /// <param name="requiredEducation">Codes of the "chosen per hire" types the RO ticked.</param>
     public static IEnumerable<EmployeeDocument> NewChecklist(OnboardingRecord o, IEnumerable<OnboardingDocumentType> all, IReadOnlyCollection<string> requiredEducation)
@@ -115,13 +111,6 @@ public class DocumentVerificationService(
         }
         return new DocumentChecklistDto(o.Id, o.Number, o.JobApplicationId, o.EmployeeName, o.JobTitle, o.Status, dtos, o.LetterIssued,
             o.LetterAcknowledged, snap.PersonalRecordSigned, o.IsExpatriate, o.DocumentsDueDate, o.CorrectionMessage, snap.Readiness.ForEmployee, snap.Percent);
-    }
-
-    /// <summary>Phase 19: true when the personal record exists and its current version is signed.</summary>
-    public async Task<bool> PersonalRecordSignedAsync(int onboardingId, CancellationToken ct = default)
-    {
-        var o = await onboardings.GetByIdAsync(onboardingId, ct);
-        return o is not null && (await progress.SnapshotAsync(o, ct)).PersonalRecordSigned;
     }
 
     public async Task<IReadOnlyList<EmployeeDocument>> LoadAsync(int onboardingId, CancellationToken ct = default) =>

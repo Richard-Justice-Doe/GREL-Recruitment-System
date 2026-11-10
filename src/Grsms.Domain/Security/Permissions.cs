@@ -71,7 +71,6 @@ public static class Permissions
 
     // ---------------------------------------------------------------- Super Admin only
     public const string ManagePermissions = "permissions.manage";
-    public const string ManagePrivilegedAccounts = "users.manage-privileged";
 
     /// <summary>Phase 15: change the ATS weights, bands and automatic-rejection rules, and switch the AI CV reader on or off.</summary>
     public const string ConfigureAts = "ats.configure";
@@ -121,9 +120,6 @@ public static class Permissions
 
         new(ManagePermissions, "Super Admin only", "Manage roles and permissions",
             "Add custom roles and decide which permissions each role holds.", SuperAdminOnly: true),
-        new(ManagePrivilegedAccounts, "Super Admin only", "Create privileged accounts",
-            "Create and edit HR Managers, Recruitment Officers, Heads of Department, HR Administrators, the Managing Director and Super Admins.",
-            SuperAdminOnly: true),
         new(ConfigureAts, "Super Admin only", "Configure the ATS",
             "Change the ATS score weights, classification bands and automatic-rejection rules, and switch the AI CV reader on or off.",
             SuperAdminOnly: true),

@@ -62,10 +62,6 @@ public class PersonalRecordService(
         return o is null || o.EmployeeUserId == me.UserId ? null : await PageAsync(o, canEdit: false, ct);
     }
 
-    /// <summary>True when the onboarding's personal record exists and its current version is signed.</summary>
-    public async Task<bool> IsSignedAsync(int onboardingId, CancellationToken ct = default) =>
-        (await records.ListAsync(r => r.OnboardingRecordId == onboardingId, ct)).FirstOrDefault()?.DeclaredAt is not null;
-
     private async Task<PersonalRecordPageDto> PageAsync(OnboardingRecord o, bool canEdit, CancellationToken ct)
     {
         var r = await records.GetForOnboardingAsync(o.Id, ct);

@@ -194,19 +194,6 @@ body {
 
 .card.glass { --bs-card-bg: transparent; --bs-card-border-color: transparent; }
 
-/* KPI tiles (still used by some pages) */
-.stat-tile { padding: 1.25rem; display: flex; align-items: center; gap: 1rem; height: 100%; }
-.stat-tile .stat-icon {
-    width: 3rem; height: 3rem; flex: 0 0 3rem;
-    display: grid; place-items: center;
-    border-radius: 0.75rem;
-    background: rgba(var(--grsms-brand-rgb), 0.12);
-    color: var(--grsms-brand);
-    font-size: 1.25rem;
-}
-.stat-tile .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
-.stat-tile .stat-label { color: var(--bs-secondary-color); font-size: 0.85rem; }
-
 /* ---------- 4. App shell ----------
    Light sidebar sitting on the grey frame; the page itself is a white rounded panel. */
 .app-shell { display: flex; min-height: 100vh; }
@@ -240,11 +227,6 @@ body {
 }
 .sidebar .brand { font-size: 0.95rem; font-weight: 800; }
 .sidebar .brand small { display: block; font-weight: 500; color: var(--grsms-sidebar-muted); font-size: 0.75rem; }
-.sidebar .nav-section {
-    text-transform: uppercase; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em;
-    color: var(--grsms-sidebar-muted);
-    padding: 1.1rem 0.75rem 0.35rem;
-}
 .sidebar .nav-link {
     color: var(--grsms-sidebar-text);
     border-radius: 0.75rem;
@@ -427,8 +409,6 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 800; letter-
 .badge-soft-danger { background: var(--tone-danger-soft); color: var(--tone-danger-ink); }
 .badge-soft-primary { background: var(--grsms-brand-soft); color: var(--grsms-brand-ink); }
 .badge-soft-info { background: var(--tone-hire-soft); color: var(--tone-hire-ink); }
-.badge-soft-purple { background: var(--tone-interview-soft); color: var(--tone-interview-ink); }
-.badge-soft-teal { background: var(--tone-probation-soft); color: var(--tone-probation-ink); }
 
 /* Buttons: rounder, bolder and at least 44px tall (easy to tap on a phone); small ones 36px. */
 .btn { --bs-btn-font-weight: 700; --bs-btn-border-radius: 999px; --bs-btn-padding-x: 1.15rem; min-height: 2.75rem;
@@ -466,7 +446,7 @@ textarea.form-control { min-height: 6rem; }
 .alert-info    { --bs-alert-bg: var(--tone-hire-soft);    --bs-alert-color: var(--tone-hire-ink); }
 .alert-warning { --bs-alert-bg: var(--tone-offer-soft);   --bs-alert-color: var(--tone-offer-ink); }
 .alert-danger  { --bs-alert-bg: var(--tone-danger-soft);  --bs-alert-color: var(--tone-danger-ink); }
-.alert-secondary, .alert-light { --bs-alert-bg: var(--tone-admin-soft); --bs-alert-color: var(--tone-admin-ink); }
+.alert-secondary { --bs-alert-bg: var(--tone-admin-soft); --bs-alert-color: var(--tone-admin-ink); }
 
 /* Tabs: pill tabs (the active one dark), both .nav-pills and .nav-tabs. */
 .nav-tabs { border-bottom: 0; gap: 0.4rem; flex-wrap: wrap; }
@@ -549,7 +529,6 @@ dl.details-grid dd { margin: 0; }
 .dash-greeting { margin-bottom: 1.25rem; }
 .dash-greeting h1 { font-size: 1.6rem; font-weight: 800; margin: 0; }
 .dash-greeting p { margin: 0.2rem 0 0; color: var(--bs-secondary-color); font-size: 0.9rem; }
-.dash-greeting-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.75rem; }
 .dash-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .dash-filter .form-select { width: auto; min-width: 11rem; max-width: 100%; }
 @media (max-width: 575.98px) { .dash-filter, .dash-filter .form-select { width: 100%; } .dash-filter .form-select { flex: 1 1 100%; } }
@@ -600,10 +579,6 @@ dl.details-grid dd { margin: 0; }
 .dash-table > thead th { text-transform: none; letter-spacing: 0; font-size: 0.8rem; font-weight: 500; padding-top: 0.35rem; }
 .dash-table td { font-size: 0.875rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
 .dash-table tbody tr:last-child td { border-bottom: 0; }
-.task-link { display: block; text-decoration: none; color: var(--bs-body-color); min-width: 12rem; }
-.task-link:hover .task-title { color: var(--grsms-brand); }
-.task-link .task-title { display: block; font-weight: 500; }
-.task-link small { color: var(--bs-secondary-color); font-size: 0.75rem; }
 .person { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; }
 .mini-avatar {
     width: 1.45rem; height: 1.45rem; flex: 0 0 1.45rem; border-radius: 50%;
@@ -692,7 +667,6 @@ dl.details-grid dd { margin: 0; }
     .kpi-value { font-size: 1.3rem; }
     .kpi-bars { height: 56px; gap: 0.25rem; }
     .kpi-bar span { border-radius: 0.3rem; }
-    .task-link { min-width: 0; }
 }
 
 /* Phase 15: ATS. Sub-score bars reuse the report bars; the detail line sits under its bar. */

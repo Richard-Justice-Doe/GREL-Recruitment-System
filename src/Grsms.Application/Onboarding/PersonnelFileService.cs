@@ -38,7 +38,6 @@ public record FiledLetterDto(int PersonnelFileId, string FileNumber, string Empl
 public class PersonnelFileService(
     IRepository<PersonnelFile> files,
     IRepository<PersonnelFileDocument> documents,
-    IRepository<OnboardingRecord> onboardings,
     IRepository<OnboardingTask> tasks,
     IRepository<EmployeeDocument> employeeDocuments,
     IRepository<EmployeeDeclaration> declarations,

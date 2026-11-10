@@ -98,9 +98,6 @@ public static class OnboardingWorkflow
     public static bool AwaitsReview(EmployeeDocumentStatus s) =>
         s is EmployeeDocumentStatus.Submitted or EmployeeDocumentStatus.Resubmitted or EmployeeDocumentStatus.UnderReview;
 
-    /// <summary>True when the RO has finished with the document (verified, or a "not applicable" declaration).</summary>
-    public static bool Settled(EmployeeDocumentStatus s) => s is EmployeeDocumentStatus.Verified or EmployeeDocumentStatus.NotApplicable;
-
     /// <summary>
     /// Applies a document type's requirement to one onboarding's document: whether it is required and whether it applies at all.
     /// Legacy documents are left as they are; for "chosen per hire" types the RO's choice (<see cref="EmployeeDocument.IsRequired"/>)

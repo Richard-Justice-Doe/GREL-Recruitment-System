@@ -33,6 +33,17 @@ public class AdministrationController(IAuthorizationService auth) : AppControlle
         (Policies.AuditTrail, new("Audit", "Audit trail", "Every change and sign-in recorded by the system.", "fa-clock-rotate-left", "AuditLogs", "Index"))
     ];
 
+    /// <summary>
+    /// The administration screen a page belongs to (its title and list), or null when the page is not an administration
+    /// screen. Used for the "Administration › …" breadcrumb (_AdminBreadcrumb) and the menu highlight.
+    /// </summary>
+    public static AdminLink? ScreenFor(string? controller, string? action)
+    {
+        if (controller is null) return null;
+        if (controller == "Ats") return action == "Settings" ? Screens.First(s => s.Link.Controller == "Ats").Link : null; // the rest of Ats is Candidates
+        return Screens.Select(s => s.Link).FirstOrDefault(l => string.Equals(l.Controller, controller, StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>The screens this person may open (for the page and for the menu: no link when the list is empty).</summary>
     public static async Task<IReadOnlyList<AdminLink>> VisibleAsync(IAuthorizationService auth, System.Security.Claims.ClaimsPrincipal user)
     {

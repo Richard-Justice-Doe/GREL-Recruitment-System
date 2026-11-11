@@ -46,8 +46,8 @@
     var inHire = In("RecruitmentRequests", "Vacancies", "Adverts", "Applications", "Ats", "Shortlisting", "Interviews", "Hiring") && !atsSettingsPage;
     var inOnboard = In("Onboarding", "Probation", "PersonnelFiles");
     var inPeople = In("Employees");
-    var inAdmin = In("Administration", "Divisions", "Departments", "Units", "Sites", "InductionAreas", "OnboardingDocuments", "Users", "Roles", "Grades",
-                     "SystemSettings", "EmailTemplates", "Backups", "AuditMonitor", "AuditLogs") || atsSettingsPage;
+    // Every screen listed on the Administration page (one list, in AdministrationController).
+    var inAdmin = controller == "Administration" || Grsms.Web.Controllers.AdministrationController.ScreenFor(controller, action) is not null;
 
     // Badge totals on a group's header, so nothing waiting for you is hidden when the group is closed.
     var hireWaiting = (counts.RequestsAwaitingMe ?? 0) + (showScreening ? counts.AtsAwaitingHr ?? 0 : 0) + (counts.ScorecardsToDo ?? 0);

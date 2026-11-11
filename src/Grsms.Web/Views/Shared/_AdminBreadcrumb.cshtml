@@ -1,0 +1,25 @@
+@* "Administration › Divisions" at the top of every administration screen (11 November 2026), so there is always a way
+   back to the Administration page. On a screen's own list the last part is plain text; on its other pages (add, edit,
+   details) it links back to that list. Shown by _Layout for every screen listed in AdministrationController. *@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var screen = controller == "Administration" ? null : Grsms.Web.Controllers.AdministrationController.ScreenFor(controller, action);
+}
+@if (screen is not null)
+{
+    var onList = string.Equals(action, screen.Action, StringComparison.OrdinalIgnoreCase);
+    <nav aria-label="Breadcrumb" class="d-print-none">
+        <ol class="breadcrumb small mb-2">
+            <li class="breadcrumb-item"><a asp-controller="Administration" asp-action="Index"><i class="fa-solid fa-arrow-left me-1"></i>Administration</a></li>
+            @if (onList)
+            {
+                <li class="breadcrumb-item active" aria-current="page">@screen.Title</li>
+            }
+            else
+            {
+                <li class="breadcrumb-item"><a asp-controller="@screen.Controller" asp-action="@screen.Action">@screen.Title</a></li>
+            }
+        </ol>
+    </nav>
+}

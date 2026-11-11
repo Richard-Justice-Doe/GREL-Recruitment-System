@@ -4,9 +4,12 @@
     var css = Model switch
     {
         AdvertStatus.Draft => "badge-soft-secondary",
+        AdvertStatus.AwaitingHrReview or AdvertStatus.AwaitingItApproval => "badge-soft-info",
+        AdvertStatus.ReturnedForCorrection => "badge-soft-warning",
         AdvertStatus.Scheduled => "badge-soft-warning",
         AdvertStatus.Live => "badge-soft-success",
         AdvertStatus.Closed => "badge-soft-primary",
+        AdvertStatus.Rejected => "badge-soft-danger",
         _ => "badge-soft-secondary"
     };
 }

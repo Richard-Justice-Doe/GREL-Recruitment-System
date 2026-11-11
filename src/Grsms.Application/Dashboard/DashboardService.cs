@@ -31,6 +31,7 @@ public class DashboardService(
     Onboarding.OnboardingService onboarding,
     Applications.AtsService ats,
     Probation.ProbationService probation,
+    Adverts.AdvertService advertService,
     AccessScope scope)
 {
     private const int TaskRows = 6, ProgressRows = 5, CandidateRows = 5;
@@ -249,6 +250,13 @@ public class DashboardService(
             w.Due is { } due ? $"{w.Step}, due {due:dd MMM}" : w.Step, "Recruitment",
             w.IsDecision ? Domain.Probation.ProbationStatus.AwaitingHrDecision : Domain.Probation.ProbationStatus.InProgress, w.Since)));
 
+
+        // ------------------------------------------------------------ Job adverts (11 Nov 2026, docs/29 change 2): HR review, IT approval, corrections
+        var advertWork = await advertService.MyWorkAsync(ct);
+        taskTotal += advertWork.Count;
+        tasks.AddRange(advertWork.Take(TaskRows).Select(w => new DashboardTaskDto(DashboardTaskTarget.Advert, w.Id, w.Title, w.AdvertNumber,
+            w.Action, "Recruitment", w.Status, w.Since)));
+        var advertCards = await advertService.ItSummaryAsync(ct);
         // ------------------------------------------------------------ Applications (Phase 5)
         if (access.Vacancies)
         {
@@ -279,7 +287,8 @@ public class DashboardService(
             Month = shownMonth,
             InProgress = inProgress,
             InProgressTotal = inProgressTotal,
-            LatestCandidates = latestCandidates
+            LatestCandidates = latestCandidates,
+            AdvertCards = advertCards
         };
     }
 

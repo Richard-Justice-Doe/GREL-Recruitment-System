@@ -54,6 +54,7 @@
         DashboardTaskTarget.OnboardingLetter or DashboardTaskTarget.OnboardingDocuments or DashboardTaskTarget.OnboardingActivate
             or DashboardTaskTarget.OnboardingInduction => Url.Action("Details", "Onboarding", new { id = t.Id }),
         DashboardTaskTarget.ProbationStep or DashboardTaskTarget.ProbationDecision => Url.Action("Details", "Probation", new { id = t.Id }),
+        DashboardTaskTarget.Advert => Url.Action("Details", "Adverts", new { id = t.Id }),
         _ => Url.Action("Create", "Vacancies", new { requestId = t.Id })
     };
 
@@ -76,6 +77,7 @@
         DashboardTaskTarget.OnboardingInduction => ("tone-onboard", "Induction", "Close the onboarding"),
         DashboardTaskTarget.ProbationStep => ("tone-probation", "Probation", "Open the probation"),
         DashboardTaskTarget.ProbationDecision => ("tone-probation", "Probation decision", "Decide"),
+        DashboardTaskTarget.Advert => ("tone-hire", "Job advert", "Open advert"),
         _ => ("tone-onboard", "Onboarding", "Open checklist")
     };
 
@@ -205,6 +207,31 @@
 @if (!Model.Workforce.IsEmpty)
 {
     <partial name="_WorkforcePanel" model="Model.Workforce" />
+}
+
+@* ---------------------------------------------------------------- IT Manager: job adverts (11 Nov 2026, docs/29 change 2) *@
+@if (d.AdvertCards is { } ac)
+{
+    <h2 class="h6 text-uppercase text-body-secondary mb-2">Job adverts</h2>
+    <div class="kpi-grid mb-3">
+        @foreach (var (title, icon, count, tab, tone) in new[]
+                 {
+                     ("Awaiting your approval", "fa-hourglass-half", ac.AwaitingApproval, "it", "tone-offer"),
+                     ("Scheduled", "fa-clock", ac.Scheduled, "scheduled", "tone-probation"),
+                     ("Active (published)", "fa-tower-broadcast", ac.Active, "live", "tone-onboard"),
+                     ("Expired or closed", "fa-box-archive", ac.Expired, "closed", "tone-hire"),
+                 })
+        {
+            <section class="dash-card kpi-card @tone">
+                <header class="kpi-head">
+                    <i class="fa-solid @icon"></i>
+                    <a href="@Url.Action("Index", "Adverts", new { tab })" class="stretched-link text-reset text-decoration-none">@title</a>
+                    <i class="fa-solid fa-chevron-right kpi-go"></i>
+                </header>
+                <div class="kpi-figure"><span class="kpi-value">@count.ToString("N0")</span></div>
+            </section>
+        }
+    </div>
 }
 
 @* ---------------------------------------------------------------- KPI cards *@

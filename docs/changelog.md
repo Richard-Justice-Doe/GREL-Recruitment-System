@@ -4,13 +4,26 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 11 November 2026: the IT Manager approves job adverts (docs/29, change 2)
+
+* **New built-in role IT Manager** (given by the Super Admin). Adverts now go: Recruitment Officer **Send for review** → HR Manager **Approve and send to IT** → IT Manager **Approve and publish** (live now, or scheduled for the start date). The HR and IT Managers can **return** (with what to correct) or **reject** (final; it can still be cloned).
+* **Editing a published advert takes it offline** and sends it through both reviews again; the IT Manager can also **take it offline**. Only the IT Manager records external channels as posted or taken down.
+* **Existing data:** live and scheduled adverts stay published (shown as *Published*); drafts go through the review.
+* **Permissions** (group *Job adverts*): `adverts.review.hr` (HR Manager), `adverts.review.it`, `adverts.publish`, `adverts.unpublish` (IT Manager), `adverts.return` (both); applied once at start-up. Controller actions guarded by matching policies.
+* **Emails:** HR Managers when an advert is sent; IT Managers when HR approves; the HR reviewer when IT approves; the RO (and the HR reviewer, when IT acts) on return, rejection or taking offline.
+* **Home page:** to-dos for each step; the IT Manager's cards *awaiting approval, scheduled, active, expired or closed*. *Job adverts* list tabs: Published, Scheduled, In review, Drafts, Closed, All.
+* **Files:** `AdvertWorkflow`, `AdvertEnums`, `JobAdvert`, `Roles`, `Permissions`, `AdvertService`, `AdvertDtos`, `AdvertRepository`, `DashboardService`, `AdvertsController`, `Policies`, `Views/Adverts/*`, `Views/Home/Index`; migration `ItManagerAdvertApproval`, script `27_it_manager_advert_approval.sql`. Docs 13, 04, 11, 03.
+* **Checked:** 197/197 tests (three new review tests, web journey through all three roles). Script 27 not yet run on MySQL; not checked in a browser.
+
+---
+
 ## 11 November 2026: workflow corrections (docs/29, changes 1, 3 and 4)
 
 * **Change 1, no budget tick:** the HR Manager approves a recruitment request without ticking "Budget confirmed" (the budget document was already optional). Older requests still show the tick if it was given.
 * **Change 3, candidate-only uploads:** only the new employee uploads onboarding documents or marks them "not applicable". Staff can no longer upload for them. The RO still verifies; HR still files documents in personnel files.
 * **Change 4, bank details as data:** the personal record asks for exactly **one** bank account, with bank name and account number (no branch). The bank confirmation letter is no longer asked for. Old uploads stay in the document history and the personnel file but never hold up an onboarding (`OnboardingWorkflow.DocumentState.Counts`). An onboarding page left at an old stage corrects itself when opened. Database script `26_bank_details_as_data.sql`.
 * **Checked:** 194/194 tests. Script 26 not yet run on MySQL; not checked in a browser.
-* **Open:** change 2 (the IT Manager approves and publishes adverts).
+* **Change 2** is in the entry above.
 
 ---
 

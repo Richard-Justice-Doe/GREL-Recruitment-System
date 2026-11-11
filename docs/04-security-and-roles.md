@@ -33,6 +33,20 @@ GRSMS uses **role-based access control with permissions**:
 | Change system settings and email templates (Phase 16) | 🔒 only | | | | | | | | |
 | Manage backups: see, back up now, download a database dump (Phase 16) | 🔒 only | | | | | | | | |
 
+**Job advert approval (11 November 2026, docs/29 change 2).** The built-in **IT Manager** role was added (given by the Super Admin, like every privileged role). Its defaults, and those of the new advert permissions, are applied **once** at the next start-up (`KnownPermissions`: `role:IT Manager` and each permission name):
+
+| Permission | Super Admin | HR Manager | IT Manager |
+|---|:-:|:-:|:-:|
+| Open job adverts (`adverts.view`) | 🔒 | ✅ | ✅ |
+| See all departments | 🔒 | ✅ | ✅ |
+| Review job adverts, HR step: approve for IT, reject (`adverts.review.hr`) | 🔒 | ✅ | |
+| Review job adverts, IT step: reject (`adverts.review.it`) | 🔒 | | ✅ |
+| Approve and publish job adverts; record external postings (`adverts.publish`) | 🔒 | | ✅ |
+| Return job adverts for correction, at the step one reviews (`adverts.return`) | 🔒 | ✅ | ✅ |
+| Take published job adverts offline (`adverts.unpublish`) | 🔒 | | ✅ |
+
+These are also guarded on the controller actions (Publish, HrApprove, Return, Unpublish, MarkPosted, MarkRemoved), on top of the checks in `AdvertService`.
+
 🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission. **Everyone** (candidates included) can always open **My audit trail** (below); it is not a permission.
 
 **Onboarding and probation actions** are also guarded on each controller action by these permissions (codebase audit, 10 November 2026), on top of the checks in the services; the onboarding and probation pages themselves stay open to the task owners and HODs who need them.
@@ -101,7 +115,9 @@ The **Super Admin** can open every screen below and sees every department. For t
 | Approve (publish) or return a vacancy | | ✅ not one they submitted | | | | | | |
 | Close, reopen, archive a vacancy | | ✅ | | ✅ | | | | |
 | See job adverts | all | all | all | all | own departments (read only) | | | |
-| Create, edit, publish / schedule, close, clone an advert; record external postings | | ✅ | | ✅ | | | | |
+| Create, edit, send for review, close, clone an advert | | ✅ | | ✅ | | | | |
+| HR review of an advert (approve for IT, return, reject) | | ✅ | | | | | | |
+| IT approval (publishes it), return, reject, take offline, record external postings | IT Manager only (11 Nov 2026) | | | | | | | |
 | Public careers page (website adverts) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (and anyone, no sign-in) |
 | Internal jobs on the careers page (internal-portal adverts) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
 | My profile, apply, my applications, withdraw | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (external jobs only) |
@@ -159,6 +175,7 @@ The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each 
 | **Admin** (5 November 2026) | System administrator: manages every user account except Admins and Super Admins, organisation data and the audit trail; sees Roles & permissions and ATS settings read-only. Cannot give privileged roles. |
 | **HR Administrator** | Maintains divisions, departments, units and sites, and everyday staff accounts (Employee, Interview Panel Member). Views the audit trail. |
 | **HR Manager** | Approves requests, reviews job adverts, views onboarding, activates employees, decides probations. |
+| **IT Manager** (11 November 2026) | Gives the final approval of job adverts after the HR review, which publishes them; returns, rejects or takes adverts offline; posts them on LinkedIn, Indeed, Jobberman and newspapers and records the links. Home page: adverts awaiting approval, scheduled, active, expired. |
 | **Managing Director** | Final vacancy and hiring approval, executive dashboard. |
 | **Recruitment Officer** | Manages vacancies, candidates, adverts and interview schedules, and communicates with candidates. |
 | **Head of Department** | Reviews (stage 1) and raises recruitment requests for their department, shortlists, sits on interviews. |
@@ -167,10 +184,11 @@ The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each 
 | **Candidate** | External job seeker: registers on the portal and applies. Cannot be given to staff. |
 
 ### Workflow controls (job adverts)
-* An advert can only be created or published while its vacancy is **Published** (approval complete) and before its closing date; it never runs past that date.
+* An advert can only be created, sent for review or published while its vacancy is **Published** (approval complete) and before its closing date; it never runs past that date.
+* Since 11 November 2026 every advert is reviewed by the **HR Manager** and then approved by the **IT Manager** before it is published. Nobody can skip a step: the recruiter cannot publish, the HR Manager cannot publish, the IT Manager cannot approve before the HR review. Editing a published advert takes it offline and sends it through both reviews again.
 * Staff-only (internal) vacancies can only be advertised on the internal portal, so they never reach the public careers page.
 * The public careers page shows only adverts that are live today, on the company-website channel, for a vacancy that is still open. Internal-portal adverts are shown only to signed-in staff (never to candidates or anonymous visitors).
-* External channels (LinkedIn, Indeed, Jobberman, newspapers) are not connected to GRSMS: no passwords for those sites are stored. Recruiters post the copy-ready text themselves and record the link.
+* External channels (LinkedIn, Indeed, Jobberman, newspapers) are not connected to GRSMS: no passwords for those sites are stored. The IT Manager posts the copy-ready text and records the link.
 * Links recorded for a channel are only shown as clickable when they start with http:// or https://.
 
 ## Sign-in protection

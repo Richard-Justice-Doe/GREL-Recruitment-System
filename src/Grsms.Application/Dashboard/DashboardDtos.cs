@@ -30,6 +30,9 @@ public record DashboardDto
 
     /// <summary>Newest candidate accounts; null when the user may not see candidates.</summary>
     public IReadOnlyList<CandidateSummary>? LatestCandidates { get; init; }
+
+    /// <summary>The IT Manager's job advert cards (awaiting approval, scheduled, active, expired); null for everyone else.</summary>
+    public Grsms.Application.Adverts.AdvertItSummary? AdvertCards { get; init; }
 }
 
 /// <summary>Which list a KPI card links to.</summary>
@@ -55,7 +58,10 @@ public enum DashboardTaskTarget
     Request, Vacancy, NewVacancyForRequest, Shortlist, Interview, Hiring, Onboarding, NewOnboarding, InterviewValidation, HiringRecommendation,
 
     // Usability U1 (10 Nov 2026): the rest of the work that waits for someone.
-    AtsConfirm, OnboardingLetter, OnboardingDocuments, OnboardingActivate, OnboardingInduction, ProbationStep, ProbationDecision
+    AtsConfirm, OnboardingLetter, OnboardingDocuments, OnboardingActivate, OnboardingInduction, ProbationStep, ProbationDecision,
+
+    // 11 Nov 2026 (docs/29 change 2): a job advert to review, approve or correct.
+    Advert
 }
 
 /// <summary>One row of "My tasks". <see cref="Status"/> is the record's workflow status enum (shown with its display name).</summary>

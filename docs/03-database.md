@@ -245,7 +245,11 @@ Same shape as RecruitmentRequestActions: `VacancyId` (FK), `Action` (`Created`, 
 | Body | LONGTEXT | required; the advert text (the form allows up to 10,000 characters) |
 | HowToApply | VARCHAR(2000) | required |
 | StartDate / EndDate | DATE | the advert runs from start to end, inclusive; the end date is never after the vacancy's closing date |
-| Status | VARCHAR(20) | `Draft`, `Scheduled`, `Live`, `Closed` |
+| Status | VARCHAR(30) | `Draft`, `AwaitingHrReview`, `AwaitingItApproval`, `ReturnedForCorrection`, `Scheduled`, `Live` (shown as *Published*), `Closed`, `Rejected` (review statuses and 30 characters since 11 Nov 2026, script 27) |
+| SubmittedByUserId, SubmittedAt | VARCHAR(255), DATETIME | optional: who last sent it for the HR review |
+| HrReviewedByUserId, HrReviewedAt | VARCHAR(255), DATETIME | optional: the HR Manager who last approved it for IT |
+| ItApprovedByUserId, ItApprovedAt | VARCHAR(255), DATETIME | optional: the IT Manager who last approved (published) it |
+| ReviewComment | VARCHAR(1000) | optional: reason of the last return, rejection or taking offline (cleared on resubmission) |
 | StatusChangedAt, PublishedAt, ClosedAt | DATETIME | |
 | CreatedByUserId | VARCHAR(255) **FK → Users** | |
 | ClonedFromAdvertId | INT | optional, **FK → JobAdverts** (the advert it was copied from) |
@@ -258,7 +262,7 @@ Indexes for the scheduler (`Status, StartDate` and `Status, EndDate`), the vacan
 One row per channel of an advert (unique on `JobAdvertId, Channel`): `Channel` (`InternalPortal`, `CompanyWebsite`, `LinkedIn`, `Indeed`, `Jobberman`, `Newspaper`), `Status` (`ToPost`, `Posted`, `Removed`), `Reference` (VARCHAR(500): the link, or newspaper name and edition), `PostedAt`, `PostedByName`, `RemovedAt`. Rows are replaced when the channel ticks change on a draft, so they are not soft-deleted (changes are still in the audit trail).
 
 ### JobAdvertActions (history)
-Same shape as VacancyActions: `JobAdvertId` (FK), `Action` (`Created`, `Cloned`, `Scheduled`, `Unscheduled`, `Published`, `AutoPublished`, `ChannelPosted`, `ChannelRemoved`, `Closed`, `AutoClosed`), `FromStatus`, `ToStatus`, `ActorUserId` (**NULL = the system**), `ActorName`, `Comments`, `ActionAt`.
+Same shape as VacancyActions: `JobAdvertId` (FK), `Action` (`Created`, `Cloned`, `Scheduled`, `Unscheduled`, `Published`, `AutoPublished`, `ChannelPosted`, `ChannelRemoved`, `Closed`, `AutoClosed`, and since 11 Nov 2026 `Submitted`, `HrApproved`, `ItApproved`, `Returned`, `Rejected`, `Unpublished`), `FromStatus`, `ToStatus` (VARCHAR(30)), `ActorUserId` (**NULL = the system**), `ActorName`, `Comments`, `ActionAt`.
 
 ## Phase 5 tables
 
@@ -627,6 +631,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `24_phase27_onboarding_document_portal.sql` | 27 | OnboardingDocumentTypes (seeded, 25 rows), EmployeeDocumentEvents; new columns on EmployeeDocuments (existing rows get `IsApplicable` = 1) and Onboardings. **Moves onboardings waiting for HR approval, or in the old pre-activation induction, to `AwaitingActivation`** (their documents were verified). The four `onboarding.*` permissions are added by GRSMS at start-up. Not yet run on MySQL. |
 | `25_audit_drop_redundant_vacancy_status_index.sql` | audit | Drops `IX_Vacancies_Status` (the index on (Status, ClosingDate) starts with Status and serves the same queries). Codebase audit B7, 10 November 2026. Not yet run on MySQL. |
 | `26_bank_details_as_data.sql` | docs/29 change 4 | Makes `EmployeeBankAccounts.Branch` optional, retires the bank confirmation letter document type (Id 17), and on onboardings not yet activated makes existing bank-letter rows not required (kept as applicable only if a file was uploaded). 11 November 2026. Not yet run on MySQL. |
+| `27_it_manager_advert_approval.sql` | docs/29 change 2 | Adds the built-in role **IT Manager** (`it-manager`), the advert review columns on JobAdverts (SubmittedBy/At, HrReviewedBy/At, ItApprovedBy/At, ReviewComment) and widens JobAdverts.Status and JobAdvertActions.FromStatus/ToStatus to 30 characters. No data moves: published and scheduled adverts stay published, drafts go through the new review. The `adverts.*` permissions and the IT Manager's defaults are added by GRSMS at start-up. 11 November 2026. Not yet run on MySQL. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

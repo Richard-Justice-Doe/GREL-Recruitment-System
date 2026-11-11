@@ -23,10 +23,14 @@ internal class JobAdvertConfiguration : IEntityTypeConfiguration<JobAdvert>
         b.Property(a => a.Title).HasMaxLength(200).IsRequired();
         b.Property(a => a.Body).IsRequired();                        // LONGTEXT; the form limits it to 10,000 characters
         b.Property(a => a.HowToApply).HasMaxLength(2000).IsRequired();
-        b.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
+        b.Property(a => a.Status).HasConversion<string>().HasMaxLength(30);   // 30 since 11 Nov 2026 ("ReturnedForCorrection")
         b.Property(a => a.RequestingHodUserId).HasMaxLength(255).IsRequired();
         b.Property(a => a.CreatedByUserId).HasMaxLength(255).IsRequired();
         b.Property(a => a.Version).IsConcurrencyToken();
+        b.Property(a => a.SubmittedByUserId).HasMaxLength(255);
+        b.Property(a => a.HrReviewedByUserId).HasMaxLength(255);
+        b.Property(a => a.ItApprovedByUserId).HasMaxLength(255);
+        b.Property(a => a.ReviewComment).HasMaxLength(1000);
 
         // RESTRICT everywhere: vacancies, master data and users cannot be hard-deleted while adverts use them.
         b.HasOne<Vacancy>().WithMany().HasForeignKey(a => a.VacancyId).OnDelete(DeleteBehavior.Restrict);
@@ -73,8 +77,8 @@ internal class AdvertActionConfiguration : IEntityTypeConfiguration<AdvertAction
         b.ToTable("JobAdvertActions");
         b.ConfigureBase();
         b.Property(a => a.Action).HasConversion<string>().HasMaxLength(30);
-        b.Property(a => a.FromStatus).HasConversion<string>().HasMaxLength(20);
-        b.Property(a => a.ToStatus).HasConversion<string>().HasMaxLength(20);
+        b.Property(a => a.FromStatus).HasConversion<string>().HasMaxLength(30);
+        b.Property(a => a.ToStatus).HasConversion<string>().HasMaxLength(30);
         b.Property(a => a.ActorUserId).HasMaxLength(255);
         b.Property(a => a.ActorName).HasMaxLength(150).IsRequired();
         b.Property(a => a.Comments).HasMaxLength(2000);

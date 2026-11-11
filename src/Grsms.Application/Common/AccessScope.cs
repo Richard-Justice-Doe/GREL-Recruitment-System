@@ -25,6 +25,9 @@ public class AccessScope(ICurrentUserService me, IRepository<Department> departm
     public string UserName => me.FullName ?? me.UserName ?? "Unknown";
     public bool IsInRole(string role) => me.IsInRole(role);
 
+    /// <summary>True when the current user holds <paramref name="permission"/> (see Domain/Security/Permissions.cs).</summary>
+    public bool Holds(string permission) => me.HasPermission(permission);
+
     /// <summary>Departments the current user heads (empty if they are not a Head of Department).</summary>
     public async Task<HashSet<int>> HodDepartmentIdsAsync(CancellationToken ct = default)
     {

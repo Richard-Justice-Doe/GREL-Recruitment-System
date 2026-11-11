@@ -22,7 +22,7 @@ public class OrganizationServiceTests : IDisposable
     private T Get<T>(IServiceScope scope) where T : notnull => scope.ServiceProvider.GetRequiredService<T>();
 
     [Fact]
-    public async Task Seed_data_contains_two_divisions_17_grel_departments_10_roles_and_grel_sites()
+    public async Task Seed_data_contains_two_divisions_17_grel_departments_11_roles_and_grel_sites()
     {
         using var scope = _db.NewScope();
         var db = Get<ApplicationDbContext>(scope);
@@ -39,7 +39,7 @@ public class OrganizationServiceTests : IDisposable
         Assert.Contains(active, d => d.Name == "Factory TBU" && d.DivisionId == 2);
         Assert.Contains(active, d => d.Name == "Nucleus Operations" && d.DivisionId == 2);
         Assert.DoesNotContain(active, d => d.Name is "Estates" or "Progress and Quality" or "Project");
-        Assert.Equal(10, await db.Roles.CountAsync()); // 8 + Super Admin (Phase 14) + Admin
+        Assert.Equal(11, await db.Roles.CountAsync()); // 8 + Super Admin (Phase 14) + Admin + IT Manager (11 Nov 2026)
 
         Assert.Equal(14, await db.Sites.CountAsync());
         var hq = await db.Sites.SingleAsync(s => s.Id == 1);

@@ -24,6 +24,10 @@ Two drop-downs next to the greeting narrow the page to one **division** (Corpora
 * The coloured figure compares the last 7 days with the 7 days before: green ↗ is up, red ↘ is down, grey — is no change. When there was nothing in the week before, the card shows "+N this week" or "No change this week" instead of a percentage.
 * Click a card to open the matching list (Approved opens *All requests* filtered to Approved).
 
+### Job adverts (IT Manager)
+
+Since 11 November 2026 the IT Manager (holder of `adverts.publish`) sees four cards above the KPI cards: **Awaiting your approval**, **Scheduled**, **Active (published)** and **Expired or closed**. Each opens the matching tab of *Job adverts*. See [13 Job adverts](13-job-adverts.md#4-it-approval-it-manager).
+
 ### My tasks
 
 The things waiting for **you**, oldest first, so the longest-waiting item is at the top. At most 6 are shown, with the total next to the title.
@@ -37,6 +41,9 @@ The things waiting for **you**, oldest first, so the longest-waiting item is at 
 | Head of Department | Vacancies in your departments with shortlist recommendations waiting for you → *Give your view on N shortlist recommendations* (opens the shortlisting board; Phase 6) |
 | Any staff member on an interview panel | Sessions that have started and still need your scorecard → *Submit your scorecard* (Phase 7) |
 | Head of Department, HR Manager, Managing Director | Hiring recommendations at your stage → *Hire …: Endorse or not* / *Approve or reject* (Phase 8) |
+| HR Manager (`adverts.review.hr`) | Job adverts sent for review → *Review the advert* (11 Nov 2026) |
+| IT Manager (`adverts.publish`) | Job adverts reviewed by HR → *Approve and publish* (11 Nov 2026) |
+| Recruitment Officer, HR Manager | Your own job adverts returned for correction → *Make the changes and send it again* (11 Nov 2026) |
 
 Click a task to open it. A red badge (for example **4 d**) means it has waited 3 days or more. On a phone the *From* and *Waiting since* columns are hidden to save space.
 

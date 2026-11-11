@@ -62,8 +62,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("FromStatus")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
@@ -73,8 +73,8 @@ namespace Grsms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ToStatus")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -189,8 +189,22 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
+                    b.Property<DateTime?>("HrReviewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HrReviewedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("ItApprovedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ItApprovedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("datetime(6)");
@@ -200,16 +214,27 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("ReviewComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("date");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<DateTime>("StatusChangedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SubmittedByUserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -5742,6 +5767,13 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             ConcurrencyStamp = "recruitment-officer",
                             Name = "Recruitment Officer",
                             NormalizedName = "RECRUITMENT OFFICER"
+                        },
+                        new
+                        {
+                            Id = "it-manager",
+                            ConcurrencyStamp = "it-manager",
+                            Name = "IT Manager",
+                            NormalizedName = "IT MANAGER"
                         },
                         new
                         {

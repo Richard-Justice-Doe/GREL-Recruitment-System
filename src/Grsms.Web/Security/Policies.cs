@@ -41,6 +41,12 @@ public static class Policies
     /// <summary>Open the Job adverts screens (what each person may do there is decided by AdvertService).</summary>
     public const string Adverts = nameof(Adverts);
 
+    /// <summary>11 Nov 2026 (docs/29 change 2): the advert review steps. Rejecting is checked by AdvertService (HR or IT reviewer).</summary>
+    public const string ReviewAdvertsHr = nameof(ReviewAdvertsHr);
+    public const string PublishAdverts = nameof(PublishAdverts);
+    public const string ReturnAdverts = nameof(ReturnAdverts);
+    public const string UnpublishAdverts = nameof(UnpublishAdverts);
+
     /// <summary>Read survey results (Phase 10).</summary>
     public const string SurveyResults = nameof(SurveyResults);
 
@@ -86,6 +92,10 @@ public static class Policies
             .AddPermissionPolicy(RaiseRecruitmentRequest, Permissions.RaiseRecruitmentRequests)
             .AddPermissionPolicy(Vacancies, Permissions.ViewVacancies)
             .AddPermissionPolicy(Adverts, Permissions.ViewAdverts)
+            .AddPermissionPolicy(ReviewAdvertsHr, Permissions.ReviewAdvertsHr)
+            .AddPermissionPolicy(PublishAdverts, Permissions.PublishAdverts)
+            .AddPermissionPolicy(ReturnAdverts, Permissions.ReturnAdverts)
+            .AddPermissionPolicy(UnpublishAdverts, Permissions.UnpublishAdverts)
             .AddPermissionPolicy(Applications, Permissions.ViewApplications)
             .AddPermissionPolicy(SurveyResults, Permissions.ViewSurveyResults)
             .AddPermissionPolicy(PersonnelFiles, Permissions.ViewPersonnelFiles)

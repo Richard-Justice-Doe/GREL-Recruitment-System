@@ -46,6 +46,22 @@ public static class Permissions
     public const string ViewReports = "reports.view";
     public const string ViewSurveyResults = "surveys.results";
 
+    // ---------------------------------------------------------------- Job advert approval (11 Nov 2026, docs/29 change 2)
+    /// <summary>The HR review of a job advert: approve it and send it to the IT Manager, or reject it.</summary>
+    public const string ReviewAdvertsHr = "adverts.review.hr";
+
+    /// <summary>The IT review of a job advert: see the adverts awaiting IT approval and reject one.</summary>
+    public const string ReviewAdvertsIt = "adverts.review.it";
+
+    /// <summary>Approve and publish a job advert after the HR review, and record where it is posted (external channels).</summary>
+    public const string PublishAdverts = "adverts.publish";
+
+    /// <summary>Return a job advert under review to the Recruitment Officer for correction, with a reason.</summary>
+    public const string ReturnAdverts = "adverts.return";
+
+    /// <summary>Take a published (or scheduled) job advert offline and send it back for correction.</summary>
+    public const string UnpublishAdverts = "adverts.unpublish";
+
     /// <summary>Phase 20: open employees' electronic personnel files (personal and identification documents).</summary>
     public const string ViewPersonnelFiles = "personnel.view";
 
@@ -106,6 +122,16 @@ public static class Permissions
             "Create and submit new recruitment requests for their department."),
         new(ViewVacancies, "Recruitment", "Open vacancies", "See vacancies and their history."),
         new(ViewAdverts, "Recruitment", "Open job adverts", "See job adverts and where they are posted."),
+        new(ReviewAdvertsHr, "Job adverts", "Review job adverts (HR)",
+            "Check a job advert sent in by the Recruitment Officer: approve it for the IT Manager, or reject it."),
+        new(ReviewAdvertsIt, "Job adverts", "Review job adverts (IT)",
+            "See the job adverts waiting for IT approval and reject one."),
+        new(PublishAdverts, "Job adverts", "Approve and publish job adverts",
+            "Give the final approval of a job advert the HR Manager has reviewed, which publishes it (now or on its start date), and record where it is posted."),
+        new(ReturnAdverts, "Job adverts", "Return job adverts for correction",
+            "Send a job advert under review back to the Recruitment Officer with the changes needed."),
+        new(UnpublishAdverts, "Job adverts", "Take job adverts offline",
+            "Take a published or scheduled job advert offline and send it back to the Recruitment Officer for correction."),
         new(ViewApplications, "Recruitment", "Open applications",
             "See applications, the shortlisting board, hiring and onboarding."),
         new(ViewReports, "Recruitment", "Open reports", "See the recruitment reports and download them as CSV."),
@@ -160,8 +186,11 @@ public static class Permissions
         [Roles.HrManager] =
         [
             ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports,
-            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding, ViewProbation, DecideProbation
+            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding, ViewProbation, DecideProbation,
+            ReviewAdvertsHr, ReturnAdverts
         ],
+        // 11 Nov 2026 (docs/29 change 2): approves, publishes and takes down job adverts after the HR Manager's review.
+        [Roles.ItManager] = [ViewAdverts, SeeAllDepartments, ReviewAdvertsIt, PublishAdverts, ReturnAdverts, UnpublishAdverts],
         [Roles.ManagingDirector] =
             [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments],
         [Roles.RecruitmentOfficer] =
@@ -182,7 +211,7 @@ public static class Permissions
     /// ALL its <see cref="Defaults"/> once (its permissions already existed, so the per-permission defaults never reached it).
     /// Roles that existed before are not touched, so the Super Admin's choices for them stay.
     /// </summary>
-    public static readonly IReadOnlyList<string> RolesAddedLater = [Roles.Admin];
+    public static readonly IReadOnlyList<string> RolesAddedLater = [Roles.Admin, Roles.ItManager];
 
     /// <summary>
     /// Single grants added to <see cref="Defaults"/> after the permission itself already existed. Each is applied ONCE at the

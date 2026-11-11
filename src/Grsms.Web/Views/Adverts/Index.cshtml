@@ -1,14 +1,19 @@
-@* Job adverts list with four tabs:
-     Live      - running now, ending soonest first (with how many external channels are still to post)
-     Scheduled - waiting for their start date, starting soonest first
-     Drafts    - being prepared
-     All       - every advert, newest first, with a status filter
+@* Job adverts list with tabs:
+     Published    - running now, ending soonest first (with how many external channels are still to post)
+     Scheduled    - approved, waiting for their start date, starting soonest first
+     In review    - waiting for the HR Manager's review or the IT Manager's approval (11 Nov 2026, docs/29 change 2)
+     Drafts       - being prepared, or returned for correction
+     Closed       - closed or rejected
+     All          - every advert, newest first, with a status filter
    New adverts are created from a published vacancy's page. *@
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
 @model PagedResult<AdvertListItemDto>
 @{
     ViewData["Title"] = "Job adverts";
     var f = (AdvertFilter)ViewBag.Filter;
     var counts = (AdvertCounts)ViewBag.Counts;
+    var canVacancies = (await Auth.AuthorizeAsync(User, Policies.Vacancies)).Succeeded;
 
     Dictionary<string, string> Route(int page)
     {
@@ -25,9 +30,11 @@
 
     var tabs = new (string Key, string Label, int? Count, string BadgeCss)[]
     {
-        ("live", "Live", counts.Live, "text-bg-success"),
+        ("live", "Published", counts.Live, "text-bg-success"),
         ("scheduled", "Scheduled", counts.Scheduled, "text-bg-warning"),
+        ("review", "In review", counts.InReview, "text-bg-info"),
         ("draft", "Drafts", counts.Draft, "text-bg-secondary"),
+        ("closed", "Closed", null, ""),
         ("all", "All", null, ""),
     };
 }
@@ -48,8 +55,16 @@
 {
     <div class="alert alert-info small">
         <i class="fa-solid fa-circle-info me-1"></i>
-        <strong>@counts.ChannelsToPost</strong> external channel@(counts.ChannelsToPost == 1 ? "" : "s") on live adverts still to post.
+        <strong>@counts.ChannelsToPost</strong> external channel@(counts.ChannelsToPost == 1 ? "" : "s") on published adverts still to post by the IT Manager.
         Open the advert, copy the ready-made text into the site or send it to the newspaper, then record the link.
+    </div>
+}
+@if (counts.InReview > 0 && f.Tab != "review")
+{
+    <div class="alert alert-light small">
+        <i class="fa-solid fa-hourglass-half me-1"></i>
+        <a asp-action="Index" asp-route-tab="hr">@counts.AwaitingHr awaiting the HR review</a> ·
+        <a asp-action="Index" asp-route-tab="it">@counts.AwaitingIt awaiting IT approval</a>
     </div>
 }
 
@@ -57,7 +72,7 @@
     @foreach (var t in tabs)
     {
         <li class="nav-item">
-            <a class="nav-link @(f.Tab == t.Key ? "active" : "")" asp-action="Index" asp-route-tab="@t.Key">
+            <a class="nav-link @(f.Tab == t.Key || (t.Key == "review" && f.Tab is "hr" or "it") ? "active" : "")" asp-action="Index" asp-route-tab="@t.Key">
                 @t.Label
                 @if (t.Count > 0)
                 {
@@ -127,7 +142,7 @@
                     <tr>
                         <td class="text-nowrap"><a asp-action="Details" asp-route-id="@a.Id" class="fw-semibold text-decoration-none">@a.AdvertNumber</a></td>
                         <td>@a.Title</td>
-                        <td class="text-nowrap"><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@a.VacancyId" class="text-decoration-none">@a.VacancyNumber</a></td>
+                        <td class="text-nowrap">@if (canVacancies) { <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@a.VacancyId" class="text-decoration-none">@a.VacancyNumber</a> } else { @a.VacancyNumber }</td>
                         <td>@a.DivisionName</td>
                         <td>@a.DepartmentName</td>
                         <td class="small">

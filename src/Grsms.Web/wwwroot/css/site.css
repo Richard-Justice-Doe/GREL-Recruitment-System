@@ -436,6 +436,17 @@ textarea.form-control { min-height: 6rem; }
 .form-check-input { width: 1.2em; height: 1.2em; margin-top: 0.15em; }
 .form-check-input:checked { background-color: var(--grsms-brand); border-color: var(--grsms-brand); }
 .form-label { font-weight: 600; margin-bottom: 0.4rem; }
+/* docs/32 (UX5): a red star after the label of every required field, found from the field itself (the required attribute,
+   or data-val-required written from [Required] on the form class), so no form needs editing. Disabled and hidden fields
+   and check boxes get none. */
+:is(div, fieldset):has(> :is(input, select, textarea):is([required], [data-val-required]):not([type="hidden"], [type="checkbox"], [type="radio"], :disabled))
+    > .form-label::after,
+:is(div, fieldset):has(> .input-group > :is(input, select, textarea):is([required], [data-val-required]):not([type="hidden"], :disabled))
+    > .form-label::after {
+    content: " *";
+    color: var(--bs-danger);
+    font-weight: 700;
+}
 .form-text { font-size: 0.82rem; color: var(--bs-secondary-color); }
 
 /* Cards and alerts: larger radius, quiet borders. */

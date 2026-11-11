@@ -816,10 +816,25 @@ public class OnboardingService(
         var deptNames = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.Name);
         var divNames = (await divisions.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.Name);
 
+        // docs/33: the documents at a glance, counted as on the onboarding page (OnboardingWorkflow.CheckReadiness): only documents
+        // that apply to the person, and of active or legacy types. One query for every onboarding on the list.
+        var types = (await documentTypes.ListAsync(ct: ct)).ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
+        var docs = (await documents.ListAsync(d => ids.Contains(d.OnboardingRecordId), ct))
+            .Where(d => d.IsApplicable && (types.GetValueOrDefault(d.DocumentTypeCode) is not { } t || t.IsActive || t.IsLegacy))
+            .ToLookup(d => d.OnboardingRecordId);
+
         return list.OrderBy(o => o.Status).ThenBy(o => o.StartDate)
-            .Select(o => new OnboardingListItemDto(o.Id, o.Number, o.JobApplicationId, o.EmployeeName, o.JobTitle, divNames.GetValueOrDefault(o.DivisionId, ""),
-                deptNames.GetValueOrDefault(o.DepartmentId, ""), o.StartDate, o.Status, o.LetterIssued, o.LetterAcknowledged,
-                counts.GetValueOrDefault(o.Id).Done, counts.GetValueOrDefault(o.Id).Total))
+            .Select(o =>
+            {
+                var mine = docs[o.Id].ToList();
+                var required = mine.Where(d => d.IsRequired).ToList();
+                return new OnboardingListItemDto(o.Id, o.Number, o.JobApplicationId, o.EmployeeName, o.JobTitle, divNames.GetValueOrDefault(o.DivisionId, ""),
+                    deptNames.GetValueOrDefault(o.DepartmentId, ""), o.StartDate, o.Status, o.LetterIssued, o.LetterAcknowledged,
+                    counts.GetValueOrDefault(o.Id).Done, counts.GetValueOrDefault(o.Id).Total,
+                    required.Count, required.Count(d => d.Status == EmployeeDocumentStatus.Verified),
+                    required.Count(d => d.Status == EmployeeDocumentStatus.Pending),
+                    mine.Count(d => OnboardingWorkflow.AwaitsReview(d.Status)), mine.Count(d => d.Status == EmployeeDocumentStatus.Rejected));
+            })
             .ToList();
     }
 

@@ -154,8 +154,14 @@ public class OnboardingFilter
     public DateOnly? To { get; set; }
 }
 
+/// <param name="DocsRequired">docs/33: the required documents (that apply to this person) ...</param>
+/// <param name="DocsVerified">... how many of them are verified ...</param>
+/// <param name="DocsMissing">... how many are not uploaded yet;</param>
+/// <param name="DocsToVerify">documents uploaded and waiting for the Recruitment Officer;</param>
+/// <param name="DocsRejected">documents rejected and waiting for a replacement.</param>
 public record OnboardingListItemDto(int Id, string Number, int ApplicationId, string EmployeeName, string JobTitle, string DivisionName,
-    string DepartmentName, DateOnly StartDate, OnboardingStatus Status, bool LetterIssued, bool LetterSigned, int TasksDone, int TasksTotal);
+    string DepartmentName, DateOnly StartDate, OnboardingStatus Status, bool LetterIssued, bool LetterSigned, int TasksDone, int TasksTotal,
+    int DocsRequired = 0, int DocsVerified = 0, int DocsMissing = 0, int DocsToVerify = 0, int DocsRejected = 0);
 
 /// <summary>An open checklist item that the current user is responsible for ("My tasks").</summary>
 public record MyOnboardingTaskDto(int TaskId, int OnboardingId, string Number, string EmployeeName, string JobTitle, OnboardingTeam Team,

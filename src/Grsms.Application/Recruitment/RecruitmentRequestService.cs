@@ -292,9 +292,6 @@ public class RecruitmentRequestService(
         // Refresh the division copy: an HR Administrator may have moved the department since the draft was saved.
         r.DivisionId = dept.DivisionId;
 
-        // Details may have changed since an earlier budget check, so the HR Manager validates again.
-        r.BudgetValidated = false;
-        r.BudgetValidatedByUserId = null;
         r.RecordStep(action, RecruitmentRequestStatus.DepartmentHeadReview, MyId, MyName, null, now);
         if (requesterIsHead)
             r.RecordStep(WorkflowAction.Approved, RecruitmentRequestStatus.HrApproval, MyId, MyName,
@@ -343,14 +340,8 @@ public class RecruitmentRequestService(
         switch (dto.Decision)
         {
             case ReviewDecision.Approve:
-                if (stage == RecruitmentRequestStatus.HrApproval)
-                {
-                    if (!dto.BudgetValidated)
-                        return Result.Failure("Tick 'Budget confirmed' to confirm the budget for this post before approving.");
-                    r.BudgetValidated = true;
-                    r.BudgetValidatedByUserId = MyId;
-                }
-
+                // 11 Nov 2026 (docs/29, change 1): budget approval is not required for the HR Manager to approve; the budget
+                // approval document is an optional upload. BudgetValidated is kept only for requests approved before then.
                 var next = RecruitmentWorkflow.NextAfterApproval(stage);
                 if (next == RecruitmentRequestStatus.Approved) r.ApprovedAt = now;
                 r.RecordStep(WorkflowAction.Approved, next, MyId, MyName, comments, now);

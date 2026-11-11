@@ -93,7 +93,7 @@ The **Super Admin** can open every screen below and sees every department. For t
 | Raise / edit / submit / cancel a request (QF-81-11) | | | | | ✅ own departments, own requests | | ✅ own department, own requests | |
 | Decide at stage 1, Department Head review | | | | | ✅ Head of that department, not their own request | | | |
 | Decide at the earlier workflow's Recruitment review (requests still waiting there) | | | | ✅ | | | | |
-| Decide at stage 2, HR Manager review (and validate budget) | | ✅ | | | | | | |
+| Decide at stage 2, HR Manager review | | ✅ | | | | | | |
 | Decide at stage 3, MD approval (final) | | | ✅ | | | | | |
 | Download request documents | ✅ | ✅ | ✅ | ✅ | own departments | | | |
 | See vacancies | all | all | all | all | own departments (read only) | | | |
@@ -137,7 +137,7 @@ The **Super Admin** can open every screen below and sees every department. For t
 * **Segregation of duties:** nobody can decide on a request they raised, even if they also hold the approver role.
 * **One role per stage:** the server refuses a decision from anyone outside that stage's role.
 * **Comments are compulsory** when returning or rejecting, so the HOD always knows why.
-* **Budget validation** must be ticked by the HR Manager before HR approval. It is cleared again if the request is resubmitted.
+* **Budget:** no budget confirmation is needed for HR approval (since 11 November 2026); the budget approval document is an optional upload.
 * **No double decisions:** each request carries a version stamp. If two approvers act at the same moment, only the first decision is saved and the second person is asked to reload. A decision posted from an out-of-date page (the stage has moved on) is also refused.
 * **Everything is recorded:** each step is written to the request's history and to the audit trail.
 
@@ -158,7 +158,7 @@ The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each 
 | **Super Admin** (Phase 14) | Full access to the whole system. The only role that creates HR Managers, Recruitment Officers, HODs and other privileged accounts, and sets permissions. The first administrator account (`SeedAdmin`) is a Super Admin. |
 | **Admin** (5 November 2026) | System administrator: manages every user account except Admins and Super Admins, organisation data and the audit trail; sees Roles & permissions and ATS settings read-only. Cannot give privileged roles. |
 | **HR Administrator** | Maintains divisions, departments, units and sites, and everyday staff accounts (Employee, Interview Panel Member). Views the audit trail. |
-| **HR Manager** | Approves requests, validates budgets, reviews candidates, authorises hiring. |
+| **HR Manager** | Approves requests, reviews job adverts, views onboarding, activates employees, decides probations. |
 | **Managing Director** | Final vacancy and hiring approval, executive dashboard. |
 | **Recruitment Officer** | Manages vacancies, candidates, adverts and interview schedules, and communicates with candidates. |
 | **Head of Department** | Reviews (stage 1) and raises recruitment requests for their department, shortlists, sits on interviews. |

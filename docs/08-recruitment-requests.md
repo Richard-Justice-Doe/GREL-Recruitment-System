@@ -89,7 +89,7 @@ What's special at each stage:
 | Stage | Who | Extra step |
 |---|---|---|
 | 1. Department Head review | The **Head of the request's department** (not any HOD) | None. |
-| 2. HR Manager review | HR Manager | Tick **Budget confirmed** to confirm the post is budgeted for (see the Budget approval document, if attached) before approving. |
+| 2. HR Manager review | HR Manager | Approve, return or reject. No budget confirmation is needed (since 11 November 2026); a Budget approval document, if attached, can be read in Supporting documents. |
 | 3. MD approval | Managing Director | Final approval. The requester, the HOD, the HR Manager and the Recruitment Officers are emailed. |
 
 ### Rules the system enforces

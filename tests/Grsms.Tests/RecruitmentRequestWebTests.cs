@@ -123,7 +123,7 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
 
         // ---- Three approvals
         await ApproveAsync("qa.hod@grel.test", id, "DepartmentHeadReview", extra: null);
-        await ApproveAsync("qa.hrm@grel.test", id, "HrApproval", extra: ("BudgetValidated", "true"));
+        await ApproveAsync("qa.hrm@grel.test", id, "HrApproval");
         await ApproveAsync("qa.md@grel.test", id, "MdApproval", extra: null);
 
         page = await staff.GetStringAsync(detailsUrl);
@@ -155,7 +155,7 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
     }
 
     /// <summary>Signs in as an approver, checks the request is in their "Awaiting my action" list, and approves it.</summary>
-    private async Task ApproveAsync(string email, int id, string stage, (string Key, string Value)? extra)
+    private async Task ApproveAsync(string email, int id, string stage, (string Key, string Value)? extra = null)
     {
         var client = await SignedInAsync(email);
         Assert.Contains($"/RecruitmentRequests/Details/{id}", await client.GetStringAsync("/RecruitmentRequests?tab=awaiting"));

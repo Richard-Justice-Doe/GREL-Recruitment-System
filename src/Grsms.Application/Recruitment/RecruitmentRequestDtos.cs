@@ -292,8 +292,6 @@ public class ReviewDecisionDto
     [Required]
     public RecruitmentRequestStatus? ExpectedStatus { get; set; }
 
-    /// <summary>HR Manager review stage only: the HR Manager confirms the budget code and cost are correct.</summary>
-    public bool BudgetValidated { get; set; }
 }
 
 /// <summary>

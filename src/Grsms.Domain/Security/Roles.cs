@@ -35,7 +35,7 @@ public static class Roles
     /// <summary>Recruitment Officer: manages vacancies, candidates, adverts and interview schedules.</summary>
     public const string RecruitmentOfficer = "Recruitment Officer";
 
-    /// <summary>HR Manager: approves requests, validates budgets, authorises hiring decisions.</summary>
+    /// <summary>HR Manager: approves requests (no budget confirmation since 11 Nov 2026), reviews job adverts, views onboarding.</summary>
     public const string HrManager = "HR Manager";
 
     /// <summary>Managing Director: final approval of vacancies and hires, executive dashboard.</summary>

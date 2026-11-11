@@ -1,0 +1,192 @@
+@* Phase 14: Roles & permissions (Super Admin only). One tick-box grid: permissions down the side, roles across the top.
+   The Super Admin column is always ticked and locked; "Super Admin only" permissions cannot be given to other roles;
+   the Candidate role gets no staff permissions. *@
+@model IReadOnlyList<RoleSummaryDto>
+@{
+    ViewData["Title"] = "Roles & permissions";
+    var columns = Model.Where(r => r.Name != Roles.Candidate).ToList();
+    var canManage = ViewBag.CanManage == true; // false = read-only (e.g. the Admin)
+}
+
+<div class="page-header">
+    <div>
+        <h1>Roles &amp; permissions</h1>
+        <p>Decide what each role may open. Changes apply straight away and are recorded in the audit trail.</p>
+    </div>
+    @if (canManage)
+    {
+        <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add custom role</a>
+    }
+</div>
+
+@if (!canManage)
+{
+    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change roles and permissions.</div>
+}
+<div class="alert alert-info small">
+    <i class="fa-solid fa-circle-info me-1"></i>
+    Permissions open screens and functions. <b>Who acts at each workflow step</b> (the HOD raises a request, the HR Manager approves,
+    the Managing Director gives final approval, ...) stays with the role and cannot be changed here, so approvals stay separated.
+    The <b>Super Admin</b> always holds every permission.
+</div>
+
+<form asp-action="Save" method="post">
+    <div class="card glass mb-3">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle permission-grid">
+                    <thead>
+                    <tr>
+                        <th style="min-width: 260px">Permission</th>
+                        @foreach (var r in columns)
+                        {
+                            <th class="text-center small" style="min-width: 90px">
+                                <input type="hidden" name="roleNames" value="@r.Name" />
+                                @r.Name
+                                @if (!r.IsBuiltIn) { <div><span class="badge rounded-pill badge-soft-secondary">custom</span></div> }
+                                <div class="text-body-secondary fw-normal">@r.ActiveUsers user@(r.ActiveUsers == 1 ? "" : "s")</div>
+                            </th>
+                        }
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var group in Permissions.Catalogue.GroupBy(p => p.Group))
+                    {
+                        <tr class="table-group-row">
+                            <th colspan="@(columns.Count + 1)" class="text-uppercase small text-body-secondary pt-3">@group.Key</th>
+                        </tr>
+                        @foreach (var p in group)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">@p.Label</div>
+                                    <div class="small text-body-secondary">@p.Description</div>
+                                </td>
+                                @foreach (var r in columns)
+                                {
+                                    var isSuper = r.Name == Roles.SuperAdmin;
+                                    var locked = isSuper || p.SuperAdminOnly || !canManage;
+                                    var id = $"g-{r.Id}-{p.Name}".Replace('.', '-');
+                                    <td class="text-center">
+                                        <input class="form-check-input" type="checkbox" id="@id" name="grant" value="@($"{r.Name}|{p.Name}")"
+                                               checked="@r.Permissions.Contains(p.Name)" disabled="@locked"
+                                               aria-label="@p.Label for @r.Name" />
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @if (canManage)
+    {
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save permissions</button>
+    }
+</form>
+
+<h2 class="h5 mt-5 mb-3">Roles</h2>
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr><th>Role</th><th>What it is for</th><th class="text-end">Active users</th><th class="text-end">Actions</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold text-nowrap">
+                            @r.Name
+                            @if (r.IsBuiltIn) { <span class="badge rounded-pill badge-soft-primary ms-1">built-in</span> }
+                            else { <span class="badge rounded-pill badge-soft-secondary ms-1">custom</span> }
+                        </td>
+                        <td class="small">@r.Description</td>
+                        <td class="text-end">@r.ActiveUsers</td>
+                        <td class="text-end text-nowrap">
+                            @if (!r.IsBuiltIn && canManage)
+                            {
+                                <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-sm btn-outline-secondary" title="Rename / describe"><i class="fa-solid fa-pen"></i></a>
+                                <form asp-action="Delete" asp-route-id="@r.Id" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"
+                                            data-confirm="Delete the role @r.Name? Its permissions are removed too."><i class="fa-solid fa-trash"></i></button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-body-secondary mb-0">
+            Built-in roles cannot be renamed or deleted, because the workflows check them by name. A custom role only opens the screens
+            you tick for it; give its holders the <b>Employee</b> role too, so they can see internal vacancies.
+        </p>
+    </div>
+</div>
+
+@* ---- Change history: the audit trail of roles and permissions, in plain words *@
+@{
+    var history = (IReadOnlyList<RoleHistoryEntryDto>)ViewBag.History;
+    var historyRole = (string?)ViewBag.HistoryRole;
+}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mt-5 mb-3" id="history">
+    <div>
+        <h2 class="h5 mb-1">Change history</h2>
+        <p class="small text-body-secondary mb-0">Every permission given or taken away, every custom role added, renamed or deleted, and every role given to
+            or taken from someone: who did it, when and from where. The latest 100 changes; older ones are in the audit trail.</p>
+    </div>
+    <form method="get" class="d-flex gap-2 align-items-center" action="#history">
+        <label for="historyRole" class="small text-nowrap">Role</label>
+        <select id="historyRole" name="historyRole" class="form-select form-select-sm" data-auto-submit>
+            <option value="">All roles</option>
+            @foreach (var r in Model)
+            {
+                <option value="@r.Id" selected="@(r.Id == historyRole)">@r.Name</option>
+            }
+        </select>
+        <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Show</button></noscript>
+        <a asp-controller="AuditLogs" asp-action="Index" asp-route-EntityName="RoleClaim" class="btn btn-sm btn-outline-secondary text-nowrap">Full audit trail</a>
+    </form>
+</div>
+<div class="card glass">
+    <div class="card-body">
+        @if (history.Count == 0)
+        {
+            <p class="text-body-secondary small mb-0">No changes recorded@(historyRole is null ? "" : " for this role").</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>When</th><th>Who</th><th>What</th><th>Role</th><th>From</th></tr></thead>
+                    <tbody>
+                    @foreach (var h in history)
+                    {
+                        var (icon, css) = (h.Kind, h.Granted) switch
+                        {
+                            ("permission", true) => ("fa-plus", "text-success"),
+                            ("permission", false) => ("fa-minus", "text-danger"),
+                            ("assignment", true) => ("fa-user-plus", "text-success"),
+                            ("assignment", false) => ("fa-user-minus", "text-danger"),
+                            ("role", true) => ("fa-circle-plus", "text-success"),
+                            ("role", false) => ("fa-trash", "text-danger"),
+                            _ => ("fa-pen", "text-body-secondary")
+                        };
+                        <tr>
+                            <td class="small text-nowrap">@h.Timestamp.ToString("dd MMM yyyy HH:mm")</td>
+                            <td class="small">@h.By</td>
+                            <td class="small"><i class="fa-solid @icon @css me-1" aria-hidden="true"></i>@h.Text</td>
+                            <td class="small text-nowrap">@h.RoleName</td>
+                            <td class="small text-body-secondary">@(h.IpAddress ?? "—")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

@@ -21,6 +21,14 @@
         <i class="fa-solid fa-arrow-left me-1"></i>All applications for this vacancy
     </a>
 </div>
+@* Usability U3: what happens next, at the top of the page. *@
+@{
+    (bool Mine, string Title, string? Detail, string? Anchor) nextStep =
+        Model.CanDecideAts ? (true, "confirm or overrule the automatic rejection", null, "screening-decision")
+        : Model.CanStartReview ? (true, "start the review", "The applicant then sees \"Under review\".", "review")
+        : (false, Model.Status.DisplayName(), null, null);
+}
+<partial name="_NextStepBanner" model="nextStep" />
 
 <div class="row g-3">
     <div class="col-xl-7">
@@ -76,10 +84,104 @@
                 <partial name="_DocumentList" model="(Model.Documents, download)" />
             </div>
         </div>
+
+        @* ---- Phase 15: knockout answers and what the ATS read from the CV *@
+        @if (Model.KnockoutAnswers.Count > 0)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Knockout questions</h2>
+                    <ul class="list-unstyled small mb-0">
+                        @foreach (var k in Model.KnockoutAnswers)
+                        {
+                            <li class="mb-1">
+                                @if (k.Answer) { <i class="fa-solid fa-circle-check text-success me-1"></i><strong>Yes</strong> }
+                                else { <i class="fa-solid fa-circle-xmark text-danger me-1"></i><strong>No</strong> }
+                                · @k.Question
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+        @if (Model.Cv is { } cv)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Read from the CV</h2>
+                    <p class="small text-body-secondary">By @(cv.Reader == "ai" ? "the Claude AI reader" : "GRSMS's own reader"). CVs have no fixed layout, so check anything important against the file itself.</p>
+                    @foreach (var w in cv.Warnings)
+                    {
+                        <div class="alert alert-warning small py-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>@w</div>
+                    }
+                    <dl class="details-grid small">
+                        <dt>Name</dt><dd>@(cv.FullName ?? "—")</dd>
+                        <dt>Email</dt><dd>@(cv.Email ?? "—")@(cv.Email is not null && !string.Equals(cv.Email, Model.Email, StringComparison.OrdinalIgnoreCase) ? " (differs from the account)" : "")</dd>
+                        <dt>Phone</dt><dd>@(cv.Phone ?? "—")</dd>
+                        <dt>Highest education</dt><dd>@(cv.HighestEducation == EducationLevel.None ? "—" : cv.HighestEducation.DisplayName())</dd>
+                        <dt>Experience</dt><dd>@(cv.YearsExperience is int y ? $"{y} year(s) from the dates below" : "—") <span class="text-body-secondary">(profile says @Model.YearsExperience)</span></dd>
+                    </dl>
+                    @if (cv.EmploymentHistory.Count > 0)
+                    {
+                        <h3 class="h6 mt-2">Employment history</h3>
+                        <ul class="small mb-2">
+                            @foreach (var j in cv.EmploymentHistory)
+                            {
+                                <li>@j.Description <span class="text-body-secondary">· @j.From.ToString("MMM yyyy") – @(j.IsCurrent ? "present" : j.To.ToString("MMM yyyy"))</span></li>
+                            }
+                        </ul>
+                    }
+                    @foreach (var (title, list) in new[] { ("Education", cv.Education), ("Skills", cv.Skills), ("Certifications", cv.Certifications) })
+                    {
+                        @if (list.Count > 0)
+                        {
+                            <h3 class="h6 mt-2">@title</h3>
+                            <div class="small">@string.Join(" · ", list)</div>
+                        }
+                    }
+                </div>
+            </div>
+        }
     </div>
 
     <div class="col-xl-5">
-        @* ---- Phase 6: screening result and shortlisting *@
+        @* ---- Phase 15: the ATS decision. A held rejection is decided here (or in bulk on the ATS dashboard). *@
+        @if (Model.AtsDecision != AtsDecision.None)
+        {
+            <div class="card glass mb-3 @(Model.CanDecideAts ? "border border-danger" : "")">
+                <div class="card-body p-4">
+                    <h2 id="screening-decision" class="h6 text-uppercase text-body-secondary mb-2">Screening decision: @Model.AtsDecision.DisplayName()</h2>
+                    @if (Model.AtsRejectionReason is not null)
+                    {
+                        <div class="small mb-2" style="white-space: pre-line"><strong>Why screening rejected it:</strong>
+@Model.AtsRejectionReason</div>
+                    }
+                    @if (Model.AtsDecisionByName is not null)
+                    {
+                        <div class="small text-body-secondary mb-2">@Model.AtsDecision.DisplayName() by @Model.AtsDecisionByName on @Model.AtsDecisionAt?.ToString("dd MMM yyyy HH:mm")@(Model.AtsDecisionNote is null ? "" : $": {Model.AtsDecisionNote}")</div>
+                    }
+                    @if (Model.CanDecideAts)
+                    {
+                        <p class="small mb-2">The applicant has <strong>not</strong> been told; they see "Under review". Check the CV and the scores, then decide.</p>
+                        <form asp-controller="Ats" asp-action="Confirm" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <input type="hidden" name="returnTo" value="application" />
+                            <input type="text" name="note" class="form-control form-control-sm mb-2" maxlength="2000" placeholder="Note (optional, internal)" aria-label="Note" />
+                            <button type="submit" class="btn btn-sm btn-danger w-100"
+                                    data-confirm="Confirm the automatic rejection? The application becomes Not successful and the applicant is emailed.">Confirm rejection</button>
+                        </form>
+                        <form asp-controller="Ats" asp-action="Override" asp-route-id="@Model.Id" method="post">
+                            <input type="hidden" name="returnTo" value="application" />
+                            <label for="override-reason" class="form-label small">Or override: why should it be reviewed? (required, internal)</label>
+                            <textarea id="override-reason" name="reason" class="form-control form-control-sm mb-2" rows="2" maxlength="2000" required
+                                      placeholder="e.g. The CV shows the certificate under a different name"></textarea>
+                            <button type="submit" class="btn btn-sm btn-outline-primary w-100">Override: move to Under review</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ---- Screening (the ATS since Phase 15) and shortlisting (Phase 6) *@
         @{
             var row = (ShortlistRowDto?)ViewBag.ShortlistRow;
             var s = Model.Screening;
@@ -89,41 +191,18 @@
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h2 class="h6 text-uppercase text-body-secondary mb-0">Screening</h2>
-                    <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@Model.VacancyId" class="small">Shortlisting board</a>
+                    <span class="small">
+                        <a asp-controller="Ats" asp-action="Vacancy" asp-route-id="@Model.VacancyId">Screening for this vacancy</a> ·
+                        <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@Model.VacancyId">Shortlisting board</a>
+                    </span>
                 </div>
                 @if (s is null)
                 {
-                    <p class="small text-body-secondary mb-0">Not screened yet. A reviewer can run screening from the shortlisting board.</p>
+                    <p class="small text-body-secondary mb-0">Not screened yet. A reviewer can run screening from the vacancy's Screening page.</p>
                 }
                 else
                 {
-                    <div class="d-flex align-items-baseline gap-2 mb-2">
-                        <span class="fs-3 fw-semibold">@s.Score</span><span class="text-body-secondary">/ 100</span>
-                        @if (s.MeetsMinimum)
-                        {
-                            <span class="badge rounded-pill badge-soft-success">Meets the minimum requirements</span>
-                        }
-                        else
-                        {
-                            <span class="badge rounded-pill badge-soft-warning">Below the minimum</span>
-                        }
-                    </div>
-                    <table class="table table-sm small mb-2">
-                        <tbody>
-                        <tr><td>Education @(s.EducationMet ? "✓" : "✗")</td><td class="text-end">@s.EducationPoints / 20</td></tr>
-                        <tr><td>Experience @(s.ExperienceMet ? "✓" : "✗")</td><td class="text-end">@s.ExperiencePoints / 20</td></tr>
-                        <tr><td>Essential skills and certifications</td><td class="text-end">@s.EssentialPoints / 45</td></tr>
-                        <tr><td>Desirable skills and certifications</td><td class="text-end">@s.DesirablePoints / 15</td></tr>
-                        </tbody>
-                    </table>
-                    @if (s.MissingEssential.Count > 0)
-                    {
-                        <div class="small"><strong>Missing essential:</strong> @string.Join(", ", s.MissingEssential)</div>
-                    }
-                    @if (s.MatchedEssential.Count + s.MatchedDesirable.Count > 0)
-                    {
-                        <div class="small text-body-secondary"><strong>Found:</strong> @string.Join(", ", s.MatchedEssential.Concat(s.MatchedDesirable))</div>
-                    }
+                    <partial name="_AtsBreakdown" model="s" />
                 }
 
                 @if (Model.RecruiterRecommendation != ShortlistRecommendation.None || Model.HodRecommendation != ShortlistRecommendation.None)
@@ -169,12 +248,12 @@
         {
             <div class="card glass mb-3 border border-primary">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Review</h2>
+                    <h2 id="review" class="h6 text-uppercase text-body-secondary mb-3">Review</h2>
                     @if (Model.CanStartReview)
                     {
                         <form asp-action="StartReview" asp-route-id="@Model.Id" method="post" class="mb-3">
                             <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-magnifying-glass me-1"></i>Start review</button>
-                            <div class="form-text">The applicant's tracker then shows "Under review". Shortlisting arrives in Phase 6.</div>
+                            <div class="form-text">The applicant's tracker then shows "Under review".</div>
                         </form>
                     }
                     @if (Model.CanMarkNotSuccessful)

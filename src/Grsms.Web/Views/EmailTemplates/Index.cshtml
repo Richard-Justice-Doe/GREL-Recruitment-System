@@ -1,0 +1,60 @@
+@* Phase 16: Email templates: the emails candidates receive. Built-in wording until a Super Admin rewords one. *@
+@using Grsms.Application.Settings
+@model IReadOnlyList<EmailTemplateRowDto>
+@{
+    ViewData["Title"] = "Email templates";
+    var canManage = ViewBag.CanManage == true;
+}
+
+<div class="page-header">
+    <div>
+        <h1>Email templates</h1>
+        <p>The emails candidates and internal applicants receive, and the welcome email every new staff account gets. Other staff notifications keep their built-in wording.
+            The greeting and signature of every email are on <a asp-controller="SystemSettings" asp-action="Index">System settings</a>.</p>
+    </div>
+    <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="EmailTemplate" class="btn btn-outline-secondary"><i class="fa-solid fa-clock-rotate-left me-1"></i>Change history</a>
+</div>
+
+@if (!canManage)
+{
+    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change email templates.</div>
+}
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>Email</th><th>Sent</th><th>Subject</th><th>Wording</th><th class="text-end"></th></tr></thead>
+                <tbody>
+                @foreach (var t in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold">@t.Definition.Name</td>
+                        <td class="small">@t.Definition.WhenSent</td>
+                        <td class="small"><code>@t.Definition.DefaultSubject</code></td>
+                        <td>
+                            @if (t.IsCustomised)
+                            {
+                                <span class="badge rounded-pill badge-soft-primary" title="Changed @t.UpdatedAt?.ToString("dd MMM yyyy HH:mm") by @t.UpdatedBy">Customised</span>
+                            }
+                            else
+                            {
+                                <span class="badge rounded-pill badge-soft-secondary">Built-in</span>
+                            }
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <a asp-action="Edit" asp-route-id="@t.Definition.Key" class="btn btn-sm btn-outline-secondary">@(canManage ? "Edit" : "View")</a>
+                            @if (canManage && t.IsCustomised)
+                            {
+                                <form asp-action="Reset" asp-route-id="@t.Definition.Key" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Go back to the built-in wording of &quot;@t.Definition.Name&quot;?">Reset</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

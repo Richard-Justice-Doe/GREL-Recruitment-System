@@ -140,6 +140,16 @@
                     {
                         <p class="small text-body-secondary mb-0">Your appointment letter is being prepared. We will email you when it is ready.</p>
                     }
+
+                    @* Phase 18: the new-hire documents and where the onboarding has got to *@
+                    <div class="border-top mt-3 pt-3">
+                        <p class="small mb-2">Onboarding: <strong>@appt.Status.DisplayName()</strong></p>
+                        <a asp-action="Documents" asp-route-id="@Model.Id"
+                           class="btn btn-sm @(OnboardingWorkflow.EmployeeMayEditDocuments(appt.Status) ? "btn-primary" : "btn-outline-secondary")">
+                            <i class="fa-solid fa-folder-open me-1"></i>@(OnboardingWorkflow.EmployeeMayEditDocuments(appt.Status) ? "Upload my new-hire documents" : "View my new-hire documents")
+                        </a>
+                        <a asp-action="PersonalRecord" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary ms-1"><i class="fa-regular fa-id-card me-1"></i>My personal record</a>
+                    </div>
                 </div>
             </div>
         }

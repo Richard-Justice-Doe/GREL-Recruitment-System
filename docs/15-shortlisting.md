@@ -4,7 +4,12 @@ Phase 6 helps the recruitment team decide **who to take forward**. GRSMS scores 
 
 ## 1. Screening (automatic)
 
-Every application is scored out of **100** the moment it is submitted:
+> **Since Phase 15 (5 November 2026), screening is done by the ATS:** it also reads the CV, scores four parts as percentages,
+> classifies, and can reject automatically (held for HR). See the **[ATS screening guide](22-ats-screening.md)**. The rest of
+> this section describes the Phase 6 score it replaced, for reference. The board below now shows the ATS's overall match %.
+> An application the ATS rejected must be **overridden** before it can be recommended.
+
+Until Phase 15, every application was scored out of **100** the moment it was submitted:
 
 | Part | Points | How |
 |---|---|---|

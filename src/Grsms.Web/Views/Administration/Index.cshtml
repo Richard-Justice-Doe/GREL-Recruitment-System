@@ -1,0 +1,32 @@
+@* Usability U1: every administration screen the signed-in person may open, in five sections. *@
+@model IReadOnlyList<Grsms.Web.Controllers.AdminLink>
+@{
+    ViewData["Title"] = "Administration";
+}
+<div class="page-header">
+    <div>
+        <h1>Administration</h1>
+        <p>Settings and records that shape how GRSMS works. Only the screens you may open are shown.</p>
+    </div>
+</div>
+
+@foreach (var group in Model.GroupBy(l => l.Section))
+{
+    <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-2">@group.Key</h2>
+    <div class="row g-3">
+        @foreach (var l in group)
+        {
+            <div class="col-sm-6 col-xl-4">
+                <a class="card glass h-100 text-decoration-none" asp-controller="@l.Controller" asp-action="@l.Action">
+                    <div class="card-body p-3 d-flex gap-3 align-items-start">
+                        <i class="fa-solid @l.Icon fs-4 text-primary mt-1" aria-hidden="true"></i>
+                        <div>
+                            <div class="fw-semibold text-body">@l.Title</div>
+                            <div class="small text-body-secondary">@l.Description</div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+}

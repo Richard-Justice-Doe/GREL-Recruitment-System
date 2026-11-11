@@ -52,15 +52,16 @@ public class ReminderService(
         var sent = 0;
 
         // ---------------------------------------------------------------- Offers: reply-by date tomorrow
-        foreach (var o in await offers.ListAsync(o => o.Status == OfferStatus.Sent && o.ExpiresOn == tomorrow, ct))
+        var expiring = await offers.ListAsync(o => o.Status == OfferStatus.Sent && o.ExpiresOn == tomorrow, ct);
+        var offerApps = await ApplicationsAsync(expiring.Select(o => o.JobApplicationId), ct);
+        foreach (var o in expiring)
         {
             if (!await notifications.ClaimReminderAsync($"offer-expiring:{o.Id}", ct)) continue;
-            var app = await applications.GetByIdAsync(o.JobApplicationId, ct);
+            var app = offerApps.GetValueOrDefault(o.JobApplicationId);
             if (app is null) continue;
-            await mailer.ToUserAsync(app.ApplicantUserId, $"Reminder: please reply to your offer by {o.ExpiresOn.ToString("d MMMM", Gb)}",
-                $"Your offer for the position of <b>{WorkflowMailer.Enc(o.JobTitle)}</b> is waiting for your reply. " +
-                $"Please accept or decline it by <b>{o.ExpiresOn.ToString("dddd d MMMM yyyy", Gb)}</b>.",
-                links.MyApplication(app.Id), "Read my offer", ct);
+            await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.OfferReminder,
+                new Dictionary<string, string?> { ["JobTitle"] = o.JobTitle, ["ReplyBy"] = o.ExpiresOn.ToString("dddd d MMMM yyyy", Gb) },
+                links.MyApplication(app.Id), ct: ct);
             await mailer.TextAsync(app.Phone,
                 $"GREL: please reply to your offer for {o.JobTitle} by {o.ExpiresOn.ToString("d MMM", Gb)}. Sign in to GRSMS to accept or decline.", ct);
             sent++;
@@ -74,16 +75,17 @@ public class ReminderService(
         {
             var panels = (await interviewDetails.ListForApplicationsAsync(due.Select(i => i.JobApplicationId).Distinct().ToList(), ct))
                 .ToDictionary(i => i.Id, i => i.Panel.Select(p => p.UserId).ToList());
+            var interviewApps = await ApplicationsAsync(due.Select(i => i.JobApplicationId), ct);
             foreach (var i in due)
             {
                 if (!await notifications.ClaimReminderAsync($"interview:{i.Id}:{i.StartsAt:yyyyMMddHHmm}", ct)) continue;
-                var app = await applications.GetByIdAsync(i.JobApplicationId, ct);
+                var app = interviewApps.GetValueOrDefault(i.JobApplicationId);
                 if (app is null) continue;
                 var when = $"{i.StartsAt.ToString("dddd d MMMM 'at' HH:mm", Gb)} GMT";
                 var kind = EnumText.Label(i.Type).ToLowerInvariant();
-                await mailer.ToUserAsync(app.ApplicantUserId, $"Reminder: your {kind} is tomorrow",
-                    $"This is a reminder of your {kind} on <b>{when}</b>, {WorkflowMailer.Enc(i.Location)}.",
-                    links.MyApplication(app.Id), "See the details", ct);
+                await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.InterviewReminder,
+                    new Dictionary<string, string?> { ["Kind"] = kind, ["When"] = when, ["Location"] = i.Location },
+                    links.MyApplication(app.Id), ct: ct);
                 await mailer.TextAsync(app.Phone, $"GREL: reminder of your {kind} on {i.StartsAt.ToString("ddd d MMM HH:mm", Gb)} GMT, {i.Location}.", ct);
                 foreach (var member in panels.GetValueOrDefault(i.Id) ?? [])
                     await mailer.ToUserAsync(member, $"Reminder: {kind} with {app.FullName} tomorrow",
@@ -94,10 +96,12 @@ public class ReminderService(
         }
 
         // ---------------------------------------------------------------- First day tomorrow
-        foreach (var o in await onboardings.ListAsync(o => o.Status == OnboardingStatus.InProgress && o.StartDate == tomorrow, ct))
+        var starting = await onboardings.ListAsync(o => o.Status != OnboardingStatus.Completed && o.Status != OnboardingStatus.Cancelled && o.StartDate == tomorrow, ct);
+        var starterApps = await ApplicationsAsync(starting.Select(o => o.JobApplicationId), ct);
+        foreach (var o in starting)
         {
             if (!await notifications.ClaimReminderAsync($"first-day:{o.Id}:{o.StartDate:yyyyMMdd}", ct)) continue;
-            var app = await applications.GetByIdAsync(o.JobApplicationId, ct);
+            var app = starterApps.GetValueOrDefault(o.JobApplicationId);
             await mailer.ToUserAsync(o.EmployeeUserId, "Welcome to GREL tomorrow!",
                 $"We look forward to seeing you tomorrow, <b>{o.StartDate.ToString("dddd d MMMM", Gb)}</b>. Please report at <b>{o.ReportTime:HH:mm}</b> to " +
                 $"{WorkflowMailer.Enc(o.ReportLocation)}, and remember the documents listed in your portal.",
@@ -110,7 +114,7 @@ public class ReminderService(
         }
 
         // ---------------------------------------------------------------- Onboarding items due tomorrow or overdue (one summary per owner per day)
-        var active = (await onboardings.ListAsync(o => o.Status == OnboardingStatus.InProgress, ct)).ToDictionary(o => o.Id);
+        var active = (await onboardings.ListAsync(o => o.Status != OnboardingStatus.Completed && o.Status != OnboardingStatus.Cancelled, ct)).ToDictionary(o => o.Id);
         if (active.Count > 0)
         {
             var ids = active.Keys.ToList();
@@ -136,19 +140,20 @@ public class ReminderService(
             return age < approvalWaitingDays ? null : ((age - approvalWaitingDays) / 7).ToString(CultureInfo.InvariantCulture);
         }
 
-        foreach (var r in await requests.ListAsync(r => r.Status == RecruitmentRequestStatus.RecruitmentReview ||
-                                                        r.Status == RecruitmentRequestStatus.HrApproval || r.Status == RecruitmentRequestStatus.MdApproval, ct))
+        var decisionStages = RecruitmentWorkflow.DecisionStages.ToList();
+        foreach (var r in await requests.ListAsync(r => decisionStages.Contains(r.Status), ct))
         {
             if (Block(r.StatusChangedAt) is not { } block || !await notifications.ClaimReminderAsync($"waiting:request:{r.Id}:{r.Status}:{block}", ct)) continue;
-            var role = r.Status switch
-            {
-                RecruitmentRequestStatus.RecruitmentReview => Roles.RecruitmentOfficer,
-                RecruitmentRequestStatus.HrApproval => Roles.HrManager,
-                _ => Roles.ManagingDirector
-            };
-            await mailer.ToRoleAsync(role, [r.RequestedByUserId], $"Waiting {(int)(nowUtc - r.StatusChangedAt).TotalDays} days: {r.RequestNumber}",
-                $"Recruitment request <b>{WorkflowMailer.Enc(r.RequestNumber)}</b> ({WorkflowMailer.Enc(r.PositionTitle)}) has been waiting for " +
-                $"<b>{EnumText.Label(r.Status)}</b> since {r.StatusChangedAt.ToString("d MMMM", Gb)}.", links.RecruitmentRequest(r.Id), "Open the request", ct);
+            var subject = $"Waiting {(int)(nowUtc - r.StatusChangedAt).TotalDays} days: {r.RequestNumber}";
+            var html = $"Recruitment request <b>{WorkflowMailer.Enc(r.RequestNumber)}</b> ({WorkflowMailer.Enc(r.PositionTitle)}) has been waiting for " +
+                       $"<b>{EnumText.Label(r.Status)}</b> since {r.StatusChangedAt.ToString("d MMMM", Gb)}.";
+            // Stage 1 is one person (the department's HOD); the other stages are a role.
+            if (r.Status == RecruitmentRequestStatus.DepartmentHeadReview)
+                await mailer.ToUserAsync((await departments.GetByIdAsync(r.DepartmentId, ct))?.HeadOfDepartmentUserId, subject, html,
+                    links.RecruitmentRequest(r.Id), "Open the request", ct);
+            else
+                await mailer.ToRoleAsync(RecruitmentWorkflow.ApproverRole(r.Status)!, [r.RequestedByUserId], subject, html,
+                    links.RecruitmentRequest(r.Id), "Open the request", ct);
             sent++;
         }
 
@@ -186,5 +191,13 @@ public class ReminderService(
         }
 
         return sent;
+    }
+
+    /// <summary>Audit P4: the applications of a reminder section in one query (by id).</summary>
+    private async Task<IReadOnlyDictionary<int, Domain.Applications.JobApplication>> ApplicationsAsync(IEnumerable<int> ids, CancellationToken ct)
+    {
+        var list = ids.Distinct().ToList();
+        return list.Count == 0 ? new Dictionary<int, Domain.Applications.JobApplication>()
+            : (await applications.ListAsync(a => list.Contains(a.Id), ct)).ToDictionary(a => a.Id);
     }
 }

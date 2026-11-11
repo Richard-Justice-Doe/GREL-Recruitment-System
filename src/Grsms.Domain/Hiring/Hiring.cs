@@ -45,7 +45,13 @@ public enum HiringStatus
     [Display(Name = "Waiting for the Managing Director")] AwaitingMd,
     [Display(Name = "Approved")] Approved,
     [Display(Name = "Rejected")] Rejected,
-    [Display(Name = "Withdrawn")] Withdrawn
+    [Display(Name = "Withdrawn")] Withdrawn,
+
+    /// <summary>
+    /// Started automatically when the Recruitment Officer chooses to proceed with a candidate whose interview scores are
+    /// validated (9 Nov 2026): defaults filled in, not yet sent to the HOD. The recruiter reviews it and submits it, or discards it.
+    /// </summary>
+    [Display(Name = "Draft: not yet submitted")] Draft
 }
 
 public enum HiringDecision

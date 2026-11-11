@@ -130,34 +130,55 @@ public class ShortlistingServiceTests : IAsyncLifetime
     // ------------------------------------------------------------------ the scoring rules
 
     [Fact]
-    public void Screening_scores_education_experience_and_requirements()
+    public void Ats_scores_the_four_parts_classifies_and_applies_only_the_rules_switched_on()
     {
         var v = new Vacancy { MinimumEducation = EducationLevel.Diploma, MinYearsExperience = 4 };
-        v.Requirements.Add(new VacancyRequirement { Name = "NEBOSH IGC", IsEssential = true });
-        v.Requirements.Add(new VacancyRequirement { Name = "Risk assessment", IsEssential = true });
-        v.Requirements.Add(new VacancyRequirement { Name = "Report writing", IsEssential = false });
-        v.Requirements.Add(new VacancyRequirement { Name = "First aid", IsEssential = false });
+        v.Requirements.Add(new VacancyRequirement { Id = 1, Type = RequirementType.Certification, Name = "NEBOSH IGC", IsEssential = true });
+        v.Requirements.Add(new VacancyRequirement { Id = 2, Type = RequirementType.Skill, Name = "Risk assessment", IsEssential = true });
+        v.Requirements.Add(new VacancyRequirement { Id = 3, Type = RequirementType.Skill, Name = "Report writing", IsEssential = false });
+        v.Requirements.Add(new VacancyRequirement { Id = 4, Type = RequirementType.Certification, Name = "First aid", IsEssential = false });
+        var settings = new AtsSettings();
 
         // Everything met: words found in any order, case and punctuation ignored.
-        var full = CvScreening.Score(v, new JobApplication
+        var full = AtsEngine.Score(v, new JobApplication
         {
             HighestEducation = EducationLevel.Bachelors, YearsExperience = 6,
             Skills = "Risk Assessment\nReport-writing", Certifications = "NEBOSH International General Certificate (IGC)\nFirst Aid"
-        });
-        Assert.Equal((100, true), (full.Score, full.MeetsMinimum));
+        }, null, null, [], settings);
+        Assert.Equal((100, AtsClassification.HighlyRecommended, true, false), (full.Overall, full.Classification, full.MeetsMinimum, full.AutoReject));
 
-        // One level below on education (10), half the years (10), one of two essentials (23), nothing desirable (0).
-        var partial = CvScreening.Score(v, new JobApplication
-        {
-            HighestEducation = EducationLevel.Certificate, YearsExperience = 2, Skills = "risk assessment"
-        });
-        Assert.Equal((10, 10, 23, 0), (partial.EducationPoints, partial.ExperiencePoints, partial.EssentialPoints, partial.DesirablePoints));
-        Assert.Equal(43, partial.Score);
+        // One level below (60), half the years (50), skills: required found, preferred not = 2/3 (67).
+        // Certifications: the profile has none, but the CV text mentions "First Aid" → the preferred one is found = 1/3 (33).
+        var app = new JobApplication { HighestEducation = EducationLevel.Certificate, YearsExperience = 2, Skills = "risk assessment" };
+        var partial = AtsEngine.Score(v, app, null, "Courses: First Aid at Work (2021)", [new("Do you have a valid driver's licence?", false)], settings);
+        Assert.Equal((60, 50, 67, 33), (partial.Education, partial.Experience, partial.Skills, partial.Certifications));
+        Assert.Equal(53, partial.Overall); // (60 + 50 + 67 + 33) / 4 = 52.5 → 53
+        Assert.Equal(AtsClassification.LowMatch, partial.Classification);
+        Assert.Equal(["NEBOSH IGC"], partial.MissingRequiredCertifications);
         Assert.False(partial.MeetsMinimum);
-        Assert.Equal(["NEBOSH IGC"], partial.MissingEssential);
+        // Default rules: knockout, education, experience and a missing required certification (the score is above 50).
+        Assert.Equal(4, partial.RejectionReasons.Count);
+        Assert.Contains(partial.RejectionReasons, r => r.Contains("driver's licence"));
 
-        // A vacancy with no requirements gives full marks for the empty sections.
-        Assert.Equal(100, CvScreening.Score(new Vacancy(), new JobApplication()).Score);
+        // With every rule switched off, nothing is rejected.
+        var lenient = new AtsSettings
+        {
+            RejectOnKnockout = false, RejectBelowMinimumEducation = false, RejectBelowMinimumExperience = false,
+            RejectMissingRequiredCertification = false, RejectBelowLowMatch = false
+        };
+        Assert.False(AtsEngine.Score(v, app, null, null, [new("Q?", false)], lenient).AutoReject);
+
+        // The example from the request: 90, 100, 75, 80 with equal weights → 86 %, "Recommended".
+        Assert.Equal(AtsClassification.Recommended, AtsEngine.Classify(86, settings));
+        Assert.Equal(AtsClassification.AutoReject, AtsEngine.Classify(49, settings));
+
+        // A vacancy with no requirements gives full marks.
+        Assert.Equal(100, AtsEngine.Score(new Vacancy(), new JobApplication(), null, null, [], settings).Overall);
+
+        // Weights and bands are checked before they are saved.
+        Assert.NotEmpty(new AtsSettings { SkillsWeight = 30 }.Validate());
+        Assert.NotEmpty(new AtsSettings { RecommendedFrom = 95 }.Validate());
+        Assert.Empty(settings.Validate());
     }
 
     // ------------------------------------------------------------------ the workflow
@@ -232,7 +253,14 @@ public class ShortlistingServiceTests : IAsyncLifetime
         var (_, advert) = await VacancyAsync();
         var id = await ApplicantAsync(advert, "kofi@mail.test", EducationLevel.Diploma, 3, "Risk assessment");
 
+        // Phase 15: NEBOSH is required, so the ATS holds the application as rejected; the recruiter overrides it to review it.
+        var held = await Scoped(sp => sp.GetRequiredService<ApplicationDbContext>().JobApplications.SingleAsync(x => x.Id == id));
+        Assert.Equal((ApplicationStatus.AutoRejected, AtsDecision.AutoRejected), (held.Status, held.AtsDecision));
+        Assert.Contains("NEBOSH IGC", held.AtsRejectionReason);
         AsRecruiter();
+        Assert.False((await Run(x => x.RecommendAsync(id, ShortlistRecommendation.Shortlist, null))).Succeeded);
+        Assert.True((await Scoped(sp => sp.GetRequiredService<AtsService>().OverrideAsync(id, "Strong field record; NEBOSH can follow"))).Succeeded);
+
         Assert.True((await Run(x => x.RecommendAsync(id, ShortlistRecommendation.Shortlist, null))).Succeeded);
         AsHod();
         Assert.True((await Run(x => x.HodReviewAsync(id, ShortlistRecommendation.DoNotShortlist, "No NEBOSH yet"))).Succeeded);

@@ -115,15 +115,17 @@ public class HiringServiceTests : IAsyncLifetime
         Assert.True(r.Succeeded, string.Join(" ", r.Errors));
     }
 
-    private async Task ApproveAllAsync(int app)
+    /// <summary>A recommendation made before 9 Nov 2026, still waiting in the old HOD → HR Manager → MD chain.</summary>
+    private Task<int> LegacyRecommendationAsync(int app, string proposedBy) => Db(async db =>
     {
-        As(_hod, Roles.HeadOfDepartment);
-        Assert.True((await Run(s => s.DecideAsync(app, HiringDecision.Approve, null))).Succeeded);
-        As(_hrm, Roles.HrManager);
-        Assert.True((await Run(s => s.DecideAsync(app, HiringDecision.Approve, null))).Succeeded);
-        As(_md, Roles.ManagingDirector);
-        Assert.True((await Run(s => s.DecideAsync(app, HiringDecision.Approve, "Approved."))).Succeeded);
-    }
+        db.HiringRecommendations.Add(new HiringRecommendation
+        {
+            Number = "HIR-OLD-" + app, JobApplicationId = app, VacancyId = _vacancyId, DivisionId = 2, DepartmentId = Apm,
+            RequestingHodUserId = _hod, ProposedSalary = 8500, ProposedStartDate = Today.AddDays(30),
+            Justification = "Recommended by the panel unanimously.", CreatedByUserId = proposedBy, Status = HiringStatus.AwaitingHod
+        });
+        return await db.SaveChangesAsync();
+    });
 
     private async Task ClearedCheckAsync(int app)
     {
@@ -136,7 +138,7 @@ public class HiringServiceTests : IAsyncLifetime
     // ------------------------------------------------------------------ tests
 
     [Fact]
-    public async Task A_recommendation_needs_a_completed_interview_and_goes_hod_then_hr_then_md()
+    public async Task Only_the_recruitment_officer_approves_a_hire_without_the_hod_hr_manager_or_md()
     {
         var notYet = await InterviewedAsync(_candidate2, "Kofi", completedInterview: false);
         AsRecruiter();
@@ -144,9 +146,33 @@ public class HiringServiceTests : IAsyncLifetime
 
         var app = await InterviewedAsync(_candidate, "Ama");
         Assert.False((await Run(s => s.RecommendAsync(app, 8000, Today.AddDays(10), "Too short"))).Succeeded);
+        As(_hrm, Roles.HrManager); // not a Recruitment Officer
+        Assert.False((await Run(s => s.RecommendAsync(app, 8000, Today.AddDays(10), "Recommended by the panel unanimously."))).Succeeded);
+
         await RecommendAsync(app);
-        Assert.False((await Run(s => s.RecommendAsync(app, 8000, Today.AddDays(10), "A second one is not allowed while open."))).Succeeded);
-        Assert.Contains(_db.SentEmails(), m => m.Contains("To: hod@grel.test") && m.Contains("needs your endorsement"));
+        var rec = await Db(db => db.HiringRecommendations.SingleAsync(r => r.JobApplicationId == app));
+        Assert.Equal((HiringStatus.Approved, _ro, HiringDecision.None, HiringDecision.None, HiringDecision.None),
+            (rec.Status, rec.CreatedByUserId, rec.HodDecision, rec.HrDecision, rec.MdDecision));
+        Assert.Equal((2, Apm, _hod), (rec.DivisionId, rec.DepartmentId, rec.RequestingHodUserId));
+        Assert.Matches(@"^HIR-\d{4}-0001$", rec.Number);
+        Assert.DoesNotContain(_db.SentEmails(), m => m.Contains("needs your endorsement"));
+        AsRecruiter();
+        Assert.False((await Run(s => s.RecommendAsync(app, 8000, Today.AddDays(10), "A second one is not allowed once approved."))).Succeeded);
+
+        // Nothing waits for the HOD, HR Manager or MD.
+        foreach (var (user, role) in new[] { (_hod, Roles.HeadOfDepartment), (_hrm, Roles.HrManager), (_md, Roles.ManagingDirector) })
+        {
+            As(user, role);
+            Assert.Empty(await Run(s => s.AwaitingMyDecisionAsync()));
+            Assert.False((await Run(s => s.DecideAsync(app, HiringDecision.Approve, null))).Succeeded);
+        }
+    }
+
+    [Fact]
+    public async Task Recommendations_already_in_the_old_chain_still_go_hod_then_hr_then_md()
+    {
+        var app = await InterviewedAsync(_candidate, "Ama");
+        await LegacyRecommendationAsync(app, _ro);
 
         // Out of order: HR and MD cannot act before the HOD; another department's HOD cannot endorse.
         As(_hrm, Roles.HrManager);
@@ -170,8 +196,6 @@ public class HiringServiceTests : IAsyncLifetime
 
         var rec = await Db(db => db.HiringRecommendations.SingleAsync(r => r.JobApplicationId == app));
         Assert.Equal((HiringStatus.Approved, _hod, _hrm, _md), (rec.Status, rec.HodUserId, rec.HrUserId, rec.MdUserId));
-        Assert.Equal((2, Apm, _hod), (rec.DivisionId, rec.DepartmentId, rec.RequestingHodUserId));
-        Assert.Matches(@"^HIR-\d{4}-0001$", rec.Number);
         Assert.Contains(_db.SentEmails(), m => m.Contains("To: ro@grel.test") && m.Contains("approved"));
     }
 
@@ -179,8 +203,7 @@ public class HiringServiceTests : IAsyncLifetime
     public async Task Without_the_hods_endorsement_hr_must_give_a_reason_and_nobody_approves_twice()
     {
         var app = await InterviewedAsync(_candidate, "Ama");
-        As(_hrm, Roles.HrManager); // an HR Manager proposes ...
-        Assert.True((await Run(s => s.RecommendAsync(app, 8500, Today.AddDays(30), "Recommended by the panel unanimously."))).Succeeded);
+        await LegacyRecommendationAsync(app, _hrm); // an HR Manager proposed (old chain) ...
 
         As(_hod, Roles.HeadOfDepartment);
         Assert.False((await Run(s => s.DecideAsync(app, HiringDecision.Reject, null))).Succeeded);  // a reason is needed
@@ -210,10 +233,9 @@ public class HiringServiceTests : IAsyncLifetime
     public async Task An_offer_needs_approval_cleared_checks_and_a_free_position()
     {
         var app = await InterviewedAsync(_candidate, "Ama");
-        await RecommendAsync(app);
         AsRecruiter();
         Assert.False((await Run(s => s.SendOfferAsync(app, null, null, null, null))).Succeeded); // not approved yet
-        await ApproveAllAsync(app);
+        await RecommendAsync(app); // approved by the Recruitment Officer
 
         AsRecruiter();
         var noChecks = await Run(s => s.SendOfferAsync(app, null, null, null, null));
@@ -233,13 +255,11 @@ public class HiringServiceTests : IAsyncLifetime
         Assert.Equal(ApplicationStatus.Offer, (await Db(db => db.JobApplications.SingleAsync(a => a.Id == app))).Status);
         Assert.Contains(_db.SentEmails(), m => m.Contains("To: ama@mail.test") && m.Contains("Offer of employment"));
 
-        // The single position is now taken: a second candidate can be approved but not offered.
+        // The single position is now taken: a second candidate cannot be selected or approved.
         var second = await InterviewedAsync(_candidate2, "Kofi");
-        await RecommendAsync(second);
-        await ApproveAllAsync(second);
-        await ClearedCheckAsync(second);
         AsRecruiter();
-        Assert.Contains("position", (await Run(s => s.SendOfferAsync(second, null, null, null, null))).Errors[0]);
+        Assert.Contains("position", (await Run(s => s.RecommendAsync(second, 8500, Today.AddDays(30), "Second best, a strong reserve."))).Errors[0]);
+        Assert.Contains("position", (await Run(s => s.ProceedAsync([second]))).Errors[0]);
     }
 
     [Fact]
@@ -247,7 +267,6 @@ public class HiringServiceTests : IAsyncLifetime
     {
         var app = await InterviewedAsync(_candidate, "Ama");
         await RecommendAsync(app);
-        await ApproveAllAsync(app);
         await ClearedCheckAsync(app);
         AsRecruiter();
         Assert.True((await Run(s => s.SendOfferAsync(app, null, null, null, null))).Succeeded);
@@ -269,7 +288,6 @@ public class HiringServiceTests : IAsyncLifetime
         await Db(async db => { (await db.Vacancies.FindAsync(_vacancyId))!.NumberOfPositions = 3; return await db.SaveChangesAsync(); });
         var kofi = await InterviewedAsync(_candidate2, "Kofi");
         await RecommendAsync(kofi);
-        await ApproveAllAsync(kofi);
         await ClearedCheckAsync(kofi);
         AsRecruiter();
         Assert.True((await Run(s => s.SendOfferAsync(kofi, null, null, Today.AddDays(1), null))).Succeeded);
@@ -290,12 +308,11 @@ public class HiringServiceTests : IAsyncLifetime
     public async Task Withdrawals_and_the_hiring_list()
     {
         var app = await InterviewedAsync(_candidate, "Ama");
-        await RecommendAsync(app);
+        await LegacyRecommendationAsync(app, _ro); // an open (old-chain) recommendation can be withdrawn
         AsRecruiter();
         Assert.False((await Run(s => s.WithdrawRecommendationAsync(app, null))).Succeeded);
         Assert.True((await Run(s => s.WithdrawRecommendationAsync(app, "Candidate relocating abroad"))).Succeeded);
         await RecommendAsync(app);
-        await ApproveAllAsync(app);
         await ClearedCheckAsync(app);
         AsRecruiter();
         Assert.True((await Run(s => s.SendOfferAsync(app, null, null, null, null))).Succeeded);
@@ -310,5 +327,100 @@ public class HiringServiceTests : IAsyncLifetime
         Assert.Single(await Run(s => s.SearchAsync(new HiringFilter { Tab = "offers" })));
         As(_otherHod, Roles.HeadOfDepartment);
         Assert.Empty(await Run(s => s.SearchAsync(new HiringFilter { Tab = "all" })));
+    }
+
+    [Fact]
+    public async Task The_hiring_case_and_list_show_the_validated_interview_scores_only()
+    {
+        // Ama's interview is validated with the HOD's scorecard; Kofi's is fully scored but still waiting for validation.
+        var ama = await InterviewedAsync(_candidate, "Ama");
+        var kofi = await InterviewedAsync(_candidate2, "Kofi", completedInterview: false);
+        await Db(async db =>
+        {
+            foreach (var (app, status) in new[] { (ama, InterviewStatus.Completed), (kofi, InterviewStatus.AwaitingValidation) })
+            {
+                var i = await db.Interviews.SingleAsync(x => x.JobApplicationId == app);
+                i.Status = status;
+                db.Scorecards.Add(new Scorecard
+                {
+                    InterviewId = i.Id, PanelUserId = _hod, Recommendation = PanelRecommendation.StronglyRecommend,
+                    Strengths = "Knows the line", WeightedScore = 84.0m, SubmittedAt = DateTime.UtcNow
+                });
+            }
+            return await db.SaveChangesAsync();
+        });
+
+        As(_hrm, Roles.HrManager);
+        var amaCase = (await Run(s => s.GetCaseAsync(ama)))!;
+        var round = Assert.Single(amaCase.InterviewRounds);
+        Assert.Equal(84.0m, round.Average);
+        Assert.Null(round.WaitingFor);
+        var score = Assert.Single(round.Scores);
+        Assert.Equal((84.0m, PanelRecommendation.StronglyRecommend, "Knows the line", true), (score.Score, score.Recommendation, score.Strengths, score.IsChair));
+        Assert.Equal(84.0m, amaCase.InterviewAverage);
+
+        var kofiCase = (await Run(s => s.GetCaseAsync(kofi)))!;
+        var waiting = Assert.Single(kofiCase.InterviewRounds);
+        Assert.Empty(waiting.Scores);
+        Assert.Null(waiting.Average);
+        Assert.Contains("validate", waiting.WaitingFor);
+        Assert.Null(kofiCase.InterviewAverage);
+
+        // Validated, so Ama is ready for a hiring recommendation (the vacancy's recruiter gets the to-do); Kofi is not yet.
+        var ready = Assert.Single(await Run(s => s.ListReadyToRecommendAsync()));
+        Assert.Equal(("Ama", 84.0m, 1), (ready.ApplicantName, ready.InterviewAverage, ready.ValidatedRounds));
+        AsRecruiter();
+        Assert.Single(await Run(s => s.ListReadyToRecommendAsync(onlyMine: true)));
+
+        // The list shows the validated average next to each recommendation; once recommended, Ama is no longer "ready".
+        await RecommendAsync(ama);
+        Assert.Empty(await Run(s => s.ListReadyToRecommendAsync()));
+        As(_hrm, Roles.HrManager);
+        Assert.Equal(84.0m, Assert.Single(await Run(s => s.SearchAsync(new HiringFilter { Tab = "all" }))).InterviewAverage);
+    }
+
+    [Fact]
+    public async Task Proceeding_with_chosen_candidates_starts_a_draft_and_the_checks_which_the_recruiter_approves_or_discards()
+    {
+        var ama = await InterviewedAsync(_candidate, "Ama");
+        var kofi = await InterviewedAsync(_candidate2, "Kofi");
+        await Db(async db => { (await db.Vacancies.FindAsync(_vacancyId))!.NumberOfPositions = 2; return await db.SaveChangesAsync(); });
+
+        // Only recruiters start the hiring process, and only for candidates with validated scores.
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.False((await Run(s => s.ProceedAsync([ama]))).Succeeded);
+        AsRecruiter();
+        Assert.False((await Run(s => s.ProceedAsync([]))).Succeeded);
+        var started = await Run(s => s.ProceedAsync([ama, kofi]));
+        Assert.True(started.Succeeded, string.Join(" ", started.Errors));
+        Assert.Equal(2, started.Value);
+
+        // Each gets a draft (not yet with the HOD) and the five standard checks, pending; neither is "ready" any more.
+        var draft = await Db(db => db.HiringRecommendations.SingleAsync(r => r.JobApplicationId == ama));
+        Assert.Equal(HiringStatus.Draft, draft.Status);
+        Assert.StartsWith("Interview results:", draft.Justification);
+        Assert.Equal(Today.AddDays(30), draft.ProposedStartDate);
+        Assert.Equal(5, await Db(db => db.BackgroundChecks.CountAsync(c => c.JobApplicationId == ama && c.Status == CheckStatus.Pending)));
+        Assert.Empty(await Run(s => s.ListReadyToRecommendAsync()));
+        Assert.True((await Run(s => s.GetCaseAsync(ama)))!.CanSubmitDraft);
+        Assert.False((await Run(s => s.ProceedAsync([ama]))).Succeeded); // already started
+
+        // Nobody decides on a draft; the recruiter sees it in "Awaiting my decision".
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.False((await Run(s => s.DecideAsync(ama, HiringDecision.Approve, null))).Succeeded);
+        AsRecruiter();
+        Assert.Equal(2, (await Run(s => s.SearchAsync(new HiringFilter { Tab = "awaiting" }))).Count);
+
+        // Approving the draft (with the recruiter's salary and words) approves the hire at once, same number; the HOD is not asked.
+        await RecommendAsync(ama);
+        var approved = await Db(db => db.HiringRecommendations.SingleAsync(r => r.JobApplicationId == ama));
+        Assert.Equal((draft.Id, draft.Number, HiringStatus.Approved, 8500m), (approved.Id, approved.Number, approved.Status, approved.ProposedSalary));
+        Assert.DoesNotContain(_db.SentEmails(), m => m.Contains("To: hod@grel.test") && m.Contains(draft.Number));
+
+        // Discarding Kofi's draft puts him back in "Ready to recommend"; his checks stay.
+        AsRecruiter();
+        Assert.True((await Run(s => s.DiscardDraftAsync(kofi))).Succeeded);
+        Assert.Equal("Kofi", Assert.Single(await Run(s => s.ListReadyToRecommendAsync())).ApplicantName);
+        Assert.Equal(5, await Db(db => db.BackgroundChecks.CountAsync(c => c.JobApplicationId == kofi)));
     }
 }

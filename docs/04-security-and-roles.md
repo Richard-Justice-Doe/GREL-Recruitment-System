@@ -1,22 +1,103 @@
 # 4. Security and roles
 
-## Who can do what (Phases 1-11)
+## Super Admin, permissions and custom roles (Phase 14)
+
+GRSMS uses **role-based access control with permissions**:
+
+* A **permission** opens a screen or a function, for example *Open vacancies* or *Maintain organisation data*. The list of permissions is fixed in code (`src/Grsms.Domain/Security/Permissions.cs`), because the code checks each one.
+* **Which roles hold which permission** is stored in the database (table `RoleClaims`). A **Super Admin** changes it on **Management → Roles & permissions** by ticking boxes. A change applies straight away: nobody has to sign out.
+* The defaults reproduce exactly what each role could open before Phase 14, so nobody gained or lost access when permissions were introduced. Each new permission gets its defaults **once**, at the first start-up of the version that adds it. After that, only the Super Admin's choices count.
+* **5 November 2026 (digital QF-81-11 form):** Employees were given *Open recruitment requests* and *Raise recruitment requests*, so department staff can fill in requests for their HOD to review. Like a new permission, this grant is applied **once** at the next start-up (recorded in `KnownPermissions` as `grant:Employee:requests.raise` and `grant:Employee:requests.view`); if the Super Admin takes it away, it stays away.
+
+| Permission | Super Admin | Admin | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member / Employee | Candidate |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Manage user accounts | 🔒 | ✅ | ✅ | | | | | | |
+| Maintain organisation data (divisions, departments, units, sites) | 🔒 | ✅ | ✅ | | | | | | |
+| Read the (whole) audit trail | 🔒 | ✅ | ✅ | ✅ | | | | | |
+| See system settings, read-only (Roles & permissions, ATS settings, System settings, Email templates) | 🔒 | ✅ | | | | | | | |
+| Open recruitment requests | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ Employee (own requests) | |
+| Raise recruitment requests (QF-81-11, own department) | 🔒 | | | | | | ✅ | ✅ Employee | |
+| Open vacancies / job adverts / applications / reports | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | |
+| Read survey results | 🔒 | ✅ | | ✅ | ✅ | ✅ | | | |
+| Open personnel files (Phase 20) | 🔒 | | | ✅ | | ✅ | | | |
+| Open onboarding: every onboarding, documents, personal record (Phase 27) | 🔒 | | | ✅ | | ✅ | | | |
+| Manage onboarding: start, letter, documents required, first day, checklist, cancel (Phase 27) | 🔒 | | | | | ✅ | | | |
+| Verify onboarding documents; ask for corrections (Phase 27) | 🔒 | | | | | ✅ | | | |
+| Activate employees and close the induction (Phase 27) | 🔒 | | | ✅ | | ✅ | | | |
+| Open probation: every probation and the probation reports (10 Nov 2026) | 🔒 | | | ✅ | | ✅ | | | |
+| Decide probation outcomes: confirm, extend, do not confirm (10 Nov 2026) | 🔒 | | | ✅ | | | | | |
+| See all departments | 🔒 | ✅ | ✅ | ✅ | ✅ | ✅ | | | |
+| Manage roles and permissions | 🔒 only | | | | | | | | |
+| Create privileged accounts (a rule of the Super Admin role, not a permission since 10 Nov 2026) | 🔒 only | | | | | | | | |
+| Configure the ATS (weights, bands, auto-rejection rules, AI reader; Phase 15) | 🔒 only | | | | | | | | |
+| Change system settings and email templates (Phase 16) | 🔒 only | | | | | | | | |
+| Manage backups: see, back up now, download a database dump (Phase 16) | 🔒 only | | | | | | | | |
+
+🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission. **Everyone** (candidates included) can always open **My audit trail** (below); it is not a permission.
+
+**Onboarding and probation actions** are also guarded on each controller action by these permissions (codebase audit, 10 November 2026), on top of the checks in the services; the onboarding and probation pages themselves stay open to the task owners and HODs who need them.
+
+**Probation (Phase 21; permissions since 10 November 2026)**: every rule is checked in `ProbationService`: holders of *Open probation* (Recruitment Officers, HR Managers) and of *See all departments* see every probation; a Head of Department sees and assesses only the departments they head; only a holder of *Decide probation outcomes* (the **HR Manager** by default) decides the outcome, and never on an assessment they recorded; the employee sees only their own probation and confirmation letter. Signatures must match the signer's own full name. The reports *Missing documents*, *Document verification* and *Beneficiaries* need *Open personnel files*. See [25 Probation management](25-probation-management.md#who-can-see-and-do-what).
+
+### The three administrator levels (5 November 2026)
+
+| | Super Admin | Admin | HR Administrator |
+|---|---|---|---|
+| Give or remove roles | any role | Employee, Interview Panel Member only | Employee, Interview Panel Member only |
+| Edit, reset the password of, deactivate an account | any account | any account **except Admins and Super Admins** (privileged roles on it stay as they are) | only accounts with everyday roles |
+| Unlock an account | ✅ | ✅ | ✅ |
+| Organisation data, whole audit trail | ✅ | ✅ | ✅ |
+| Roles & permissions, ATS settings | change | **read-only** | |
+| Workflow steps (approve, shortlist, ...) | only with the matching role | only with the matching role | only with the matching role |
+
+Only a Super Admin creates Admins, and only a Super Admin gives the HR Manager, Recruitment Officer, HOD, HR Administrator and MD roles (as the GREL requirements say). An Admin who looks after a HOD's account (new phone number, forgotten password, leaving GREL) keeps that account's HOD role untouched.
+
+### My audit trail (everyone)
+
+**Menu → My audit trail** shows each signed-in person, staff or candidate:
+* **what they did**: every record they created, changed or deleted, every sign-in and sign-out, failed sign-ins and lockouts on their account, and password changes, with the address they came from;
+* **what was done to their account by someone else**: changes to their account details, roles given or taken away, password resets by an administrator, deactivation. It shows who did it and when, but **not that person's IP address**.
+
+It never shows other people's records. Work the system does on its own inside someone's request is recorded as the **system**, not as that person. For example, the ATS screening an application while the applicant's "Apply" is still running is recorded that way, so a rejection waiting for HR never appears in the applicant's own trail.
+
+### Rules that are not permissions (on purpose)
+
+These are separation of duties, so no setting can switch them off:
+
+* **Who acts at each workflow step stays with the role:** the department raises (staff or HOD), the Head of that department reviews, the HR Manager approves, the MD gives final approval, the HOD gives their view on shortlists. A permission only opens the screen; the workflow decides what each person may do there. A Super Admin who wants to approve as the MD must also hold the Managing Director role, and the "not your own request" rules still apply.
+* **Only a Super Admin can give or remove any role other than Employee and Interview Panel Member.** That covers HR Manager, Recruitment Officer, Head of Department, HR Administrator, Managing Director, Super Admin and every custom role. Only a Super Admin can **edit, reset the password of, or deactivate** an account that holds one of them. Otherwise an HR Administrator could raise their own access, or take over an HR Manager's account by resetting its password. HR Administrators can still **unlock** any account, because that gives no new access.
+* **Permissions marked "Super Admin only"** (manage roles and permissions, create privileged accounts) can never be ticked for another role.
+* **Built-in roles** cannot be renamed or deleted, because the workflows check them by name.
+
+### Custom roles
+
+A Super Admin can add a role such as *Recruitment Auditor*, tick its permissions, and give it to people. A custom role opens only what is ticked for it, and has no part in any workflow step. Give its holders the **Employee** role too, so they can see internal vacancies. A custom role can be renamed, and deleted once nobody holds it.
+
+### Everything is audited
+
+Each permission ticked or unticked is a `RoleClaim` row created or deleted. Each new custom role is a `Role` row. Each role given to a user is a `UserRole` row. All of them are in the audit trail with who did it, when, and from which address. Grants made automatically at start-up appear as made by *system*.
+
+## Who can do what (Phases 1-11, with the default permissions)
+
+The **Super Admin** can open every screen below and sees every department. For the workflow actions they need the matching role, like anyone else.
 
 | Screen / action | HR Admin | HR Manager | MD | Recruitment Officer | HOD | Panel Member | Employee | Candidate |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Sign in, change own password | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Home page | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (candidate home) |
 | Divisions, Departments, Units, Sites | ✅ | | | | | | | |
-| Users & roles | ✅ | | | | | | | |
+| Users & roles | ✅ Employee and Panel Member accounts only | | | | | | | |
+| Roles & permissions | | | | | | | | |
 | Audit trail (read only) | ✅ | ✅ | | | | | | |
-| See recruitment requests | all | all | all | all | own departments | | | |
-| Raise / edit / submit / cancel a request | | | | | ✅ own departments, own requests | | | |
-| Decide at Recruitment Review (and assign recruiter) | | | | ✅ | | | | |
-| Decide at HR Approval (and validate budget) | | ✅ | | | | | | |
-| Decide at MD Approval (final) | | | ✅ | | | | | |
+| See recruitment requests | all | all | all | all | own departments | | own requests | |
+| Raise / edit / submit / cancel a request (QF-81-11) | | | | | ✅ own departments, own requests | | ✅ own department, own requests | |
+| Decide at stage 1, Department Head review | | | | | ✅ Head of that department, not their own request | | | |
+| Decide at the earlier workflow's Recruitment review (requests still waiting there) | | | | ✅ | | | | |
+| Decide at stage 2, HR Manager review (and validate budget) | | ✅ | | | | | | |
+| Decide at stage 3, MD approval (final) | | | ✅ | | | | | |
 | Download request documents | ✅ | ✅ | ✅ | ✅ | own departments | | | |
 | See vacancies | all | all | all | all | own departments (read only) | | | |
-| Create (from approved request), edit, submit a vacancy | | | | ✅ | | | | |
+| Convert an approved request into a vacancy (requisition number, owner, closing date, internal/external), edit, submit | | | | ✅ | | | | |
 | Approve (publish) or return a vacancy | | ✅ not one they submitted | | | | | | |
 | Close, reopen, archive a vacancy | | ✅ | | ✅ | | | | |
 | See job adverts | all | all | all | all | own departments (read only) | | | |
@@ -28,6 +109,8 @@
 | Start review, mark not successful | | ✅ not their own | | ✅ not their own | | | | |
 | Shortlisting board and scores | all | all | all | all | own departments | | | |
 | Re-run screening, recommend, ask the HOD | | ✅ not their own | | ✅ not their own | | | | |
+| ATS overview and dashboards (Phase 15) | all | all | all | all | own departments | | | |
+| Confirm or override an ATS rejection (held for HR) | | ✅ not their own | | ✅ not their own | | | | |
 | Agree / disagree with a shortlist recommendation | | | | | ✅ own departments | | | |
 | Shortlist (HOD agreed) | | ✅ | | ✅ | | | | |
 | Shortlist without the HOD's agreement (with reason) | | ✅ | | | | | | |
@@ -66,19 +149,21 @@
 
 A person can hold several roles. For example, a Head of Department is usually also an Employee. Each new phase adds its own rows to this table (raising requests, approvals, interviews, ...).
 
-The rules are defined once in `src/Grsms.Web/Security/Policies.cs` and **checked on the server for every request**. Hiding a menu link is only for tidiness: typing the address directly still gives *Access denied*.
+The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each policy is a permission since Phase 14) and **checked on the server for every request**. Hiding a menu link is only for tidiness: typing the address directly still gives *Access denied*.
 
 ### The roles
 
 | Role | Purpose (from the specification) |
 |---|---|
-| **HR Administrator** | Maintains departments, units, sites and user accounts. Views the audit trail. |
+| **Super Admin** (Phase 14) | Full access to the whole system. The only role that creates HR Managers, Recruitment Officers, HODs and other privileged accounts, and sets permissions. The first administrator account (`SeedAdmin`) is a Super Admin. |
+| **Admin** (5 November 2026) | System administrator: manages every user account except Admins and Super Admins, organisation data and the audit trail; sees Roles & permissions and ATS settings read-only. Cannot give privileged roles. |
+| **HR Administrator** | Maintains divisions, departments, units and sites, and everyday staff accounts (Employee, Interview Panel Member). Views the audit trail. |
 | **HR Manager** | Approves requests, validates budgets, reviews candidates, authorises hiring. |
 | **Managing Director** | Final vacancy and hiring approval, executive dashboard. |
 | **Recruitment Officer** | Manages vacancies, candidates, adverts and interview schedules, and communicates with candidates. |
-| **Head of Department** | Raises recruitment requests, shortlists, sits on interviews. |
+| **Head of Department** | Reviews (stage 1) and raises recruitment requests for their department, shortlists, sits on interviews. |
 | **Interview Panel Member** | Reviews interviews, completes scorecards. |
-| **Employee** | Views internal vacancies, applies internally, tracks applications. |
+| **Employee** | Views internal vacancies, applies internally, tracks applications, fills in recruitment requests (QF-81-11) for their department. |
 | **Candidate** | External job seeker: registers on the portal and applies. Cannot be given to staff. |
 
 ### Workflow controls (job adverts)
@@ -93,11 +178,11 @@ The rules are defined once in `src/Grsms.Web/Security/Policies.cs` and **checked
 | Protection | Setting |
 |---|---|
 | **Password policy** | At least 10 characters with upper case, lower case, a digit and a symbol, and at least 4 different characters |
-| **Account lockout** | 5 wrong passwords lock the account for 15 minutes. An HR Administrator can unlock it early on the Users screen. |
+| **Account lockout** | 5 wrong passwords lock the account for 15 minutes. A Super Admin or HR Administrator can unlock it early on the Users screen. |
 | **Session timeout** | Signed out after 20 minutes without activity (`Security:SessionTimeoutMinutes`) |
 | **Forced password change** | Accounts created or reset by an administrator must choose a new password at their next sign-in |
 | **Deactivated accounts** | Cannot sign in by password or Microsoft 365. An existing session ends within 5 minutes. |
-| **Role changes** | Take effect within 5 minutes (the session is re-checked against the database) |
+| **Role changes** | Take effect within 5 minutes (the session is re-checked against the database). **Permission changes** (Phase 14) take effect at once. |
 | **Email confirmation** | Candidates must click the link in their confirmation email before they can sign in |
 | **No account "fishing"** | Forgot-password and registration pages give the same answer whether or not the email has an account. On the sign-in page, *deactivated* or *please confirm your email* is only shown when the password is right; with a wrong password every account, and every non-existent email, gets the same *Incorrect email or password* (Phase 12) |
 | **Rate limiting** (Phase 12) | The sign-in, registration, resend-confirmation, forgot-password and reset-password forms accept at most **10 posts per minute from one network address** (`Security:SignInAttemptsPerMinute`); more get *Too many attempts* (HTTP 429) and are logged. This slows password guessing spread over many accounts, which the per-account lockout cannot catch, and stops the email pages being used to flood inboxes. |
@@ -105,8 +190,9 @@ The rules are defined once in `src/Grsms.Web/Security/Policies.cs` and **checked
 ### Safety rules for administrators
 
 To stop anyone being locked out of the system:
-* you cannot deactivate your own account or remove your own HR Administrator role;
-* there must always be at least one active HR Administrator;
+* you cannot deactivate your own account or remove your own Super Admin role;
+* there must always be at least one active Super Admin (if none is left, the next start-up gives the role back to the `SeedAdmin` account);
+* the Super Admin always holds every permission, so it can always repair a permission change;
 * a user who is a department's HOD keeps the HOD role, and stays active, until another HOD is chosen for that department;
 * only users with the Head of Department role can be chosen as a department's HOD.
 
@@ -157,6 +243,10 @@ Recorded automatically, with no developer action needed:
 * the user and IP address for each of these.
 
 Passwords, password hashes and security stamps are never written to the trail.
+
+**ATS decisions (Phase 15)** are in the trail like any other change. The score, band and rejection are stored on the application, and its history names *ATS (automatic screening)* as the actor; the trail row shows the applicant's own request, during which the screening ran. HR's confirm or override is recorded with the reviewer's name and note, and every ATS settings change is an `AtsSettings` row. The **full text of a CV is not copied into the trail**: it is already in the CV file, and copying it would spread personal data further. The trail records what the ATS read from it (`CvParsed`) and what it decided.
+
+**Data protection (Phase 15).** Automatic rejections never reach the applicant without a person's decision, so no one is turned down by a machine alone. CV text stays on GREL's server unless the Super Admin switches on the optional Claude AI reader, which sends CV text to Anthropic and should be switched on only after GREL has approved that.
 
 ## Turning on "Sign in with Microsoft 365"
 

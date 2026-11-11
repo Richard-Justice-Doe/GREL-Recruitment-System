@@ -9,6 +9,7 @@ using Grsms.Domain.Applications;
 using Grsms.Domain.Documents;
 using Grsms.Domain.Organization;
 using Grsms.Domain.Security;
+using Grsms.Domain.Settings;
 using Grsms.Domain.Vacancies;
 
 namespace Grsms.Application.Applications;
@@ -38,7 +39,8 @@ public class ApplicationService(
     ICurrentUserService me,
     AccessScope scope,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    AtsService ats)
 {
     private const string ConflictMessage = "Someone else updated this application at the same moment. Please reload the page and try again.";
 
@@ -82,6 +84,8 @@ public class ApplicationService(
             form.VacancyNumber = v.VacancyNumber;
             form.ClosingDate = v.ClosingDate;
             form.DepartmentName = (await departments.GetByIdAsync(v.DepartmentId, ct))?.Name ?? "";
+            if (await vacancies.GetWithDetailsAsync(v.Id, ct) is { } details)
+                form.Questions = details.KnockoutQuestions.OrderBy(q => q.Id).Select(q => (q.Id, q.Text)).ToList();
         }
         form.Profile = await profiles.GetMineAsync(ct);
     }
@@ -98,6 +102,11 @@ public class ApplicationService(
             return Result.Failure<int>("You have already applied for this vacancy.");
         if (!form.Confirm) return Result.Failure<int>("Tick the box to confirm your information is true and complete.");
         if (form.Source is null) return Result.Failure<int>("Tell us where you saw this job.");
+
+        // Phase 15: every knockout question must be answered (the questions come from the vacancy, not from the form).
+        var questions = (await vacancies.GetWithDetailsAsync(v.Id, ct))?.KnockoutQuestions.OrderBy(q => q.Id).ToList() ?? [];
+        if (questions.Any(q => form.Answers.GetValueOrDefault(q.Id) is null))
+            return Result.Failure<int>("Answer every question about the requirements (Yes or No).");
 
         var profile = await profiles.FindMineAsync(ct);
         var docs = profile is null ? [] : await files.ListAsync(AttachmentOwners.CandidateProfile, profile.Id, ct);
@@ -136,10 +145,8 @@ public class ApplicationService(
             StatusChangedAt = now
         };
         app.RecordStep(ApplicationAction.Submitted, ApplicationStatus.Submitted, MyId, contact.FullName, null, now);
-
-        // Phase 6: score the application against the vacancy's requirements straight away.
-        if (await vacancies.GetWithDetailsAsync(v.Id, ct) is { } withRequirements)
-            app.ApplyScreening(CvScreening.Score(withRequirements, app), now);
+        foreach (var q in questions)
+            app.KnockoutAnswers.Add(new KnockoutAnswer { Question = q.Text, Answer = form.Answers[q.Id] == true });
         applications.Add(app);
         try
         {
@@ -162,20 +169,30 @@ public class ApplicationService(
                 await files.AddAsync(AttachmentOwners.JobApplication, app.Id, doc.Category, doc.FileName, original.Content, ct);
         }
 
-        await mailer.ToUserIncludingMeAsync(MyId, $"We received your application: {v.JobTitle}",
-            $"Thank you for applying for <b>{WorkflowMailer.Enc(v.JobTitle)}</b>. Your reference is <b>{app.ApplicationNumber}</b>." +
-            "<p>You can follow its progress at any time under <i>My applications</i>.</p>",
-            links.MyApplication(app.Id), "View my application", ct);
+        // Phase 15: the ATS reads the frozen CV, scores the application, and may reject it automatically. A rejection is
+        // HELD for HR: the applicant is not told (their confirmation email below is the same either way).
+        var screening = await ats.ScreenNewAsync(app.Id, ct);
+
+        await mailer.TemplateToUserAsync(MyId, EmailTemplateCatalogue.ApplicationReceived,
+            new Dictionary<string, string?> { ["JobTitle"] = v.JobTitle, ["ApplicationNumber"] = app.ApplicationNumber },
+            links.MyApplication(app.Id), includeMe: true, ct);
         await mailer.ToUserAsync(v.RecruiterUserId, $"New application for {v.VacancyNumber}",
-            $"{WorkflowMailer.Enc(contact.FullName)}{(app.IsInternal ? " (GREL staff)" : "")} applied for <b>{WorkflowMailer.Enc(v.JobTitle)}</b>.",
+            $"{WorkflowMailer.Enc(contact.FullName)}{(app.IsInternal ? " (GREL staff)" : "")} applied for <b>{WorkflowMailer.Enc(v.JobTitle)}</b>." +
+            (screening is null ? "" : $"<p>ATS match: <b>{screening.Overall}%</b> ({EnumText.Label(screening.Classification)}).</p>") +
+            (screening?.AutoReject == true
+                ? $"<p><b>The ATS rejected it automatically</b>: {WorkflowMailer.Enc(string.Join("; ", screening.RejectionReasons))}. " +
+                  "The applicant has not been told. Please confirm the rejection or override it.</p>"
+                : ""),
             links.Application(app.Id), $"Open application {app.ApplicationNumber}", ct);
         return Result.Success(app.Id);
     }
 
     // ===================================================================== The applicant's own view
 
-    public Task<IReadOnlyList<MyApplicationDto>> MyApplicationsAsync(CancellationToken ct = default) =>
-        applications.ListForApplicantAsync(MyId, ct);
+    /// <summary>My applications. An ATS rejection waiting for HR shows as "Under review" (Phase 15).</summary>
+    public async Task<IReadOnlyList<MyApplicationDto>> MyApplicationsAsync(CancellationToken ct = default) =>
+        (await applications.ListForApplicantAsync(MyId, ct))
+            .Select(a => a with { Status = ApplicationWorkflow.ShownToApplicant(a.Status) }).ToList();
 
     public async Task<MyApplicationDetailsDto?> GetMineAsync(int id, CancellationToken ct = default)
     {
@@ -191,17 +208,20 @@ public class ApplicationService(
             DepartmentName = (await departments.GetByIdAsync(a.DepartmentId, ct))?.Name ?? "",
             SiteName = (await sites.GetByIdAsync(v.SiteId, ct))?.Name ?? "",
             ClosingDate = v.ClosingDate,
-            Status = a.Status,
+            // Phase 15: an ATS rejection waiting for HR is shown as "Under review"; the applicant is told only once HR decides.
+            Status = ApplicationWorkflow.ShownToApplicant(a.Status),
             SubmittedAt = a.SubmittedAt,
             StatusChangedAt = a.StatusChangedAt,
             CoverLetter = a.CoverLetter,
             Source = a.Source,
             LastStageReached = a.Actions.SelectMany(x => new[] { x.FromStatus, x.ToStatus }).Append(a.Status)
+                .Select(ApplicationWorkflow.ShownToApplicant)
                 .Where(s => ApplicationWorkflow.TrackerStages.Contains(s))
                 .MaxBy(s => ApplicationWorkflow.TrackerStages.ToList().IndexOf(s)),
             Documents = await files.ListAsync(AttachmentOwners.JobApplication, a.Id, ct),
             // Applicant-friendly wording only; staff comments are never shown here.
-            Timeline = a.Actions.OrderBy(x => x.ActionAt).ThenBy(x => x.Id).Select(x => (x.Action switch
+            Timeline = a.Actions.Where(x => !ApplicationWorkflow.HiddenFromApplicant(x.Action))
+                .OrderBy(x => x.ActionAt).ThenBy(x => x.Id).Select(x => (x.Action switch
             {
                 ApplicationAction.Submitted => "Application received",
                 ApplicationAction.ReviewStarted => "Your application is being reviewed",
@@ -243,6 +263,7 @@ public class ApplicationService(
         {
             "new" => ApplicationStatus.Submitted,
             "review" => ApplicationStatus.UnderReview,
+            "auto" => ApplicationStatus.AutoRejected, // Phase 15: ATS rejections waiting for HR
             _ => filter.Status
         };
         return await applications.SearchAsync(filter, await scope.VisibilityAsync(ct), ct);
@@ -258,7 +279,7 @@ public class ApplicationService(
 
         var v = (await vacancies.GetByIdAsync(a.VacancyId, ct))!;
         var advert = a.JobAdvertId is int advertId ? await adverts.GetByIdAsync(advertId, ct) : null;
-        var hod = await users.GetDisplayNamesAsync([a.RequestingHodUserId], ct);
+        var hod = await users.GetDisplayNamesAsync(new[] { a.RequestingHodUserId, a.AtsDecisionByUserId }.OfType<string>(), ct);
         var own = a.ApplicantUserId == me.UserId;
 
         return new ApplicationDetailsDto
@@ -292,6 +313,14 @@ public class ApplicationService(
             CoverLetter = a.CoverLetter,
             OutcomeReason = a.OutcomeReason,
             Screening = a.ReadScreening(),
+            Cv = a.ReadCv(),
+            KnockoutAnswers = a.KnockoutInputs(),
+            AtsDecision = a.AtsDecision,
+            AtsRejectionReason = a.AtsRejectionReason,
+            AtsDecisionNote = a.AtsDecisionNote,
+            AtsDecisionByName = a.AtsDecisionByUserId is { } decider ? hod.GetValueOrDefault(decider) : null,
+            AtsDecisionAt = a.AtsDecisionAt,
+            CanDecideAts = IsReviewer && !own && ApplicationWorkflow.CanDecideAtsRejection(a.Status),
             RecruiterRecommendation = a.RecruiterRecommendation,
             RecruiterNote = a.RecruiterNote,
             HodRecommendation = a.HodRecommendation,
@@ -326,10 +355,8 @@ public class ApplicationService(
         a.RecordStep(ApplicationAction.NotSuccessful, ApplicationStatus.NotSuccessful, MyId, scope.UserName, reason, DateTime.UtcNow);
         var saved = await SaveAsync(ct);
         if (saved.Succeeded && await vacancies.GetByIdAsync(a.VacancyId, ct) is { } v)
-            await mailer.ToUserAsync(a.ApplicantUserId, $"Your application for {v.JobTitle}",
-                $"Thank you for your interest in the <b>{WorkflowMailer.Enc(v.JobTitle)}</b> position at GREL. After careful consideration, " +
-                "we will not be taking your application further on this occasion. We encourage you to apply for future vacancies that match your profile.",
-                links.MyApplication(a.Id), "View my application", ct);
+            await mailer.TemplateToUserAsync(a.ApplicantUserId, EmailTemplateCatalogue.NotSuccessful,
+                new Dictionary<string, string?> { ["JobTitle"] = v.JobTitle }, links.MyApplication(a.Id), ct: ct);
         return saved;
     }
 
@@ -356,7 +383,7 @@ public class ApplicationService(
 
     private async Task<bool> CanStaffSeeAsync(JobApplication a, CancellationToken ct) =>
         Roles.Staff.Any(me.IsInRole) && !me.IsInRole(Roles.Candidate) &&
-        (AccessScope.SeeAllRoles.Any(me.IsInRole) || me.IsInRole(Roles.HeadOfDepartment)) &&
+        (me.HasPermission(Permissions.SeeAllDepartments) || me.IsInRole(Roles.HeadOfDepartment)) &&
         AccessScope.CanSee(await scope.VisibilityAsync(ct), a.DepartmentId, null);
 
     private async Task<(JobApplication? Application, string? Error)> LoadForReviewerAsync(int id, Func<ApplicationStatus, bool> allowed,
@@ -372,16 +399,5 @@ public class ApplicationService(
     private static IReadOnlyList<string> Lines(string? text) =>
         (text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 }

@@ -14,7 +14,7 @@
 
 <div class="page-header">
     <div>
-        <h1>@Model.Title <partial name="_StatusBadge" model="Model.Status" /></h1>
+        <h1>@Model.Title <partial name="_AdvertStatusBadge" model="Model.Status" /></h1>
         <p>@Model.AdvertNumber · vacancy <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a>
             · @Model.DivisionName → @Model.DepartmentName</p>
     </div>

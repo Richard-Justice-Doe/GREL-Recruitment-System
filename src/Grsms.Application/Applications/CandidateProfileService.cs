@@ -5,6 +5,7 @@ using Grsms.Application.Users;
 using Grsms.Domain.Applications;
 using Grsms.Domain.Documents;
 using Grsms.Domain.Vacancies;
+using static Grsms.Application.Common.Text;
 
 namespace Grsms.Application.Applications;
 
@@ -142,7 +143,6 @@ public class CandidateProfileService(
         return p;
     }
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
     /// <summary>One item per line: trims, drops bullets, blanks and duplicates (case-insensitive).</summary>
     internal static string? CleanList(string? text)

@@ -16,126 +16,8 @@ namespace Grsms.Tests;
 /// Appointment letters and onboarding (Module 9): starting only after an accepted offer, the default checklist and its
 /// owners, the HR Manager's letter and the new employee's signature, who may tick which item, and completion.
 /// </summary>
-public class OnboardingServiceTests : IAsyncLifetime
+public class OnboardingServiceTests : OnboardingTestBase
 {
-    private const int Apm = 31, It = 2;
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
-
-    private readonly TestDatabase _db = new();
-    private string _hod = "", _itHod = "", _ro = "", _hrm = "", _staff = "", _candidate = "", _candidate2 = "";
-    private int _vacancyId;
-
-    public async Task InitializeAsync()
-    {
-        _hod = await _db.CreateUserAsync("hod@grel.test", Apm, Roles.HeadOfDepartment);
-        _itHod = await _db.CreateUserAsync("ithod@grel.test", It, Roles.HeadOfDepartment);
-        _ro = await _db.CreateUserAsync("ro@grel.test", 1, Roles.RecruitmentOfficer);
-        _hrm = await _db.CreateUserAsync("hrm@grel.test", 1, Roles.HrManager);
-        _staff = await _db.CreateUserAsync("clerk@grel.test", 3, Roles.Employee);
-        _candidate = await _db.CreateUserAsync("ama@mail.test", null, Roles.Candidate);
-        _candidate2 = await _db.CreateUserAsync("kofi@mail.test", null, Roles.Candidate);
-
-        _vacancyId = await Db(async db =>
-        {
-            (await db.Departments.FindAsync(Apm))!.HeadOfDepartmentUserId = _hod;
-            (await db.Departments.FindAsync(It))!.HeadOfDepartmentUserId = _itHod;
-            var request = new RecruitmentRequest
-            {
-                RequestNumber = "RR-O-1", DivisionId = 2, DepartmentId = Apm, SiteId = 2, PositionTitle = "Process Engineer",
-                NumberOfPositions = 2, EmploymentType = EmploymentType.Permanent, VacancyReason = VacancyReason.NewPosition,
-                Justification = "Needed.", BudgetCode = "APM-26", EstimatedAnnualCost = 1, RequestedByUserId = _hod,
-                Status = RecruitmentRequestStatus.Approved, StatusChangedAt = DateTime.UtcNow
-            };
-            db.RecruitmentRequests.Add(request);
-            await db.SaveChangesAsync();
-            var v = new Vacancy
-            {
-                VacancyNumber = "VAC-O-1", RecruitmentRequestId = request.Id, JobTitle = "Process Engineer", DivisionId = 2, DepartmentId = Apm,
-                SiteId = 2, RequestingHodUserId = _hod, RecruiterUserId = _ro, ReportingManagerUserId = _hod, EmploymentType = EmploymentType.Permanent,
-                NumberOfPositions = 2, VacancyType = VacancyType.External, JobDescription = "Runs the line.", MinimumEducation = EducationLevel.Bachelors,
-                ClosingDate = Today.AddDays(-20), Status = VacancyStatus.Closed, StatusChangedAt = DateTime.UtcNow
-            };
-            db.Vacancies.Add(v);
-            await db.SaveChangesAsync();
-            return v.Id;
-        });
-    }
-
-    public Task DisposeAsync()
-    {
-        _db.Dispose();
-        return Task.CompletedTask;
-    }
-
-    // ------------------------------------------------------------------ helpers
-
-    private void As(string userId, params string[] roles) => _db.CurrentUser.SignInAs(userId, userId, roles);
-    private void AsRecruiter() => As(_ro, Roles.RecruitmentOfficer);
-    private void AsHrManager() => As(_hrm, Roles.HrManager);
-
-    private async Task<T> Run<T>(Func<OnboardingService, Task<T>> call)
-    {
-        using var scope = _db.NewScope();
-        return await call(scope.ServiceProvider.GetRequiredService<OnboardingService>());
-    }
-
-    private async Task<T> Db<T>(Func<ApplicationDbContext, Task<T>> call)
-    {
-        using var scope = _db.NewScope();
-        return await call(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>());
-    }
-
-    /// <summary>An application with an approved hiring recommendation and an offer in the given state.</summary>
-    private Task<int> WithOfferAsync(string applicant, string name, OfferStatus status, DateOnly? start = null) => Db(async db =>
-    {
-        var a = new JobApplication
-        {
-            ApplicationNumber = "APP-O-" + Guid.NewGuid().ToString("N")[..6], VacancyId = _vacancyId, ApplicantUserId = applicant,
-            Source = ApplicationSource.CareersPage, DivisionId = 2, DepartmentId = Apm, RequestingHodUserId = _hod, FullName = name,
-            Email = $"{name.Split(' ')[0].ToLowerInvariant()}@mail.test", Phone = "0240000000", HighestEducation = EducationLevel.Bachelors,
-            Status = HiringWorkflow.ApplicationStatusFor(status), SubmittedAt = DateTime.UtcNow, StatusChangedAt = DateTime.UtcNow
-        };
-        db.JobApplications.Add(a);
-        await db.SaveChangesAsync();
-        var rec = new HiringRecommendation
-        {
-            Number = "HIR-O-" + a.Id, JobApplicationId = a.Id, VacancyId = _vacancyId, DivisionId = 2, DepartmentId = Apm, RequestingHodUserId = _hod,
-            ProposedSalary = 8500, ProposedStartDate = start ?? Today.AddDays(20), Justification = "Best candidate.", CreatedByUserId = _ro,
-            Status = HiringStatus.Approved
-        };
-        db.HiringRecommendations.Add(rec);
-        await db.SaveChangesAsync();
-        db.Offers.Add(new Offer
-        {
-            Number = "OFF-O-" + a.Id, JobApplicationId = a.Id, HiringRecommendationId = rec.Id, VacancyId = _vacancyId, DivisionId = 2, DepartmentId = Apm,
-            RequestingHodUserId = _hod, JobTitle = "Process Engineer", MonthlySalary = 8500, StartDate = start ?? Today.AddDays(20),
-            ExpiresOn = Today.AddDays(5), Terms = "Probation: 6 months.", Status = status, SentAt = DateTime.UtcNow, SentByUserId = _ro,
-            RespondedAt = status == OfferStatus.Accepted ? DateTime.UtcNow : null
-        });
-        await db.SaveChangesAsync();
-        return a.Id;
-    });
-
-    private async Task<int> StartAsync(int app, DateOnly? start = null)
-    {
-        AsRecruiter();
-        var form = (await Run(s => s.GetStartFormAsync(app))).Value!;
-        if (start is not null) form.StartDate = start;
-        var r = await Run(s => s.StartAsync(form));
-        Assert.True(r.Succeeded, string.Join(" ", r.Errors));
-        return r.Value;
-    }
-
-    private async Task IssueAndSignAsync(int id, int app)
-    {
-        AsHrManager();
-        Assert.True((await Run(s => s.IssueLetterAsync(id, "Probation: 6 months. Hours: 8:00 to 17:00."))).Succeeded);
-        As(_candidate, Roles.Candidate);
-        Assert.True((await Run(s => s.SignLetterAsync(app, "Ama Mensah"))).Succeeded);
-    }
-
-    private Task<List<OnboardingTask>> TasksAsync(int id) => Db(db => db.OnboardingTasks.Where(t => t.OnboardingRecordId == id).OrderBy(t => t.SortOrder).ToListAsync());
-
     // ------------------------------------------------------------------ tests
 
     [Fact]
@@ -169,7 +51,12 @@ public class OnboardingServiceTests : IAsyncLifetime
         Assert.All(list.Where(t => t.Team == OnboardingTeam.HumanResources), t => Assert.Equal(_ro, t.AssignedToUserId));
         Assert.All(list.Where(t => t.Team == OnboardingTeam.Department), t => Assert.Equal(_hod, t.AssignedToUserId));
         Assert.All(list.Where(t => t.Team == OnboardingTeam.InformationTechnology), t => Assert.Equal(_itHod, t.AssignedToUserId));
-        Assert.All(list.Where(t => t.Team == OnboardingTeam.NewEmployee), t => Assert.Null(t.AssignedToUserId));
+        Assert.DoesNotContain(list, t => t.Team == OnboardingTeam.NewEmployee); // Phase 18: the new-hire documents replace these items
+        Assert.Equal((OnboardingStatus.Draft, Today.AddDays(50)), (record.Status, record.ExpectedCompletionDate));
+        var docs = await DocumentsAsync(id);
+        Assert.Equal(24, docs.Count); // Phase 27: the 24 active default document types (not the old "School certificates")
+        Assert.All(docs, d => Assert.Equal(EmployeeDocumentStatus.Pending, d.Status));
+        Assert.Equal(14, docs.Count(d => !d.IsRequired)); // education (until ticked), family and expatriate documents
         Assert.Equal(Today.AddDays(18), list.First(t => t.Team == OnboardingTeam.InformationTechnology).DueDate); // start - 2
 
         Assert.Contains(_db.SentEmails(), m => m.Contains("To: ithod@grel.test") && m.Contains("2 task(s) for you"));
@@ -179,7 +66,7 @@ public class OnboardingServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_hr_manager_issues_the_letter_and_the_new_employee_signs_it_with_their_name()
+    public async Task The_recruitment_officer_issues_the_letter_and_the_new_employee_signs_it_with_their_name()
     {
         var app = await WithOfferAsync(_candidate, "Ama Mensah", OfferStatus.Accepted);
         var id = await StartAsync(app);
@@ -188,9 +75,9 @@ public class OnboardingServiceTests : IAsyncLifetime
         Assert.False((await Run(s => s.GetMyAppointmentAsync(app)))!.LetterReady);
         Assert.False((await Run(s => s.SignLetterAsync(app, "Ama Mensah"))).Succeeded); // nothing to sign yet
 
-        AsRecruiter();
-        Assert.False((await Run(s => s.IssueLetterAsync(id, "Probation: 6 months. Hours: 8:00 to 17:00."))).Succeeded); // HR Manager only
         AsHrManager();
+        Assert.False((await Run(s => s.IssueLetterAsync(id, "Probation: 6 months. Hours: 8:00 to 17:00."))).Succeeded); // Phase 27: the RO only
+        AsRecruiter();
         Assert.False((await Run(s => s.IssueLetterAsync(id, "Too short"))).Succeeded);
         Assert.True((await Run(s => s.IssueLetterAsync(id, "Probation: 6 months. Hours: 8:00 to 17:00."))).Succeeded);
         Assert.True((await Run(s => s.IssueLetterAsync(id, "Probation: 6 months. Hours: 7:30 to 16:30, revised."))).Succeeded);
@@ -206,7 +93,9 @@ public class OnboardingServiceTests : IAsyncLifetime
         var mine = (await Run(s => s.GetMyAppointmentAsync(app)))!;
         Assert.True(mine.CanSign);
         Assert.Contains("7:30", mine.LetterTerms);
-        Assert.Equal(5, mine.ToBring.Count);
+        Assert.Empty(mine.ToBring);
+        Assert.Equal(OnboardingStatus.AwaitingEmployeeSubmission, (await RecordAsync(id)).Status);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ama@mail.test") && m.Contains("Your appointment letter"));
         Assert.False((await Run(s => s.SignLetterAsync(app, "A. Mensah"))).Succeeded);
         Assert.True((await Run(s => s.SignLetterAsync(app, "  ama   MENSAH "))).Succeeded);
         Assert.False((await Run(s => s.SignLetterAsync(app, "Ama Mensah"))).Succeeded); // once
@@ -214,17 +103,17 @@ public class OnboardingServiceTests : IAsyncLifetime
         record = await Db(db => db.Onboardings.SingleAsync(o => o.Id == id));
         Assert.NotNull(record.LetterAcknowledgedAt);
         Assert.Equal("10.0.0.1", record.LetterAcknowledgedIp);
-        Assert.Contains(_db.SentEmails(), m => m.Contains("To: hrm@grel.test") && m.Contains("signed"));
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ro@grel.test") && m.Contains("signed"));
 
         // A signed letter is final: no revision, and the start date it states is fixed.
-        AsHrManager();
+        AsRecruiter();
         Assert.False((await Run(s => s.IssueLetterAsync(id, "Probation: 3 months, a later change."))).Succeeded);
         Assert.False((await Run(s => s.UpdateFirstDayAsync(id, Today.AddDays(25), null, "HR office, Abura", null, null, null))).Succeeded);
         Assert.True((await Run(s => s.UpdateFirstDayAsync(id, null, new TimeOnly(9, 0), "Main gate, Abura", _hod, null, "GREL-0457"))).Succeeded);
     }
 
     [Fact]
-    public async Task Each_checklist_item_is_ticked_by_its_owner_the_hod_or_hr_and_completion_needs_everything()
+    public async Task Each_checklist_item_is_ticked_by_its_owner_the_hod_or_hr()
     {
         var app = await WithOfferAsync(_candidate, "Ama Mensah", OfferStatus.Accepted, start: Today);
         var id = await StartAsync(app, Today);
@@ -250,24 +139,103 @@ public class OnboardingServiceTests : IAsyncLifetime
         // The department's HOD ticks department items.
         As(_hod, Roles.HeadOfDepartment);
         Assert.True((await Run(s => s.UpdateTaskAsync(deptTask.Id, OnboardingTaskStatus.Done, null))).Succeeded);
-        Assert.False((await Run(s => s.CompleteAsync(id))).Succeeded); // HR completes
+        Assert.False((await Run(s => s.CompleteInductionAsync(id))).Succeeded); // HR closes the induction
+        Assert.Null((await Run(s => s.GetAsync(id)))!.Documents);              // a HOD never sees the personal documents
+    }
 
-        // HR: completion needs the signed letter and no open item.
+    [Fact]
+    public async Task The_full_workflow_runs_from_start_to_an_active_staff_account_without_hr_approval()
+    {
+        var (id, app) = await SubmittedAsync(Today);
+        Assert.Equal(OnboardingStatus.AwaitingDocumentVerification, (await RecordAsync(id)).Status);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ro@grel.test") && m.Contains("requirements submitted"));
+        var started = await RecordAsync(id);
+        Assert.Equal(OnboardingWorkflow.AddWorkingDays(Today, OnboardingWorkflow.DocumentDeadlineWorkingDays), started.DocumentsDueDate);
+        Assert.NotNull(await Db(db => db.PersonnelFiles.SingleOrDefaultAsync(f => f.EmployeeUserId == _candidate))); // provisional file
+
+        // Nobody can activate before every required document is verified.
         AsRecruiter();
-        Assert.Contains("Issue the appointment letter", (await Run(s => s.GetAsync(id)))!.CompleteBlockedReason);
-        await IssueAndSignAsync(id, app);
+        Assert.False((await Run(s => s.ActivateAsync(id, "GREL-0457"))).Succeeded);
+        Assert.False((await Run(s => s.CompleteInductionAsync(id))).Succeeded);
+        Assert.False((await Run(s => s.GetAsync(id)))!.CanActivate);
+
+        // Verified → "Ready for activation" by itself; the RO is told.
+        await VerifyAllAsync(id);
+        Assert.Equal(OnboardingStatus.AwaitingActivation, (await RecordAsync(id)).Status);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ama@mail.test") && m.Contains("documents are complete")); // the RO verified it, so is not emailed
+
+        // The HOD cannot activate; the HR Manager could (onboarding.complete). The RO activates here, ticking two induction areas.
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.False((await Run(s => s.ActivateAsync(id, "GREL-0457"))).Succeeded);
+        AsHrManager();
+        var page = (await Run(s => s.GetAsync(id)))!;
+        Assert.True(page.CanActivate);
+        Assert.False(page.CanManage); // view only otherwise
         AsRecruiter();
-        Assert.Contains("still to do", (await Run(s => s.GetAsync(id)))!.CompleteBlockedReason);
-        foreach (var t in (await TasksAsync(id)).Where(t => t.Status == OnboardingTaskStatus.Open))
+        Assert.False((await Run(s => s.ActivateAsync(id, null))).Succeeded); // the staff number is needed
+        Assert.True((await Run(s => s.ActivateAsync(id, "grel-0457", areas: [InductionArea.Security, InductionArea.CorporateIt]))).Succeeded);
+        var active = await RecordAsync(id);
+        Assert.Equal((OnboardingStatus.AwaitingDepartmentalInduction, "GREL-0457"), (active.Status, active.EmployeeNumber));
+        var account = await Db(db => db.Users.SingleAsync(u => u.Id == _candidate));
+        Assert.Equal(("GREL-0457", (int?)Apm, false), (account.StaffNumber, account.DepartmentId, account.IsCandidate));
+        var roles = await Db(db => (from ur in db.UserRoles join r in db.Roles on ur.RoleId equals r.Id where ur.UserId == _candidate select r.Name).ToListAsync());
+        Assert.Equal([Roles.Employee], roles);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ama@mail.test") && m.Contains("staff account is active"));
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ithod@grel.test") && m.Contains("induction can begin"));
+        Assert.NotNull(await Db(db => db.ProbationRecords.SingleOrDefaultAsync(p => p.OnboardingRecordId == id))); // probation started
+        var tasks = await TasksAsync(id);
+        Assert.Contains(tasks, t => t.Area == InductionArea.Security && t.Title == "Access card");
+        Assert.DoesNotContain(tasks, t => t.Area == InductionArea.HealthAndSafety);
+
+        // Induction after activation: every task done → closed → Completed.
+        Assert.Contains("still to do", (await Run(s => s.GetAsync(id)))!.InductionBlockedReason);
+        foreach (var t in tasks.Where(t => t.Status == OnboardingTaskStatus.Open))
             Assert.True((await Run(s => s.UpdateTaskAsync(t.Id, OnboardingTaskStatus.Done, null))).Succeeded);
-        Assert.True((await Run(s => s.GetAsync(id)))!.CanComplete);
-        Assert.True((await Run(s => s.CompleteAsync(id))).Succeeded);
-
-        Assert.Equal(OnboardingStatus.Completed, (await Db(db => db.Onboardings.SingleAsync(o => o.Id == id))).Status);
+        Assert.True((await Run(s => s.CompleteInductionAsync(id))).Succeeded);
+        var done = await RecordAsync(id);
+        Assert.Equal(OnboardingStatus.Completed, done.Status);
+        Assert.NotNull(done.CompletedAt);
         Assert.Contains(_db.SentEmails(), m => m.Contains("To: hod@grel.test") && m.Contains("completed"));
-        Assert.False((await Run(s => s.UpdateTaskAsync(itTask.Id, OnboardingTaskStatus.Open, null))).Succeeded); // closed
+
+        // The history has every step, and the finished onboarding is closed.
+        Assert.Equal(
+            [OnboardingAction.Started, OnboardingAction.LetterIssued, OnboardingAction.Submitted, OnboardingAction.DocumentsVerified,
+             OnboardingAction.Activated, OnboardingAction.InductionCompleted],
+            (await Run(s => s.GetAsync(id)))!.History.Select(h => h.Action));
+        var itTask = (await TasksAsync(id)).First(t => t.Team == OnboardingTeam.InformationTechnology);
+        Assert.False((await Run(s => s.UpdateTaskAsync(itTask.Id, OnboardingTaskStatus.Open, null))).Succeeded);
         As(_itHod, Roles.HeadOfDepartment);
         Assert.Empty(await Run(s => s.MyTasksAsync()));
+    }
+
+    [Fact]
+    public async Task The_hr_manager_only_views_and_the_ro_can_ask_for_a_correction()
+    {
+        var (id, app) = await SubmittedAsync();
+
+        // The HR Manager sees everything but manages nothing.
+        AsHrManager();
+        var page = (await Run(s => s.GetAsync(id)))!;
+        Assert.NotNull(page.Documents);
+        Assert.False(page.CanManage || page.CanIssueLetter || page.CanRequestCorrection || page.CanSetRequirements);
+        Assert.False((await Run(s => s.RequestCorrectionAsync(id, "Please add your second bank account."))).Succeeded);
+        Assert.False((await Run(s => s.CancelAsync(id, "Did not report on the first day."))).Succeeded);
+        Assert.Empty(await Run(s => s.ToStartAsync()));
+
+        // The RO asks for a correction: the onboarding waits for the new employee until they confirm it.
+        AsRecruiter();
+        Assert.False((await Run(s => s.RequestCorrectionAsync(id, null))).Succeeded);
+        Assert.True((await Run(s => s.RequestCorrectionAsync(id, "Please add your second bank account."))).Succeeded);
+        Assert.Equal(OnboardingStatus.AwaitingEmployeeSubmission, (await RecordAsync(id)).Status);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ama@mail.test") && m.Contains("needs a correction"));
+        As(_candidate2, Roles.Candidate);
+        Assert.False((await Run(s => s.ConfirmCorrectionAsync(id))).Succeeded);
+        As(_candidate, Roles.Candidate);
+        Assert.True((await Run(s => s.ConfirmCorrectionAsync(id))).Succeeded);
+        Assert.False((await Run(s => s.ConfirmCorrectionAsync(id))).Succeeded); // once
+        var record = await RecordAsync(id);
+        Assert.Equal((OnboardingStatus.AwaitingDocumentVerification, (DateTime?)null), (record.Status, record.CorrectionRequestedAt));
+        Assert.Contains(_db.SentEmails(), m => m.Contains("To: ro@grel.test") && m.Contains("correction made"));
     }
 
     [Fact]
@@ -299,5 +267,72 @@ public class OnboardingServiceTests : IAsyncLifetime
         Assert.True((await Run(s => s.CancelAsync(id, "Did not report on the first day."))).Succeeded);
         As(_candidate, Roles.Candidate);
         Assert.Null(await Run(s => s.GetMyAppointmentAsync(app)));
+    }
+
+    [Fact]
+    public async Task The_onboarding_page_loads_with_a_fixed_number_of_queries()
+    {
+        // Codebase audit P1: the page ran 71 queries (the files of each document queried twice, the progress built three times); now 16.
+        var (id, _) = await SubmittedAsync();
+        AsRecruiter();
+        int queries;
+        using (var counter = QueryCounter.Start())
+        {
+            var page = await Run(s => s.GetAsync(id));
+            Assert.Equal(24, page!.Documents!.Documents.Count);
+            queries = counter.Count;
+        }
+        Assert.True(queries <= 20, $"The onboarding page ran {queries} queries.");
+    }
+
+    [Fact]
+    public async Task Onboarding_work_waiting_for_each_person_appears_on_their_to_dos()
+    {
+        // Usability U1: documents to verify (RO), ready to activate (RO and HR Manager), nothing for the HOD or the new employee.
+        var (id, _) = await SubmittedAsync(Today);
+        AsRecruiter();
+        var work = await Run(s => s.MyWorkAsync());
+        var verify = Assert.Single(work, w => w.OnboardingId == id);
+        Assert.Equal(OnboardingWorkKind.VerifyDocuments, verify.Kind);
+        Assert.True(verify.Count >= 10);
+        AsHrManager();
+        Assert.Empty(await Run(s => s.MyWorkAsync())); // verifying is the RO's
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.Empty(await Run(s => s.MyWorkAsync()));
+
+        await VerifyAllAsync(id);
+        AsHrManager();
+        Assert.Equal(OnboardingWorkKind.Activate, Assert.Single(await Run(s => s.MyWorkAsync())).Kind);
+        As(_candidate, Roles.Candidate);
+        Assert.Empty(await Run(s => s.MyWorkAsync()));
+    }
+
+    private async Task<IReadOnlyList<Application.Applications.MyNextStepDto>> NextStepsAsync()
+    {
+        using var scope = _db.NewScope();
+        return await scope.ServiceProvider.GetRequiredService<Application.Applications.MyNextStepService>().GetAsync();
+    }
+
+    [Fact]
+    public async Task The_candidate_home_says_what_to_do_next()
+    {
+        // Usability U2: an offer to answer comes first; then the onboarding steps; nothing for other candidates.
+        var offerApp = await WithOfferAsync(_candidate2, "Kofi Boateng", OfferStatus.Sent);
+        As(_candidate2, Roles.Candidate);
+        var first = (await NextStepsAsync())[0];
+        Assert.Equal((Application.Applications.MyStepTarget.Offer, offerApp, true), (first.Target, first.ApplicationId, first.Urgent));
+
+        var app = await WithOfferAsync(_candidate, "Ama Mensah", OfferStatus.Accepted);
+        var id = await StartAsync(app);
+        As(_candidate, Roles.Candidate);
+        var steps = await NextStepsAsync();
+        Assert.DoesNotContain(steps, s => s.Target == Application.Applications.MyStepTarget.Offer);
+        Assert.Contains(steps, s => s.Target == Application.Applications.MyStepTarget.PersonalRecord);
+        Assert.Contains(steps, s => s.Target == Application.Applications.MyStepTarget.Documents && s.Title.Contains("still needed"));
+
+        AsRecruiter();
+        Assert.True((await Run(s => s.IssueLetterAsync(id, "Probation: 6 months. Hours: 8:00 to 17:00."))).Succeeded);
+        As(_candidate, Roles.Candidate);
+        Assert.Equal(Application.Applications.MyStepTarget.Appointment, (await NextStepsAsync())[0].Target); // sign the letter first
     }
 }

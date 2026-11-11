@@ -12,8 +12,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Grsms.Tests;
 
 /// <summary>
-/// The recruitment request journey through the real web pages: a HOD raises a request, uploads the job
-/// description and submits it; the Recruitment Officer, HR Manager and MD each approve from the details page.
+/// The recruitment request (QF-81-11) journey through the real web pages: a department staff member fills in the form,
+/// uploads the job description and submits it; the Head of Department, HR Manager and MD each approve from the details page.
 /// </summary>
 public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFactory>
 {
@@ -46,9 +46,10 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task Hod_raises_uploads_and_submits_then_three_approvers_approve()
+    public async Task Staff_member_raises_the_form_then_hod_hr_manager_and_md_approve()
     {
-        // HOD of Factory TBU (seeded department 32, Operations division).
+        // Factory TBU (seeded department 32, Operations division): a staff member and their HOD.
+        await UserAsync("qa.staff@grel.test", 32, Roles.Employee);
         var hodId = await UserAsync("qa.hod@grel.test", 32, Roles.HeadOfDepartment, Roles.Employee);
         await UserAsync("qa.ro@grel.test", 1, Roles.RecruitmentOfficer);
         await UserAsync("qa.hrm@grel.test", 1, Roles.HrManager);
@@ -60,24 +61,42 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
             await db.SaveChangesAsync();
         }
 
-        // ---- HOD raises the request
-        var hod = await SignedInAsync("qa.hod@grel.test");
-        var created = await hod.PostFormAsync("/RecruitmentRequests/Create", "/RecruitmentRequests/Create", new()
+        // ---- The staff member opens the form: every QF-81-11 section and the rich-text editor are there
+        var staff = await SignedInAsync("qa.staff@grel.test");
+        var form = await staff.GetStringAsync("/RecruitmentRequests/Create");
+        Assert.Contains("data-steps", form);                       // usability U4: one section per step
+        Assert.Contains("data-step=\"Employment details\"", form);
+        foreach (var text in new[] { "Engagement type", "Category", "Purpose", "Internal restructuring", "Request date", "Specific job title",
+                                     "Number of staff required", "Proposed starting date", "Description of the post", "data-rich-text",
+                                     "Educational level", "Level of training", "Certificate(s) required", "Professional experience",
+                                     "Driving licence", "Not needed", "Desirable", "Mandatory", "Observations / remarks", "rich-text-editor.js" })
+            Assert.Contains(text, form);
+
+        // ---- ... fills it in and saves the draft
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var created = await staff.PostFormAsync("/RecruitmentRequests/Create", "/RecruitmentRequests/Create", new()
         {
             ["DepartmentId"] = "32",
             ["SiteId"] = "1",
+            ["EmploymentType"] = "Permanent",          // radio buttons post the enum name
+            ["StaffCategory"] = "Junior",
+            ["VacancyReason"] = "Expansion",
+            ["RequestDate"] = today.ToString("yyyy-MM-dd"),
             ["PositionTitle"] = "Quality Inspector",
             ["NumberOfPositions"] = "2",
-            ["EmploymentType"] = "0",   // Permanent (enum value, as the drop-down posts it)
-            ["VacancyReason"] = "0",    // New position
+            ["ProposedStartDate"] = today.AddDays(45).ToString("yyyy-MM-dd"),
+            ["PostDescription"] = "<p>Inspects <strong>every batch</strong> of crude palm oil before dispatch.</p><ul><li>Samples tanks</li><li>Keeps records</li></ul>",
             ["Justification"] = "Production volume doubled; inspections now run on two shifts.",
-            ["BudgetCode"] = "QA-OPS-26",
-            ["EstimatedAnnualCost"] = "120000"
+            ["EducationLevel"] = "4",                   // Diploma (the drop-down posts the enum value)
+            ["QualificationCategory"] = "Food science",
+            ["MinYearsExperience"] = "2",
         });
         Assert.Equal(HttpStatusCode.Redirect, created.StatusCode);
         var detailsUrl = created.Headers.Location!.ToString();
-        var page = await hod.GetStringAsync(detailsUrl);
+        var page = await staff.GetStringAsync(detailsUrl);
         Assert.Contains("Quality Inspector", page);
+        Assert.Contains("<strong>every batch</strong>", page);   // the formatting is shown back
+        Assert.Contains("Junior", page);
         Assert.Contains("Attach the job description before submitting", page);
         var id = int.Parse(Regex.Match(detailsUrl, @"/(\d+)$").Groups[1].Value);
 
@@ -91,24 +110,28 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
         var pdf = new ByteArrayContent(Encoding.ASCII.GetBytes("%PDF-1.4\n%test\n%%EOF"));
         pdf.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
         upload.Add(pdf, "file", "Quality Inspector JD.pdf");
-        var uploaded = await hod.PostAsync($"/RecruitmentRequests/Upload/{id}", upload);
+        var uploaded = await staff.PostAsync($"/RecruitmentRequests/Upload/{id}", upload);
         Assert.Equal(HttpStatusCode.Redirect, uploaded.StatusCode);
 
-        page = await hod.GetStringAsync(detailsUrl);
+        page = await staff.GetStringAsync(detailsUrl);
         Assert.Contains("Quality Inspector JD.pdf", page);
         var attachmentId = Regex.Match(page, @"attachmentId=(\d+)").Groups[1].Value;
 
-        // ---- Submit
-        Assert.Equal(HttpStatusCode.Redirect, (await hod.PostFormAsync(detailsUrl, $"/RecruitmentRequests/Submit/{id}", new())).StatusCode);
-        Assert.Contains("Recruitment review", await hod.GetStringAsync(detailsUrl));
+        // ---- Submit: it waits for the Head of Department
+        Assert.Equal(HttpStatusCode.Redirect, (await staff.PostFormAsync(detailsUrl, $"/RecruitmentRequests/Submit/{id}", new())).StatusCode);
+        Assert.Contains("Department Head review", await staff.GetStringAsync(detailsUrl));
 
         // ---- Three approvals
-        await ApproveAsync("qa.ro@grel.test", id, "RecruitmentReview", extra: null);
+        await ApproveAsync("qa.hod@grel.test", id, "DepartmentHeadReview", extra: null);
         await ApproveAsync("qa.hrm@grel.test", id, "HrApproval", extra: ("BudgetValidated", "true"));
         await ApproveAsync("qa.md@grel.test", id, "MdApproval", extra: null);
 
-        page = await hod.GetStringAsync(detailsUrl);
+        page = await staff.GetStringAsync(detailsUrl);
         Assert.Contains("Fully approved", page);
+
+        // ---- A Recruitment Officer is offered the conversion into a vacancy
+        var ro = await SignedInAsync("qa.ro@grel.test");
+        Assert.Contains("Convert into a job vacancy", await ro.GetStringAsync(detailsUrl));
 
         // ---- The job description downloads intact for an approver
         var md = await SignedInAsync("qa.md@grel.test");
@@ -119,11 +142,15 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task Employees_cannot_open_recruitment_requests()
+    public async Task Staff_can_open_recruitment_requests_but_candidates_cannot()
     {
         await UserAsync("plain.employee@grel.test", 1, Roles.Employee);
-        var client = await SignedInAsync("plain.employee@grel.test");
-        var response = await client.GetAsync("/RecruitmentRequests");
+        var employee = await SignedInAsync("plain.employee@grel.test");
+        Assert.Equal(HttpStatusCode.OK, (await employee.GetAsync("/RecruitmentRequests")).StatusCode);
+
+        await UserAsync("plain.candidate@grel.test", null, Roles.Candidate);
+        var candidate = await SignedInAsync("plain.candidate@grel.test");
+        var response = await candidate.GetAsync("/RecruitmentRequests");
         Assert.Contains("/Account/AccessDenied", response.Headers.Location!.ToString());
     }
 

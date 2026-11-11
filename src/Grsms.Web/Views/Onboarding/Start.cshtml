@@ -1,4 +1,4 @@
-@* Start onboarding for a candidate who accepted the offer (Recruitment Officer / HR Manager).
+@* Start onboarding for a candidate who accepted the offer (Recruitment Officer: onboarding.manage).
    The default checklist is created with owners: the vacancy's recruiter (HR), the department's HOD and the Head of IT. *@
 @model StartOnboardingForm
 @{
@@ -54,16 +54,44 @@
                     </div>
                 </div>
             </div>
+
+            @* Phase 27: which documents this new hire must provide *@
+            <div class="card glass mt-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Documents required</h2>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="IsExpatriate" value="true" id="IsExpatriate" checked="@Model.IsExpatriate" />
+                        <input type="hidden" name="IsExpatriate" value="false" />
+                        <label class="form-check-label" for="IsExpatriate">
+                            Expatriate (non-Ghanaian) <span class="text-body-secondary small">: asks for the passport biodata page, non-citizen card, work and residence permits instead of the Ghana Card</span>
+                        </label>
+                    </div>
+                    <div class="form-label">Education certificates this new hire must provide</div>
+                    <div class="row row-cols-1 row-cols-md-2 g-1">
+                        @foreach (var c in Model.EducationOptions)
+                        {
+                            <div class="col">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="RequiredEducation" value="@c.Code" id="edu-@c.Code" checked="@c.Ticked" />
+                                    <label class="form-check-label" for="edu-@c.Code">@c.Name</label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="form-text">Unticked certificates stay on the list as optional. Every other document follows the
+                        <a asp-controller="OnboardingDocuments" asp-action="Index">onboarding documents</a> settings.</div>
+                </div>
+            </div>
         </div>
         <div class="col-xl-4">
             <div class="card glass">
                 <div class="card-body p-4 small">
                     <h2 class="h6 text-uppercase text-body-secondary mb-3">What happens next</h2>
                     <ol class="ps-3 mb-0">
-                        <li class="mb-1">The standard checklist is created and its owners are emailed: HR (the recruiter), the department (its Head) and IT (the Head of IT).</li>
-                        <li class="mb-1">An HR Manager issues the appointment letter.</li>
-                        <li class="mb-1">The new employee signs it in their portal and sees the first-day information and what to bring.</li>
-                        <li>When every item is done or not needed, HR completes the onboarding.</li>
+                        <li class="mb-1">The new employee is welcomed by email and can upload their documents in My Onboarding straight away; each one comes to you for review as it arrives.</li>
+                        <li class="mb-1">The standard checklist is created and its owners are emailed, and a provisional personnel file is opened.</li>
+                        <li class="mb-1">You issue the appointment letter; the new employee signs it and fills in their personal record.</li>
+                        <li>When every required document is verified, the onboarding is ready for activation.</li>
                     </ol>
                 </div>
             </div>

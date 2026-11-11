@@ -50,7 +50,13 @@ public record KpiCardDto(KpiKind Kind, string Title, string Icon, int Total, IRe
 public record DayCount(DateOnly Day, int Count);
 
 /// <summary>What a dashboard task opens.</summary>
-public enum DashboardTaskTarget { Request, Vacancy, NewVacancyForRequest, Shortlist, Interview, Hiring, Onboarding, NewOnboarding }
+public enum DashboardTaskTarget
+{
+    Request, Vacancy, NewVacancyForRequest, Shortlist, Interview, Hiring, Onboarding, NewOnboarding, InterviewValidation, HiringRecommendation,
+
+    // Usability U1 (10 Nov 2026): the rest of the work that waits for someone.
+    AtsConfirm, OnboardingLetter, OnboardingDocuments, OnboardingActivate, OnboardingInduction, ProbationStep, ProbationDecision
+}
 
 /// <summary>One row of "My tasks". <see cref="Status"/> is the record's workflow status enum (shown with its display name).</summary>
 public record DashboardTaskDto(

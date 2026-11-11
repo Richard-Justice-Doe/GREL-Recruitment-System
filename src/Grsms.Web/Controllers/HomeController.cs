@@ -18,8 +18,10 @@ namespace Grsms.Web.Controllers;
 public class HomeController(
     DashboardService dashboard,
     IAuthorizationService auth,
+    AccessScope scope,
     IDivisionService divisionService,
-    IDepartmentService departmentService) : AppController
+    IDepartmentService departmentService,
+    Application.Workforce.WorkforceDashboardService workforce) : AppController
 {
     /// <param name="month">Month shown in the vacancy closing calendar, as "yyyy-MM" (default: this month).</param>
     /// <param name="divisionId">Optional: only count records of this division.</param>
@@ -34,7 +36,7 @@ public class HomeController(
         var access = new DashboardAccess(
             Requests: (await auth.AuthorizeAsync(User, Security.Policies.RecruitmentRequests)).Succeeded,
             Vacancies: (await auth.AuthorizeAsync(User, Security.Policies.Vacancies)).Succeeded,
-            Candidates: AccessScope.SeeAllRoles.Any(User.IsInRole));
+            Candidates: scope.SeesAllDepartments);
 
         var filter = new DashboardFilter(divisionId, departmentId);
         var showFilter = access.Requests || access.Vacancies;
@@ -42,6 +44,7 @@ public class HomeController(
         return View(new HomeViewModel
         {
             Dashboard = await dashboard.GetAsync(access, shownMonth, filter, ct),
+            Workforce = await workforce.GetAsync(ct), // Phase 21
             Filter = filter,
             DivisionList = showFilter
                 ? new SelectList(await divisionService.GetAllLookupAsync(ct), nameof(LookupItem.Value), nameof(LookupItem.Text), divisionId)

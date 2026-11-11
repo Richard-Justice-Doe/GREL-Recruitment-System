@@ -40,8 +40,12 @@ public class InterviewRepository(ApplicationDbContext context) : Repository<Inte
             var hodIds = visibility.HodDepartmentIds.ToList();
             q = q.Where(i => hodIds.Contains(i.DepartmentId));
         }
+        // Waiting for my scorecard: the session has started, is still open, I am expected to score (not marked absent or
+        // excused) and I have no valid scorecard (none yet, or the Recruitment Officer returned mine for correction).
         if (onlyAwaitingMyScorecard && panelUserId is not null)
-            q = q.Where(i => i.Status == InterviewStatus.Scheduled && i.StartsAt <= now && !i.Scorecards.Any(s => s.PanelUserId == panelUserId));
+            q = q.Where(i => i.Status == InterviewStatus.Scheduled && i.StartsAt <= now
+                && i.Panel.Any(p => p.UserId == panelUserId && p.Attendance != PanelAttendance.Absent && p.Attendance != PanelAttendance.Excused)
+                && !i.Scorecards.Any(s => s.PanelUserId == panelUserId && s.ReturnedAt == null));
 
         if (filter.Status is { } status) q = q.Where(i => i.Status == status);
         if (filter.VacancyId is { } vacancyId) q = q.Where(i => i.VacancyId == vacancyId);
@@ -70,8 +74,11 @@ public class InterviewRepository(ApplicationDbContext context) : Repository<Inte
             select new
             {
                 Interview = i, a.FullName, v.VacancyNumber, v.JobTitle, DepartmentName = d.Name,
-                PanelSize = i.Panel.Count, Cards = i.Scorecards.Count,
-                Average = i.Scorecards.Average(s => (decimal?)s.WeightedScore)
+                PanelSize = i.Panel.Count, Cards = i.Scorecards.Count(s => s.ReturnedAt == null),
+                // Scores show in lists only once the Recruitment Officer has validated them.
+                Average = i.Status == InterviewStatus.Completed
+                    ? i.Scorecards.Where(s => s.ReturnedAt == null).Average(s => (decimal?)s.WeightedScore)
+                    : null
             };
 
         // Scheduled sessions soonest first; everything else newest first.

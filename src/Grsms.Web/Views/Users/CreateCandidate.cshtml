@@ -1,0 +1,33 @@
+@* Add a candidate account for someone (5 November 2026). The person is emailed a link to choose their password;
+   there is no temporary password. Useful while self-registration is closed (System settings). *@
+@{
+    ViewData["Title"] = "Add candidate account";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Add candidate account</h1>
+        <p>For a job seeker who should be able to see vacancies and apply. They are emailed a link to choose their own password (valid 24 hours).</p>
+    </div>
+    <a asp-action="Index" asp-route-candidates="true" class="btn btn-outline-secondary">Cancel</a>
+</div>
+
+<form asp-action="CreateCandidate" method="post" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+    <div class="card glass" style="max-width: 640px">
+        <div class="card-body p-4">
+            <div class="mb-3">
+                <label class="form-label" for="fullName">Full name</label>
+                <input id="fullName" name="fullName" class="form-control" maxlength="150" value="@ViewBag.FullName" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="email">Email</label>
+                <input id="email" name="email" type="email" class="form-control" maxlength="256" value="@ViewBag.Email" required />
+                <div class="form-text">This is what they sign in with. The welcome email goes here.</div>
+            </div>
+        </div>
+    </div>
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus me-1"></i>Create and email them</button>
+    </div>
+</form>

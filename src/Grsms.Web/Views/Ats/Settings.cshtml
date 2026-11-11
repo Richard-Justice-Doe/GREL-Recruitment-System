@@ -1,0 +1,106 @@
+@* Phase 15: ATS settings (Super Admin only): score weights, classification bands, automatic-rejection rules and the
+   optional Claude AI CV reader. Every save is in the audit trail (record type AtsSettings). *@
+@model AtsSettingsFormDto
+@{
+    ViewData["Title"] = "Screening (ATS) settings";
+    var canManage = ViewBag.CanManage == true; // false = read-only (e.g. the Admin)
+}
+
+<div class="page-header">
+    <div>
+        <h1>Screening (ATS) settings</h1>
+        <p>How screening scores and rejects applications. Changes apply to applications screened from now on.
+            @if (Model.UpdatedAt is not null) { <span>Last changed @Model.UpdatedAt.Value.ToString("dd MMM yyyy HH:mm") by @Model.UpdatedBy.</span> }</p>
+    </div>
+    <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="AtsSettings" class="btn btn-outline-secondary"><i class="fa-solid fa-clock-rotate-left me-1"></i>Change history</a>
+</div>
+
+@if (!canManage)
+{
+    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change the screening settings.</div>
+}
+<form asp-action="Settings" method="post" novalidate>
+    <fieldset disabled="@(!canManage)">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card glass h-100">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Weights of the overall match</h2>
+                    <p class="small text-body-secondary">Percentages that must add up to 100. Example with 25 each: 90, 100, 75 and 80 → 86%.</p>
+                    <div class="row g-3">
+                        @foreach (var name in new[] { nameof(Model.EducationWeight), nameof(Model.ExperienceWeight), nameof(Model.SkillsWeight), nameof(Model.CertificationWeight) })
+                        {
+                            <div class="col-6">
+                                <label for="@name" class="form-label">@Html.DisplayName(name)</label>
+                                <div class="input-group">
+                                    <input id="@name" name="@name" type="number" min="0" max="100" class="form-control" value="@Html.Value(name)" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-1">Classification bands</h2>
+                    <p class="small text-body-secondary">The lowest overall match of each band. Below "Low match" the band is <strong>Auto reject</strong>.</p>
+                    <div class="row g-3">
+                        @foreach (var name in new[] { nameof(Model.HighlyRecommendedFrom), nameof(Model.RecommendedFrom), nameof(Model.ReviewRequiredFrom), nameof(Model.LowMatchFrom) })
+                        {
+                            <div class="col-6">
+                                <label for="@name" class="form-label small">@Html.DisplayName(name)</label>
+                                <div class="input-group">
+                                    <input id="@name" name="@name" type="number" min="0" max="100" class="form-control" value="@Html.Value(name)" />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Automatic rejection rules</h2>
+                    <p class="small text-body-secondary">Reject an application automatically when... Every rejection is <strong>held for HR</strong>:
+                        the applicant is told only after a Recruitment Officer or HR Manager confirms it, and HR can override it.</p>
+                    @foreach (var name in new[] { nameof(Model.RejectOnKnockout), nameof(Model.RejectBelowMinimumEducation), nameof(Model.RejectBelowMinimumExperience),
+                                                  nameof(Model.RejectMissingRequiredCertification), nameof(Model.RejectMissingRequiredSkill), nameof(Model.RejectBelowLowMatch) })
+                    {
+                        var on = (bool)typeof(AtsSettingsFormDto).GetProperty(name)!.GetValue(Model)!;
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="@name" name="@name" value="true" checked="@on" />
+                            <input type="hidden" name="@name" value="false" />
+                            <label class="form-check-label" for="@name">@Html.DisplayName(name)</label>
+                        </div>
+                    }
+                    <p class="small text-body-secondary mb-0">"A required skill is not found" is off by default: people describe the same skill in many words.</p>
+                </div>
+            </div>
+
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">CV reading</h2>
+                    <p class="small">GRSMS reads every CV on GREL's own server with published rules. The optional <strong>Claude AI reader</strong> is better
+                        with unusual layouts, but the <strong>text of each CV is sent to Anthropic</strong>. Switch it on only once GREL has approved
+                        that under its data-protection rules. It only reads: the scores and rules above are the same either way.</p>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="UseAiReader" name="UseAiReader" value="true" checked="@Model.UseAiReader"
+                               disabled="@(!Model.AiConfigured && !Model.UseAiReader)" />
+                        <input type="hidden" name="UseAiReader" value="false" />
+                        <label class="form-check-label" for="UseAiReader">@Html.DisplayNameFor(m => m.UseAiReader)</label>
+                    </div>
+                    @if (!Model.AiConfigured)
+                    {
+                        <div class="form-text"><i class="fa-solid fa-lock me-1"></i>Not available: no API key on this server (setting <code>Ats:Ai:ApiKey</code>, see the configuration guide).</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    </fieldset>
+    <div class="mt-4 @(canManage ? "" : "d-none")">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save settings</button>
+    </div>
+</form>

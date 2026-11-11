@@ -1,0 +1,27 @@
+@* Vacancies and Job adverts share one menu item ("Vacancies & adverts"); these tabs switch between the two lists.
+   Usage, at the top of either list page: <partial name="_VacanciesAndAdvertsTabs" />
+   A tab is shown only to people who may open that list (the server checks again on every request). *@
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var canVacancies = (await Auth.AuthorizeAsync(User, Policies.Vacancies)).Succeeded;
+    var canAdverts = (await Auth.AuthorizeAsync(User, Policies.Adverts)).Succeeded;
+}
+@if (canVacancies && canAdverts)
+{
+    <ul class="nav nav-tabs mb-3" aria-label="Vacancies and job adverts">
+        <li class="nav-item">
+            <a class="nav-link @(controller == "Vacancies" ? "active" : "")" aria-current="@(controller == "Vacancies" ? "page" : null)"
+               asp-controller="Vacancies" asp-action="Index">
+                <i class="fa-solid fa-briefcase me-1"></i>Vacancies
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(controller == "Adverts" ? "active" : "")" aria-current="@(controller == "Adverts" ? "page" : null)"
+               asp-controller="Adverts" asp-action="Index">
+                <i class="fa-solid fa-bullhorn me-1"></i>Job adverts
+            </a>
+        </li>
+    </ul>
+}

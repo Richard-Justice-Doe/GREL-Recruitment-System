@@ -3,13 +3,57 @@ using Grsms.Domain.Common;
 
 namespace Grsms.Domain.Onboarding;
 
-// Module 9: appointment letters and onboarding.
+// Module 9: appointment letters and onboarding. Phase 18 (6 November 2026): the eight-stage onboarding workflow.
 
+/// <summary>
+/// The stage an onboarding has reached (its "current stage"). The order and the allowed moves are in
+/// <see cref="OnboardingWorkflow"/>. Stored as text, e.g. "AwaitingDocumentVerification".
+/// </summary>
 public enum OnboardingStatus
 {
-    [Display(Name = "In progress")] InProgress,
+    // Phase 27 (10 November 2026): the first four stages before activation are worked out automatically from the documents,
+    // the letter and the personal record (OnboardingWorkflow.StageFor); HR approval is gone and the induction follows activation.
+
+    /// <summary>Started; the Recruitment Officer prepares the appointment letter. The new employee can already upload documents.</summary>
+    [Display(Name = "Letter being prepared")] Draft,
+
+    /// <summary>Something is outstanding on the new employee's side: the letter signature, the personal record, a document or a correction.</summary>
+    [Display(Name = "Awaiting the new employee")] AwaitingEmployeeSubmission,
+
+    /// <summary>Everything is in; the Recruitment Officer still has documents to verify.</summary>
+    [Display(Name = "Awaiting document verification")] AwaitingDocumentVerification,
+
+    /// <summary>Before Phase 27 only (HR Manager approval). Onboardings that were here moved to "Ready for activation".</summary>
+    [Display(Name = "Awaiting HR approval (no longer used)")] AwaitingHrApproval,
+
+    /// <summary>Phase 27: the employee is active (staff account, probation started); the departments complete their induction tasks.</summary>
+    [Display(Name = "Induction in progress")] AwaitingDepartmentalInduction,
+
+    /// <summary>Every required document verified, the declaration and the letter signed, nothing rejected: the RO or HR Manager activates.</summary>
+    [Display(Name = "Ready for activation")] AwaitingActivation,
+
+    /// <summary>Activated and the induction closed. Final.</summary>
     [Display(Name = "Completed")] Completed,
+
+    /// <summary>Stopped (e.g. the new employee did not report). Final.</summary>
     [Display(Name = "Cancelled")] Cancelled
+}
+
+/// <summary>One line of an onboarding's history.</summary>
+public enum OnboardingAction
+{
+    [Display(Name = "Started")] Started,
+    [Display(Name = "Appointment letter issued")] LetterIssued,
+    [Display(Name = "Everything submitted by the new employee")] Submitted,
+    [Display(Name = "Back with the new employee")] ReturnedToEmployee,
+    [Display(Name = "All documents verified: ready for activation")] DocumentsVerified,
+    [Display(Name = "Approved by HR")] HrApproved,
+    [Display(Name = "Returned for verification")] ReturnedForVerification,
+    [Display(Name = "Induction completed")] InductionCompleted,
+    [Display(Name = "Employee activated")] Activated,
+    [Display(Name = "Cancelled")] Cancelled,
+    [Display(Name = "Correction requested")] CorrectionRequested,
+    [Display(Name = "Document requirements changed")] RequirementsChanged
 }
 
 /// <summary>Who an onboarding task belongs to.</summary>
@@ -31,7 +75,7 @@ public enum OnboardingTaskStatus
 }
 
 /// <summary>
-/// The onboarding of one new employee: started by HR once the candidate has accepted the offer. Holds the
+/// The onboarding of one new employee: started by the Recruitment Officer once the candidate has accepted the offer. Holds the
 /// appointment letter, the first-day information and (in <see cref="OnboardingTask"/>) the checklist.
 /// Stores the division, department and requesting HOD of its vacancy, like every recruitment record.
 /// </summary>
@@ -90,26 +134,119 @@ public class OnboardingRecord : BaseEntity
     public string? LetterAcknowledgedName { get; set; }
     public string? LetterAcknowledgedIp { get; set; }
 
-    // ---- Status
-    public OnboardingStatus Status { get; set; } = OnboardingStatus.InProgress;
+    // ---- Workflow (Phase 18)
+    /// <summary>The current stage of the onboarding workflow (see <see cref="OnboardingWorkflow"/>).</summary>
+    public OnboardingStatus Status { get; set; } = OnboardingStatus.Draft;
     public DateTime StatusChangedAt { get; set; }
     public string CreatedByUserId { get; set; } = string.Empty;
+
+    /// <summary>When the onboarding should be finished: by default <see cref="OnboardingWorkflow.ExpectedCompletionDays"/> after the start date.</summary>
+    public DateOnly? ExpectedCompletionDate { get; set; }
+
+    /// <summary>When the employee was activated (the onboarding reached Completed).</summary>
+    public DateTime? CompletedAt { get; set; }
+
+    /// <summary>HR's internal notes on this onboarding (not shown to the new employee).</summary>
+    public string? Notes { get; set; }
 
     /// <summary>Why the onboarding was cancelled (e.g. the new employee did not report).</summary>
     public string? CancelReason { get; set; }
 
+    // ---- Phase 27: document requirements and deadline
+    /// <summary>Ticked by the RO for a non-Ghanaian: the expatriate documents apply and the Ghana Card does not.</summary>
+    public bool IsExpatriate { get; set; }
+
+    /// <summary>When every document should be in (by default 10 working days after onboarding started).</summary>
+    public DateOnly? DocumentsDueDate { get; set; }
+
+    /// <summary>True once the RO has used the one extension of <see cref="DocumentsDueDate"/>.</summary>
+    public bool DocumentsDueDateExtended { get; set; }
+
+    /// <summary>
+    /// Set when the RO asks the new employee to correct something that is not a document (e.g. the personal record). The onboarding
+    /// stays with the new employee until they confirm the correction.
+    /// </summary>
+    public DateTime? CorrectionRequestedAt { get; set; }
+    public string? CorrectionMessage { get; set; }
+
     public Guid Version { get; set; } = Guid.NewGuid();
+
+    /// <summary>Every stage change, oldest first.</summary>
+    public ICollection<OnboardingActionEntry> Actions { get; set; } = new List<OnboardingActionEntry>();
 
     public bool LetterIssued => LetterIssuedAt is not null;
     public bool LetterAcknowledged => LetterAcknowledgedAt is not null;
+
+    /// <summary>Moves to <paramref name="newStatus"/> and records the step in the history.</summary>
+    public void RecordStep(OnboardingAction action, OnboardingStatus newStatus, string actorUserId, string actorName, string? comments, DateTime now)
+    {
+        Actions.Add(new OnboardingActionEntry
+        {
+            Action = action, FromStatus = Status, ToStatus = newStatus, ActorUserId = actorUserId, ActorName = actorName,
+            Comments = comments, ActionAt = now
+        });
+        if (newStatus != Status) StatusChangedAt = now;
+        Status = newStatus;
+        Version = Guid.NewGuid();
+    }
 }
 
-/// <summary>One item on an onboarding checklist.</summary>
+/// <summary>One line of an onboarding's history. Never edited.</summary>
+public class OnboardingActionEntry : BaseEntity
+{
+    public int OnboardingRecordId { get; set; }
+    public OnboardingAction Action { get; set; }
+    public OnboardingStatus FromStatus { get; set; }
+    public OnboardingStatus ToStatus { get; set; }
+    public string ActorUserId { get; set; } = string.Empty;
+    public string ActorName { get; set; } = string.Empty;
+    public string? Comments { get; set; }
+    public DateTime ActionAt { get; set; }
+}
+
+/// <summary>
+/// Phase 20: the twelve induction areas of the GREL departmental induction. Each has an owner and default tasks on the
+/// Induction areas screen (<see cref="InductionAreaSetting"/>); an area without an owner falls to HR.
+/// </summary>
+public enum InductionArea
+{
+    [Display(Name = "Human Resource")] HumanResource,
+    [Display(Name = "Corporate Information Technology")] CorporateIt,
+    [Display(Name = "Corporate Procurement")] CorporateProcurement,
+    [Display(Name = "Corporate Supply Chain")] CorporateSupplyChain,
+    [Display(Name = "Corporate Finance")] CorporateFinance,
+    [Display(Name = "Factory Operations")] FactoryOperations,
+    [Display(Name = "TBU Operations")] TbuOperations,
+    [Display(Name = "Stores Operations")] StoresOperations,
+    [Display(Name = "Engineering")] Engineering,
+    [Display(Name = "Security")] Security,
+    [Display(Name = "Health & Safety")] HealthAndSafety,
+    [Display(Name = "Administration")] Administration
+}
+
+/// <summary>
+/// One onboarding / departmental induction task (the spec's "DepartmentalOnboardingTask"): who does it (the area's owner,
+/// the HOD for the new employee's own department, or HR), by when, when it was done and who verified it.
+/// </summary>
 public class OnboardingTask : BaseEntity
 {
     public int OnboardingRecordId { get; set; }
+
+    /// <summary>The older grouping (HR / department / IT / new employee); kept for every task, and derived from the area for new ones.</summary>
     public OnboardingTeam Team { get; set; }
+
+    /// <summary>Phase 20: the induction area, or null for the new employee's own department (its HOD's tasks) and older tasks.</summary>
+    public InductionArea? Area { get; set; }
+
+    /// <summary>"Task name".</summary>
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>Phase 20: what the task involves, if more than the title.</summary>
+    public string? Description { get; set; }
+
+    /// <summary>Phase 20: when the task was given to its current owner ("assigned date").</summary>
+    public DateTime? AssignedAt { get; set; }
+
     public DateOnly? DueDate { get; set; }
 
     /// <summary>The staff member responsible (null for the new employee's items, which HR ticks off).</summary>
@@ -119,5 +256,28 @@ public class OnboardingTask : BaseEntity
     public string? Notes { get; set; }
     public DateTime? CompletedAt { get; set; }
     public string? CompletedByUserId { get; set; }
+
+    /// <summary>Phase 20: HR's check that a task marked done really is done. A task done by HR itself counts as verified.</summary>
+    public DateTime? VerifiedAt { get; set; }
+    public string? VerifiedByUserId { get; set; }
+
     public int SortOrder { get; set; }
+}
+
+/// <summary>
+/// Phase 20: the settings of one induction area (one row per <see cref="InductionArea"/>, created on first use): who owns its
+/// tasks, whether HR ticks it by default when approving an onboarding, and its default tasks (one per line).
+/// </summary>
+public class InductionAreaSetting : BaseEntity
+{
+    public InductionArea Area { get; set; }
+
+    /// <summary>The person who receives this area's tasks; null = HR (the vacancy's recruiter).</summary>
+    public string? OwnerUserId { get; set; }
+
+    /// <summary>Ticked by default when the HR Manager approves an onboarding.</summary>
+    public bool IsDefault { get; set; }
+
+    /// <summary>The area's tasks, one per line; null = the built-in list in <see cref="OnboardingWorkflow.InductionTemplates"/>.</summary>
+    public string? Tasks { get; set; }
 }

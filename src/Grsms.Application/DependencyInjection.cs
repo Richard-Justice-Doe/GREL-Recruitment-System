@@ -42,10 +42,17 @@ public static class DependencyInjection
 
         // Phase 5: candidate profiles and applications
         services.AddScoped<Applications.CandidateProfileService>();
+        services.AddScoped<Applications.MyNextStepService>(); // usability U2
         services.AddScoped<Applications.ApplicationService>();
 
         // Phase 6: CV screening and shortlisting
         services.AddScoped<Shortlisting.ShortlistingService>();
+
+        // Phase 15: the ATS screening engine (CV reading, scores, automatic rejection held for HR)
+        services.AddScoped<Applications.AtsService>();
+
+        // Phase 16: System settings and email templates
+        services.AddScoped<Settings.SystemSettingsService>();
 
         // Phase 7: interviews, assessments and scorecards
         services.AddScoped<Interviews.InterviewService>();
@@ -55,6 +62,15 @@ public static class DependencyInjection
 
         // Phase 9: appointment letters and onboarding
         services.AddScoped<Onboarding.OnboardingService>();
+        services.AddScoped<Onboarding.DocumentVerificationService>(); // Phase 18
+        services.AddScoped<Onboarding.OnboardingProgressService>(); // Phase 27
+        services.AddScoped<Onboarding.OnboardingDocumentTypeService>(); // Phase 27
+        services.AddScoped<Onboarding.PersonalRecordService>(); // Phase 19
+        services.AddScoped<Onboarding.InductionAreaService>(); // Phase 20
+        services.AddScoped<Onboarding.PersonnelFileService>(); // Phase 20
+        services.AddScoped<Probation.ProbationService>(); // Phase 21
+        services.AddScoped<Workforce.WorkforceDashboardService>(); // Phase 21
+        services.AddScoped<Workforce.WorkforceReportService>(); // Phase 21
 
         // Phase 10: reminders and surveys (notifications themselves are stored by Infrastructure)
         services.AddScoped<Notifications.ReminderService>();

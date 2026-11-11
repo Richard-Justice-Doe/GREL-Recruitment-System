@@ -496,3 +496,9 @@ uploads/
 deploy/.env
 deploy/backups/
 deploy/certs/
+
+# Files and code taken out in the clean-up of 4 November 2026, kept for checking (see _removed-for-review/README.md)
+_removed-for-review/
+
+# Phase 16: the Backups screen's views (the Visual Studio rule "Backup*/" above would hide them)
+!src/Grsms.Web/Views/Backups/

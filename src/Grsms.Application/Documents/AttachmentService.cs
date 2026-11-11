@@ -36,9 +36,11 @@ public record FileDownload(string FileName, string ContentType, Stream Content);
 ///   1. the extension is on the allowed list below;
 ///   2. the size is within Uploads:MaxFileSizeMb;
 ///   3. the first bytes of the file really match that type (a renamed .exe called "cv.pdf" is refused);
+///   4. Phase 27: the virus scanner (IVirusScanner; a placeholder that passes everything until GREL connects a real one) passes it;
 /// and is saved under a random name, with a SHA-256 fingerprint recorded.
 /// </summary>
-public class AttachmentService(IRepository<Attachment> attachments, IFileStorage storage, IUnitOfWork unitOfWork, IOptions<UploadOptions> options)
+public class AttachmentService(IRepository<Attachment> attachments, IFileStorage storage, IUnitOfWork unitOfWork, IOptions<UploadOptions> options,
+    IVirusScanner? scanner = null)
 {
     /// <summary>
     /// Allowed file types: extension → (MIME type, the "magic bytes" every genuine file of that type starts with).
@@ -73,15 +75,29 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
     public Task<bool> HasCategoryAsync(string ownerType, int ownerId, AttachmentCategory category, CancellationToken ct = default) =>
         attachments.AnyAsync(a => a.OwnerType == ownerType && a.OwnerId == ownerId && a.Category == category, ct);
 
+    /// <summary>
+    /// The only types accepted for recruitment request supporting documents (form QF-81-11): PDF, DOCX and XLSX.
+    /// </summary>
+    public static readonly IReadOnlyList<string> RequestDocumentTypes = [".pdf", ".docx", ".xlsx"];
+
+    /// <summary>The <see cref="RequestDocumentTypes"/>, for the file picker's "accept" attribute.</summary>
+    public static string RequestDocumentAcceptList => string.Join(",", RequestDocumentTypes);
+
     /// <summary>Validates and stores a file, then saves its database record.</summary>
+    /// <param name="onlyTypes">
+    /// Optional narrower list of extensions (each must also be one of the generally allowed types), e.g.
+    /// <see cref="RequestDocumentTypes"/>. Null = every allowed type.
+    /// </param>
     public async Task<Result<int>> AddAsync(string ownerType, int ownerId, AttachmentCategory category,
-        string fileName, Stream content, CancellationToken ct = default)
+        string fileName, Stream content, CancellationToken ct = default, IReadOnlyList<string>? onlyTypes = null)
     {
         // Path.GetFileName strips any folder part a browser might send ("C:\fakepath\cv.pdf").
         var safeName = Path.GetFileName(fileName ?? "").Trim();
         var extension = Path.GetExtension(safeName);
-        if (safeName.Length == 0 || !AllowedTypes.TryGetValue(extension, out var type))
-            return Result.Failure<int>($"Only these file types are accepted: {AcceptList.Replace(",", ", ")}.");
+        var accepted = onlyTypes is null ? AcceptList : string.Join(",", onlyTypes);
+        if (safeName.Length == 0 || !AllowedTypes.TryGetValue(extension, out var type) ||
+            (onlyTypes is not null && !onlyTypes.Contains(extension, StringComparer.OrdinalIgnoreCase)))
+            return Result.Failure<int>($"Only these file types are accepted: {accepted.Replace(",", ", ")}.");
         if (safeName.Length > 200)
             safeName = Path.GetFileNameWithoutExtension(safeName)[..(200 - extension.Length)] + extension;
 
@@ -95,6 +111,14 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
             return Result.Failure<int>("The file is empty.");
         if (!StartsWith(buffer.GetBuffer(), buffer.Length, type.Signature))
             return Result.Failure<int>($"'{safeName}' does not look like a genuine {extension} file. Please upload the original document.");
+
+        if (scanner is not null)
+        {
+            buffer.Position = 0;
+            var scan = await scanner.ScanAsync(buffer, safeName, ct);
+            if (!scan.Clean)
+                return Result.Failure<int>($"'{safeName}' was refused by the virus scan{(scan.Threat is null ? "" : $" ({scan.Threat})")}. Please upload a clean copy.");
+        }
 
         buffer.Position = 0;
         var sha = Convert.ToHexString(await SHA256.HashDataAsync(buffer, ct)).ToLowerInvariant();
@@ -126,6 +150,19 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
 
         attachments.Remove(entity);
         await unitOfWork.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Phase 27: moves a file to another owner type of the same record (e.g. a replaced new-hire document file to its history),
+    /// keeping the file, its fingerprint and its history. Does not save; the caller saves with its own changes.
+    /// </summary>
+    public async Task<Result> MoveAsync(string ownerType, int ownerId, int attachmentId, string newOwnerType, CancellationToken ct = default)
+    {
+        var entity = await attachments.GetByIdAsync(attachmentId, ct);
+        if (entity is null || entity.OwnerType != ownerType || entity.OwnerId != ownerId)
+            return Result.Failure("File not found.");
+        entity.OwnerType = newOwnerType;
         return Result.Success();
     }
 

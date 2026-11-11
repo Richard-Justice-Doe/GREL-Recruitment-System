@@ -10,6 +10,7 @@ using Grsms.Domain.Hiring;
 using Grsms.Domain.Interviews;
 using Grsms.Domain.Organization;
 using Grsms.Domain.Security;
+using static Grsms.Application.Common.Text;
 
 namespace Grsms.Application.Hiring;
 
@@ -40,7 +41,8 @@ public class HiringService(
     ICurrentUserService me,
     AccessScope scope,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    Settings.ISettingsStore settings)
 {
     private const string ConflictMessage = "Someone else updated this record at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
@@ -57,14 +59,14 @@ public class HiringService(
         var app = await applications.GetByIdAsync(applicationId, ct);
         if (app is null) return null;
         var isHod = await IsHodOfAsync(app.DepartmentId, ct);
-        if (!AccessScope.SeeAllRoles.Any(me.IsInRole) && !isHod) return null;
+        if (!me.HasPermission(Permissions.SeeAllDepartments) && !isHod) return null;
 
         var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
         var appChecks = await checks.ListAsync(c => c.JobApplicationId == app.Id, ct);
         var recs = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id, ct)).OrderByDescending(r => r.Id).ToList();
         var appOffers = (await offers.ListAsync(o => o.JobApplicationId == app.Id, ct)).OrderByDescending(o => o.Id).ToList();
         var sessions = await interviews.ListForApplicationsAsync([app.Id], ct);
-        var cards = sessions.SelectMany(s => s.Scorecards).ToList();
+        var cards = sessions.SelectMany(InterviewWorkflow.ValidatedScorecards).ToList(); // validated scores only (9 Nov 2026)
         var taken = await PositionsTakenAsync(v.Id, ct);
 
         var current = recs.FirstOrDefault(r => r.Status != HiringStatus.Withdrawn && r.Status != HiringStatus.Rejected);
@@ -98,6 +100,7 @@ public class HiringService(
             ScreeningScore = app.ScreeningScore,
             InterviewAverage = cards.Count == 0 ? null : Math.Round(cards.Average(c => c.WeightedScore), 1),
             CompletedInterviews = sessions.Count(s => s.Status == InterviewStatus.Completed),
+            InterviewRounds = await InterviewRoundsAsync(sessions, v.RecruiterUserId, ct),
             VacancySalaryMin = v.SalaryMin,
             VacancySalaryMax = v.SalaryMax,
             Checks = appChecks.OrderBy(c => c.Id)
@@ -115,10 +118,49 @@ public class HiringService(
             CanMdDecide = current?.Status == HiringStatus.AwaitingMd && me.IsInRole(Roles.ManagingDirector) && !own &&
                           current.CreatedByUserId != me.UserId && current.HrUserId != me.UserId,
             CanWithdrawRecommendation = IsRecruiter && !own && current is not null && HiringWorkflow.IsOpen(current.Status),
+            CanSubmitDraft = me.IsInRole(Roles.RecruitmentOfficer) && !own && current?.Status == HiringStatus.Draft && RecommendProblem(app, null, sessions) is null,
             CanOffer = IsRecruiter && !own && current?.Status == HiringStatus.Approved && offerBlocked is null,
             OfferBlockedReason = IsRecruiter && current?.Status == HiringStatus.Approved ? offerBlocked : null,
             CanWithdrawOffer = IsRecruiter && !own && offer?.Status == OfferStatus.Sent
         };
+    }
+
+    /// <summary>
+    /// The interview rounds of a hiring case with their scores (9 Nov 2026). A validated round shows every panel member's score,
+    /// recommendation and comments; any other round says what it is waiting for, without scores.
+    /// </summary>
+    private async Task<IReadOnlyList<InterviewRoundScoresDto>> InterviewRoundsAsync(IReadOnlyList<Interview> sessions, string? recruiterUserId,
+        CancellationToken ct)
+    {
+        var names = await users.GetDisplayNamesAsync(
+            sessions.SelectMany(s => s.Panel.Select(p => p.UserId)).Concat(sessions.Select(s => s.ValidatedByUserId))
+                .Append(recruiterUserId).OfType<string>().Where(id => id.Length > 0).Distinct(), ct);
+        string N(string? id) => id is null ? "?" : names.GetValueOrDefault(id) ?? "?";
+        // The vacancy's owner is named only when they are a Recruitment Officer (who validates); otherwise any Recruitment Officer.
+        var ownerValidates = !string.IsNullOrEmpty(recruiterUserId) && await users.IsActiveUserInRoleAsync(recruiterUserId, Roles.RecruitmentOfficer, ct);
+        var validator = ownerValidates ? N(recruiterUserId) : "a Recruitment Officer";
+
+        return sessions.OrderBy(s => s.Round).Select(s =>
+        {
+            var validCards = s.Scorecards.Where(c => c.IsValid).ToList();
+            var validated = InterviewWorkflow.ValidatedScorecards(s).ToList();
+            var waitingFor = s.Status switch
+            {
+                InterviewStatus.Completed => null,
+                InterviewStatus.AwaitingValidation => $"All scorecards are in. Waiting for {validator} to validate the scores.",
+                InterviewStatus.Scheduled when DateTime.UtcNow < s.StartsAt => "The session has not taken place yet.",
+                InterviewStatus.Scheduled => $"Scoring in progress: {validCards.Count} of {InterviewWorkflow.ExpectedScorers(s).Count()} scorecards in. " +
+                                             $"Then {validator} validates the scores.",
+                _ => $"No scores: {EnumText.Label(s.Status).ToLowerInvariant()}."
+            };
+            var scores = validated
+                .Select(c => new PanelScoreDto(N(c.PanelUserId), s.Panel.Any(p => p.UserId == c.PanelUserId && p.IsChair), c.WeightedScore,
+                    c.Recommendation, c.Strengths, c.Concerns))
+                .OrderByDescending(x => x.IsChair).ThenByDescending(x => x.Score).ToList();
+            return new InterviewRoundScoresDto(s.Id, s.Round, s.Type, s.StartsAt, s.Status, validCards.Count, s.Panel.Count,
+                validated.Count == 0 ? null : Math.Round(validated.Average(c => c.WeightedScore), 1),
+                s.ValidatedByUserId is null ? null : N(s.ValidatedByUserId), s.ValidatedAt, waitingFor, scores);
+        }).ToList();
     }
 
     // ===================================================================== Background checks
@@ -157,21 +199,131 @@ public class HiringService(
 
     // ===================================================================== Hiring recommendation
 
-    /// <summary>The recruiter proposes hiring the applicant. The department's HOD is asked to endorse it.</summary>
+    /// <summary>
+    /// Proceed with candidates (9 Nov 2026): the Recruitment Officer chooses which candidates with validated interview scores to
+    /// take forward, and the hiring process starts for each one automatically: a DRAFT recommendation (advertised minimum salary,
+    /// start date in 30 days, justification from the validated scores) and the standard background checks as Pending.
+    /// The recruiter then reviews the draft and submits it to the HOD. Returns how many were started.
+    /// </summary>
+    public async Task<Result<int>> ProceedAsync(IReadOnlyCollection<int> applicationIds, CancellationToken ct = default)
+    {
+        if (!IsRecruiter) return Result.Failure<int>("Only a Recruitment Officer or HR Manager can start the hiring process.");
+        var ids = applicationIds.Distinct().ToList();
+        if (ids.Count == 0) return Result.Failure<int>("Tick the candidate(s) you want to proceed with.");
+
+        var errors = new List<string>();
+        var started = 0;
+        foreach (var id in ids)
+        {
+            var (app, error) = await LoadForRecruiterAsync(id, ct);
+            if (app is null) { errors.Add(error!); continue; }
+            var current = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id, ct))
+                .FirstOrDefault(r => r.Status is not (HiringStatus.Withdrawn or HiringStatus.Rejected));
+            var sessions = await interviews.ListForApplicationsAsync([app.Id], ct);
+            if (RecommendProblem(app, current, sessions) is { } problem) { errors.Add($"{app.FullName}: {problem}"); continue; }
+            if (await SelectionProblemAsync(app, 1, ct) is { } full) { errors.Add($"{app.FullName}: {full}"); continue; }
+
+            var v = await vacancies.GetByIdAsync(app.VacancyId, ct);
+            var n = await numbers.NextAsync($"HIR-{DateTime.UtcNow.Year}", ct);
+            var rec = new HiringRecommendation
+            {
+                Number = $"HIR-{DateTime.UtcNow.Year}-{n:0000}",
+                JobApplicationId = app.Id,
+                VacancyId = app.VacancyId,
+                DivisionId = app.DivisionId,
+                DepartmentId = app.DepartmentId,
+                RequestingHodUserId = app.RequestingHodUserId,
+                ProposedSalary = v?.SalaryMin ?? 0,
+                ProposedStartDate = Today.AddDays(HiringWorkflow.DraftStartInDays),
+                Justification = ScoreJustification(sessions),
+                CreatedByUserId = MyId,
+                Status = HiringStatus.Draft
+            };
+            recommendations.Add(rec);
+
+            var existing = (await checks.ListAsync(c => c.JobApplicationId == app.Id, ct)).Select(c => c.Type).ToHashSet();
+            var opened = HiringWorkflow.StandardChecks.Where(c => !existing.Contains(c.Type)).ToList();
+            foreach (var (type, subject) in opened)
+                checks.Add(new BackgroundCheck { JobApplicationId = app.Id, Type = type, Subject = subject, RecordedByUserId = MyId });
+
+            app.RecordStep(ApplicationAction.HiringRecommended, app.Status, MyId, scope.UserName,
+                $"{rec.Number}: hiring process started (draft recommendation, {opened.Count} background check{(opened.Count == 1 ? "" : "s")} opened)", DateTime.UtcNow);
+            var saved = await SaveAsync(ct);
+            if (saved.Succeeded) started++;
+            else errors.AddRange(saved.Errors);
+        }
+        return started > 0 || errors.Count == 0 ? Result.Success(started) : Result.Failure<int>([.. errors]);
+    }
+
+    /// <summary>Discards a draft recommendation (the candidate goes back to "Ready to recommend"). Background checks are kept.</summary>
+    public async Task<Result> DiscardDraftAsync(int applicationId, CancellationToken ct = default)
+    {
+        var (app, error) = await LoadForRecruiterAsync(applicationId, ct);
+        if (app is null) return Result.Failure(error!);
+        var draft = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id && r.Status == HiringStatus.Draft, ct)).FirstOrDefault();
+        if (draft is null) return Result.Failure("There is no draft recommendation to discard.");
+        draft.Status = HiringStatus.Withdrawn;
+        draft.Version = Guid.NewGuid();
+        app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName, $"{draft.Number}: draft discarded", DateTime.UtcNow);
+        return await SaveAsync(ct);
+    }
+
+    /// <summary>The start of a draft's justification: the validated interview scores, round by round.</summary>
+    private static string ScoreJustification(IReadOnlyList<Interview> sessions)
+    {
+        var lines = sessions.Where(s => s.Status == InterviewStatus.Completed).OrderBy(s => s.Round).Select(s =>
+        {
+            var cards = InterviewWorkflow.ValidatedScorecards(s).ToList();
+            var votes = string.Join(", ", cards.GroupBy(c => c.Recommendation).OrderBy(g => g.Key)
+                .Select(g => $"{g.Count()} {EnumText.Label(g.Key).ToLowerInvariant()}"));
+            return $"Round {s.Round} ({EnumText.Label(s.Type).ToLowerInvariant()}): " +
+                   $"{(cards.Count == 0 ? 0 : Math.Round(cards.Average(c => c.WeightedScore), 1)).ToString("0.0", Gb)}/100 " +
+                   $"from {cards.Count} validated scorecard{(cards.Count == 1 ? "" : "s")}; {votes}.";
+        });
+        return $"Interview results:\n{string.Join("\n", lines)}\n\nReferences and fit: ";
+    }
+
+    /// <summary>
+    /// The recruiter proposes hiring the applicant. The department's HOD is asked to endorse it. When a draft exists (the hiring
+    /// process was started with "Proceed"), the draft is updated with these values and submitted.
+    /// </summary>
     public async Task<Result<int>> RecommendAsync(int applicationId, decimal? salary, DateOnly? startDate, string? justification, CancellationToken ct = default)
     {
         var (app, error) = await LoadForRecruiterAsync(applicationId, ct);
         if (app is null) return Result.Failure<int>(error!);
         var current = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id, ct))
             .FirstOrDefault(r => r.Status is not (HiringStatus.Withdrawn or HiringStatus.Rejected));
+        var draft = current?.Status == HiringStatus.Draft ? current : null;
         var sessions = await interviews.ListForApplicationsAsync([app.Id], ct);
-        if (RecommendProblem(app, current, sessions) is { } problem) return Result.Failure<int>(problem);
+        if (RecommendProblem(app, draft is null ? current : null, sessions) is { } problem) return Result.Failure<int>(problem);
 
         justification = Clean(justification);
         if (salary is not { } pay || pay <= 0 || pay > 10_000_000) return Result.Failure<int>("Enter the proposed monthly salary in GHS.");
         if (startDate is not { } start || start < Today) return Result.Failure<int>("Choose a start date from today onwards.");
         if (justification is null || justification.Length < 20) return Result.Failure<int>("Explain the recommendation in at least 20 characters (interview results, references, ...).");
         if (justification.Length > 4000) return Result.Failure<int>("The justification must be 4,000 characters or fewer.");
+
+        // 9 Nov 2026 (user's choice): the hire needs the Recruitment Officer's approval only. The HOD, HR Manager and MD
+        // are not asked; the approved recommendation goes straight on to the offer. Who approved and when are CreatedBy/CreatedAt.
+        if (!me.IsInRole(Roles.RecruitmentOfficer)) return Result.Failure<int>("Only a Recruitment Officer can approve a hire.");
+        if (await SelectionProblemAsync(app, 1, ct) is { } full) return Result.Failure<int>(full);
+        var now = DateTime.UtcNow;
+
+        if (draft is not null)
+        {
+            // Approving the draft started by "Proceed": same record and number.
+            draft.ProposedSalary = pay;
+            draft.ProposedStartDate = start;
+            draft.Justification = justification;
+            draft.Status = HiringStatus.Approved;
+            draft.CreatedByUserId = MyId;
+            draft.CreatedAt = now;
+            draft.Version = Guid.NewGuid();
+            app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName,
+                $"{draft.Number}: hire approved by the Recruitment Officer, GHS {pay:N2} per month from {start:dd MMM yyyy}", now);
+            var approved = await SaveAsync(ct);
+            return approved.Succeeded ? Result.Success(draft.Id) : Result.Failure<int>([.. approved.Errors]);
+        }
 
         var n = await numbers.NextAsync($"HIR-{DateTime.UtcNow.Year}", ct);
         var rec = new HiringRecommendation
@@ -185,19 +337,33 @@ public class HiringService(
             ProposedSalary = pay,
             ProposedStartDate = start,
             Justification = justification,
-            CreatedByUserId = MyId
+            CreatedByUserId = MyId,
+            Status = HiringStatus.Approved
         };
         recommendations.Add(rec);
-        app.RecordStep(ApplicationAction.HiringRecommended, app.Status, MyId, scope.UserName,
-            $"{rec.Number}: GHS {pay:N2} per month from {start:dd MMM yyyy}", DateTime.UtcNow);
+        app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName,
+            $"{rec.Number}: hire approved by the Recruitment Officer, GHS {pay:N2} per month from {start:dd MMM yyyy}", now);
         var saved = await SaveAsync(ct);
-        if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
+        return saved.Succeeded ? Result.Success(rec.Id) : Result.Failure<int>([.. saved.Errors]);
+    }
 
-        foreach (var hod in await HodsAsync(app, ct))
-            await mailer.ToUserAsync(hod, $"Hiring recommendation {rec.Number} needs your endorsement",
-                $"{WorkflowMailer.Enc(scope.UserName)} recommends hiring <b>{WorkflowMailer.Enc(app.FullName)}</b>. " +
-                "As Head of Department, please endorse it or say why not.", links.HiringCase(app.Id), "Open the hiring case", ct);
-        return Result.Success(rec.Id);
+    /// <summary>
+    /// The vacancy's positions limit the selection (9 Nov 2026): candidates with a draft, an approved hire, an offer or a hire
+    /// count; adding <paramref name="adding"/> more must not exceed the number of positions. Null when it fits.
+    /// </summary>
+    private async Task<string?> SelectionProblemAsync(JobApplication app, int adding, CancellationToken ct)
+    {
+        var v = await vacancies.GetByIdAsync(app.VacancyId, ct);
+        if (v is null) return "Vacancy not found.";
+        var active = (await recommendations.ListAsync(r => r.VacancyId == v.Id && r.JobApplicationId != app.Id &&
+            (r.Status == HiringStatus.Draft || r.Status == HiringStatus.Approved || r.Status == HiringStatus.AwaitingHod ||
+             r.Status == HiringStatus.AwaitingHr || r.Status == HiringStatus.AwaitingMd), ct)).Select(r => r.JobApplicationId).Distinct().ToList();
+        var stillIn = (await applications.ListAsync(a => active.Contains(a.Id) &&
+            (a.Status == ApplicationStatus.Interview || a.Status == ApplicationStatus.Offer || a.Status == ApplicationStatus.Hired), ct)).Count;
+        return stillIn + adding > v.NumberOfPositions
+            ? $"{v.VacancyNumber} has {v.NumberOfPositions} position{(v.NumberOfPositions == 1 ? "" : "s")} and {stillIn} candidate{(stillIn == 1 ? " is" : "s are")} already selected. " +
+              "Discard a draft or withdraw a hire first, or increase the number of positions."
+            : null;
     }
 
     /// <summary>A decision at the current stage: HOD (endorse), HR Manager or Managing Director (approve / reject).</summary>
@@ -305,8 +471,9 @@ public class HiringService(
         terms = Clean(terms);
         if (pay <= 0 || pay > rec.ProposedSalary) return Result.Failure<int>($"The salary must be more than 0 and no more than the approved GHS {rec.ProposedSalary:N2}.");
         if (start < Today) return Result.Failure<int>("The start date cannot be in the past.");
-        if (expiry < Today || expiry > Today.AddDays(30) || expiry > start)
-            return Result.Failure<int>("The reply-by date must be within the next 30 days and no later than the start date.");
+        var maxDays = settings.GetInt(Domain.Settings.SettingCatalogue.OfferReplyMaxDays); // Phase 16: System settings
+        if (expiry < Today || expiry > Today.AddDays(maxDays) || expiry > start)
+            return Result.Failure<int>($"The reply-by date must be within the next {maxDays} days and no later than the start date.");
         if (terms?.Length > 8000) return Result.Failure<int>("The terms must be 8,000 characters or fewer.");
 
         var n = await numbers.NextAsync($"OFF-{DateTime.UtcNow.Year}", ct);
@@ -333,10 +500,12 @@ public class HiringService(
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
 
-        await mailer.ToUserAsync(app.ApplicantUserId, $"Offer of employment: {v.JobTitle}",
-            $"Congratulations! GREL is pleased to offer you the position of <b>{WorkflowMailer.Enc(v.JobTitle)}</b>, starting " +
-            $"{start.ToString("d MMMM yyyy", Gb)}. Please read your offer letter and accept or decline it by <b>{expiry.ToString("d MMMM yyyy", Gb)}</b>.",
-            links.MyApplication(app.Id), "Read my offer", ct);
+        await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.OfferSent,
+            new Dictionary<string, string?>
+            {
+                ["JobTitle"] = v.JobTitle, ["StartDate"] = start.ToString("d MMMM yyyy", Gb), ["ReplyBy"] = expiry.ToString("d MMMM yyyy", Gb)
+            },
+            links.MyApplication(app.Id), ct: ct);
         await mailer.TextAsync(app.Phone, $"GREL: congratulations! We have sent you an offer for {v.JobTitle}. Please sign in to GRSMS to reply by " +
             $"{expiry.ToString("d MMM", Gb)}.", ct);
         return Result.Success(offer.Id);
@@ -357,9 +526,8 @@ public class HiringService(
         app.RecordStep(ApplicationAction.OfferWithdrawn, HiringWorkflow.ApplicationStatusFor(OfferStatus.Withdrawn), MyId, scope.UserName, reason, DateTime.UtcNow);
         var saved = await SaveAsync(ct);
         if (saved.Succeeded)
-            await mailer.ToUserAsync(app.ApplicantUserId, $"Your offer for {offer.JobTitle}",
-                "We are sorry to tell you that the offer of employment has been withdrawn. The recruitment team will contact you.",
-                links.MyApplication(app.Id), "View my application", ct);
+            await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.OfferWithdrawn,
+                new Dictionary<string, string?> { ["JobTitle"] = offer.JobTitle }, links.MyApplication(app.Id), ct: ct);
         return saved;
     }
 
@@ -411,9 +579,9 @@ public class HiringService(
         foreach (var hod in await HodsAsync(app, ct))
             await mailer.ToUserAsync(hod, subject, text, link, "Open the hiring case", ct);
         if (accept)
-            await mailer.ToUserIncludingMeAsync(app.ApplicantUserId, $"Welcome to GREL: {offer.JobTitle}",
-                $"Thank you for accepting our offer. We look forward to welcoming you on {offer.StartDate.ToString("d MMMM yyyy", Gb)}. " +
-                "HR will contact you about your appointment letter and first day.", links.MyApplication(app.Id), "View my application", ct);
+            await mailer.TemplateToUserAsync(app.ApplicantUserId, Domain.Settings.EmailTemplateCatalogue.OfferAccepted,
+                new Dictionary<string, string?> { ["JobTitle"] = offer.JobTitle, ["StartDate"] = offer.StartDate.ToString("d MMMM yyyy", Gb) },
+                links.MyApplication(app.Id), includeMe: true, ct);
         return saved;
     }
 
@@ -465,12 +633,66 @@ public class HiringService(
         var deptNames = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.Name);
         var divNames = (await divisions.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.Name);
 
+        // The validated interview average of each candidate, shown next to the salary on the list (9 Nov 2026).
+        var averages = (await interviews.ListForApplicationsAsync(list.Select(r => r.JobApplicationId).Distinct().ToList(), ct))
+            .GroupBy(s => s.JobApplicationId)
+            .Select(g => (g.Key, Cards: g.SelectMany(InterviewWorkflow.ValidatedScorecards).ToList()))
+            .Where(x => x.Cards.Count > 0)
+            .ToDictionary(x => x.Key, x => Math.Round(x.Cards.Average(c => c.WeightedScore), 1));
+
         return list.OrderByDescending(r => r.Id).Select(r => new HiringListItemDto(r.Id, r.Number, r.JobApplicationId,
                 apps.GetValueOrDefault(r.JobApplicationId)?.FullName ?? "?", vacs.GetValueOrDefault(r.VacancyId)?.VacancyNumber ?? "?",
                 vacs.GetValueOrDefault(r.VacancyId)?.JobTitle ?? "?", divNames.GetValueOrDefault(r.DivisionId, ""), deptNames.GetValueOrDefault(r.DepartmentId, ""),
                 r.Status, r.ProposedSalary, r.ProposedStartDate, r.CreatedAt,
-                appOffers.TryGetValue(r.Id, out var os) ? os : null))
+                appOffers.TryGetValue(r.Id, out var os) ? os : null,
+                averages.TryGetValue(r.JobApplicationId, out var avg) ? avg : null))
             .ToList();
+    }
+
+    /// <summary>
+    /// Candidates ready for a hiring recommendation (9 Nov 2026): at the interview stage, with at least one interview whose scores
+    /// the Recruitment Officer has validated, and no recommendation in progress or approved. Best validated average first per vacancy.
+    /// <paramref name="onlyMine"/>: only those the current Recruitment Officer should act on (vacancies they own, or whose owner is
+    /// not a Recruitment Officer), for Home's to-dos.
+    /// </summary>
+    public async Task<IReadOnlyList<ReadyToRecommendDto>> ListReadyToRecommendAsync(bool onlyMine = false, CancellationToken ct = default)
+    {
+        if (onlyMine && !IsRecruiter) return [];
+        var visibility = await scope.VisibilityAsync(ct);
+        var hodDepts = (await scope.HodDepartmentIdsAsync(ct)).ToList();
+        if (!visibility.SeeAll && hodDepts.Count == 0) return [];
+        var apps = await applications.ListAsync(a => a.Status == ApplicationStatus.Interview
+            && (visibility.SeeAll || hodDepts.Contains(a.DepartmentId)), ct);
+        if (apps.Count == 0) return [];
+        var appIds = apps.Select(a => a.Id).ToList();
+        var sessions = (await interviews.ListForApplicationsAsync(appIds, ct)).ToLookup(s => s.JobApplicationId);
+        var busy = (await recommendations.ListAsync(r => appIds.Contains(r.JobApplicationId), ct))
+            .Where(r => r.Status is not (HiringStatus.Withdrawn or HiringStatus.Rejected))
+            .Select(r => r.JobApplicationId).ToHashSet();
+        var vacs = (await vacancies.ListAsync(v => apps.Select(a => a.VacancyId).Contains(v.Id), ct)).ToDictionary(v => v.Id);
+        var deptNames = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.Name);
+        var ownerIsRecruiter = new Dictionary<string, bool>();
+
+        var ready = new List<ReadyToRecommendDto>();
+        foreach (var a in apps.Where(a => !busy.Contains(a.Id) && a.ApplicantUserId != me.UserId))
+        {
+            var validated = sessions[a.Id].Where(s => s.Status == InterviewStatus.Completed).ToList();
+            if (validated.Count == 0) continue;
+            var v = vacs.GetValueOrDefault(a.VacancyId);
+            if (onlyMine)
+            {
+                var owner = v?.RecruiterUserId ?? "";
+                if (!ownerIsRecruiter.TryGetValue(owner, out var isRo))
+                    ownerIsRecruiter[owner] = isRo = owner.Length > 0 && await users.IsActiveUserInRoleAsync(owner, Roles.RecruitmentOfficer, ct);
+                if (isRo && owner != me.UserId) continue;
+            }
+            var cards = validated.SelectMany(InterviewWorkflow.ValidatedScorecards).ToList();
+            ready.Add(new ReadyToRecommendDto(a.Id, a.ApplicationNumber, a.FullName, v?.Id ?? 0, v?.VacancyNumber ?? "?", v?.JobTitle ?? "?",
+                deptNames.GetValueOrDefault(a.DepartmentId, ""),
+                cards.Count == 0 ? null : Math.Round(cards.Average(c => c.WeightedScore), 1),
+                validated.Count, validated.Max(s => s.ValidatedAt ?? s.StartsAt)));
+        }
+        return ready.OrderBy(r => r.VacancyNumber).ThenByDescending(r => r.InterviewAverage ?? -1).ToList();
     }
 
     /// <summary>Recommendations waiting for the current user's decision (for the list tab and "My tasks").</summary>
@@ -482,6 +704,7 @@ public class HiringService(
         var hodDepts = me.IsInRole(Roles.HeadOfDepartment) ? await scope.HodDepartmentIdsAsync(ct) : [];
         var applicantOf = (await applications.ListAsync(a => a.ApplicantUserId == MyId, ct)).Select(a => a.Id).ToHashSet();
         return visible.Where(r => !applicantOf.Contains(r.JobApplicationId) && (
+            r.Status == HiringStatus.Draft && r.CreatedByUserId == MyId ||   // 9 Nov 2026: my draft, to review and submit
             r.Status == HiringStatus.AwaitingHod && hodDepts.Contains(r.DepartmentId) ||
             r.Status == HiringStatus.AwaitingHr && me.IsInRole(Roles.HrManager) && r.CreatedByUserId != MyId ||
             r.Status == HiringStatus.AwaitingMd && me.IsInRole(Roles.ManagingDirector) && r.CreatedByUserId != MyId && r.HrUserId != MyId));
@@ -501,13 +724,13 @@ public class HiringService(
     {
         if (current is not null) return current.Status == HiringStatus.Approved ? "A recommendation has already been approved." : "A recommendation is already in progress.";
         if (!HiringWorkflow.CanRecommend(app.Status)) return "Only applicants at the interview stage can be recommended for hire.";
-        if (!sessions.Any(s => s.Status == InterviewStatus.Completed)) return "Complete at least one interview or assessment first.";
+        if (!sessions.Any(s => s.Status == InterviewStatus.Completed)) return "The scores of at least one interview or assessment must be validated by the Recruitment Officer first.";
         return null;
     }
 
     private static string? OfferProblem(JobApplication app, HiringRecommendation rec, IReadOnlyCollection<BackgroundCheck> appChecks, Offer? open, int taken, int positions)
     {
-        if (rec.Status != HiringStatus.Approved) return "The hiring recommendation must be approved by the Managing Director first.";
+        if (rec.Status != HiringStatus.Approved) return "The hire must be approved by the Recruitment Officer first.";
         if (open is not null) return open.Status == OfferStatus.Accepted ? "The candidate has accepted an offer." : "An offer is already waiting for the candidate.";
         if (app.Status != ApplicationStatus.Interview) return "Offers can only be made to applicants at the interview stage.";
         if (!HiringWorkflow.ChecksAllowOffer(appChecks))
@@ -528,18 +751,6 @@ public class HiringService(
     private async Task<bool> IsHodOfAsync(int departmentId, CancellationToken ct) =>
         me.IsInRole(Roles.HeadOfDepartment) && (await scope.HodDepartmentIdsAsync(ct)).Contains(departmentId);
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
-    private async Task<Result> SaveAsync(CancellationToken ct)
-    {
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-            return Result.Success();
-        }
-        catch (ConcurrencyConflictException)
-        {
-            return Result.Failure(ConflictMessage);
-        }
-    }
+    private Task<Result> SaveAsync(CancellationToken ct) => unitOfWork.TrySaveAsync(ConflictMessage, ct);
 }

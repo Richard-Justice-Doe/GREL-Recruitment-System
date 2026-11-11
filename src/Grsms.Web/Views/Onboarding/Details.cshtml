@@ -41,6 +41,16 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
             <a asp-controller="Hiring" asp-action="Case" asp-route-id="@Model.ApplicationId" class="btn btn-outline-secondary">Hiring case</a>
         }
         <a asp-action="Letter" asp-route-id="@Model.Id" class="btn btn-outline-secondary"><i class="fa-regular fa-file-lines me-1"></i>Letter preview</a>
+        @if (Model.PersonnelFileId is int pf)
+        {
+            <a asp-controller="PersonnelFiles" asp-action="Details" asp-route-id="@pf" class="btn btn-outline-secondary"><i class="fa-regular fa-folder-open me-1"></i>Personnel file</a>
+        }
+        else if (Model.Status == OnboardingStatus.Completed && Model.Documents is not null && (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded)
+        {
+            <form asp-action="OpenPersonnelFile" asp-route-id="@Model.Id" method="post">
+                <button type="submit" class="btn btn-outline-primary"><i class="fa-regular fa-folder-open me-1"></i>Open the personnel file</button>
+            </form>
+        }
         <a asp-action="Index" class="btn btn-outline-secondary">All onboarding</a>
     </div>
 </div>
@@ -50,30 +60,74 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
     <div class="alert alert-secondary">Cancelled: @Model.CancelReason</div>
 }
 
-<div class="row g-3">
+<div class="card glass mb-3">
+    <div class="card-body py-4">
+        <partial name="_OnboardingStepper" model="(Model.Status, Model.History.LastOrDefault(h => h.ToStatus == OnboardingStatus.Cancelled)?.FromStatus)" />
+        @if (OnboardingWorkflow.IsActive(Model.Status) && Model.ExpectedCompletionDate is { } expected)
+        {
+            <p class="text-center small text-body-secondary mb-0 mt-3">
+                Expected to be complete by <strong>@expected.ToString("dd MMM yyyy")</strong>@(expected < today ? " (overdue)" : "").
+            </p>
+        }
+        else if (Model.CompletedAt is { } done)
+        {
+            <p class="text-center small text-body-secondary mb-0 mt-3">Completed on @done.ToString("dd MMM yyyy"), staff number <strong>@Model.EmployeeNumber</strong>.</p>
+        }
+    </div>
+</div>
+
+<div class="row g-3" data-section-tabs data-section-default="@(OnboardingWorkflow.BeforeActivation(Model.Status) ? "Documents" : "Checklist")">
     <div class="col-xl-7">
+        @* ---- Phase 19: the personal record declaration (HR only) *@
+        @if (Model.PersonalRecordSigned is bool prSigned)
+        {
+            <div data-section="Documents" class="card glass mb-3">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h2 class="h6 text-uppercase text-body-secondary mb-1">Personal record declaration</h2>
+                        <span class="badge rounded-pill @(prSigned ? "badge-soft-success" : "badge-soft-warning")">@(prSigned ? "Signed" : "Not signed yet")</span>
+                    </div>
+                    <a asp-action="PersonalRecord" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary"><i class="fa-regular fa-id-card me-1"></i>Open the personal record</a>
+                </div>
+            </div>
+        }
+        @* ---- Phase 18: New-hire documents (HR only: personal documents) *@
+        @if (Model.Documents is not null)
+        {
+            ViewData["DocController"] = "Onboarding";
+            ViewData["DocRouteId"] = Model.Id;
+            <div data-section="Documents" class="card glass mb-3 @(Model.Documents.WaitingForHr > 0 ? "border border-primary" : "")">
+                <div class="card-body p-4">
+                    <partial name="_EmployeeDocuments" model="Model.Documents" view-data="ViewData" />
+                </div>
+            </div>
+        }
+
         @* ---- Checklist *@
-        <div class="card glass mb-3">
+        <div data-section="Checklist" class="card glass mb-3">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Checklist</h2>
+                    <h2 class="h6 text-uppercase text-body-secondary mb-0">Checklist and departmental induction</h2>
                     <span class="small text-body-secondary">@Model.TasksFinished of @Model.Tasks.Count finished</span>
                 </div>
                 <div class="progress mb-3" role="progressbar" aria-label="Checklist progress" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100" style="height: 6px">
                     <div class="progress-bar" style="width: @percent%"></div>
                 </div>
 
-                @foreach (var team in Model.Tasks.GroupBy(t => t.Team).OrderBy(g => g.Key))
+                @* Phase 20: grouped by induction area (HR, IT and the other areas), with the new employee's own department (its HOD) *@
+                @foreach (var team in Model.Tasks.GroupBy(t => t.Group).OrderBy(g => g.Min(t => t.Area is { } a ? (int)a : t.Team == OnboardingTeam.Department ? -1 : 99)))
                 {
-                    <h3 class="h6 mt-3">@team.Key.DisplayName()@(team.Key == OnboardingTeam.NewEmployee ? " (to bring on the first day; tick when received)" : "")</h3>
+                    <h3 class="h6 mt-3">@team.Key@(team.First().Team == OnboardingTeam.NewEmployee ? " (to bring on the first day; tick when received)" : "")</h3>
                     @foreach (var t in team)
                     {
                         <div class="border rounded-3 p-2 mb-2 small @(t.IsOverdue ? "border-danger" : "")">
                             <div class="d-flex justify-content-between gap-2">
                                 <div>
                                     <strong>@t.Title</strong>
+                                    @if (t.Description is not null) { <div>@t.Description</div> }
                                     <div class="text-body-secondary">
                                         @(t.AssignedTo ?? (t.Team == OnboardingTeam.NewEmployee ? "HR ticks when received" : "Unassigned"))
+                                        @if (t.AssignedAt is not null) { <span> · assigned @t.AssignedAt.Value.ToString("dd MMM")</span> }
                                         @if (t.DueDate is not null)
                                         {
                                             <span> · due @t.DueDate.Value.ToString("dd MMM")</span>
@@ -82,12 +136,22 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                                     </div>
                                     @if (t.CompletedBy is not null)
                                     {
-                                        <div class="text-body-secondary">@t.Status.DisplayName() by @t.CompletedBy, @t.CompletedAt?.ToString("dd MMM yyyy")</div>
+                                        <div class="text-body-secondary">@t.Status.DisplayName() by @t.CompletedBy, @t.CompletedAt?.ToString("dd MMM yyyy")
+                                            @if (t.VerifiedBy is not null) { <span>· verified by @t.VerifiedBy, @t.VerifiedAt?.ToString("dd MMM yyyy")</span> }
+                                            else { <span class="text-warning">· waiting for HR to verify</span> }
+                                        </div>
                                     }
                                     @if (t.Notes is not null) { <div class="mt-1">@t.Notes</div> }
                                 </div>
                                 <span class="badge rounded-pill @TaskCss(t.Status) align-self-start">@t.Status.DisplayName()</span>
                             </div>
+                            @if (t.CanVerify)
+                            {
+                                <form asp-action="VerifyTask" asp-route-id="@Model.Id" method="post" class="mt-2">
+                                    <input type="hidden" name="taskId" value="@t.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-check-double me-1"></i>Verify</button>
+                                </form>
+                            }
                             @if (t.CanUpdate)
                             {
                                 <form asp-action="UpdateTask" asp-route-id="@Model.Id" method="post" class="mt-2">
@@ -140,15 +204,21 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                         <h3 class="h6">Add a task</h3>
                         <div class="row g-2">
                             <div class="col-md-4">
-                                <select name="team" class="form-select form-select-sm" aria-label="Team">
-                                    @foreach (var tm in Enum.GetValues<OnboardingTeam>())
+                                @* Phase 20: an induction area, or (empty) the new employee's own department *@
+                                <input type="hidden" name="team" value="@OnboardingTeam.Department" />
+                                <select name="area" class="form-select form-select-sm" aria-label="Induction area">
+                                    <option value="">Own department (HOD)</option>
+                                    @foreach (var ar in Enum.GetValues<InductionArea>())
                                     {
-                                        <option value="@tm">@tm.DisplayName()</option>
+                                        <option value="@ar">@ar.DisplayName()</option>
                                     }
                                 </select>
                             </div>
                             <div class="col-md-8">
-                                <input name="title" class="form-control form-control-sm" maxlength="300" required placeholder="What needs doing" aria-label="Task" />
+                                <input name="title" class="form-control form-control-sm" maxlength="300" required placeholder="Task name" aria-label="Task" />
+                            </div>
+                            <div class="col-12">
+                                <input name="description" class="form-control form-control-sm" maxlength="2000" placeholder="Description (optional)" aria-label="Description" />
                             </div>
                             <div class="col-md-5">
                                 <select name="userId" class="form-select form-select-sm" aria-label="Responsible person">
@@ -170,11 +240,147 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                 }
             </div>
         </div>
+
+        @* ---- Phase 18: history *@
+        <div data-section="History and notes" class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">History</h2>
+                <ul class="timeline">
+                    @foreach (var h in Model.History)
+                    {
+                        <li>
+                            <span class="tl-dot @(h.Action is OnboardingAction.Cancelled ? "danger" : h.Action is OnboardingAction.ReturnedToEmployee or OnboardingAction.ReturnedForVerification ? "warning" : "")"></span>
+                            <div><strong>@h.Action.DisplayName()</strong> by @h.ActorName</div>
+                            <div class="small text-body-secondary">
+                                @h.ActionAt.ToString("dd MMM yyyy HH:mm")
+                                @if (h.FromStatus != h.ToStatus) { <span> · @h.FromStatus.DisplayName() → @h.ToStatus.DisplayName()</span> }
+                            </div>
+                            @if (h.Comments is not null) { <div class="tl-comment small">@h.Comments</div> }
+                        </li>
+                    }
+                </ul>
+                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="OnboardingRecord" asp-route-entityId="@Model.Id" class="small">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
+                </a>
+            </div>
+        </div>
     </div>
 
     <div class="col-xl-5">
+        @* ---- Phase 27: where the onboarding stands and the next step (staff with onboarding.view; actions by permission) *@
+        @if (Model.Documents is not null && Model.Status != OnboardingStatus.Cancelled)
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2">Next step: @Model.Status.DisplayName()</h2>
+                    @if (OnboardingWorkflow.BeforeActivation(Model.Status))
+                    {
+                        <div class="d-flex align-items-baseline gap-2 mb-1">
+                            <span class="fs-4 fw-semibold">@Model.Percent%</span>
+                            <span class="small text-body-secondary">@Model.Documents.Verified verified · @Model.Documents.WaitingForHr awaiting review · @Model.Documents.Rejected rejected · @Model.Documents.NotSubmitted not submitted</span>
+                        </div>
+                        <div class="progress mb-2" role="progressbar" aria-label="Onboarding progress" aria-valuenow="@Model.Percent" aria-valuemin="0" aria-valuemax="100" style="height: 6px">
+                            <div class="progress-bar" style="width: @Model.Percent%"></div>
+                        </div>
+                        @if (Model.DocumentsDueDate is { } due)
+                        {
+                            <p class="small mb-2">Documents due <strong>@due.ToString("ddd dd MMM yyyy")</strong>@(due < today && !Model.Documents.ReadyForActivation ? " (overdue)" : "")@(Model.DocumentsDueDateExtended ? " · extended once" : "").</p>
+                        }
+                        @if (Model.Outstanding.Count > 0)
+                        {
+                            <p class="small mb-1">Waiting for the new employee:</p>
+                            <ul class="small ps-3 mb-2">@foreach (var item in Model.Outstanding) { <li>@item</li> }</ul>
+                        }
+                        else if (Model.Status == OnboardingStatus.AwaitingDocumentVerification)
+                        {
+                            <p class="small mb-2">Everything is in: verify or reject the documents awaiting review (left).</p>
+                        }
+
+                        @if (Model.CanRequestCorrection)
+                        {
+                            <details class="mb-2">
+                                <summary class="small">Ask the new employee for a correction (e.g. in the personal record)</summary>
+                                <form asp-action="RequestCorrection" asp-route-id="@Model.Id" method="post" class="mt-2">
+                                    <textarea name="message" class="form-control form-control-sm mb-2" rows="2" maxlength="2000" required aria-label="What to correct">@Model.CorrectionMessage</textarea>
+                                    <button type="submit" class="btn btn-sm btn-outline-warning">Send to the new employee</button>
+                                </form>
+                            </details>
+                        }
+                        @if (Model.CanSetRequirements)
+                        {
+                            <details class="mb-2">
+                                <summary class="small">Documents required (expatriate, education certificates)</summary>
+                                <form asp-action="SetRequirements" asp-route-id="@Model.Id" method="post" class="mt-2 small">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="isExpatriate" value="true" id="isExpatriate" checked="@Model.IsExpatriate" />
+                                        <input type="hidden" name="isExpatriate" value="false" />
+                                        <label class="form-check-label" for="isExpatriate">Expatriate (non-Ghanaian): passport, non-citizen card, work and residence permits</label>
+                                    </div>
+                                    <div class="mb-1">Education certificates this new hire must provide:</div>
+                                    @foreach (var c in Model.EducationChoices)
+                                    {
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="education" value="@c.Code" id="edu-@c.Code" checked="@c.Ticked" />
+                                            <label class="form-check-label" for="edu-@c.Code">@c.Name</label>
+                                        </div>
+                                    }
+                                    <div><button type="submit" class="btn btn-sm btn-outline-primary mt-2">Save the documents required</button></div>
+                                </form>
+                            </details>
+                        }
+                    }
+
+                    @if (Model.CanActivate)
+                    {
+                        <form asp-action="Activate" asp-route-id="@Model.Id" method="post" class="mt-2">
+                            <p class="small mb-2"><i class="fa-solid fa-circle-check text-success me-1"></i>Every required document is verified and the letter and personal record are signed.</p>
+                            <fieldset class="mb-3">
+                                <legend class="form-label small mb-1">Departmental induction areas <span class="text-body-secondary">(their tasks are created on activation)</span></legend>
+                                @foreach (var c in Model.InductionChoices)
+                                {
+                                    <div class="form-check small">
+                                        <input class="form-check-input" type="checkbox" name="areas" value="@c.Area" id="area-@c.Area" checked="@c.Ticked" />
+                                        <label class="form-check-label" for="area-@c.Area">
+                                            <strong>@c.Area.DisplayName()</strong> <span class="text-body-secondary">· @c.Owner · @string.Join(", ", c.Tasks)</span>
+                                        </label>
+                                    </div>
+                                }
+                            </fieldset>
+                            <label for="staffNumber" class="form-label small">Staff number (from payroll)</label>
+                            <div class="input-group input-group-sm">
+                                <input id="staffNumber" name="staffNumber" class="form-control text-uppercase" maxlength="30" value="@Model.EmployeeNumber" required />
+                                <button type="submit" class="btn btn-success" data-confirm="Activate @Model.EmployeeName as a GREL employee? Their account becomes a staff account and the probation starts.">
+                                    <i class="fa-solid fa-user-check me-1"></i>Activate the employee
+                                </button>
+                            </div>
+                            <div class="form-text">Their GRSMS account becomes a staff account (Employee role, @Model.DepartmentName, @Model.SiteName).</div>
+                        </form>
+                    }
+                    else if (Model.Status == OnboardingStatus.AwaitingActivation)
+                    {
+                        <p class="small text-body-secondary mb-0">Ready: a Recruitment Officer or HR Manager activates the employee.</p>
+                    }
+
+                    @if (Model.Status == OnboardingStatus.AwaitingDepartmentalInduction)
+                    {
+                        <p class="small">The employee is active (staff number <strong>@Model.EmployeeNumber</strong>). The departments complete their induction tasks.</p>
+                        @if (Model.CanCompleteInduction)
+                        {
+                            <form asp-action="CompleteInduction" asp-route-id="@Model.Id" method="post">
+                                <button type="submit" class="btn btn-sm btn-success"><i class="fa-solid fa-flag-checkered me-1"></i>Induction complete: close the onboarding</button>
+                            </form>
+                        }
+                        else if (Model.InductionBlockedReason is not null)
+                        {
+                            <p class="small text-body-secondary mb-0">@Model.InductionBlockedReason</p>
+                        }
+                    }
+                </div>
+            </div>
+        }
+
         @* ---- Appointment letter *@
-        <div class="card glass mb-3 @(Model.CanIssueLetter && Model.LetterIssuedAt is null ? "border border-primary" : "")">
+        <div data-section="Letter and first day" class="card glass mb-3 @(Model.CanIssueLetter && Model.LetterIssuedAt is null ? "border border-primary" : "")">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Appointment letter @Model.LetterNumber</h2>
                 @if (Model.LetterSignedAt is not null)
@@ -189,7 +395,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                 }
                 else
                 {
-                    <p class="small text-body-secondary mb-2">Not issued yet. An HR Manager issues it.</p>
+                    <p class="small text-body-secondary mb-2">Not issued yet. The Recruitment Officer issues it.</p>
                 }
 
                 @if (Model.CanIssueLetter)
@@ -206,7 +412,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         </div>
 
         @* ---- First day *@
-        <div class="card glass mb-3">
+        <div data-section="Letter and first day" class="card glass mb-3">
             <div class="card-body p-4">
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">First day</h2>
                 @if (Model.CanManage)
@@ -254,7 +460,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         </div>
 
         @* ---- About *@
-        <div class="card glass mb-3">
+        <div data-section="History and notes" class="card glass mb-3">
             <div class="card-body p-4">
                 <dl class="details-grid small mb-0">
                     <dt>New employee</dt><dd>@Model.EmployeeName@(Model.EmployeeEmail is null ? "" : $" · {Model.EmployeeEmail}")</dd>
@@ -265,22 +471,16 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
             </div>
         </div>
 
-        @* ---- Complete / cancel *@
+        @* ---- Notes and cancel (HR) *@
         @if (Model.CanManage)
         {
-            <div class="card glass mb-3">
+            <div data-section="History and notes" class="card glass mb-3">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Finish</h2>
-                    @if (Model.CanComplete)
-                    {
-                        <form asp-action="Complete" asp-route-id="@Model.Id" method="post" class="mb-3">
-                            <button type="submit" class="btn btn-success" data-confirm="Mark the onboarding as completed?"><i class="fa-solid fa-flag-checkered me-1"></i>Complete onboarding</button>
-                        </form>
-                    }
-                    else
-                    {
-                        <p class="small text-body-secondary">@Model.CompleteBlockedReason</p>
-                    }
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">HR notes</h2>
+                    <form asp-action="SaveNotes" asp-route-id="@Model.Id" method="post" class="mb-3">
+                        <textarea name="notes" class="form-control form-control-sm mb-2" rows="3" maxlength="4000" aria-label="HR notes (not shown to the new employee)">@Model.Notes</textarea>
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Save notes</button>
+                    </form>
                     <form asp-action="Cancel" asp-route-id="@Model.Id" method="post">
                         <div class="input-group input-group-sm">
                             <input name="reason" class="form-control" maxlength="2000" required placeholder="Reason (e.g. did not report)" aria-label="Reason for cancelling" />
@@ -292,3 +492,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         }
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/section-tabs.js" asp-append-version="true"></script>
+}

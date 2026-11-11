@@ -11,6 +11,11 @@
     var initials = string.Concat(fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
     var counts = await Nav.GetAsync();
 
+    // The role shown under the name in the top bar: the most senior one the user holds.
+    string[] rolePriority = [Roles.SuperAdmin, Roles.Admin, Roles.ManagingDirector, Roles.HrManager, Roles.HrAdministrator,
+        Roles.RecruitmentOfficer, Roles.HeadOfDepartment, Roles.PanelMember, Roles.Employee, Roles.Candidate];
+    var roleLabel = rolePriority.FirstOrDefault(User.IsInRole) ?? "";
+
     // The top-bar search looks in recruitment requests, or in vacancies for users who cannot see requests.
     var searchRequests = (await Auth.AuthorizeAsync(User, Policies.RecruitmentRequests)).Succeeded;
     var searchVacancies = !searchRequests && (await Auth.AuthorizeAsync(User, Policies.Vacancies)).Succeeded;
@@ -27,6 +32,7 @@
     <link rel="stylesheet" href="~/lib/sweetalert2/dist/sweetalert2.min.css" />
     <link rel="stylesheet" href="~/lib/datatables/dataTables.bootstrap5.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/motion.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
@@ -36,7 +42,7 @@
 
     <div class="app-main">
         <header class="topbar">
-            <button type="button" class="btn btn-sm btn-outline-secondary d-lg-none" data-sidebar-toggle aria-label="Open menu">
+            <button type="button" class="icon-btn d-lg-none" data-sidebar-toggle aria-label="Open menu">
                 <i class="fa-solid fa-bars"></i>
             </button>
             <h1 class="page-title text-truncate">@ViewData["Title"]</h1>
@@ -76,14 +82,29 @@
                 </button>
 
                 <div class="dropdown">
-                    <button class="btn btn-sm d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false">
+                    <button type="button" class="user-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Your account: @fullName">
                         <span class="avatar">@initials</span>
-                        <span class="d-none d-md-inline">@fullName</span>
+                        <span class="user-name">
+                            <strong>@fullName</strong>
+                            @if (roleLabel.Length > 0)
+                            {
+                                <span>@roleLabel</span>
+                            }
+                        </span>
                         <i class="fa-solid fa-chevron-down small"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow">
                         <li><span class="dropdown-item-text small text-body-secondary">@User.Identity?.Name</span></li>
                         <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" asp-controller="Profile" asp-action="Index"><i class="fa-regular fa-id-card me-2"></i>My profile</a></li>
+                        @if (!User.IsInRole(Roles.Candidate))
+                        {
+                            @* Usability U1: a staff member's own job search and probation (they left the sidebar). *@
+                            <li><a class="dropdown-item" asp-controller="MyProbation" asp-action="Index"><i class="fa-solid fa-seedling me-2"></i>My probation</a></li>
+                            <li><a class="dropdown-item" asp-controller="Careers" asp-action="Index"><i class="fa-solid fa-magnifying-glass me-2"></i>Job openings</a></li>
+                            <li><a class="dropdown-item" asp-controller="MyApplications" asp-action="Index"><i class="fa-regular fa-paper-plane me-2"></i>My applications</a></li>
+                        }
+                        <li><a class="dropdown-item" asp-controller="MyAuditTrail" asp-action="Index"><i class="fa-solid fa-clock-rotate-left me-2"></i>My audit trail</a></li>
                         <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword"><i class="fa-solid fa-key me-2"></i>Change password</a></li>
                         <li>
                             <form asp-controller="Account" asp-action="Logout" method="post">

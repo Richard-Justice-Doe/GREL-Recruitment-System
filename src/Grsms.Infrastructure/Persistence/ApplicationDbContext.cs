@@ -67,12 +67,38 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     // Phase 9: appointment letters and onboarding
     public DbSet<Domain.Onboarding.OnboardingRecord> Onboardings => Set<Domain.Onboarding.OnboardingRecord>();
     public DbSet<Domain.Onboarding.OnboardingTask> OnboardingTasks => Set<Domain.Onboarding.OnboardingTask>();
+    public DbSet<Domain.Onboarding.OnboardingActionEntry> OnboardingActions => Set<Domain.Onboarding.OnboardingActionEntry>();
+    public DbSet<Domain.Onboarding.EmployeeDocument> EmployeeDocuments => Set<Domain.Onboarding.EmployeeDocument>();
+    public DbSet<Domain.Onboarding.OnboardingDocumentType> OnboardingDocumentTypes => Set<Domain.Onboarding.OnboardingDocumentType>(); // Phase 27
+    public DbSet<Domain.Onboarding.EmployeeDocumentEvent> EmployeeDocumentEvents => Set<Domain.Onboarding.EmployeeDocumentEvent>(); // Phase 27
+    public DbSet<Domain.Onboarding.EmployeePersonalRecord> EmployeePersonalRecords => Set<Domain.Onboarding.EmployeePersonalRecord>();
+    public DbSet<Domain.Onboarding.EmployeeDeclaration> EmployeeDeclarations => Set<Domain.Onboarding.EmployeeDeclaration>();
+    public DbSet<Domain.Onboarding.InductionAreaSetting> InductionAreaSettings => Set<Domain.Onboarding.InductionAreaSetting>();
+    public DbSet<Domain.Onboarding.PersonnelFileCategory> PersonnelFileCategories => Set<Domain.Onboarding.PersonnelFileCategory>();
+    public DbSet<Domain.Onboarding.PersonnelFile> PersonnelFiles => Set<Domain.Onboarding.PersonnelFile>();
+    public DbSet<Domain.Onboarding.PersonnelFileDocument> PersonnelFileDocuments => Set<Domain.Onboarding.PersonnelFileDocument>();
+    public DbSet<Domain.Probation.ProbationRecord> ProbationRecords => Set<Domain.Probation.ProbationRecord>();
+    public DbSet<Domain.Probation.ProbationAssessment> ProbationAssessments => Set<Domain.Probation.ProbationAssessment>();
+    public DbSet<Domain.Probation.ProbationActionEntry> ProbationActions => Set<Domain.Probation.ProbationActionEntry>();
+    public DbSet<Domain.Probation.ConfirmationRecord> ConfirmationRecords => Set<Domain.Probation.ConfirmationRecord>();
 
     // Phase 10: notifications, reminders and surveys
     public DbSet<Domain.Notifications.Notification> Notifications => Set<Domain.Notifications.Notification>();
     public DbSet<Domain.Notifications.SentReminder> SentReminders => Set<Domain.Notifications.SentReminder>();
     public DbSet<Domain.Surveys.SurveyInvitation> SurveyInvitations => Set<Domain.Surveys.SurveyInvitation>();
     public DbSet<Domain.Surveys.SurveyAnswer> SurveyAnswers => Set<Domain.Surveys.SurveyAnswer>();
+
+    // Phase 14: permissions whose default grants have been applied (the grants themselves are in RoleClaims)
+    public DbSet<Domain.Security.KnownPermission> KnownPermissions => Set<Domain.Security.KnownPermission>();
+
+    // Phase 15: ATS
+    public DbSet<Domain.Applications.AtsSettings> AtsSettings => Set<Domain.Applications.AtsSettings>();
+    public DbSet<Domain.Applications.KnockoutAnswer> KnockoutAnswers => Set<Domain.Applications.KnockoutAnswer>();
+    public DbSet<VacancyKnockoutQuestion> VacancyKnockoutQuestions => Set<VacancyKnockoutQuestion>();
+
+    // Phase 16: system settings and email templates
+    public DbSet<Domain.Settings.SystemSetting> SystemSettings => Set<Domain.Settings.SystemSetting>();
+    public DbSet<Domain.Settings.EmailTemplate> EmailTemplates => Set<Domain.Settings.EmailTemplate>();
 
     /// <summary>
     /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and

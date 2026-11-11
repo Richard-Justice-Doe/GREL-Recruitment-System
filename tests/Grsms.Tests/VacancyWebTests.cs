@@ -66,6 +66,7 @@ public class VacancyWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFa
         var recruiter = await SignedInAsync("v.ro@grel.test");
         Assert.Contains("RR-IT-2026-0099", await recruiter.GetStringAsync("/Vacancies?tab=awaiting"));
 
+        Assert.Contains("More options: desirable skills", await recruiter.GetStringAsync($"/Vacancies/Create?requestId={requestId}")); // usability U4
         var created = await recruiter.PostFormAsync($"/Vacancies/Create?requestId={requestId}", "/Vacancies/Create", new()
         {
             ["RecruitmentRequestId"] = requestId.ToString(),

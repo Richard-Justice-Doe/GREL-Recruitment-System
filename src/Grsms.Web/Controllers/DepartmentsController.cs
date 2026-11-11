@@ -79,7 +79,7 @@ public class DepartmentsController(IDepartmentService departments, IDivisionServ
     {
         var result = await departments.SetActiveAsync(id, active, ct);
         if (result.Succeeded) Success(active ? "Department activated." : "Department deactivated.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return returnTo == "details" ? RedirectToAction(nameof(Details), new { id }) : RedirectToAction(nameof(Index));
     }
 

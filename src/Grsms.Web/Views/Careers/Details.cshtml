@@ -1,5 +1,6 @@
 @* One running advert on the careers page. Online applications open in Phase 5 (candidate portal);
    until then candidates follow the advert's "How to apply" text, and can already create their account. *@
+@inject Grsms.Application.Settings.ISettingsStore Settings
 @model PublicJobDto
 @{
     ViewData["Title"] = Model.Title;
@@ -45,7 +46,14 @@
                     <i class="fa-solid fa-paper-plane me-1"></i>Sign in to apply
                 </a>
                 <p class="small text-body-secondary mt-2 mb-0">
-                    New here? <a asp-controller="Account" asp-action="Register">Create a free candidate account</a>, confirm your email, then come back to apply.
+                    @if (Settings.GetBool(Grsms.Domain.Settings.SettingCatalogue.AllowSelfRegistration))
+                    {
+                        <text>New here? <a asp-controller="Account" asp-action="Register">Create a free candidate account</a>, confirm your email, then come back to apply.</text>
+                    }
+                    else
+                    {
+                        <text>New here? GREL's recruitment team will create your account and email you a link to set your password.</text>
+                    }
                 </p>
             }
             else if (apply.ExistingApplicationId is int existing)

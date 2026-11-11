@@ -29,6 +29,11 @@ public class TestCurrentUser : ICurrentUserService
 
     public bool IsInRole(string role) => Roles.Contains(role);
 
+    /// <summary>Service tests use each role's default permissions (the web tests use the real database grants).</summary>
+    public bool HasPermission(string permission) =>
+        UserId is not null && Grsms.Domain.Security.Permissions.Holds(Roles, permission,
+            r => Grsms.Domain.Security.Permissions.Defaults.GetValueOrDefault(r) ?? []);
+
     /// <summary>Switches the pretend signed-in user (id, name and roles) in one call.</summary>
     public void SignInAs(string userId, string name, params string[] roles)
     {
@@ -55,7 +60,8 @@ public sealed class TestDatabase : IDisposable
 
     public string MailFolder => Path.Combine(TempFolder, "mail");
 
-    public TestDatabase(int maxUploadMb = 10)
+    /// <param name="configure">Phase 27: replaces services for one test (e.g. a virus scanner that refuses files).</param>
+    public TestDatabase(int maxUploadMb = 10, Action<IServiceCollection>? configure = null)
     {
         // An in-memory SQLite database lives only while this connection stays open.
         _connection = new SqliteConnection("DataSource=:memory:");
@@ -68,7 +74,9 @@ public sealed class TestDatabase : IDisposable
                 ["Storage:RootFolder"] = Path.Combine(TempFolder, "uploads"),
                 ["Email:PickupDirectory"] = MailFolder,
                 ["Sms:PickupDirectory"] = Path.Combine(TempFolder, "sms"),
-                ["Uploads:MaxFileSizeMb"] = maxUploadMb.ToString()
+                ["Uploads:MaxFileSizeMb"] = maxUploadMb.ToString(),
+                ["Email:FromName"] = "GREL Recruitment (tests)", // Phase 16: a server-configuration value, to test the fallback
+                ["Backups:Folder"] = Path.Combine(TempFolder, "backups")
             })
             .Build();
 
@@ -85,6 +93,7 @@ public sealed class TestDatabase : IDisposable
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
 
+        configure?.Invoke(services);
         Services = services.BuildServiceProvider();
         CreateSchema(_connection);
     }
@@ -154,9 +163,12 @@ public class TestAppLinks : IAppLinks
     public string Application(int id) => $"https://grsms.test/Applications/Details/{id}";
     public string MyApplication(int id) => $"https://grsms.test/MyApplications/Details/{id}";
     public string Shortlist(int vacancyId) => $"https://grsms.test/Shortlisting/Vacancy/{vacancyId}";
+    public string AtsVacancy(int vacancyId) => $"https://grsms.test/Ats/Vacancy/{vacancyId}";
     public string Interview(int id) => $"https://grsms.test/Interviews/Details/{id}";
     public string HiringCase(int applicationId) => $"https://grsms.test/Hiring/Case/{applicationId}";
     public string Onboarding(int id) => $"https://grsms.test/Onboarding/Details/{id}";
+    public string Probation(int id) => $"https://grsms.test/Probation/Details/{id}";
+    public string MyProbation() => "https://grsms.test/MyProbation";
     public string Survey(int invitationId) => $"https://grsms.test/Surveys/Take/{invitationId}";
     public string CareersJob(string advertNumber) => $"https://grsms.test/Careers/Details/{advertNumber}";
 }

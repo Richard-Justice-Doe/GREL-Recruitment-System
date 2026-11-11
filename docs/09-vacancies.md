@@ -12,7 +12,7 @@ A vacancy is the position as it will be advertised. Every vacancy comes from a *
       └──── return (comments) ──┘                                └──────── reopen with a new date ───┘
 ```
 
-**Menu → Recruitment → Vacancies**
+**Menu → Vacancies & adverts → Vacancies tab.** Vacancies and job adverts share one menu item; the **Vacancies** and **Job adverts** tabs at the top of the page switch between them.
 
 | Tab | Shows |
 |---|---|
@@ -25,15 +25,21 @@ A vacancy is the position as it will be advertised. Every vacancy comes from a *
 
 ## Recruitment Officers
 
-### Create a vacancy
-1. Open the **Approved requests awaiting a vacancy** tab (or the approved request itself) and click **Create vacancy**.
-2. The form is filled in from the request. The department, number of positions and employment type are **fixed**, because that is what was approved. Check and complete:
-   * **Job title**, **who may apply** (internal staff, the public, or both), **unit**, **site**, **reporting manager** (the HOD by default);
-   * **Job description**: what the applicant will read, covering the job purpose and the main duties;
-   * **Requirements**: minimum education and field of study, minimum years and type of experience, and the **skills** and **certifications**. Put **one per line**, separating *essential* (must have) from *desirable* (nice to have). These lists are used later to rank applicants automatically, so keep each item short and specific ("NEBOSH IGC", not "a safety certificate of some kind");
-   * **Salary range** (monthly, GHS) and whether to **show it on adverts**;
-   * **Closing date**: the last day applicants can apply. It is two weeks ahead by default.
-3. Click **Save draft**. The vacancy gets its number, e.g. **VAC-2026-0001**.
+### Convert an approved request into a job vacancy
+Recruitment may only begin once the request has the Managing Director's final approval (see the [recruitment requests guide](08-recruitment-requests.md)).
+
+1. Open the **Approved requests awaiting a vacancy** tab (or the approved request itself) and click **Convert into vacancy** / **Convert into a job vacancy**.
+2. The form is **filled in from the request**: job title, unit, site, reporting manager (the HOD), and from the QF-81-11 form the description of the post (as plain text), educational level, field of study, level of training, years and type of experience, the required certificates, and the driving licence: *Mandatory* adds an essential certification and a knockout question ("Do you hold a valid class C driving licence?"), *Desirable* only a desirable certification, *Not needed* nothing. The department, number of positions and employment type are **fixed**, because that is what was approved.
+3. Under **Job requisition**, at the top:
+   * the **Job Requisition Number** (e.g. **JRN-2026-0001**) is given automatically when you save;
+   * choose the **Vacancy owner**: the Recruitment Officer who runs this recruitment (you by default; it can be changed while the vacancy is a draft);
+   * set the **Recruitment closing date**: the last day applicants can apply (two weeks ahead by default);
+   * select **Internal or external recruitment**: internal (GREL staff only), external (public), or both.
+4. Check and complete the rest:
+   * **Job description**: what the applicant will read. Tidy the text copied from the request if needed;
+   * **Requirements**: the **skills** and **certifications**, **one per line**, separating *essential* (must have) from *desirable* (nice to have). These lists are used later to rank applicants automatically, so keep each item short and specific ("NEBOSH IGC", not "a safety certificate of some kind");
+   * **Salary range** (monthly, GHS) and whether to **show it on adverts**.
+5. Click **Save draft**. The vacancy gets its number, e.g. **VAC-2026-0001**, and its Job Requisition Number.
 
 ### Submit for approval
 Open the draft and click **Submit for approval**. The HR Managers are emailed. If the vacancy comes back **returned for changes**, the comments appear in a yellow box at the top. Click **Edit**, fix the issues and submit again.

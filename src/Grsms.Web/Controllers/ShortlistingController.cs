@@ -27,7 +27,7 @@ public class ShortlistingController(ShortlistingService shortlisting) : AppContr
     {
         var result = await shortlisting.ScreenVacancyAsync(vacancyId, ct);
         if (result.Succeeded) Success($"Screening re-run for {result.Value} application(s).");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Vacancy), new { id = vacancyId });
     }
 
@@ -36,7 +36,7 @@ public class ShortlistingController(ShortlistingService shortlisting) : AppContr
     {
         var result = await shortlisting.SendToHodAsync(vacancyId, ct);
         if (result.Succeeded) Success($"The Head of Department has been asked for their view on {result.Value} recommendation(s).");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Vacancy), new { id = vacancyId });
     }
 
@@ -52,13 +52,6 @@ public class ShortlistingController(ShortlistingService shortlisting) : AppContr
     public Task<IActionResult> Shortlist(int id, int vacancyId, string? reason, string? returnTo, CancellationToken ct) =>
         Act(id, vacancyId, returnTo, () => shortlisting.ShortlistAsync(id, reason, ct), "Shortlisted. The applicant has been emailed.");
 
-    private async Task<IActionResult> Act(int applicationId, int vacancyId, string? returnTo, Func<Task<Result>> action, string successMessage)
-    {
-        var result = await action();
-        if (result.Succeeded) Success(successMessage);
-        else Error(string.Join(" ", result.Errors));
-        return returnTo == "application"
-            ? RedirectToAction("Details", "Applications", new { id = applicationId })
-            : RedirectToAction(nameof(Vacancy), new { id = vacancyId });
-    }
+    private Task<IActionResult> Act(int applicationId, int vacancyId, string? returnTo, Func<Task<Result>> action, string successMessage) =>
+        RunAsync(action, successMessage, () => returnTo == "application" ? RedirectToAction("Details", "Applications", new { id = applicationId }) : RedirectToAction(nameof(Vacancy), new { id = vacancyId }));
 }

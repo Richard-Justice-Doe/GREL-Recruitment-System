@@ -1,0 +1,127 @@
+@* My audit trail: what I did and what others did to my account, newest first, 50 per page. Read-only.
+   Another person's IP address is never shown here. *@
+@model PagedResult<AuditLogDto>
+@{
+    ViewData["Title"] = "My audit trail";
+    var q = (AuditLogQuery)ViewBag.Query;
+    var me = (string?)ViewBag.Me;
+    string[] actions = ["Created", "Updated", "Deleted", "SignedIn", "SignInFailed", "LockedOut", "SignedOut", "PasswordReset", "PasswordChanged"];
+    object PageRoute(int page) => new { q.EntityName, q.Action, From = q.From?.ToString("yyyy-MM-dd"), To = q.To?.ToString("yyyy-MM-dd"), page };
+
+    string ActionCss(string a) => a switch
+    {
+        "Created" => "badge-soft-success",
+        "Deleted" or "SignInFailed" or "LockedOut" => "badge-soft-danger",
+        "Updated" => "badge-soft-primary",
+        _ => "badge-soft-secondary"
+    };
+
+    // A plain-words summary of the row.
+    string Summary(AuditLogDto a)
+    {
+        var byMe = string.Equals(a.UserName, me, StringComparison.OrdinalIgnoreCase);
+        return (a.Action, a.EntityName, byMe) switch
+        {
+            ("SignedIn", _, _) => "Signed in",
+            ("SignedOut", _, _) => "Signed out",
+            ("SignInFailed", _, _) => "A sign-in to your account failed",
+            ("LockedOut", _, _) => "Your account was locked after wrong passwords",
+            ("PasswordChanged", _, _) => "Password changed",
+            ("PasswordReset", _, _) => "Password reset by email link",
+            (_, "User", false) => $"Your account was {a.Action.ToLowerInvariant()} by someone else",
+            (_, "UserRole", false) => a.Action == "Created" ? "A role was given to you" : a.Action == "Deleted" ? "A role was taken from you" : "Your roles were changed",
+            (_, "UserToken", _) => "Sign-in security details were updated",
+            (_, var e, _) => $"{a.Action} {e}"
+        };
+    }
+
+    string Pretty(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return "";
+        try { return System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonDocument.Parse(json).RootElement, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }); }
+        catch { return json; }
+    }
+}
+
+<div class="page-header">
+    <div>
+        <h1>My audit trail</h1>
+        <p>Everything you did in GRSMS, and every change someone else made to your account, with when it happened. Times are UTC (Ghana time).
+            If you see something you did not do, change your password and tell HR.</p>
+    </div>
+</div>
+
+<form method="get" class="card glass mb-3">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-sm-6 col-lg-3">
+            <label class="form-label small" for="Action">Action</label>
+            <select id="Action" name="Action" class="form-select">
+                <option value="">All</option>
+                @foreach (var a in actions)
+                {
+                    <option value="@a" selected="@(a == q.Action)">@a</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-lg-3">
+            <label class="form-label small" for="From">From</label>
+            <input id="From" name="From" type="date" value="@q.From?.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+        <div class="col-6 col-lg-3">
+            <label class="form-label small" for="To">To</label>
+            <input id="To" name="To" type="date" value="@q.To?.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+        <div class="col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
+        </div>
+    </div>
+</form>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                <tr><th>When</th><th>What</th><th>By</th><th>Action</th><th>Record</th><th>Before</th><th>After</th><th>IP address</th></tr>
+                </thead>
+                <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="8" class="text-center text-body-secondary py-4">Nothing recorded for these filters.</td></tr>
+                }
+                @foreach (var a in Model.Items)
+                {
+                    var byMe = string.Equals(a.UserName, me, StringComparison.OrdinalIgnoreCase);
+                    <tr>
+                        <td class="small text-nowrap">@a.Timestamp.ToString("dd MMM yyyy HH:mm:ss")</td>
+                        <td class="small">@Summary(a)</td>
+                        <td class="small">@(byMe ? "You" : a.UserName ?? "system")</td>
+                        <td><span class="badge rounded-pill @ActionCss(a.Action)">@a.Action</span></td>
+                        <td class="small">@a.EntityName @(a.EntityId is null ? "" : $"#{a.EntityId}")</td>
+                        <td><pre class="json">@Pretty(a.OldValues)</pre></td>
+                        <td><pre class="json">@Pretty(a.NewValues)</pre></td>
+                        <td class="small">@a.IpAddress</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Pages">
+            <span class="small text-body-secondary">@Model.TotalCount entries · page @Model.Page of @Model.TotalPages</span>
+            <div class="btn-group">
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@ToRoute(PageRoute(Model.Page - 1))">Previous</a>
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@ToRoute(PageRoute(Model.Page + 1))">Next</a>
+            </div>
+        </nav>
+    </div>
+</div>
+
+@functions {
+    private static Dictionary<string, string> ToRoute(object values) =>
+        values.GetType().GetProperties()
+            .Select(p => (p.Name, Value: p.GetValue(values)?.ToString()))
+            .Where(x => !string.IsNullOrEmpty(x.Value))
+            .ToDictionary(x => x.Name, x => x.Value!);
+}

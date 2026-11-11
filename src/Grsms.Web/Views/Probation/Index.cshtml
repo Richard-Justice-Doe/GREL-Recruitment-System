@@ -1,0 +1,53 @@
+@* Phase 21: probations HR and the Head of Department can see, with what is due next. *@
+@model IReadOnlyList<ProbationListItemDto>
+@{
+    ViewData["Title"] = "Probation";
+    var f = (ProbationFilter)ViewBag.Filter;
+    var tabs = new[] { ("due", "Reviews due"), ("active", "In progress"), ("decision", "Awaiting HR decision"), ("all", "All") };
+}
+<div class="page-header">
+    <div>
+        <h1>Probation</h1>
+        <p>New employees' probation: the initial meeting, the 3-month and final assessments, and confirmation.</p>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var (key, label) in tabs)
+    {
+        <li class="nav-item"><a class="nav-link @(f.Tab == key ? "active" : "")" asp-action="Index" asp-route-tab="@key" asp-route-departmentId="@f.DepartmentId">@label</a></li>
+    }
+</ul>
+
+<form method="get" class="row g-2 mb-3">
+    <input type="hidden" name="tab" value="@f.Tab" />
+    <div class="col-md-5">
+        <select name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select" aria-label="Department">
+            <option value="">All departments</option>
+        </select>
+    </div>
+    <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100">Filter</button></div>
+</form>
+
+<div class="card glass">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Probation</th><th>Employee</th><th>Department</th><th>Start</th><th>End</th><th>Status</th><th>Next step</th></tr></thead>
+            <tbody>
+                @if (Model.Count == 0) { <tr><td colspan="7" class="text-center text-body-secondary py-4">No probations here. A probation starts when a new employee is activated.</td></tr> }
+                @foreach (var p in Model)
+                {
+                    <tr>
+                        <td class="text-nowrap"><a asp-action="Details" asp-route-id="@p.Id" class="fw-semibold text-decoration-none">@p.Number</a></td>
+                        <td>@p.EmployeeName<div class="small text-body-secondary">@p.JobTitle</div></td>
+                        <td>@p.DepartmentName</td>
+                        <td class="small">@p.StartDate.ToString("dd MMM yyyy")</td>
+                        <td class="small">@p.EndDate.ToString("dd MMM yyyy")</td>
+                        <td>@p.Status.DisplayName()</td>
+                        <td class="small @(p.Overdue ? "text-danger fw-semibold" : "")">@(p.NextStep ?? "—")@(p.NextDue is { } d ? $", {d:dd MMM}" : "")@(p.Overdue ? " (overdue)" : "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

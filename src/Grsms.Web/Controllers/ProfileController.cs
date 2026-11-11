@@ -50,7 +50,7 @@ public class ProfileController(CandidateProfileService profiles) : AppController
             await using var stream = file.OpenReadStream();
             var result = await profiles.AddDocumentAsync(category, file.FileName, stream, ct);
             if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded.");
-            else Error(string.Join(" ", result.Errors));
+            else Fail(result);
         }
         return RedirectToAction(nameof(Index), new { returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null });
     }
@@ -60,7 +60,7 @@ public class ProfileController(CandidateProfileService profiles) : AppController
     {
         var result = await profiles.RemoveDocumentAsync(attachmentId, ct);
         if (result.Succeeded) Success("File removed.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index), new { returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null });
     }
 

@@ -1,0 +1,23 @@
+@* Usability U1 (10 November 2026): Applications and ATS screening share one menu item, "Candidates"; these tabs switch
+   between them. Usage, at the top of either page: <partial name="_CandidatesTabs" />
+   Heads of Department without a recruitment role see no tabs (they don't screen; see Helpers/MenuRules.cs). *@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+}
+@if (!MenuRules.IsHodOnly(User))
+{
+    <ul class="nav nav-tabs mb-3" aria-label="Candidates">
+        <li class="nav-item">
+            <a class="nav-link @(controller == "Applications" ? "active" : "")" aria-current="@(controller == "Applications" ? "page" : null)"
+               asp-controller="Applications" asp-action="Index">
+                <i class="fa-solid fa-inbox me-1"></i>Applications
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(controller == "Ats" ? "active" : "")" aria-current="@(controller == "Ats" ? "page" : null)"
+               asp-controller="Ats" asp-action="Index">
+                <i class="fa-solid fa-filter me-1"></i>Screening
+            </a>
+        </li>
+    </ul>
+}

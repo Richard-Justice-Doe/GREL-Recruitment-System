@@ -24,7 +24,24 @@ public static class HiringWorkflow
 
     public static bool CanRecommend(ApplicationStatus s) => s == ApplicationStatus.Interview;
 
+    /// <summary>Open = waiting for a decision (HOD, HR Manager or MD). A Draft is not open: nobody decides on it until it is submitted.</summary>
     public static bool IsOpen(HiringStatus s) => s is HiringStatus.AwaitingHod or HiringStatus.AwaitingHr or HiringStatus.AwaitingMd;
+
+    /// <summary>
+    /// The background checks opened as Pending when the Recruitment Officer proceeds with a candidate (9 Nov 2026), each with what
+    /// is to be checked. Checks the case already has are not added twice.
+    /// </summary>
+    public static readonly IReadOnlyList<(CheckType Type, string Subject)> StandardChecks =
+    [
+        (CheckType.References, "Referees named by the candidate"),
+        (CheckType.Education, "Certificates submitted with the application"),
+        (CheckType.Employment, "Previous employers listed on the CV"),
+        (CheckType.CriminalRecord, "Police clearance report"),
+        (CheckType.Medical, "Pre-employment medical examination")
+    ];
+
+    /// <summary>The proposed start date of a new draft: 30 days from today.</summary>
+    public const int DraftStartInDays = 30;
 
     /// <summary>True when the checks allow an offer: at least one, none pending, none failed.</summary>
     public static bool ChecksAllowOffer(IReadOnlyCollection<BackgroundCheck> checks) =>

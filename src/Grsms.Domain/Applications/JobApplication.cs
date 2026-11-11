@@ -58,17 +58,41 @@ public class JobApplication : BaseEntity
     /// <summary>Internal reason for "Not successful" (not shown to the applicant).</summary>
     public string? OutcomeReason { get; set; }
 
-    // ---------------------------------------------------------------- Phase 6: screening
-    /// <summary>Match score 0-100 against the vacancy's requirements (see <see cref="CvScreening"/>). Null = not screened yet.</summary>
+    // ---------------------------------------------------------------- Screening (Phase 6; the ATS since Phase 15)
+    /// <summary>Overall ATS match, 0-100 % (see <see cref="AtsEngine"/>). Null = not screened yet.</summary>
     public int? ScreeningScore { get; set; }
 
-    /// <summary>True when the applicant meets the minimum education and experience and every essential requirement.</summary>
+    /// <summary>True when every requirement is met (education, experience, required items, knockout questions).</summary>
     public bool? MeetsMinimum { get; set; }
 
-    /// <summary>The score breakdown (JSON of <see cref="ScreeningResult"/>).</summary>
+    /// <summary>The score breakdown (JSON of <see cref="AtsResult"/>; older Phase 6 results are ignored).</summary>
     public string? ScreeningDetails { get; set; }
 
     public DateTime? ScreenedAt { get; set; }
+
+    // ---------------------------------------------------------------- Phase 15: ATS
+    /// <summary>The ATS band of the overall match.</summary>
+    public AtsClassification? AtsClassification { get; set; }
+
+    /// <summary>What the ATS read from the CV (JSON of <see cref="ParsedCv"/>), or null when there was no readable CV.</summary>
+    public string? CvParsed { get; set; }
+
+    /// <summary>The plain text of the CV (at most 100,000 characters), used to match requirements. Not copied into the audit trail.</summary>
+    public string? CvText { get; set; }
+
+    /// <summary>The ATS's rejection and what HR did about it.</summary>
+    public AtsDecision AtsDecision { get; set; }
+
+    /// <summary>Why the ATS rejected it (each reason on its own line).</summary>
+    public string? AtsRejectionReason { get; set; }
+
+    /// <summary>Who confirmed or overrode the rejection, when, and (for an override) why.</summary>
+    public string? AtsDecisionByUserId { get; set; }
+    public DateTime? AtsDecisionAt { get; set; }
+    public string? AtsDecisionNote { get; set; }
+
+    /// <summary>The applicant's answers to the vacancy's knockout questions, as asked when they applied.</summary>
+    public ICollection<KnockoutAnswer> KnockoutAnswers { get; set; } = new List<KnockoutAnswer>();
 
     // ---------------------------------------------------------------- Phase 6: shortlisting
     public ShortlistRecommendation RecruiterRecommendation { get; set; }
@@ -89,18 +113,29 @@ public class JobApplication : BaseEntity
 
     public ICollection<ApplicationActionEntry> Actions { get; set; } = new List<ApplicationActionEntry>();
 
-    /// <summary>Stores a screening result (score, minimum check and the JSON breakdown).</summary>
-    public void ApplyScreening(ScreeningResult result, DateTime now)
+    /// <summary>Stores an ATS result (overall %, band, minimum check and the JSON breakdown). Does not change the status.</summary>
+    public void ApplyScreening(AtsResult result, DateTime now)
     {
-        ScreeningScore = result.Score;
+        ScreeningScore = result.Overall;
         MeetsMinimum = result.MeetsMinimum;
+        AtsClassification = result.Classification;
         ScreeningDetails = System.Text.Json.JsonSerializer.Serialize(result);
         ScreenedAt = now;
     }
 
-    /// <summary>The stored screening breakdown, or null if not screened.</summary>
-    public ScreeningResult? ReadScreening() =>
-        ScreeningDetails is null ? null : System.Text.Json.JsonSerializer.Deserialize<ScreeningResult>(ScreeningDetails);
+    /// <summary>The stored ATS breakdown, or null if not screened by the Phase 15 ATS yet.</summary>
+    public AtsResult? ReadScreening()
+    {
+        if (ScreeningDetails is null || !ScreeningDetails.Contains("\"Version\":2")) return null;
+        return System.Text.Json.JsonSerializer.Deserialize<AtsResult>(ScreeningDetails);
+    }
+
+    /// <summary>What the ATS read from the CV, or null.</summary>
+    public ParsedCv? ReadCv() => CvParsed is null ? null : System.Text.Json.JsonSerializer.Deserialize<ParsedCv>(CvParsed);
+
+    /// <summary>The knockout answers in the form the engine takes.</summary>
+    public IReadOnlyList<KnockoutAnswerInput> KnockoutInputs() =>
+        KnockoutAnswers.OrderBy(k => k.Id).Select(k => new KnockoutAnswerInput(k.Question, k.Answer)).ToList();
 
     /// <summary>Moves to <paramref name="newStatus"/> and records the step in the history.</summary>
     public void RecordStep(ApplicationAction action, ApplicationStatus newStatus, string? actorUserId, string actorName, string? comments, DateTime now)
@@ -119,6 +154,20 @@ public class JobApplication : BaseEntity
         Status = newStatus;
         Version = Guid.NewGuid();
     }
+}
+
+/// <summary>
+/// Phase 15: the applicant's answer to one knockout question. The question's wording is copied, so the record shows
+/// exactly what was asked even if the vacancy is edited later. Never edited.
+/// </summary>
+public class KnockoutAnswer
+{
+    public int Id { get; set; }
+    public int JobApplicationId { get; set; }
+    public string Question { get; set; } = string.Empty;
+
+    /// <summary>True = "Yes". Every knockout question must be answered "Yes" to pass.</summary>
+    public bool Answer { get; set; }
 }
 
 /// <summary>One line of an application's history. Never edited.</summary>

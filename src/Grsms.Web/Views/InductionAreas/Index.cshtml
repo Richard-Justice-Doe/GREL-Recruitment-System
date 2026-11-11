@@ -1,0 +1,42 @@
+@* Phase 20: the twelve departmental induction areas: owner, ticked by default, and tasks (one per line). *@
+@model IReadOnlyList<InductionAreaRowDto>
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Induction areas";
+    var staff = (SelectList)ViewBag.Staff;
+}
+<div class="page-header">
+    <div>
+        <h1>Induction areas</h1>
+        <p>The departments that take part in a new employee's induction. When the Recruitment Officer or HR Manager activates a new employee, they tick the areas that apply;
+            each ticked area's tasks go to its owner. An area with no owner goes to HR (the vacancy's recruiter).</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    @foreach (var a in Model)
+    {
+        <div class="col-lg-6" id="area-@a.Area">
+            <div class="card glass h-100">
+                <div class="card-body p-4">
+                    <form asp-action="Save" method="post">
+                        <input type="hidden" name="area" value="@a.Area" />
+                        <h2 class="h6 mb-3">@a.Area.DisplayName()</h2>
+                        <label class="form-label small" for="owner-@a.Area">Owner</label>
+                        <select id="owner-@a.Area" name="ownerUserId" class="form-select form-select-sm mb-2">
+                            <option value="">HR (the vacancy's recruiter)@(a.Area == InductionArea.CorporateIt ? " / the Head of IT" : "")</option>
+                            @foreach (var s in staff) { <option value="@s.Value" selected="@(s.Value == a.OwnerUserId)">@s.Text</option> }
+                        </select>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="isDefault" value="true" id="default-@a.Area" checked="@a.IsDefault" />
+                            <label class="form-check-label small" for="default-@a.Area">Ticked by default for every new employee</label>
+                        </div>
+                        <label class="form-label small" for="tasks-@a.Area">Tasks <span class="text-body-secondary">(one per line@(a.TasksAreBuiltIn ? "; built-in list" : ""))</span></label>
+                        <textarea id="tasks-@a.Area" name="tasks" class="form-control form-control-sm mb-2" rows="3" maxlength="6000">@a.Tasks</textarea>
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>

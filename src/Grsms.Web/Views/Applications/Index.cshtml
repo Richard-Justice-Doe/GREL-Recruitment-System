@@ -28,10 +28,12 @@
     {
         ("new", "New", counts.New, "text-bg-primary"),
         ("review", "Under review", counts.UnderReview, "text-bg-warning"),
+        ("auto", "Automatically rejected (awaiting HR)", counts.AutoRejected, "text-bg-danger"), // Phase 15
         ("all", "All", counts.Total, "text-bg-secondary"),
     };
 }
 
+<partial name="_CandidatesTabs" />
 <div class="page-header">
     <div>
         <h1>Applications</h1>
@@ -120,7 +122,7 @@
                 <tbody>
                 @if (Model.Items.Count == 0)
                 {
-                    <tr><td colspan="9" class="text-center text-body-secondary py-4">No applications here.</td></tr>
+                    <tr><td colspan="9" class="text-center text-body-secondary py-4">No applications here. They arrive through the careers page once a vacancy is advertised.</td></tr>
                 }
                 @foreach (var a in Model.Items)
                 {

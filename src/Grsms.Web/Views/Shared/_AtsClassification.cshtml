@@ -1,0 +1,19 @@
+@* Phase 15: the ATS band as a pill. Always icon + words, so the band never depends on colour alone.
+   Usage: <partial name="_AtsClassification" model="r.Classification" /> *@
+@model Grsms.Domain.Applications.AtsClassification?
+@if (Model is { } c)
+{
+    var (css, icon) = c switch
+    {
+        AtsClassification.HighlyRecommended => ("badge-soft-success", "fa-star"),
+        AtsClassification.Recommended => ("badge-soft-success", "fa-thumbs-up"),
+        AtsClassification.ReviewRequired => ("badge-soft-warning", "fa-magnifying-glass"),
+        AtsClassification.LowMatch => ("badge-soft-secondary", "fa-arrow-down"),
+        _ => ("badge-soft-danger", "fa-ban")
+    };
+    <span class="badge rounded-pill @css"><i class="fa-solid @icon me-1"></i>@c.DisplayName()</span>
+}
+else
+{
+    <span class="badge rounded-pill badge-soft-secondary">Not screened</span>
+}

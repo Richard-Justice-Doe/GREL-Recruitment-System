@@ -27,7 +27,7 @@
                         <td><code>@s.Code</code></td>
                         <td>@(s.SiteType ?? "—")</td>
                         <td>@(s.Location ?? "—")</td>
-                        <td><partial name="_StatusBadge" model="s.IsActive" /></td>
+                        <td><partial name="_ActiveBadge" model="s.IsActive" /></td>
                         <td class="text-end text-nowrap">
                             <a asp-action="Edit" asp-route-id="@s.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
                             <form asp-action="SetActive" asp-route-id="@s.Id" method="post" class="d-inline">

@@ -6,7 +6,23 @@ Phase 8 takes an interviewed applicant to a signed-off hire:
 2. the **hiring recommendation**, with the Head of Department's endorsement and HR and MD approval;
 3. the **offer**, which the candidate accepts or declines online.
 
-Everything for one applicant is on their **hiring case** page. Open it from the application page (*Hiring: checks, recommendation and offer*), from *Interview results*, or from **Menu → Hiring and offers**.
+Everything for one applicant is on their **hiring case** page. At the top, **Interview scores** shows every round: each panel member's score, recommendation and comments, and the average, once the Recruitment Officer has validated them (see [16 Interviews](16-interviews.md#3-score-validation-recruitment-officer)); a round not validated yet says what it is waiting for. So the recommendation, the HOD, HR and MD decisions and the offer are all made with the scores in view. The **Hiring and offers** list shows each candidate's validated interview score too. Scores are never shown to the candidate, nor on the offer letter. Open it from the application page (*Hiring: checks, recommendation and offer*), from *Interview results*, or from **Menu → Hiring and offers**.
+
+## After score validation: choose who to proceed with
+
+As soon as the Recruitment Officer **validates the interview scores**, the candidate moves on to hiring:
+
+1. The Recruitment Officer lands on **Hiring and offers → Ready to recommend** for that vacancy: every candidate with validated scores and no recommendation yet, best score first. The vacancy's Recruitment Officer (or every Recruitment Officer, if the vacancy owner is not one) is also emailed and gets a *Proceed with …?* card in *Your to-dos*.
+2. The Recruitment Officer **ticks the candidate(s) to proceed with** and clicks **Proceed with the selected candidates** (or **Proceed with this candidate** on a hiring case). Candidates not ticked stay on the list.
+3. For each one, GRSMS **starts the hiring process automatically**:
+   * a **draft recommendation** (status *Draft: not yet submitted*): the advertised minimum salary, a start date 30 days away, and a justification that already lists the validated scores;
+   * the five standard **background checks**, as *Pending*: references, education / certificates, previous employment, police clearance, medical.
+4. On the hiring case (*Your next step: review and approve the hire*), the Recruitment Officer checks the salary and start date, adds references and fit, and clicks **Approve hire**. **Only the Recruitment Officer approves**: the HOD, HR Manager and MD are not asked (decision of 9 November 2026). **Discard draft** sends the candidate back to *Ready to recommend* (the checks are kept).
+5. When the background checks are complete, the hiring case shows **Send the offer**; when the candidate **accepts**, it shows **Click to proceed to onboarding**, which opens the onboarding start (first-day details, then the appointment letter).
+
+**Positions:** the Recruitment Officer can select (proceed with or approve) at most as many candidates as the vacancy has positions. The others stay on *Ready to recommend* as reserves.
+
+Drafts appear under *Awaiting my decision* for the Recruitment Officer who started them. Recommendations made **before 9 November 2026** that were still waiting for the HOD, HR Manager or MD finish in that old chain (section 2).
 
 ## 1. Background checks (Recruitment Officer or HR Manager)
 
@@ -25,6 +41,8 @@ A check starts as **Pending**. Record the outcome: **Cleared**, **Cleared with c
 **Before an offer:** at least one check, none pending, none failed.
 
 ## 2. The hiring recommendation (the hiring report)
+
+> **Since 9 November 2026 a new hire needs only the Recruitment Officer's approval** (above). The three-step approval below applies only to recommendations made before then that are still waiting.
 
 The recruiter fills in the **proposed monthly salary**, **start date** and **why this candidate** (interview results, references, fit), then clicks **Recommend**. This needs at least one **completed** interview or assessment.
 

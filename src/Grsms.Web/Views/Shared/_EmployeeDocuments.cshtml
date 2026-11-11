@@ -1,0 +1,205 @@
+@* The new-hire document checklist, shared by the RO's onboarding page and the new employee's portal (Phase 18; Phase 27:
+   configurable types grouped by heading, per-document review, replace with history, rejection reasons).
+   ViewData["DocController"] = the controller that handles the posts ("Onboarding" for HR, "MyApplications" for the employee);
+   ViewData["DocRouteId"]   = the id those actions expect (the onboarding id for HR, the application id for the employee).
+   Each document only shows what the current user may do with it (CanEdit / CanReview / CanStartReview, from the service). *@
+@model DocumentChecklistDto
+@{
+    var controller = (string)ViewData["DocController"]!;
+    var routeId = (int)ViewData["DocRouteId"]!;
+    var forEmployee = controller == "MyApplications";
+    var docs = forEmployee ? Model.Visible : Model.Documents;
+    string Css(EmployeeDocumentDto d) => d.Status switch
+    {
+        EmployeeDocumentStatus.Verified => "badge-soft-success",
+        EmployeeDocumentStatus.Rejected => "badge-soft-danger",
+        EmployeeDocumentStatus.Submitted or EmployeeDocumentStatus.Resubmitted => "badge-soft-primary",
+        EmployeeDocumentStatus.UnderReview => "badge-soft-info",
+        EmployeeDocumentStatus.NotApplicable when d.NotApplicableAccepted => "badge-soft-success",
+        EmployeeDocumentStatus.NotApplicable => "badge-soft-secondary",
+        _ => d.IsRequired ? "badge-soft-warning" : "badge-soft-secondary"
+    };
+    string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.0} MB" : $"{Math.Max(1, bytes / 1024)} KB";
+    string Types(EmployeeDocumentDto d) => string.Join(", ", d.FileTypes.Select(t => t.TrimStart('.').ToUpperInvariant()));
+}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h6 text-uppercase text-body-secondary mb-0">Onboarding documents</h2>
+    <span class="small text-body-secondary">@Model.Verified verified · @Model.WaitingForHr awaiting review · @Model.Rejected rejected</span>
+</div>
+<p class="small text-body-secondary">
+    @if (forEmployee)
+    {
+        <text>Upload a clear scan or photo of each document (up to 10 MB). Each one is checked as soon as you upload it. You can replace a file until it is verified.</text>
+    }
+    else
+    {
+        <text>Documents arrive one by one. <em>Start review</em> locks a document while you check it; verify it against the original, or reject it with the reason (the new employee is emailed).</text>
+    }
+</p>
+
+@foreach (var group in docs.GroupBy(d => d.Group))
+{
+    <h3 class="h6 mt-3 mb-2">@group.Key.DisplayName()</h3>
+    @foreach (var d in group)
+    {
+        <div class="border rounded-3 p-2 mb-2 small @(d.Status == EmployeeDocumentStatus.Rejected ? "border-danger" : "") @(!d.IsApplicable ? "opacity-75" : "")" id="doc-@d.Id">
+            <div class="d-flex justify-content-between gap-2">
+                <div>
+                    <strong>@d.Name</strong>
+                    @if (!d.IsApplicable) { <span class="text-body-secondary">(no longer required)</span> }
+                    else if (!d.IsRequired) { <span class="text-body-secondary">(optional)</span> }
+                    @if (d.MinFiles > 1) { <span class="text-body-secondary">· @d.MinFiles files needed</span> }
+                    @if (d.Description is not null) { <div class="text-body-secondary">@d.Description</div> }
+                    @if (d.Status == EmployeeDocumentStatus.NotApplicable)
+                    {
+                        <div class="text-body-secondary">Not applicable: @d.NotApplicableReason</div>
+                    }
+                    @if (d.Status == EmployeeDocumentStatus.Rejected)
+                    {
+                        <div class="text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i>Rejected: @d.RejectionReason</div>
+                    }
+                    @if (d.Status == EmployeeDocumentStatus.UnderReview)
+                    {
+                        <div class="text-body-secondary">Under review@(d.ReviewStartedBy is null ? "" : $" by {d.ReviewStartedBy}") since @d.ReviewStartedAt?.ToString("dd MMM yyyy HH:mm")</div>
+                    }
+                    @if (d.VerifiedAt is not null && d.Status is EmployeeDocumentStatus.Verified or EmployeeDocumentStatus.NotApplicable)
+                    {
+                        <div class="text-body-secondary">@(d.Status == EmployeeDocumentStatus.Verified ? "Verified" : "Accepted")@(d.VerifiedBy is null ? "" : $" by {d.VerifiedBy}"), @d.VerifiedAt?.ToString("dd MMM yyyy")</div>
+                    }
+                    @if (!forEmployee && d.RejectionCount > 0 && d.Status != EmployeeDocumentStatus.Rejected)
+                    {
+                        <div class="text-body-secondary">Rejected @d.RejectionCount time(s) before</div>
+                    }
+                </div>
+                <span class="badge rounded-pill @Css(d) align-self-start text-wrap">@(d.NotApplicableAccepted ? "Not applicable (accepted)" : d.Status.DisplayName())</span>
+            </div>
+
+            @if (d.Files.Count > 0)
+            {
+                <ul class="list-unstyled mb-0 mt-1">
+                    @foreach (var f in d.Files)
+                    {
+                        <li class="d-flex flex-wrap align-items-center gap-2 py-1">
+                            <i class="fa-regular fa-file"></i>
+                            <a asp-controller="@controller" asp-action="DownloadDocument" asp-route-id="@routeId" asp-route-documentId="@d.Id" asp-route-attachmentId="@f.AttachmentId"
+                               class="text-decoration-none text-break">@f.FileName</a>
+                            <span class="text-body-secondary">@Size(f.SizeBytes) · @f.UploadedAt.ToString("dd MMM yyyy")</span>
+                            @if (d.CanEdit)
+                            {
+                                <details class="ms-auto">
+                                    <summary class="text-body-secondary">Replace</summary>
+                                    <form asp-controller="@controller" asp-action="UploadDocument" asp-route-id="@routeId" method="post" enctype="multipart/form-data" class="mt-1">
+                                        <input type="hidden" name="documentId" value="@d.Id" />
+                                        <input type="hidden" name="replacesAttachmentId" value="@f.AttachmentId" />
+                                        <div class="input-group input-group-sm">
+                                            <input type="file" name="file" class="form-control" accept="@d.Accept" required aria-label="Replacement for @f.FileName" />
+                                            <button type="submit" class="btn btn-outline-primary">Replace</button>
+                                        </div>
+                                    </form>
+                                    <form asp-controller="@controller" asp-action="RemoveDocumentFile" asp-route-id="@routeId" method="post" class="mt-1">
+                                        <input type="hidden" name="documentId" value="@d.Id" />
+                                        <input type="hidden" name="attachmentId" value="@f.AttachmentId" />
+                                        <button type="submit" class="btn btn-sm btn-link text-danger p-0" data-confirm="Remove @f.FileName? It stays in the history.">Remove this file</button>
+                                    </form>
+                                </details>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+
+            @if (d.CanAddFile)
+            {
+                <form asp-controller="@controller" asp-action="UploadDocument" asp-route-id="@routeId" method="post" enctype="multipart/form-data" class="mt-2 doc-upload">
+                    <input type="hidden" name="documentId" value="@d.Id" />
+                    <div class="input-group input-group-sm">
+                        <input type="file" name="file" class="form-control" accept="@d.Accept" required aria-label="File for @d.Name" data-upload-preview />
+                        <button type="submit" class="btn btn-outline-primary"><i class="fa-solid fa-upload me-1"></i>@(d.Files.Count == 0 ? "Upload" : "Add a file")</button>
+                    </div>
+                    <div class="form-text">@(forEmployee ? "Take a photo or choose a file · " : "")@Types(d), up to 10 MB</div>
+                </form>
+            }
+            @if (d.CanMarkNotApplicable)
+            {
+                <details class="mt-1">
+                    <summary class="text-body-secondary">This does not apply to me</summary>
+                    <form asp-controller="@controller" asp-action="MarkNotApplicable" asp-route-id="@routeId" method="post" class="mt-1">
+                        <input type="hidden" name="documentId" value="@d.Id" />
+                        <div class="input-group input-group-sm">
+                            <input name="reason" class="form-control" maxlength="500" required placeholder="Why (e.g. not married)" aria-label="Why it does not apply" />
+                            <button type="submit" class="btn btn-outline-secondary">Mark not applicable</button>
+                        </div>
+                    </form>
+                </details>
+            }
+
+            @if (d.CanStartReview || d.CanReview)
+            {
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    @if (d.CanStartReview)
+                    {
+                        <form asp-controller="@controller" asp-action="StartReview" asp-route-id="@routeId" method="post">
+                            <input type="hidden" name="documentId" value="@d.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-magnifying-glass me-1"></i>Start review</button>
+                        </form>
+                    }
+                    @if (d.CanReview)
+                    {
+                        <form asp-controller="@controller" asp-action="VerifyDocument" asp-route-id="@routeId" method="post">
+                            <input type="hidden" name="documentId" value="@d.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-check me-1"></i>@(d.Status == EmployeeDocumentStatus.NotApplicable ? "Accept" : "Verified against the original")</button>
+                        </form>
+                        <form asp-controller="@controller" asp-action="RejectDocument" asp-route-id="@routeId" method="post" class="flex-grow-1">
+                            <input type="hidden" name="documentId" value="@d.Id" />
+                            <div class="input-group input-group-sm">
+                                <select name="reasonCode" class="form-select" required aria-label="Reason for rejecting" style="max-width: 13rem">
+                                    <option value="">Reason…</option>
+                                    @foreach (var r in Enum.GetValues<DocumentRejectionReason>())
+                                    {
+                                        <option value="@r">@r.DisplayName()</option>
+                                    }
+                                </select>
+                                <input name="reason" class="form-control" maxlength="900" placeholder="Note (required for Other)" aria-label="Note for the new employee" />
+                                <button type="submit" class="btn btn-outline-danger">Reject</button>
+                            </div>
+                        </form>
+                    }
+                </div>
+            }
+
+            @if (d.History.Count > 0 || d.ReplacedFiles.Count > 0)
+            {
+                <details class="mt-1">
+                    <summary class="text-body-secondary">History (@d.History.Count)</summary>
+                    <ul class="list-unstyled mb-0 mt-1 ps-2 border-start">
+                        @foreach (var h in d.History)
+                        {
+                            <li>
+                                <span class="text-body-secondary">@h.ActionAt.ToString("dd MMM yyyy HH:mm")</span>
+                                · <strong>@h.Action.DisplayName()</strong> by @h.ActorName
+                                @if (h.FileName is not null) { <span>· @h.FileName</span> }
+                                @if (h.FromStatus != h.ToStatus) { <span class="text-body-secondary">· @h.FromStatus.DisplayName() → @h.ToStatus.DisplayName()</span> }
+                                @if (h.RejectionReason is { } rr) { <span>· @rr.DisplayName()</span> }
+                                @if (h.Comments is not null) { <span>· @h.Comments</span> }
+                            </li>
+                        }
+                    </ul>
+                    @if (d.ReplacedFiles.Count > 0)
+                    {
+                        <div class="mt-1">Earlier files:</div>
+                        <ul class="list-unstyled mb-0 ps-2">
+                            @foreach (var f in d.ReplacedFiles)
+                            {
+                                <li>
+                                    <a asp-controller="@controller" asp-action="DownloadDocument" asp-route-id="@routeId" asp-route-documentId="@d.Id" asp-route-attachmentId="@f.AttachmentId"
+                                       class="text-decoration-none text-break">@f.FileName</a>
+                                    <span class="text-body-secondary">· @f.UploadedAt.ToString("dd MMM yyyy")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </details>
+            }
+        </div>
+    }
+}

@@ -1,6 +1,8 @@
 @* Reports (Module 11). One page for every report: the shared filters (division, department, vacancy, status, period),
    headline figures, simple one-colour charts (each with a table view) and the report's table, downloadable as CSV. *@
 @model ReportResult
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
 @{
     ViewData["Title"] = $"Reports: {Model.Title}";
     var f = (ReportFilter)ViewBag.Filter;
@@ -37,9 +39,10 @@
                                 asp-route-divisionId="@f.DivisionId" asp-route-departmentId="@f.DepartmentId" asp-route-vacancyId="@f.VacancyId"
                                 asp-route-from="@f.From?.ToString("yyyy-MM-dd")" asp-route-to="@f.To?.ToString("yyyy-MM-dd")">@title</a></li>
     }
-    @if (User.IsInRole(Roles.HrManager) || User.IsInRole(Roles.RecruitmentOfficer) || User.IsInRole(Roles.ManagingDirector))
+    @* Usability U1: the survey results live under Reports. *@
+    @if ((await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded)
     {
-        <li class="nav-item"><a class="nav-link text-nowrap" asp-controller="Surveys" asp-action="Results">Survey results <i class="fa-solid fa-arrow-up-right-from-square small"></i></a></li>
+        <li class="nav-item"><a class="nav-link text-nowrap" asp-controller="Surveys" asp-action="Results">Survey results</a></li>
     }
 </ul>
 

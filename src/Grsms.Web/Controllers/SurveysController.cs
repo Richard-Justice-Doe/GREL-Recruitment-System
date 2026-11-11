@@ -41,7 +41,7 @@ public class SurveysController(SurveyService surveys) : AppController
             Success("Thank you for your feedback!");
             return RedirectToAction("Index", "Home");
         }
-        Error(string.Join(" ", result.Errors));
+        Fail(result);
         return RedirectToAction(nameof(Take), new { id });
     }
 

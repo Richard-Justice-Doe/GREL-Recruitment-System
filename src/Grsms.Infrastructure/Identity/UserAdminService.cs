@@ -1,4 +1,5 @@
 using Grsms.Application.Common;
+using Grsms.Application.Common.Interfaces;
 using Grsms.Application.Users;
 using Grsms.Domain.Security;
 using Grsms.Infrastructure.Persistence;
@@ -8,20 +9,42 @@ using Microsoft.EntityFrameworkCore;
 namespace Grsms.Infrastructure.Identity;
 
 /// <summary>
-/// Staff account management for the HR Administrator.
+/// Staff account management for the Super Admin and the HR Administrator.
 ///
 /// Built on ASP.NET Core Identity's <see cref="UserManager{TUser}"/>, which handles password hashing,
 /// password rules, unique emails and lockout. Every change is written to the audit trail automatically.
 ///
 /// Safety rules enforced here (so they hold no matter which screen calls this service):
 ///   * The Candidate role cannot be given to staff; candidates register themselves.
-///   * You cannot deactivate yourself or remove your own HR Administrator role.
-///   * There must always be at least one active HR Administrator.
+///   * Phase 14: only a Super Admin may give or remove any role other than Employee and Interview Panel Member
+///     (HR Managers, Recruitment Officers, HODs, HR Administrators, the MD, Super Admins and custom roles), and only a
+///     Super Admin may edit, reset the password of, or deactivate an account that holds one. Anyone else could
+///     otherwise raise their own access, or take over a privileged account by resetting its password.
+///   * You cannot deactivate yourself or remove your own Super Admin role.
+///   * There must always be at least one active Super Admin.
 ///   * A user who is set as some department's HOD keeps the HOD role (and stays active)
 ///     until another HOD is chosen for that department.
 /// </summary>
-public class UserAdminService(UserManager<ApplicationUser> userManager, ApplicationDbContext db) : IUserAdminService
+public class UserAdminService(UserManager<ApplicationUser> userManager, ApplicationDbContext db, ICurrentUserService me) : IUserAdminService
 {
+    private const string SuperAdminNeeded =
+        "Only a Super Admin can give or change the {0} role. HR Administrators can give Employee and Interview Panel Member only.";
+
+    private bool IsSuperAdmin => me.IsInRole(Roles.SuperAdmin);
+
+    /// <summary>The acting user's administrative roles (all that <see cref="Roles.CanManageAccount"/> needs to know).</summary>
+    private IEnumerable<string> MyRoles => new[] { Roles.SuperAdmin, Roles.Admin, Roles.HrAdministrator }.Where(me.IsInRole);
+
+    /// <summary>Who may manage an account with these roles, for messages.</summary>
+    private static string ManagerOf(IEnumerable<string> roles) =>
+        roles.Any(r => r is Roles.SuperAdmin or Roles.Admin) ? "a Super Admin" : "an Admin or Super Admin";
+
+    /// <summary>Every role a staff account may be given: the built-in staff roles, then custom roles.</summary>
+    public async Task<IReadOnlyList<string>> GetAssignableRolesAsync(CancellationToken ct = default)
+    {
+        var custom = (await db.Roles.AsNoTracking().Select(r => r.Name!).ToListAsync(ct)).Where(n => !Roles.IsBuiltIn(n)).OrderBy(n => n);
+        return [.. Roles.Staff, .. custom];
+    }
     public async Task<IReadOnlyList<UserListItemDto>> GetAllAsync(bool includeCandidates, CancellationToken ct = default)
     {
         var users = await db.Users.AsNoTracking()
@@ -76,6 +99,7 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
     {
         Normalize(form);
         var errors = await ValidateCommonAsync(form, ct);
+        errors.AddRange(CheckRoleChangesAllowed(form.SelectedRoles));
         if (string.IsNullOrEmpty(form.TemporaryPassword))
             errors.Add("Enter a temporary password for the new account.");
         if (errors.Count > 0) return Result.Failure<string>([.. errors]);
@@ -102,17 +126,49 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
         return Result.Success(user.Id);
     }
 
+    public async Task<Result<string>> CreateCandidateAsync(string fullName, string email, CancellationToken ct = default)
+    {
+        fullName = (fullName ?? "").Trim();
+        email = (email ?? "").Trim();
+        if (fullName.Length is < 2 or > 150) return Result.Failure<string>("Enter the person's full name (2 to 150 characters).");
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out _) || email.Length > 256) return Result.Failure<string>("Enter a valid email address.");
+
+        var user = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true,   // created by HR for a known person; the welcome email proves the address works
+            FullName = fullName,
+            IsCandidate = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var created = await userManager.CreateAsync(user); // no password: they choose one through the emailed link
+        if (!created.Succeeded) return Result.Failure<string>(Describe(created));
+        var role = await userManager.AddToRoleAsync(user, Roles.Candidate);
+        if (!role.Succeeded) return Result.Failure<string>(Describe(role));
+        await tx.CommitAsync(ct);
+        return Result.Success(user.Id);
+    }
+
     public async Task<Result> UpdateAsync(UserFormDto form, string actingUserId, CancellationToken ct = default)
     {
         var user = await userManager.FindByIdAsync(form.Id ?? "");
         if (user is null || user.IsCandidate) return Result.Failure("User not found.");
 
         Normalize(form);
-        var errors = await ValidateCommonAsync(form, ct);
-
         var currentRoles = await userManager.GetRolesAsync(user);
+        if (!Roles.CanManageAccount(MyRoles, currentRoles))
+            return Result.Failure($"{user.FullName} holds a role you cannot manage ({string.Join(", ", currentRoles.Where(r => Roles.NeedsSuperAdmin([r])))}), so {ManagerOf(currentRoles)} must change this account.");
+
+        // Roles the editor may not touch are shown locked on the form, so the browser does not send them: keep them.
+        // (A privileged role being ADDED still arrives in the form and is refused below.)
+        if (!IsSuperAdmin)
+            form.SelectedRoles = [.. form.SelectedRoles.Union(currentRoles.Where(r => Roles.NeedsSuperAdmin([r])))];
+        var errors = await ValidateCommonAsync(form, ct);
         var removing = currentRoles.Except(form.SelectedRoles).ToList();
         var adding = form.SelectedRoles.Except(currentRoles).ToList();
+        errors.AddRange(CheckRoleChangesAllowed([.. adding, .. removing]));
         errors.AddRange(await CheckSafetyRulesAsync(user, actingUserId, form.IsActive, removing, ct));
         if (errors.Count > 0) return Result.Failure([.. errors]);
 
@@ -159,6 +215,9 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
     {
         var user = await userManager.FindByIdAsync(id);
         if (user is null) return Result.Failure("User not found.");
+        var targetRoles = await userManager.GetRolesAsync(user);
+        if (!Roles.CanManageAccount(MyRoles, targetRoles))
+            return Result.Failure($"{user.FullName} holds a role you cannot manage, so {ManagerOf(targetRoles)} must activate or deactivate this account.");
 
         var errors = await CheckSafetyRulesAsync(user, actingUserId, isActive, [], ct);
         if (errors.Count > 0) return Result.Failure([.. errors]);
@@ -196,7 +255,8 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
 
         if (form.SelectedRoles.Count == 0)
             errors.Add("Tick at least one role.");
-        if (form.SelectedRoles.Any(r => !Roles.Staff.Contains(r)))
+        var assignable = await GetAssignableRolesAsync(ct);
+        if (form.SelectedRoles.Any(r => !assignable.Contains(r)))
             errors.Add("Staff accounts can only be given staff roles. Candidates register themselves on the portal.");
 
         if (form.StaffNumber is not null &&
@@ -225,16 +285,16 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
 
         if (isSelf && deactivating)
             errors.Add("You cannot deactivate your own account.");
-        if (isSelf && removingRoles.Contains(Roles.HrAdministrator))
-            errors.Add("You cannot remove your own HR Administrator role. Ask another HR Administrator.");
+        if (isSelf && removingRoles.Contains(Roles.SuperAdmin))
+            errors.Add("You cannot remove your own Super Admin role. Ask another Super Admin.");
 
-        if ((deactivating || removingRoles.Contains(Roles.HrAdministrator)) &&
-            await userManager.IsInRoleAsync(user, Roles.HrAdministrator))
+        if ((deactivating || removingRoles.Contains(Roles.SuperAdmin)) &&
+            await userManager.IsInRoleAsync(user, Roles.SuperAdmin))
         {
-            var otherActiveAdmins = (await userManager.GetUsersInRoleAsync(Roles.HrAdministrator))
+            var otherActiveAdmins = (await userManager.GetUsersInRoleAsync(Roles.SuperAdmin))
                 .Count(u => u.Id != user.Id && u.IsActive);
             if (otherActiveAdmins == 0)
-                errors.Add("This is the last active HR Administrator. Give another user that role first.");
+                errors.Add("This is the last active Super Admin. Give another user that role first.");
         }
 
         if (deactivating || removingRoles.Contains(Roles.HeadOfDepartment))
@@ -249,6 +309,10 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
 
         return errors;
     }
+
+    /// <summary>Phase 14: a role outside Employee / Interview Panel Member may only be given or removed by a Super Admin.</summary>
+    private IEnumerable<string> CheckRoleChangesAllowed(IEnumerable<string> changedRoles) =>
+        IsSuperAdmin ? [] : changedRoles.Where(r => Roles.NeedsSuperAdmin([r])).Distinct().Select(r => string.Format(SuperAdminNeeded, r));
 
     private static void Apply(UserFormDto form, ApplicationUser user)
     {

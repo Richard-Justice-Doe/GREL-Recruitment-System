@@ -30,7 +30,8 @@ public class AccountController(
     UserManager<ApplicationUser> userManager,
     IAuditLogService audit,
     IEmailService email,
-    ILogger<AccountController> logger) : Controller
+    ILogger<AccountController> logger,
+    Grsms.Application.Settings.ISettingsStore settings) : Controller
 {
     /// <summary>Internal name of the Microsoft 365 sign-in scheme (registered in Program.cs).</summary>
     public const string MicrosoftScheme = "Microsoft";
@@ -125,6 +126,9 @@ public class AccountController(
     [HttpPost]
     public IActionResult ExternalLogin(string provider, string? returnUrl = null)
     {
+        // Phase 16: the method is always registered, but only used once System settings (or AzureAd) are complete.
+        if (provider != MicrosoftScheme || !MicrosoftSignIn.IsConfigured(settings))
+            return LoginError("Sign-in with Microsoft 365 is not available.");
         var redirectUrl = Url.Action(nameof(ExternalLoginCallback), new { returnUrl });
         var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
         return Challenge(properties, provider);
@@ -185,6 +189,11 @@ public class AccountController(
                 return LoginError(string.Join(" ", created.Errors.Select(e => e.Description)));
             await userManager.AddToRoleAsync(user, Roles.Employee);
             logger.LogInformation("Created staff account {Email} from first Microsoft 365 sign-in", mail);
+            // Every new account gets a welcome email (template "New account (Microsoft 365)").
+            await HttpContext.RequestServices.GetRequiredService<Application.Common.WorkflowMailer>().TemplateToUserAsync(
+                user.Id, Domain.Settings.EmailTemplateCatalogue.AccountCreatedMicrosoft,
+                new Dictionary<string, string?> { ["SignInEmail"] = mail, ["Roles"] = Roles.Employee },
+                Url.Action("Index", "Home", null, Request.Scheme)!, includeMe: true);
         }
 
         if (!user.IsActive) return LoginError("This account has been deactivated. Please contact HR.");
@@ -197,15 +206,21 @@ public class AccountController(
 
     // ================================================================= Candidate registration
 
+    /// <summary>True unless the Super Admin closed self-registration on System settings.</summary>
+    private bool RegistrationOpen => settings.GetBool(Domain.Settings.SettingCatalogue.AllowSelfRegistration);
+
     [AllowAnonymous]
     [HttpGet]
-    public IActionResult Register() => View(new RegisterViewModel());
+    public IActionResult Register() =>
+        RegistrationOpen ? View(new RegisterViewModel()) : LoginError("New accounts are created by GREL's recruitment team. Please contact them for access.");
 
     [AllowAnonymous]
     [HttpPost]
     [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)] // Phase 12
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
+        // Checked on the post too, so a saved form or a script can't get round a closed registration.
+        if (!RegistrationOpen) return LoginError("New accounts are created by GREL's recruitment team. Please contact them for access.");
         if (!ModelState.IsValid) return View(model);
 
         var user = new ApplicationUser
@@ -433,7 +448,8 @@ public class AccountController(
 
     /// <summary>Fills ViewBag.ExternalProviders so the login page shows "Sign in with Microsoft 365" only when configured.</summary>
     private async Task LoadExternalProvidersAsync() =>
-        ViewBag.ExternalProviders = (await signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+        ViewBag.ExternalProviders = (await signInManager.GetExternalAuthenticationSchemesAsync())
+            .Where(s => s.Name != MicrosoftScheme || MicrosoftSignIn.IsConfigured(settings)).ToList();
 
     /// <summary>Back to the login page with an error message.</summary>
     private IActionResult LoginError(string message)

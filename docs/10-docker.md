@@ -93,6 +93,43 @@ Table names keep their capitals (`Users`, `Departments`, `RecruitmentRequests`, 
 
 For the real server, use the **production set-up** in `deploy/` instead: Production mode behind an HTTPS proxy with forwarded headers, no open database ports and nightly backups. See [21 Production deployment](21-production-deployment.md).
 
+## Sending real email (5 November 2026)
+
+By default the Docker app saves emails as files (`App_Data/mail` in the `app-data` volume). To send real email, add the mailbox to `.env` (git-ignored, never commit it):
+
+```
+EMAIL_FROM=jobmaster@grelghana.com
+EMAIL_FROM_NAME=Grel Job Master
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=587
+SMTP_SSL=true
+SMTP_USER=jobmaster@grelghana.com
+SMTP_PASSWORD=...
+```
+
+Then `docker compose up -d web`, and check with **System settings → Send test**. Port 587 with encryption (STARTTLS) is required: GRSMS cannot use port 465.
+
+**Links in emails** use `APP_BASE_URL` (default `http://localhost:8080`), which only works on this computer. People on other computers need an address they can reach; see [21 Production deployment](21-production-deployment.md).
+
+## Sharing a trial link (5 November 2026)
+
+To let a few people try GRSMS from their own computers or phones, `docker-compose.share.yml` adds a **Cloudflare quick tunnel**. It gives a public `https://<random-words>.trycloudflare.com` address that forwards to this PC. No router or firewall change is needed, and no Cloudflare account.
+
+1. **Close self-registration first** (Super Admin): **System settings → Recruitment workflow**, untick *Job seekers can create their own candidate account*, then **Save**. Then only people you create on **Users & roles** have accounts (**Add staff account** / **Add candidate account**), and each gets a welcome email with a link to choose their password.
+2. **Start sharing:**
+   ```
+   docker compose -f docker-compose.yml -f docker-compose.share.yml up -d --build
+   docker compose -f docker-compose.yml -f docker-compose.share.yml logs tunnel | grep trycloudflare
+   ```
+3. **Put the link in `.env`** as `APP_BASE_URL=https://...trycloudflare.com` and run the first command again, so links in emails use it.
+4. **Share the link** with your testers.
+
+While sharing, GRSMS runs in **Production mode**: visitors see no technical error pages, cookies are secure, and the visitor's real address is taken from the tunnel's headers, trusted only from this Docker network (`SHARE_PROXY_SUBNET`, default `172.18.0.0/16`). So the audit trail and the sign-in rate limit stay correct.
+
+**Limits:** the link works only while this PC and Docker are running. It **changes** whenever the tunnel restarts (after a PC restart, for example): repeat steps 2 and 3 and send the new link. Anyone who has the link can reach the sign-in page, so keep it to your testers. This is for trials only; for real use, see [21 Production deployment](21-production-deployment.md).
+
+**Stop sharing:** `docker compose rm -sf tunnel` then `docker compose up -d` (back to the normal Development set-up on http://localhost:8080). Reopen self-registration if you closed it.
+
 ## Backups
 
 ```powershell

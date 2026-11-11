@@ -42,6 +42,9 @@ public class UserDirectory(ApplicationDbContext db) : IUserDirectory
     public Task<int?> GetDepartmentIdAsync(string userId, CancellationToken ct = default) =>
         db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.DepartmentId).FirstOrDefaultAsync(ct);
 
+    public Task<int?> GetSiteIdAsync(string userId, CancellationToken ct = default) =>
+        db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.SiteId).FirstOrDefaultAsync(ct);
+
     public Task<bool> IsActiveStaffAsync(string userId, CancellationToken ct = default) =>
         db.Users.AnyAsync(u => u.Id == userId && u.IsActive && !u.IsCandidate, ct);
 

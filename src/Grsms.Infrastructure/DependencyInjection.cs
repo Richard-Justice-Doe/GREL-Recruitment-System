@@ -34,13 +34,10 @@ public static class DependencyInjection
         // The audit interceptor is scoped because it needs the current user of THIS web request.
         services.AddScoped<AuditSaveChangesInterceptor>();
 
-        // MySQL normally. "Database:Provider" = "Sqlite" is the demo mode (a single local file, no server),
-        // for trying the system out and for training only. See docs/01-getting-started.md.
-        var useSqlite = IsSqlite(config);
+        // MySQL. (The automated tests swap in SQLite themselves; see tests/Grsms.Tests/Infrastructure/TestDatabase.cs.)
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
         {
-            if (useSqlite) options.UseSqlite(connectionString);
-            else options.UseMySQL(connectionString);
+            options.UseMySQL(connectionString);
             options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
         });
 
@@ -52,6 +49,12 @@ public static class DependencyInjection
 
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<IEmployeeAccounts, EmployeeAccounts>(); // Phase 18: onboarding activation
+        services.AddScoped<Application.Onboarding.IPersonalRecordRepository, PersonalRecordRepository>(); // Phase 19
+        services.AddScoped<Application.Probation.IProbationRepository, ProbationRepository>(); // Phase 21
+        // Phase 14: roles and permissions. The store is one shared in-memory copy of who holds which permission.
+        services.AddSingleton<IPermissionStore, PermissionStore>();
+        services.AddScoped<IRoleAdminService, RoleAdminService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
 
         services.Configure<EmailOptions>(config.GetSection("Email"));
@@ -65,9 +68,11 @@ public static class DependencyInjection
         // Phase 2: recruitment requests, reference numbers, file storage
         services.AddScoped<IRecruitmentRequestRepository, RecruitmentRequestRepository>();
         services.AddScoped<INumberGenerator, NumberGenerator>();
+        services.AddSingleton<Application.Common.IRichTextSanitizer, Security.RichTextSanitizer>(); // QF-81-11 "Description of the post"
         services.Configure<StorageOptions>(config.GetSection("Storage"));
         services.Configure<UploadOptions>(config.GetSection("Uploads"));
         services.AddSingleton<IFileStorage, LocalFileStorage>();
+        services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>(); // Phase 27: placeholder, every file passes
 
         // Phase 3: vacancies. The same repository also answers "is there a vacancy for this request?".
         services.AddScoped<IVacancyRepository, VacancyRepository>();
@@ -76,10 +81,17 @@ public static class DependencyInjection
         services.AddScoped<Application.Interviews.IInterviewRepository, InterviewRepository>();
         services.AddScoped<IVacancyLookup>(sp => sp.GetRequiredService<IVacancyRepository>());
 
+        // Phase 15: ATS. CV text is read on this server; the Claude reader is optional and off without Ats:Ai:ApiKey.
+        services.AddSingleton<Application.Applications.ICvTextExtractor, Ats.CvTextExtractor>();
+        services.Configure<Ats.AtsAiOptions>(config.GetSection("Ats:Ai"));
+        services.AddSingleton<Application.Applications.IAiCvReader, Ats.ClaudeCvReader>();
+
+        // Phase 16: system settings (database first, then configuration), backups folder. Both read the configuration
+        // given here (the web app has already registered it; the tests have not).
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton(services, config);
+        services.AddSingleton<Application.Settings.ISettingsStore, Settings.SettingsStore>();
+        services.AddSingleton<Application.Settings.IBackupStore, Settings.BackupStore>();
+
         return services;
     }
-
-    /// <summary>True when the demo database (SQLite) is selected instead of MySQL.</summary>
-    public static bool IsSqlite(IConfiguration config) =>
-        string.Equals(config["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
 }

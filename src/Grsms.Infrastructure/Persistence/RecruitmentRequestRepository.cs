@@ -19,8 +19,7 @@ public class RecruitmentRequestRepository(ApplicationDbContext context)
 
     public async Task<PagedResult<RecruitmentRequestListItemDto>> SearchAsync(
         RecruitmentRequestFilter filter, RequestVisibility visibility,
-        IReadOnlyCollection<RecruitmentRequestStatus>? awaitingStatuses, string? excludeRequestedBy,
-        CancellationToken ct = default)
+        AwaitingDecision? awaiting, CancellationToken ct = default)
     {
         var q = Db.RecruitmentRequests.AsNoTracking();
 
@@ -32,11 +31,14 @@ public class RecruitmentRequestRepository(ApplicationDbContext context)
         }
 
         // 2. "Awaiting my action".
-        if (awaitingStatuses is not null)
+        //    Stages a role decides, plus the Department Head review of the departments the user heads.
+        if (awaiting is not null)
         {
-            var statuses = awaitingStatuses.ToList();
-            q = q.Where(r => statuses.Contains(r.Status));
-            if (excludeRequestedBy is not null) q = q.Where(r => r.RequestedByUserId != excludeRequestedBy);
+            var statuses = awaiting.RoleStages.ToList();
+            var headIds = awaiting.HeadReviewDepartmentIds.ToList();
+            var headStage = RecruitmentRequestStatus.DepartmentHeadReview;
+            q = q.Where(r => statuses.Contains(r.Status) || (r.Status == headStage && headIds.Contains(r.DepartmentId)));
+            q = q.Where(r => r.RequestedByUserId != awaiting.ExcludeRequestedBy);
         }
 
         // 3. Filters typed on the page.
@@ -74,7 +76,7 @@ public class RecruitmentRequestRepository(ApplicationDbContext context)
             select new { Request = r, DivisionName = v.Name, DepartmentName = d.Name, RequestedByName = u.FullName };
 
         // Waiting lists show the longest-waiting first; the full list shows the newest first.
-        rows = awaitingStatuses is not null
+        rows = awaiting is not null
             ? rows.OrderBy(x => x.Request.StatusChangedAt).ThenBy(x => x.Request.Id)
             : rows.OrderByDescending(x => x.Request.Id);
 

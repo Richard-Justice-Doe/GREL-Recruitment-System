@@ -25,9 +25,27 @@ public static class ApplicationWorkflow
     /// <summary>Roles that review applications.</summary>
     public static readonly IReadOnlyList<string> ReviewerRoles = [Roles.RecruitmentOfficer, Roles.HrManager];
 
-    /// <summary>Statuses in which the application is still going (can be withdrawn or closed).</summary>
+    /// <summary>
+    /// Statuses in which the application is still going (can be withdrawn or closed). An ATS rejection counts as still
+    /// going until HR confirms it (Phase 15).
+    /// </summary>
     public static readonly IReadOnlyList<ApplicationStatus> Active =
-        [ApplicationStatus.Submitted, ApplicationStatus.UnderReview, ApplicationStatus.Shortlisted, ApplicationStatus.Interview, ApplicationStatus.Offer];
+        [ApplicationStatus.Submitted, ApplicationStatus.UnderReview, ApplicationStatus.Shortlisted, ApplicationStatus.Interview, ApplicationStatus.Offer,
+         ApplicationStatus.AutoRejected];
+
+    // ---- Phase 15: the ATS. An application it rejects is held (status AutoRejected) until a reviewer confirms the
+    // rejection (→ Not successful, applicant emailed) or overrides it with a reason (→ Under review). The applicant sees
+    // "Under review" meanwhile. The ATS never stops anyone opening and reading an application.
+
+    public static bool CanDecideAtsRejection(ApplicationStatus s) => s == ApplicationStatus.AutoRejected;
+
+    /// <summary>The status the APPLICANT is shown: an ATS rejection waiting for HR looks like "Under review".</summary>
+    public static ApplicationStatus ShownToApplicant(ApplicationStatus s) =>
+        s == ApplicationStatus.AutoRejected ? ApplicationStatus.UnderReview : s;
+
+    /// <summary>History lines the applicant never sees (internal ATS steps).</summary>
+    public static bool HiddenFromApplicant(ApplicationAction a) =>
+        a is ApplicationAction.AtsRejected or ApplicationAction.AtsOverridden or ApplicationAction.AtsCleared;
 
     /// <summary>The stages shown on the applicant's progress tracker, in order.</summary>
     public static readonly IReadOnlyList<ApplicationStatus> TrackerStages =

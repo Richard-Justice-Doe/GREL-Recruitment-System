@@ -4,14 +4,26 @@
 @{
     var showCandidates = ViewBag.ShowCandidates == true;
     ViewData["Title"] = "Users & roles";
+    // Phase 14: accounts with a privileged role can only be changed by a Super Admin (the service checks again).
+    var isSuperAdmin = User.IsInRole(Roles.SuperAdmin);
+    var myRoles = new[] { Roles.SuperAdmin, Roles.Admin, Roles.HrAdministrator }.Where(User.IsInRole).ToList();
+    var isAdmin = User.IsInRole(Roles.Admin);
 }
 
 <div class="page-header">
     <div>
         <h1>Users &amp; roles</h1>
-        <p>Create staff accounts, assign roles, and deactivate or unlock accounts.</p>
+        <p>Create staff accounts, assign roles, and deactivate or unlock accounts.
+            @if (!isSuperAdmin)
+            {
+                <br /><span class="small">You can give the Employee and Interview Panel Member roles; other roles (HR Manager, Recruitment Officer, HOD, ...) are given by a Super Admin. @(isAdmin ? "As an Admin you can edit, reset and deactivate every account except Admins and Super Admins." : "Accounts with other roles are managed by an Admin or Super Admin.")</span>
+            }
+        </p>
     </div>
-    <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-user-plus me-1"></i>Add staff account</a>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="CreateCandidate" class="btn btn-outline-primary"><i class="fa-solid fa-user-plus me-1"></i>Add candidate account</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-user-plus me-1"></i>Add staff account</a>
+    </div>
 </div>
 
 <ul class="nav nav-pills mb-3">
@@ -56,7 +68,7 @@
                             </td>
                         }
                         <td>
-                            <partial name="_StatusBadge" model="u.IsActive" />
+                            <partial name="_ActiveBadge" model="u.IsActive" />
                             @if (u.IsLockedOut)
                             {
                                 <span class="badge rounded-pill badge-soft-danger">Locked</span>
@@ -64,9 +76,14 @@
                         </td>
                         <td data-order="@(u.LastSignInAt?.ToString("o"))" class="small text-nowrap">@(u.LastSignInAt?.ToString("dd MMM yyyy HH:mm") ?? "Never")</td>
                         <td class="text-end text-nowrap">
-                            @if (!u.IsCandidate)
+                            @{ var canChange = Roles.CanManageAccount(myRoles, u.Roles); }
+                            @if (!u.IsCandidate && canChange)
                             {
                                 <a asp-action="Edit" asp-route-id="@u.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
+                            }
+                            else if (!u.IsCandidate)
+                            {
+                                <span class="badge rounded-pill badge-soft-secondary me-1" title="You cannot change this account"><i class="fa-solid fa-lock me-1"></i>@(u.Roles.Any(r => r is Roles.SuperAdmin or Roles.Admin) ? "Super Admin" : "Admin")</span>
                             }
                             @if (u.IsLockedOut)
                             {
@@ -75,18 +92,21 @@
                                     <button type="submit" class="btn btn-sm btn-outline-warning" title="Unlock"><i class="fa-solid fa-unlock"></i></button>
                                 </form>
                             }
-                            <form asp-action="SetActive" asp-route-id="@u.Id" method="post" class="d-inline">
-                                <input type="hidden" name="active" value="@(!u.IsActive)" />
-                                <input type="hidden" name="candidates" value="@showCandidates" />
-                                @if (u.IsActive)
-                                {
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate" data-confirm="Deactivate @u.FullName? They will not be able to sign in."><i class="fa-solid fa-user-slash"></i></button>
-                                }
-                                else
-                                {
-                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Activate"><i class="fa-solid fa-user-check"></i></button>
-                                }
-                            </form>
+                            @if (canChange)
+                            {
+                                <form asp-action="SetActive" asp-route-id="@u.Id" method="post" class="d-inline">
+                                    <input type="hidden" name="active" value="@(!u.IsActive)" />
+                                    <input type="hidden" name="candidates" value="@showCandidates" />
+                                    @if (u.IsActive)
+                                    {
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate" data-confirm="Deactivate @u.FullName? They will not be able to sign in."><i class="fa-solid fa-user-slash"></i></button>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit" class="btn btn-sm btn-outline-success" title="Activate"><i class="fa-solid fa-user-check"></i></button>
+                                    }
+                                </form>
+                            }
                         </td>
                     </tr>
                 }

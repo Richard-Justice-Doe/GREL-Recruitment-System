@@ -18,6 +18,21 @@ public abstract class AppController : Controller
     /// <summary>Shows a red "error" banner on the next page.</summary>
     protected void Error(string message) => TempData["Error"] = message;
 
+    /// <summary>Shows a failed Result's messages in the red banner on the next page.</summary>
+    protected void Fail(Result result) => Error(string.Join(" ", result.Errors));
+
+    /// <summary>
+    /// The common "post an action, show the outcome, go back" step (codebase audit DU5): runs the service action, shows the
+    /// success message or the errors as a banner, then returns <paramref name="redirect"/> (usually the record's page).
+    /// </summary>
+    protected async Task<IActionResult> RunAsync(Func<Task<Result>> action, string successMessage, Func<IActionResult> redirect)
+    {
+        var result = await action();
+        if (result.Succeeded) Success(successMessage);
+        else Fail(result);
+        return redirect();
+    }
+
     /// <summary>Puts a failed Result's messages at the top of the current form.</summary>
     protected void AddErrors(Result result)
     {

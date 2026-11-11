@@ -3,14 +3,27 @@ using Grsms.Application.Common;
 using Grsms.Application.Common.Interfaces;
 using Grsms.Application.Documents;
 using Grsms.Domain.Recruitment;
+using Grsms.Domain.Vacancies;
 
 namespace Grsms.Application.Recruitment;
 
-/// <summary>The create/edit form a Head of Department fills in.</summary>
+/// <summary>
+/// The digital QF-81-11 Recruitment Request Form, filled in by a department staff member or the Head of Department.
+/// Sections: Employment details, Request information, Description of the post, Qualification requirements,
+/// Additional information, and Budget (checked by the HR Manager). Supporting documents are uploaded on the next page.
+/// </summary>
 public class RecruitmentRequestFormDto
 {
+    /// <summary>Most characters (of text, not formatting) allowed in the Description of the post.</summary>
+    public const int MaxPostDescriptionChars = 10000;
+
+    /// <summary>Fewest characters needed in the Description of the post.</summary>
+    public const int MinPostDescriptionChars = 50;
+
     /// <summary>0 when creating; the record id when editing.</summary>
     public int Id { get; set; }
+
+    // ---------------------------------------------------------------- Where
 
     [Required(ErrorMessage = "Choose the department.")]
     [Display(Name = "Department")]
@@ -23,38 +36,102 @@ public class RecruitmentRequestFormDto
     [Display(Name = "Site / work location")]
     public int? SiteId { get; set; }
 
-    [Required, StringLength(150)]
-    [Display(Name = "Position (job title)")]
-    public string PositionTitle { get; set; } = string.Empty;
+    // ---------------------------------------------------------------- Employment details
 
-    [Range(1, 100, ErrorMessage = "Enter between 1 and 100 positions.")]
-    [Display(Name = "Number of positions")]
-    public int NumberOfPositions { get; set; } = 1;
-
-    [Required]
-    [Display(Name = "Employment type")]
+    [Required(ErrorMessage = "Choose the engagement type.")]
+    [Display(Name = "Engagement type")]
     public EmploymentType? EmploymentType { get; set; }
 
-    [Required]
-    [Display(Name = "Reason for the vacancy")]
+    [Required(ErrorMessage = "Choose the category.")]
+    [Display(Name = "Category")]
+    public StaffCategory? StaffCategory { get; set; }
+
+    [Required(ErrorMessage = "Choose the purpose of the request.")]
+    [Display(Name = "Purpose")]
     public VacancyReason? VacancyReason { get; set; }
+
+    [StringLength(200)]
+    [Display(Name = "Other purpose (please specify)")]
+    public string? PurposeOther { get; set; }
 
     [StringLength(150)]
     [Display(Name = "Employee being replaced")]
     public string? ReplacedEmployee { get; set; }
 
+    // ---------------------------------------------------------------- Request information
+
+    [Required(ErrorMessage = "Enter the request date.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Request date")]
+    public DateOnly? RequestDate { get; set; }
+
+    [Required(ErrorMessage = "Enter the specific job title."), StringLength(150)]
+    [Display(Name = "Specific job title")]
+    public string PositionTitle { get; set; } = string.Empty;
+
+    [Range(1, 100, ErrorMessage = "Enter between 1 and 100 staff.")]
+    [Display(Name = "Number of staff required")]
+    public int NumberOfPositions { get; set; } = 1;
+
+    [Required(ErrorMessage = "Enter the proposed starting date.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Proposed starting date")]
+    public DateOnly? ProposedStartDate { get; set; }
+
+    // ---------------------------------------------------------------- Description of the post
+
+    /// <summary>Formatted text from the rich-text editor; cleaned by <see cref="IRichTextSanitizer"/> before saving.</summary>
+    [Required(ErrorMessage = "Describe the post.")]
+    [StringLength(100_000, ErrorMessage = "The description of the post is too long.")]
+    [Display(Name = "Description of the post")]
+    public string? PostDescription { get; set; }
+
     [Required, StringLength(4000, MinimumLength = 20, ErrorMessage = "Explain the need in at least 20 characters.")]
     [Display(Name = "Justification")]
     public string Justification { get; set; } = string.Empty;
 
-    [Required, StringLength(50)]
-    [Display(Name = "Budget code")]
-    public string BudgetCode { get; set; } = string.Empty;
+    // ---------------------------------------------------------------- Qualification requirements
 
-    [Required]
-    [Range(typeof(decimal), "0.01", "100000000", ErrorMessage = "Enter the estimated annual cost in GHS.")]
-    [Display(Name = "Estimated annual cost (GHS)")]
-    public decimal? EstimatedAnnualCost { get; set; }
+    [Required(ErrorMessage = "Choose the educational level.")]
+    [Display(Name = "Educational level")]
+    public EducationLevel? EducationLevel { get; set; }
+
+    [StringLength(200)]
+    [Display(Name = "Category (field of study)")]
+    public string? QualificationCategory { get; set; }
+
+    [StringLength(200)]
+    [Display(Name = "Level of training")]
+    public string? TrainingLevel { get; set; }
+
+    [StringLength(500)]
+    [Display(Name = "Certificate(s) required (one per line)")]
+    public string? CertificateRequired { get; set; }
+
+    [Range(0, 40, ErrorMessage = "Enter between 0 and 40 years.")]
+    [Display(Name = "Years of professional experience")]
+    public int? MinYearsExperience { get; set; }
+
+    [StringLength(2000)]
+    [Display(Name = "Professional experience")]
+    public string? ProfessionalExperience { get; set; }
+
+    /// <summary>Optional: "Not needed" unless the department chooses otherwise.</summary>
+    [Display(Name = "Driving licence")]
+    public DrivingLicenceRequirement DrivingLicence { get; set; } = DrivingLicenceRequirement.NotNeeded;
+
+    [StringLength(50)]
+    [Display(Name = "Licence class (optional)")]
+    public string? DrivingLicenceClass { get; set; }
+
+    // ---------------------------------------------------------------- Additional information
+
+    [StringLength(2000)]
+    [Display(Name = "Observations / remarks")]
+    public string? Remarks { get; set; }
+
+    // No budget fields: QF-81-11 has none. The budget is evidenced by the "Budget approval document" upload, which the
+    // HR Manager confirms at stage 2. (Requests raised before the form was digitised keep their budget code and cost.)
 }
 
 /// <summary>Filters on the Recruitment Requests list. Every filter is optional.</summary>
@@ -120,9 +197,29 @@ public record RecruitmentRequestDetailsDto
     public string PositionTitle { get; init; } = "";
     public int NumberOfPositions { get; init; }
     public EmploymentType EmploymentType { get; init; }
+    public StaffCategory? StaffCategory { get; init; }
     public VacancyReason VacancyReason { get; init; }
+    public string? PurposeOther { get; init; }
     public string? ReplacedEmployee { get; init; }
     public string Justification { get; init; } = "";
+
+    public DateOnly? RequestDate { get; init; }
+    public DateOnly? ProposedStartDate { get; init; }
+
+    /// <summary>Sanitised HTML, safe to output as-is.</summary>
+    public string? PostDescriptionHtml { get; init; }
+
+    // ---- Qualification requirements
+    public EducationLevel? EducationLevel { get; init; }
+    public string? QualificationCategory { get; init; }
+    public string? TrainingLevel { get; init; }
+    public string? CertificateRequired { get; init; }
+    public int? MinYearsExperience { get; init; }
+    public string? ProfessionalExperience { get; init; }
+    public DrivingLicenceRequirement DrivingLicence { get; init; }
+    public string? DrivingLicenceClass { get; init; }
+
+    public string? Remarks { get; init; }
 
     public string BudgetCode { get; init; } = "";
     public decimal EstimatedAnnualCost { get; init; }
@@ -153,9 +250,13 @@ public record RecruitmentRequestDetailsDto
     /// <summary>True if a job description is attached (required before submitting).</summary>
     public bool HasJobDescription { get; init; }
 
+    /// <summary>The person (or role) the request is waiting for, e.g. "Ama Mensah (Head of Department)".</summary>
+    public string? WaitingFor { get; init; }
+
     // ---- Phase 3: the vacancy created from this request (if any)
     public int? VacancyId { get; init; }
     public string? VacancyNumber { get; init; }
+    public string? RequisitionNumber { get; init; }
 
     /// <summary>True for a Recruitment Officer looking at an approved request that has no vacancy yet.</summary>
     public bool CanCreateVacancy { get; init; }
@@ -167,7 +268,7 @@ public record RecruitmentRequestDetailsDto
 /// </summary>
 public interface IVacancyLookup
 {
-    Task<(int Id, string Number)?> FindForRequestAsync(int recruitmentRequestId, CancellationToken ct = default);
+    Task<(int Id, string Number, string? RequisitionNumber)?> FindForRequestAsync(int recruitmentRequestId, CancellationToken ct = default);
 }
 
 /// <summary>The three choices a reviewer has at each approval stage.</summary>
@@ -191,10 +292,7 @@ public class ReviewDecisionDto
     [Required]
     public RecruitmentRequestStatus? ExpectedStatus { get; set; }
 
-    /// <summary>Recruitment Review stage only: who will handle the recruitment.</summary>
-    public string? AssignedRecruiterUserId { get; set; }
-
-    /// <summary>HR Approval stage only: the HR Manager confirms the budget code and cost are correct.</summary>
+    /// <summary>HR Manager review stage only: the HR Manager confirms the budget code and cost are correct.</summary>
     public bool BudgetValidated { get; set; }
 }
 
@@ -216,10 +314,18 @@ public interface IRecruitmentRequestRepository : IRepository<RecruitmentRequest>
     Task<RecruitmentRequest?> GetWithHistoryAsync(int id, CancellationToken ct = default);
 
     /// <summary>
-    /// Searches the requests the user may see. <paramref name="awaitingStatuses"/> (if not null) limits the
-    /// result to requests sitting at one of those stages (used for "Awaiting my action").
-    /// <paramref name="excludeRequestedBy"/> leaves out requests raised by that user (nobody approves their own).
+    /// Searches the requests the user may see. <paramref name="awaiting"/> (if not null) limits the result to the
+    /// requests waiting for the user's decision (used for "Awaiting my action").
     /// </summary>
     Task<PagedResult<RecruitmentRequestListItemDto>> SearchAsync(RecruitmentRequestFilter filter, RequestVisibility visibility,
-        IReadOnlyCollection<RecruitmentRequestStatus>? awaitingStatuses, string? excludeRequestedBy, CancellationToken ct = default);
+        AwaitingDecision? awaiting, CancellationToken ct = default);
 }
+
+/// <summary>What "waiting for my decision" means for one user.</summary>
+/// <param name="RoleStages">Stages decided by a role the user holds (HR Manager review, MD approval, ...).</param>
+/// <param name="HeadReviewDepartmentIds">Departments whose Department Head review the user does (the departments they head).</param>
+/// <param name="ExcludeRequestedBy">The user: requests they raised are left out, because nobody decides on their own request.</param>
+public record AwaitingDecision(
+    IReadOnlyCollection<RecruitmentRequestStatus> RoleStages,
+    IReadOnlyCollection<int> HeadReviewDepartmentIds,
+    string ExcludeRequestedBy);

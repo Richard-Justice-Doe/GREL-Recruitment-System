@@ -39,15 +39,25 @@ public class Attachment : BaseEntity
 /// <summary>What a file is. New modules add their own categories here.</summary>
 public enum AttachmentCategory
 {
+    // Recruitment request supporting documents (form QF-81-11). Induction programme and Other remain for older requests.
     [Display(Name = "Job description")] JobDescription,
-    [Display(Name = "Organisational chart")] OrganisationalChart,
+    [Display(Name = "Organisational structure")] OrganisationalChart,
     [Display(Name = "Induction programme")] InductionProgramme,
     [Display(Name = "Other supporting document")] Other,
+    [Display(Name = "Main accountabilities")] MainAccountabilities,
+    [Display(Name = "Department justification")] DepartmentJustification,
+    [Display(Name = "Budget approval document")] BudgetApproval,
 
     // Phase 5: candidate documents
     [Display(Name = "CV")] Cv,
     [Display(Name = "Certificate")] Certificate,
-    [Display(Name = "Cover letter")] CoverLetter
+    [Display(Name = "Cover letter")] CoverLetter,
+
+    // Phase 18: a new employee's administrative-records document (the document type is on EmployeeDocument)
+    [Display(Name = "New-hire document")] NewHireDocument,
+
+    // Phase 20: a document HR filed directly in a personnel file
+    [Display(Name = "Personnel file document")] PersonnelFileDocument
 }
 
 /// <summary>The values used in <see cref="Attachment.OwnerType"/>.</summary>
@@ -60,4 +70,13 @@ public static class AttachmentOwners
 
     /// <summary>A job application (copies of the documents sent with it, frozen at the time of applying).</summary>
     public const string JobApplication = "JobApplication";
+
+    /// <summary>Phase 18: a file of one new-hire document (EmployeeDocument).</summary>
+    public const string EmployeeDocument = "EmployeeDocument";
+
+    /// <summary>Phase 27: a file of a new-hire document that was replaced or removed before verification (its history).</summary>
+    public const string EmployeeDocumentReplaced = "EmployeeDocumentReplaced";
+
+    /// <summary>Phase 20: a file HR added directly to an employee's personnel file (OwnerId = PersonnelFiles.Id).</summary>
+    public const string PersonnelFile = "PersonnelFile";
 }

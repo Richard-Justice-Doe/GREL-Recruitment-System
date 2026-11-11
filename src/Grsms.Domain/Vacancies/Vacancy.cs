@@ -16,6 +16,12 @@ public class Vacancy : BaseEntity
     /// <summary>Reference, e.g. "VAC-2026-0001". Unique.</summary>
     public string VacancyNumber { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Job Requisition Number, e.g. "JRN-2026-0001": given when HR converts the approved request into this vacancy. It is
+    /// the reference recruitment is run under. Null only on vacancies created before requisition numbers were introduced.
+    /// </summary>
+    public string? RequisitionNumber { get; set; }
+
     /// <summary>The approved request this vacancy fills (RecruitmentRequests.Id). One vacancy per request.</summary>
     public int RecruitmentRequestId { get; set; }
 
@@ -60,6 +66,12 @@ public class Vacancy : BaseEntity
     /// <summary>Skills and certifications, each marked essential or desirable.</summary>
     public ICollection<VacancyRequirement> Requirements { get; set; } = new List<VacancyRequirement>();
 
+    /// <summary>
+    /// Phase 15: mandatory knockout questions, e.g. "Do you have a valid driver's licence?". Applicants must answer each
+    /// "Yes"; a "No" makes the ATS reject the application (held for HR to confirm). Replaced as a set on every edit.
+    /// </summary>
+    public ICollection<VacancyKnockoutQuestion> KnockoutQuestions { get; set; } = new List<VacancyKnockoutQuestion>();
+
     // ---------------------------------------------------------------- Salary and dates
 
     /// <summary>Monthly salary range in GHS. Both optional, but if both are set, min ≤ max.</summary>
@@ -74,7 +86,7 @@ public class Vacancy : BaseEntity
 
     // ---------------------------------------------------------------- Workflow state
 
-    /// <summary>Recruitment Officer responsible for this vacancy (Users.Id). Copied from the request's assigned recruiter.</summary>
+    /// <summary>The Vacancy Owner: the Recruitment Officer responsible for this vacancy (Users.Id), chosen when it is created.</summary>
     public string RecruiterUserId { get; set; } = string.Empty;
 
     public VacancyStatus Status { get; set; } = VacancyStatus.Draft;
@@ -120,6 +132,16 @@ public class VacancyRequirement
 
     /// <summary>True = must have; false = nice to have.</summary>
     public bool IsEssential { get; set; }
+}
+
+/// <summary>Phase 15: one knockout question of a vacancy (the passing answer is always "Yes").</summary>
+public class VacancyKnockoutQuestion
+{
+    public int Id { get; set; }
+    public int VacancyId { get; set; }
+
+    /// <summary>The question as applicants see it, e.g. "Are you willing to relocate to Apemanim?".</summary>
+    public string Text { get; set; } = string.Empty;
 }
 
 /// <summary>One line of a vacancy's history. Never edited.</summary>

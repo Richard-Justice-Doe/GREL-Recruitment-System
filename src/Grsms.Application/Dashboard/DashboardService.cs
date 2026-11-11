@@ -29,12 +29,14 @@ public class DashboardService(
     Interviews.InterviewService interviews,
     Hiring.HiringService hiring,
     Onboarding.OnboardingService onboarding,
+    Applications.AtsService ats,
+    Probation.ProbationService probation,
     AccessScope scope)
 {
     private const int TaskRows = 6, ProgressRows = 5, CandidateRows = 5;
 
     private static readonly RecruitmentRequestStatus[] InApproval =
-        [RecruitmentRequestStatus.RecruitmentReview, RecruitmentRequestStatus.HrApproval, RecruitmentRequestStatus.MdApproval];
+        [.. RecruitmentWorkflow.DecisionStages];
 
     public async Task<DashboardDto> GetAsync(DashboardAccess access, DateOnly? month, DashboardFilter? filter = null, CancellationToken ct = default)
     {
@@ -131,7 +133,7 @@ public class DashboardService(
                 var needVacancy = await vacancyService.GetApprovedRequestsWithoutVacancyAsync(ct);
                 taskTotal += needVacancy.Count;
                 tasks.AddRange(needVacancy.Select(r => new DashboardTaskDto(DashboardTaskTarget.NewVacancyForRequest, r.Id,
-                    r.PositionTitle, r.RequestNumber, "Create the vacancy", r.AssignedRecruiterName ?? "Unassigned",
+                    r.PositionTitle, r.RequestNumber, "Convert into a vacancy", r.AssignedRecruiterName ?? "Any Recruitment Officer",
                     RecruitmentRequestStatus.Approved, r.ApprovedAt ?? now)));
 
                 var drafts = await vacancies.ListAsync(x => x.RecruiterUserId == uid && x.Status == VacancyStatus.Draft, ct);
@@ -175,14 +177,34 @@ public class DashboardService(
         tasks.AddRange(toScore.Items.Select(i => new DashboardTaskDto(DashboardTaskTarget.Interview, i.Id, $"{EnumText.Label(i.Type)}: {i.ApplicantName}",
             i.VacancyNumber, "Submit your scorecard", "Recruitment", i.Status, i.StartsAt)));
 
+        // Score validation (9 Nov 2026): every scorecard is in and the vacancy's Recruitment Officer checks them.
+        var toValidate = await interviews.ListAwaitingMyValidationAsync(ct);
+        taskTotal += toValidate.Count;
+        tasks.AddRange(toValidate.Take(TaskRows).Select(i => new DashboardTaskDto(DashboardTaskTarget.InterviewValidation, i.Id,
+            $"Validate the scores: {i.ApplicantName}", i.VacancyNumber, $"{EnumText.Label(i.Type)}, round {i.Round}: all {i.ScorecardsIn} scorecards are in",
+            "Recruitment", i.Status, i.StartsAt)));
+
         // ------------------------------------------------------------ Hiring (Phase 8): recommendations waiting for my decision
         if (access.Vacancies)
         {
             var decisions = await hiring.AwaitingMyDecisionAsync(ct);
             taskTotal += decisions.Count;
             tasks.AddRange(decisions.Take(TaskRows).Select(h => new DashboardTaskDto(DashboardTaskTarget.Hiring, h.ApplicationId,
-                $"Hire {h.ApplicantName}", h.Number, h.Status == Domain.Hiring.HiringStatus.AwaitingHod ? "Endorse or not" : "Approve or reject",
+                $"Hire {h.ApplicantName}", h.Number, h.Status switch
+                {
+                    Domain.Hiring.HiringStatus.Draft => "Review the draft recommendation and submit it to the HOD",
+                    Domain.Hiring.HiringStatus.AwaitingHod => "Endorse or not",
+                    _ => "Approve or reject"
+                },
                 "Recruitment", h.Status, h.CreatedAt)));
+
+            // 9 Nov 2026: interview scores validated, so the next step is the hiring recommendation (vacancy's recruiter).
+            var toRecommend = await hiring.ListReadyToRecommendAsync(onlyMine: true, ct);
+            taskTotal += toRecommend.Count;
+            tasks.AddRange(toRecommend.Take(TaskRows).Select(r => new DashboardTaskDto(DashboardTaskTarget.HiringRecommendation, r.ApplicationId,
+                $"Proceed with {r.ApplicantName}?", r.VacancyNumber,
+                $"Interview scores validated{(r.InterviewAverage is decimal a ? $" ({a:0.0}/100)" : "")}: decide whether to start the hiring process",
+                "Recruitment", Domain.Applications.ApplicationStatus.Interview, r.LastValidatedAt)));
         }
 
         // ------------------------------------------------------------ Onboarding (Phase 9): accepted offers to start (HR), my checklist items (anyone)
@@ -197,6 +219,35 @@ public class DashboardService(
         tasks.AddRange(myOnboarding.Take(TaskRows).Select(t => new DashboardTaskDto(DashboardTaskTarget.Onboarding, t.OnboardingId,
             $"{t.Title}: {t.EmployeeName}", t.Number, t.DueDate is null ? "Onboarding task" : $"Due {t.DueDate:dd MMM}", "Recruitment",
             Domain.Onboarding.OnboardingTaskStatus.Open, t.Since)));
+
+        // ------------------------------------------------------------ Usability U1: the rest of the work waiting for someone
+        var atsWaiting = await ats.AwaitingHrByVacancyAsync(ct);
+        taskTotal += atsWaiting.Count;
+        tasks.AddRange(atsWaiting.Take(TaskRows).Select(x => new DashboardTaskDto(DashboardTaskTarget.AtsConfirm, x.VacancyId, x.JobTitle,
+            x.VacancyNumber, $"{x.Count} automatic rejection(s) to confirm", "Recruitment", Domain.Applications.ApplicationStatus.AutoRejected, x.Since)));
+
+        var onboardingWork = await onboarding.MyWorkAsync(ct);
+        taskTotal += onboardingWork.Count;
+        tasks.AddRange(onboardingWork.Take(TaskRows).Select(w => new DashboardTaskDto(w.Kind switch
+            {
+                Onboarding.OnboardingWorkKind.IssueLetter => DashboardTaskTarget.OnboardingLetter,
+                Onboarding.OnboardingWorkKind.VerifyDocuments => DashboardTaskTarget.OnboardingDocuments,
+                Onboarding.OnboardingWorkKind.Activate => DashboardTaskTarget.OnboardingActivate,
+                _ => DashboardTaskTarget.OnboardingInduction
+            }, w.OnboardingId, w.EmployeeName, w.Number, w.Kind switch
+            {
+                Onboarding.OnboardingWorkKind.IssueLetter => "Issue the appointment letter",
+                Onboarding.OnboardingWorkKind.VerifyDocuments => $"{w.Count} document(s) to verify",
+                Onboarding.OnboardingWorkKind.Activate => "Ready for activation",
+                _ => "Induction done: close the onboarding"
+            }, "Recruitment", Domain.Onboarding.OnboardingTaskStatus.Open, w.Since)));
+
+        var probationWork = await probation.MyWorkAsync(ct);
+        taskTotal += probationWork.Count;
+        tasks.AddRange(probationWork.Take(TaskRows).Select(w => new DashboardTaskDto(
+            w.IsDecision ? DashboardTaskTarget.ProbationDecision : DashboardTaskTarget.ProbationStep, w.ProbationId, w.EmployeeName, w.Number,
+            w.Due is { } due ? $"{w.Step}, due {due:dd MMM}" : w.Step, "Recruitment",
+            w.IsDecision ? Domain.Probation.ProbationStatus.AwaitingHrDecision : Domain.Probation.ProbationStatus.InProgress, w.Since)));
 
         // ------------------------------------------------------------ Applications (Phase 5)
         if (access.Vacancies)
@@ -244,10 +295,10 @@ public class DashboardService(
         return new KpiCardDto(kind, title, icon, total, last7, previous);
     }
 
-    /// <summary>How far a request has come: submitted (review) 25%, HR 50%, MD 75%, approved 100%.</summary>
+    /// <summary>How far a request has come: submitted (Department Head review) 25%, HR 50%, MD 75%, approved 100%.</summary>
     public static int ProgressPercent(RecruitmentRequestStatus status) => status switch
     {
-        RecruitmentRequestStatus.RecruitmentReview => 25,
+        RecruitmentRequestStatus.DepartmentHeadReview or RecruitmentRequestStatus.RecruitmentReview => 25,
         RecruitmentRequestStatus.HrApproval => 50,
         RecruitmentRequestStatus.MdApproval => 75,
         RecruitmentRequestStatus.Approved => 100,

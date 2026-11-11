@@ -1,0 +1,15 @@
+@* Usability U3 (10 November 2026): the "Your next step" line at the top of a record page. Either something YOU can do now
+   (Mine = true, with a button that jumps to the form further down the page), or who the record is waiting for.
+   Usage: <partial name="_NextStepBanner" model="(true, "Approve or return the request", "Your decision is below.", "your-decision")" /> *@
+@model (bool Mine, string Title, string? Detail, string? Anchor)
+<div class="alert @(Model.Mine ? "alert-primary" : "alert-secondary") d-flex flex-wrap align-items-center gap-2 mb-3" role="status">
+    <i class="fa-solid @(Model.Mine ? "fa-hand-point-right" : "fa-hourglass-half")" aria-hidden="true"></i>
+    <div class="flex-grow-1">
+        <strong>@(Model.Mine ? "Your next step: " : "")@Model.Title</strong>
+        @if (Model.Detail is not null) { <span class="d-block d-sm-inline small">@Model.Detail</span> }
+    </div>
+    @if (Model.Mine && Model.Anchor is not null)
+    {
+        <a href="#@Model.Anchor" class="btn btn-sm btn-primary next-step-button">Go <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a>
+    }
+</div>

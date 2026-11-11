@@ -26,7 +26,43 @@ public enum ApplicationStatus
     [Display(Name = "Withdrawn")] Withdrawn,
 
     /// <summary>The applicant declined the offer (Phase 8).</summary>
-    [Display(Name = "Offer declined")] OfferDeclined
+    [Display(Name = "Offer declined")] OfferDeclined,
+
+    /// <summary>
+    /// Phase 15: the ATS found a mandatory requirement not met (a knockout question, minimum education, ...). The
+    /// application is HELD for HR: the applicant still sees "Under review" and is told nothing until HR confirms the
+    /// rejection (→ Not successful) or overrides it (→ Under review).
+    /// </summary>
+    [Display(Name = "Automatically rejected")] AutoRejected
+}
+
+/// <summary>Phase 15: the ATS's band for an overall match percentage (limits set by the Super Admin).</summary>
+public enum AtsClassification
+{
+    [Display(Name = "Highly recommended")] HighlyRecommended,
+    [Display(Name = "Recommended")] Recommended,
+    [Display(Name = "Review required")] ReviewRequired,
+    [Display(Name = "Low match")] LowMatch,
+    [Display(Name = "Auto reject")] AutoReject
+}
+
+/// <summary>Phase 15: what happened to the ATS's rejection of an application.</summary>
+public enum AtsDecision
+{
+    /// <summary>The ATS did not reject it.</summary>
+    [Display(Name = "Not rejected")] None,
+
+    /// <summary>Rejected by the ATS; waiting for HR to confirm or override.</summary>
+    [Display(Name = "Awaiting HR")] AutoRejected,
+
+    /// <summary>HR agreed: the application was marked not successful and the applicant told.</summary>
+    [Display(Name = "Rejection confirmed by HR")] Confirmed,
+
+    /// <summary>HR disagreed and moved it to review, with a recorded reason.</summary>
+    [Display(Name = "Overridden by HR")] Overridden,
+
+    /// <summary>A later re-screening (e.g. after a requirement changed) found nothing mandatory missing.</summary>
+    [Display(Name = "Cleared on re-screening")] Cleared
 }
 
 /// <summary>Where the applicant saw the job (for advert effectiveness reports).</summary>
@@ -77,7 +113,12 @@ public enum ApplicationAction
     [Display(Name = "Appointment letter issued")] LetterIssued,
     [Display(Name = "Appointment letter signed")] LetterSigned,
     [Display(Name = "Onboarding completed")] OnboardingCompleted,
-    [Display(Name = "Onboarding cancelled")] OnboardingCancelled
+    [Display(Name = "Onboarding cancelled")] OnboardingCancelled,
+
+    // Phase 15: ATS screening (never shown to the applicant)
+    [Display(Name = "Automatically rejected by the ATS")] AtsRejected,
+    [Display(Name = "ATS rejection overridden")] AtsOverridden,
+    [Display(Name = "ATS rejection cleared on re-screening")] AtsCleared
 }
 
 /// <summary>A recommendation on whether to shortlist an application (Phase 6).</summary>

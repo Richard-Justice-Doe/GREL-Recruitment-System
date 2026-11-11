@@ -85,8 +85,7 @@
                     <th>Position</th>
                     <th>Division</th>
                     <th>Department</th>
-                    <th>Requested by (HOD)</th>
-                    <th class="text-end">Est. annual cost (GHS)</th>
+                    <th>Requested by</th>
                     <th>Status</th>
                     <th>@(tab == "awaiting" ? "Waiting since" : "Submitted")</th>
                 </tr>
@@ -95,7 +94,7 @@
                 @if (Model.Items.Count == 0)
                 {
                     <tr>
-                        <td colspan="8" class="text-center text-body-secondary py-4">
+                        <td colspan="7" class="text-center text-body-secondary py-4">
                             @(tab == "awaiting" ? "Nothing is waiting for you. 🎉" : "No requests match these filters.")
                         </td>
                     </tr>
@@ -108,8 +107,7 @@
                         <td>@r.DivisionName</td>
                         <td>@r.DepartmentName</td>
                         <td>@r.RequestedByName</td>
-                        <td class="text-end">@r.EstimatedAnnualCost.ToString("N2")</td>
-                        <td><partial name="_StatusBadge" model="r.Status" /></td>
+                        <td><partial name="_RequestStatusBadge" model="r.Status" /></td>
                         <td class="small text-nowrap">
                             @if (tab == "awaiting")
                             {

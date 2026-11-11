@@ -2,6 +2,8 @@
 
 Once a vacancy is **published** (the HR Manager has approved it), the Recruitment Officer advertises it. GRSMS publishes adverts on its own **internal portal** and **careers page**, and prepares ready-to-paste text for **LinkedIn, Indeed, Jobberman and newspapers**.
 
+**Menu → Vacancies & adverts → Job adverts tab.** Vacancies and job adverts share one menu item; the tabs at the top of the page switch between them.
+
 **Who can do what**
 
 | | Recruitment Officer | HR Manager | Head of Department | MD, HR Administrator |

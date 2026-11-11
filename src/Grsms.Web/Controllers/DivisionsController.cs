@@ -61,7 +61,7 @@ public class DivisionsController(IDivisionService divisions) : AppController
     {
         var result = await divisions.SetActiveAsync(id, active, ct);
         if (result.Succeeded) Success(active ? "Division activated." : "Division deactivated.");
-        else Error(string.Join(" ", result.Errors));
+        else Fail(result);
         return RedirectToAction(nameof(Index));
     }
 }

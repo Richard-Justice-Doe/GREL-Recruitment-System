@@ -109,8 +109,8 @@ What changed and why: [change log](docs/changelog.md).
 
 | Area | What works today |
 |---|---|
-| **Recruitment requests** | Heads of Department raise requests (numbered `RR-APM-2026-0001`) with position, unit, site, employment type, reason, budget code and cost, and attach the job description and other documents |
-| **Approval workflow** | Draft → Recruitment Review → HR Approval (budget validated) → MD Approval → Approved. Each reviewer can approve, return for changes or reject. Nobody can approve their own request. |
+| **Recruitment requests** | The digital **QF-81-11 Recruitment Request Form** (Phase 17): department staff or the HOD fill it in (numbered `RR-APM-2026-0001`) with engagement type, category, purpose, dates, a formatted description of the post, qualification requirements, and remarks, and attach the supporting documents (PDF, DOCX, XLSX) |
+| **Approval workflow** | Draft → Department Head review → HR Manager review (budget confirmed) → MD approval → Approved, then HR converts it into a job vacancy with a Job Requisition Number. Each reviewer can approve, return for correction or reject. Nobody can approve their own request. |
 | **Work queue** | An "Awaiting my action" list and home-page tile for each approver, with email notifications at every step |
 | **Progress and history** | A progress stepper and a full history timeline on every request |
 
@@ -120,11 +120,11 @@ What changed and why: [change log](docs/changelog.md).
 |---|---|
 | **Sign-in** | Email + password sign-in for staff and candidates, account lockout after 5 wrong passwords, a 20-minute idle timeout, forgot/reset password, change password, and a forced password change for new staff. The *Sign in with Microsoft 365* button appears once IT provides the Azure IDs. |
 | **Candidate registration** | Public "Create a candidate account" page with email confirmation |
-| **Roles** | 8 roles: HR Administrator, HR Manager, Managing Director, Recruitment Officer, Head of Department, Interview Panel Member, Employee, Candidate |
+| **Roles** | 10 built-in roles: Super Admin (Phase 14), Admin (5 November 2026), HR Administrator, HR Manager, Managing Director, Recruitment Officer, Head of Department, Interview Panel Member, Employee, Candidate; plus custom roles a Super Admin adds |
 | **Divisions and departments** | Two divisions (Corporate, Operations) and GREL's 17 departments (Finance, Transport, Factory APM, Factory TBU, ...) are pre-loaded. Departments can be added, edited, activated or deactivated, and each can have a Head of Department. |
 | **Units** | Sub-sections of departments (e.g. Finance → Payroll) |
 | **Sites** | Work locations, with a site type (GREL's 12 sites are pre-loaded) |
-| **Users** | HR Administrators can create staff accounts, assign roles, and deactivate or unlock accounts |
+| **Users** | HR Administrators create everyday staff accounts; only a Super Admin creates HR Managers, Recruiters, HODs and other privileged accounts (Phase 14) |
 | **Audit trail** | Every change to every record (who, when, old value, new value, IP address) and every sign-in is recorded and searchable |
 | **Look and feel** | Sidebar navigation, glass-style cards, light/dark mode, phone-friendly layout, searchable and sortable tables |
 
@@ -176,6 +176,10 @@ dotnet test
 | [19 Notifications and surveys guide](docs/19-notifications-and-surveys.md) | the bell, automatic reminders, text messages and feedback surveys (non-technical) |
 | [20 Reports guide](docs/20-reports.md) | every report, its filters, how the figures are worked out, CSV download (non-technical) |
 | [21 Production deployment](docs/21-production-deployment.md) | install on GREL's server, certificates, updates and rollback, backups and restore, monitoring, go-live checklist (for IT) |
+| [22 ATS screening](docs/22-ats-screening.md) | Phase 15: how the ATS reads CVs, scores and classifies, knockout questions, automatic rejections held for HR, the dashboard, ATS settings and the optional AI reader (non-technical) |
+| [23 System settings](docs/23-system-settings.md) | Phase 16: system settings (email server, Microsoft 365, workflow), email templates, backups and the audit monitor (non-technical) |
+| [24 Employee onboarding](docs/24-onboarding-module.md) | Phases 18-20: the eight-stage onboarding workflow, the new-hire documents (upload, verify, reject), the Employee Personal Record Declaration, the departmental induction, the personnel file and activation of the staff account (non-technical) |
+| [25 Probation management](docs/25-probation-management.md) | Phase 21: the initial meeting, the 3-month and final assessments, extensions, confirmation and the confirmation letter, the dashboard widgets and the new reports (non-technical) |
 | [Phase log](docs/phases.md) | see what each phase delivered and what comes next |
 | [Change log](docs/changelog.md) | see work done between phases, with reasons and checks |
 

@@ -26,6 +26,24 @@ public interface IFileStorage
     Task<Stream?> OpenReadAsync(string storedName, CancellationToken ct = default);
 }
 
+/// <summary>The answer of a virus scan.</summary>
+/// <param name="Clean">False = the file must be refused.</param>
+/// <param name="Threat">What was found (shown to the uploader), when not clean.</param>
+public record VirusScanResult(bool Clean, string? Threat = null)
+{
+    public static readonly VirusScanResult Passed = new(true);
+}
+
+/// <summary>
+/// Phase 27: scans every uploaded file before it is stored. The built-in implementation (Infrastructure/Storage/NoVirusScanner)
+/// lets every file through; GREL IT can plug in a real scanner (e.g. ClamAV or Microsoft Defender) by registering another
+/// implementation. A file that is not clean is refused and never written to disk.
+/// </summary>
+public interface IVirusScanner
+{
+    Task<VirusScanResult> ScanAsync(Stream content, string fileName, CancellationToken ct = default);
+}
+
 /// <summary>
 /// Builds full web addresses for links inside emails ("Open the request: https://.../RecruitmentRequests/Details/12").
 /// Implemented in the Web project, which knows the site's address.
@@ -41,6 +59,9 @@ public interface IAppLinks
     /// <summary>A vacancy's shortlisting board.</summary>
     string Shortlist(int vacancyId);
 
+    /// <summary>Phase 15: a vacancy's ATS screening dashboard.</summary>
+    string AtsVacancy(int vacancyId);
+
     /// <summary>An interview or assessment session.</summary>
     string Interview(int id);
 
@@ -49,6 +70,12 @@ public interface IAppLinks
 
     /// <summary>An onboarding (checklist, appointment letter, first day) for staff.</summary>
     string Onboarding(int id);
+
+    /// <summary>Phase 21: a probation (staff page).</summary>
+    string Probation(int id);
+
+    /// <summary>Phase 21: the employee's own probation page.</summary>
+    string MyProbation();
 
     /// <summary>A survey invitation, for the person invited to answer it.</summary>
     string Survey(int invitationId);

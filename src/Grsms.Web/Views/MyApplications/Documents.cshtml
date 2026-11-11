@@ -1,0 +1,89 @@
+@* The new employee's onboarding documents (Phase 18; Phase 27: each document goes to HR as soon as it is uploaded, so there is
+   no "Submit" button any more). The summary on top says what is still needed; HR's reasons are shown on each rejected document. *@
+@model DocumentChecklistDto
+@{
+    ViewData["Title"] = "My onboarding";
+    int applicationId = ViewBag.ApplicationId;
+}
+
+<div class="page-header">
+    <div>
+        <h1>My onboarding</h1>
+        <p>Welcome to GREL! Everything you need to do before you start as <strong>@Model.JobTitle</strong>, in one place.</p>
+        <p class="small text-body-secondary mb-0">Onboarding @Model.OnboardingNumber · @Model.Stage.DisplayName() · <a asp-action="Appointment" asp-route-id="@applicationId">Appointment letter and first day</a> · <a asp-action="PersonalRecord" asp-route-id="@applicationId">Personal record</a></p>
+    </div>
+    <a asp-action="Details" asp-route-id="@applicationId" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>My application</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-4 order-xl-2">
+        <div class="card glass @(Model.Outstanding.Count > 0 ? "border border-primary" : "")">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-2">Progress</h2>
+                <div class="d-flex align-items-baseline gap-2 mb-1">
+                    <span class="fs-3 fw-semibold">@Model.Percent%</span>
+                    <span class="small text-body-secondary">@Model.RequiredUploaded of @Model.RequiredTotal required documents submitted</span>
+                </div>
+                <div class="progress mb-3" role="progressbar" aria-label="Onboarding progress" aria-valuenow="@Model.Percent" aria-valuemin="0" aria-valuemax="100" style="height: 8px">
+                    <div class="progress-bar" style="width: @Model.Percent%"></div>
+                </div>
+                <dl class="details-grid small mb-3">
+                    <dt>Verified</dt><dd>@Model.Verified</dd>
+                    <dt>Being checked</dt><dd>@Model.WaitingForHr</dd>
+                    <dt>Rejected</dt><dd class="@(Model.Rejected > 0 ? "text-danger fw-semibold" : "")">@Model.Rejected</dd>
+                    <dt>Not submitted</dt><dd>@Model.NotSubmitted</dd>
+                    @if (Model.DueDate is { } due) { <dt>Please finish by</dt><dd>@due.ToString("ddd dd MMM yyyy")</dd> }
+                </dl>
+
+                @if (Model.Outstanding.Count > 0)
+                {
+                    <h3 class="h6">Still to do</h3>
+                    <ul class="small ps-3 mb-2">
+                        @foreach (var item in Model.Outstanding) { <li>@item</li> }
+                    </ul>
+                    <div class="d-flex flex-wrap gap-2">
+                        @if (Model.LetterIssued && !Model.LetterSigned)
+                        {
+                            <a asp-action="Appointment" asp-route-id="@applicationId" class="btn btn-sm btn-outline-primary">Sign my appointment letter</a>
+                        }
+                        @if (!Model.PersonalRecordSigned)
+                        {
+                            <a asp-action="PersonalRecord" asp-route-id="@applicationId" class="btn btn-sm btn-outline-primary">My personal record</a>
+                        }
+                    </div>
+                    @if (Model.CorrectionMessage is not null)
+                    {
+                        <form asp-action="ConfirmCorrection" asp-route-id="@applicationId" method="post" class="mt-3">
+                            <button type="submit" class="btn btn-sm btn-primary w-100" data-confirm="Tell HR that you have made the correction?">
+                                <i class="fa-solid fa-check me-1"></i>I have made the correction
+                            </button>
+                        </form>
+                    }
+                }
+                else if (Model.ReadyForActivation)
+                {
+                    <p class="small mb-0"><i class="fa-solid fa-circle-check text-success me-1"></i>Everything is in and verified. HR will now activate your staff account.</p>
+                }
+                else if (Model.WaitingForHr > 0)
+                {
+                    <p class="small mb-0">Thank you, everything is in. HR is checking your documents and will email you if anything needs attention.</p>
+                }
+                else
+                {
+                    <p class="small mb-0">Your onboarding is complete.</p>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-8 order-xl-1">
+        <div class="card glass">
+            <div class="card-body p-3 p-md-4">
+                @{
+                    ViewData["DocController"] = "MyApplications";
+                    ViewData["DocRouteId"] = applicationId;
+                }
+                <partial name="_EmployeeDocuments" model="Model" view-data="ViewData" />
+            </div>
+        </div>
+    </div>
+</div>

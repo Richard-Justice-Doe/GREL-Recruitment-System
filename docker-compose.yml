@@ -38,7 +38,16 @@ services:
       SeedAdmin__Email: ${SEED_ADMIN_EMAIL:?set SEED_ADMIN_EMAIL in .env}
       SeedAdmin__Password: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env}
       SeedAdmin__FullName: ${SEED_ADMIN_FULLNAME:-System Administrator}
-      App__BaseUrl: http://localhost:8080
+      # The address put in emailed links. Change APP_BASE_URL in .env if people on other computers must open them.
+      App__BaseUrl: ${APP_BASE_URL:-http://localhost:8080}
+      # Email: leave SMTP_HOST empty in .env to keep saving emails as files (App_Data/mail) instead of sending them.
+      Email__FromAddress: ${EMAIL_FROM:-noreply@grsms.local}
+      Email__FromName: ${EMAIL_FROM_NAME:-GREL Recruitment}
+      Email__SmtpHost: ${SMTP_HOST:-}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__EnableSsl: ${SMTP_SSL:-true}
+      Email__UserName: ${SMTP_USER:-}
+      Email__Password: ${SMTP_PASSWORD:-}
     ports:
       - "8080:8080"   # host 8080, so it doesn't clash with `dotnet run` on 5014
     volumes:

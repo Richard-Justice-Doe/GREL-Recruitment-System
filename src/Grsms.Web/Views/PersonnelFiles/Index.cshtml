@@ -1,0 +1,47 @@
+@* Phase 20: the electronic personnel files (one per employee, opened when their onboarding is completed). *@
+@model IReadOnlyList<PersonnelFileListItemDto>
+@{
+    ViewData["Title"] = "Personnel files";
+}
+<div class="page-header">
+    <div>
+        <h1>Personnel files</h1>
+        <p>Each employee's electronic personnel file, opened automatically when their onboarding is completed.</p>
+    </div>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-5"><input name="search" value="@ViewBag.Search" class="form-control" placeholder="Name, staff number or file number" aria-label="Search" /></div>
+    <div class="col-md-4">
+        <select name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select" aria-label="Department">
+            <option value="">All departments</option>
+        </select>
+    </div>
+    <div class="col-md-3"><button type="submit" class="btn btn-outline-primary w-100"><i class="fa-solid fa-magnifying-glass me-1"></i>Search</button></div>
+</form>
+
+<div class="card glass">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>File no.</th><th>Employee</th><th>Staff no.</th><th>Position</th><th>Department</th><th>Opened</th><th class="text-end">Documents</th></tr></thead>
+            <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-body-secondary py-4">No personnel files yet. A file is opened when an onboarding starts and filled when the employee is activated.</td></tr>
+                }
+                @foreach (var f in Model)
+                {
+                    <tr>
+                        <td class="text-nowrap"><a asp-action="Details" asp-route-id="@f.Id" class="fw-semibold text-decoration-none">@f.FileNumber</a></td>
+                        <td>@f.EmployeeName</td>
+                        <td>@(f.StaffNumber ?? "—")</td>
+                        <td>@f.JobTitle</td>
+                        <td>@f.DepartmentName</td>
+                        <td class="small">@f.OpenedAt.ToString("dd MMM yyyy")</td>
+                        <td class="text-end">@f.Documents</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

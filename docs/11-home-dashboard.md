@@ -53,7 +53,7 @@ A calendar of when vacancies close. Use **‹ previous** and **next ›** to cha
 
 ### Requests in approval
 
-The newest-moving requests that are still going through approval, with how far they have got: **25%** at Recruitment Review, **50%** at HR Approval, **75%** at MD Approval. The circle shows who raised it (hover for the name).
+The newest-moving requests that are still going through approval, with how far they have got: **25%** at Department Head review, **50%** at HR Manager review, **75%** at MD approval. The circle shows who raised it (hover for the name).
 
 ### Latest candidates
 

@@ -92,7 +92,12 @@ The standard Identity columns (`Email`, `PasswordHash`, `LockoutEnd`, `AccessFai
 Passwords are stored only as a salted hash (PBKDF2), never as readable text.
 
 ### Roles, UserRoles
-`Roles` holds the 8 roles, with readable ids such as `hr-manager` and `head-of-department`. `UserRoles` links users to roles (many-to-many). The other Identity tables are `UserClaims`, `UserLogins` (Microsoft 365 links), `UserTokens` and `RoleClaims`.
+`Roles` holds the 9 built-in roles (Super Admin added in Phase 14), with readable ids such as `hr-manager` and `head-of-department`, plus any custom roles a Super Admin adds (ids `custom-...`). `UserRoles` links users to roles (many-to-many). The other Identity tables are `UserClaims`, `UserLogins` (Microsoft 365 links), `UserTokens` and `RoleClaims`.
+
+### RoleClaims and KnownPermissions (Phase 14)
+`RoleClaims` holds **which permissions each role has**: one row per role and permission, `ClaimType` = `grsms:permission`, `ClaimValue` = the permission name (e.g. `vacancies.view`). A custom role's description is a row with `ClaimType` = `grsms:description`. A unique index on (RoleId, ClaimType, ClaimValue) stops duplicates. The Super Admin holds every permission without rows.
+
+`KnownPermissions` (Name, AddedAt) lists the permissions whose default grants have already been applied. At start-up GRSMS gives any permission **not** listed here to its default roles, then lists it, so a permission the Super Admin removed is never given back. To re-apply every default (for example after a mistake), delete the `grsms:permission` rows of the built-in roles and every `KnownPermissions` row, then restart GRSMS. A built-in role added later (the **Admin**, 5 November 2026) is listed as `role:Admin` once it has received all its defaults; existing roles are not touched when that happens.
 
 ### AuditLogs
 Append-only, never edited or deleted. It does **not** inherit the standard columns.
@@ -121,16 +126,26 @@ Password hashes and security stamps are **never** copied into the audit trail.
 | SiteId | INT | **FK → Sites** (RESTRICT) |
 | PositionTitle | VARCHAR(150) | required |
 | NumberOfPositions | INT | 1-100 |
-| EmploymentType | VARCHAR(30) | `Permanent`, `FixedTermContract`, `Temporary`, `Casual`, `Internship`, `NationalService` |
-| VacancyReason | VARCHAR(30) | `NewPosition`, `Replacement`, `Expansion`, `Restructuring`, `TemporaryCover` |
+| EmploymentType | VARCHAR(30) | "Engagement type": `Permanent` or `FixedTermContract` (Contract) on the form; `Temporary`, `Casual`, `Internship`, `NationalService` only on older requests |
+| StaffCategory | VARCHAR(20) | `Executive`, `Senior`, `Junior` (NULL on requests from before QF-81-11) |
+| RequestDate / ProposedStartDate | DATE | from the form; the start date must be after today |
+| PostDescription | TEXT | "Description of the post": formatted text, **cleaned by the HTML sanitiser** before saving (only p, br, strong/b, em/i, u, ul, ol, li, h3, h4, blockquote; no attributes). At most 10,000 characters of text. |
+| EducationLevel | VARCHAR(30) | same values as Vacancies.MinimumEducation |
+| QualificationCategory / TrainingLevel | VARCHAR(200) | optional |
+| CertificateRequired | VARCHAR(500) | optional, one per line |
+| MinYearsExperience | INT | optional, 0-40 |
+| ProfessionalExperience / Remarks | TEXT | optional |
+| DrivingLicence / DrivingLicenceClass | VARCHAR(20) / VARCHAR(50) | `NotNeeded` (default), `Desirable`, `Mandatory`; the class is optional and kept only when a licence is desirable or mandatory |
+| VacancyReason | VARCHAR(30) | "Purpose": `Restructuring` (internal restructuring), `Replacement`, `Expansion`, `NewPosition`, `Other`; `TemporaryCover` only on older requests |
+| PurposeOther | VARCHAR(200) | required when the purpose is Other |
 | ReplacedEmployee | VARCHAR(150) | required when the reason is Replacement |
 | Justification | VARCHAR(4000) | required |
-| BudgetCode | VARCHAR(50) | required, upper-case |
-| EstimatedAnnualCost | DECIMAL(18,2) | GHS |
+| BudgetCode | VARCHAR(50) | upper-case; only on requests from before QF-81-11 (empty on new ones: the form has no budget fields) |
+| EstimatedAnnualCost | DECIMAL(18,2) | GHS; only on requests from before QF-81-11 (0 on new ones) |
 | BudgetValidated / BudgetValidatedByUserId | TINYINT(1) / VARCHAR(255) **FK → Users** | set by the HR Manager |
-| RequestedByUserId | VARCHAR(255) **FK → Users** | the HOD who raised it |
-| AssignedRecruiterUserId | VARCHAR(255) **FK → Users** | set at Recruitment Review |
-| Status | VARCHAR(30), indexed | `Draft`, `Returned`, `RecruitmentReview`, `HrApproval`, `MdApproval`, `Approved`, `Rejected`, `Cancelled` |
+| RequestedByUserId | VARCHAR(255) **FK → Users** | who raised it: a staff member of the department or its HOD |
+| AssignedRecruiterUserId | VARCHAR(255) **FK → Users** | set at the earlier workflow's Recruitment Review; empty on new requests (the vacancy owner is chosen on the vacancy) |
+| Status | VARCHAR(30), indexed | `Draft`, `Returned`, `DepartmentHeadReview`, `HrApproval`, `MdApproval`, `Approved`, `Rejected`, `Cancelled`; `RecruitmentReview` only on requests still in the earlier workflow |
 | DateRequested | DATETIME(6) | first submission |
 | StatusChangedAt | DATETIME(6) | when the current status began (used for "waiting N days") |
 | ApprovedAt | DATETIME(6) | MD's final approval |
@@ -154,7 +169,7 @@ Indexes: `RequestNumber` (unique), `Status`, `RequestedByUserId`, (`DepartmentId
 | Column | Type | Meaning |
 |---|---|---|
 | OwnerType / OwnerId | VARCHAR(50) / INT, indexed together | which record the file belongs to, e.g. `RecruitmentRequest` / `12` |
-| Category | VARCHAR(40) | `JobDescription`, `OrganisationalChart`, `InductionProgramme`, `Other` (more added by later modules) |
+| Category | VARCHAR(40) | Recruitment request documents (QF-81-11): `JobDescription`, `MainAccountabilities`, `OrganisationalChart` (organisational structure), `DepartmentJustification`, `BudgetApproval` (PDF, DOCX or XLSX only); `InductionProgramme` and `Other` on older requests; more added by later modules |
 | OriginalFileName | VARCHAR(200) | name shown to users |
 | StoredFileName | VARCHAR(200), **unique** | random name on disk, e.g. `2026/11/3f2a…e9.pdf` |
 | ContentType | VARCHAR(150) | MIME type |
@@ -178,13 +193,14 @@ A number is used up even if the record that asked for it was never saved, so occ
 | Column | Type | Rules |
 |---|---|---|
 | VacancyNumber | VARCHAR(40) | required, **unique**, e.g. `VAC-2026-0001` |
+| RequisitionNumber | VARCHAR(40) | the **Job Requisition Number**, e.g. `JRN-2026-0001`, given when the request is converted; **unique**; NULL on vacancies created before 5 November 2026 |
 | RecruitmentRequestId | INT | **FK → RecruitmentRequests** (RESTRICT), **unique**: one vacancy per approved request |
 | JobTitle | VARCHAR(150) | required |
 | DivisionId | INT | **FK → Divisions** (RESTRICT), copied from the request |
 | DepartmentId / UnitId / SiteId | INT | **FKs** (RESTRICT). The department is copied from the request. |
-| RequestingHodUserId | VARCHAR(255) **FK → Users** | the HOD who raised the request, copied from it |
+| RequestingHodUserId | VARCHAR(255) **FK → Users** | the department's HOD (who reviewed the request), or the requester if no HOD is set |
 | ReportingManagerUserId | VARCHAR(255) **FK → Users** | optional |
-| RecruiterUserId | VARCHAR(255) **FK → Users** | responsible Recruitment Officer |
+| RecruiterUserId | VARCHAR(255) **FK → Users** | the **Vacancy owner**: the responsible Recruitment Officer |
 | EmploymentType | VARCHAR(30) | copied from the request |
 | NumberOfPositions | INT | copied from the request |
 | VacancyType | VARCHAR(30) | `Internal`, `External`, `InternalAndExternal` |
@@ -363,13 +379,154 @@ Applications gain the status `OfferDeclined` and the history actions `CheckRecor
 | LetterTerms | TEXT | conditions of appointment |
 | LetterIssuedAt / LetterIssuedByUserId | DATETIME / **FK → Users** | |
 | LetterAcknowledgedAt / LetterAcknowledgedName / LetterAcknowledgedIp | DATETIME / VARCHAR(200) / VARCHAR(64) | the electronic signature: when, the name typed, from which address |
-| Status | VARCHAR(20) | `InProgress`, `Completed`, `Cancelled` |
+| Status | VARCHAR(40) | the current stage (Phase 18): `Draft`, `AwaitingEmployeeSubmission`, `AwaitingDocumentVerification`, `AwaitingHrApproval`, `AwaitingDepartmentalInduction`, `AwaitingActivation`, `Completed`, `Cancelled` (before Phase 18: `InProgress`, `Completed`, `Cancelled`) |
+| ExpectedCompletionDate / CompletedAt / Notes | DATE / DATETIME(6) / TEXT | Phase 18: start date + 30 days by default; when the employee was activated; HR's internal notes |
 | StatusChangedAt, CreatedByUserId (**FK**), CancelReason TEXT, Version | | |
 
 ### OnboardingTasks (the checklist)
 `OnboardingRecordId` (**FK → Onboardings**), `Team` (`HumanResources`, `Department`, `InformationTechnology`, `NewEmployee`), `Title` VARCHAR(300), `DueDate`, `AssignedToUserId` (FK → Users, empty for the new employee's items), `Status` (`Open`, `Done`, `NotNeeded`), `Notes` TEXT, `CompletedAt`, `CompletedByUserId` (FK), `SortOrder`, plus the standard columns. Index on `AssignedToUserId, Status` ("my onboarding tasks").
 
 Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `OnboardingCompleted`, `OnboardingCancelled`. The application stays **Hired** throughout.
+
+## Phase 18 tables (onboarding workflow and new-hire documents)
+
+### OnboardingActions (onboarding history)
+`OnboardingRecordId` (**FK → Onboardings**), `Action` (`Started`, `LetterIssued`, `Submitted`, `ReturnedToEmployee`, `DocumentsVerified`, `HrApproved`, `ReturnedForVerification`, `InductionCompleted`, `Activated`, `Cancelled`), `FromStatus` / `ToStatus` VARCHAR(40), `ActorUserId` (**FK → Users**), `ActorName` VARCHAR(200), `Comments` TEXT, `ActionAt`, plus the standard columns. Never edited. Index on `OnboardingRecordId, ActionAt`.
+
+### EmployeeDocuments (New Hire Administrative Records)
+One row per document per onboarding, created (`Pending`) when onboarding starts.
+
+| Column | Type | Rules |
+|---|---|---|
+| OnboardingRecordId | INT **FK → Onboardings** (RESTRICT) | unique together with DocumentType |
+| EmployeeUserId | VARCHAR(255) **FK → Users** | the new employee |
+| DocumentType | VARCHAR(40) | `ApplicationLetter`, `Cv`, `PassportPicture`, `RecommendationLetters`, `MedicalReport`, `PoliceClearance`, `SchoolCertificates`, `BirthCertificate`, `GhanaCard`, `SsnitCard`, `MarriageCertificate`, `ChildBirthCertificates`, `DependantPhotographs`, `BankConfirmationLetter`, `PassportBiodataPage`, `NonCitizenCard` |
+| IsRequired | TINYINT(1) | 0 for the five that may be "not applicable" |
+| Status | VARCHAR(20), indexed | `Pending`, `Submitted`, `Verified`, `Rejected`, `NotApplicable` |
+| SubmittedAt | DATETIME(6) | last upload (or "not applicable" declaration) |
+| NotApplicableReason | VARCHAR(500) | the new employee's reason |
+| VerifiedAt / VerifiedByUserId | DATETIME(6) / VARCHAR(255) **FK → Users** | who verified, accepted or rejected it, and when |
+| RejectionReason | VARCHAR(1000) | shown to the new employee |
+| + standard columns | | |
+
+**The files** are rows in `Attachments` with `OwnerType = 'EmployeeDocument'`, `OwnerId = EmployeeDocuments.Id` and category `NewHireDocument`: `OriginalFileName` (as uploaded), `StoredFileName` (the random path on the server, outside the web root), `ContentType`, `SizeBytes`, `Sha256` and `CreatedAt` (the upload date). A document can have several files. Only PDF, JPG and PNG are accepted for these, checked by extension and content.
+
+**Phase 27 changes** (10 November 2026):
+* `DocumentType` now holds an `OnboardingDocumentTypes.Code` (the Phase 18 values are the codes of the first sixteen types; `SchoolCertificates` is the legacy type). New columns: `IsApplicable` (0 = does not apply to this new hire, e.g. expatriate documents for a Ghanaian, or a retired type), `ReviewStartedAt` / `ReviewStartedByUserId`, `RejectionReasonCode` (`Unreadable`, `WrongDocument`, `Expired`, `MissingPages`, `Other`), `RejectionCount`, `Version` (concurrency). New statuses `UnderReview` and `Resubmitted`. Rows are never deleted (the unique index stays valid).
+* Replaced or removed files move to `OwnerType = 'EmployeeDocumentReplaced'` (same `OwnerId`): kept and downloadable as history. DOCX is also accepted for the types with `AllowsWordFiles`.
+* **Onboardings**: `IsExpatriate`, `DocumentsDueDate`, `DocumentsDueDateExtended`, `CorrectionRequestedAt`, `CorrectionMessage`. Status `AwaitingHrApproval` is no longer used; `AwaitingDepartmentalInduction` now means "Induction in progress" (after activation).
+
+### OnboardingDocumentTypes (Phase 27)
+The configurable checklist, seeded with ids 1 to 25 (24 active types + the legacy "School certificates").
+
+| Column | Type | Rules |
+|---|---|---|
+| Code | VARCHAR(40), unique | stable key stored on EmployeeDocuments.DocumentType |
+| Name / Description | VARCHAR(150) / VARCHAR(500) | shown to the new employee |
+| Group | VARCHAR(20) | `Personal`, `Education`, `Employment`, `Banking`, `Family`, `Expatriate` |
+| Requirement | VARCHAR(20) | `Required`, `Optional`, `ChosenPerHire`, `ExpatriateOnly`, `GhanaianOnly` |
+| AllowsWordFiles | TINYINT(1) | DOCX accepted too |
+| MinFiles | INT | files needed before it can be verified (2 for recommendation letters) |
+| PersonnelFileCategoryId | INT **FK → PersonnelFileCategories** | where verified files are filed |
+| SortOrder / IsActive / IsLegacy | INT / TINYINT(1) / TINYINT(1) | retired = not asked for; legacy = read-only, old checklists only |
+| Version | CHAR(36) | concurrency |
+| + standard columns | | |
+
+### EmployeeDocumentEvents (Phase 27)
+One row per step of a document, never edited: `EmployeeDocumentId` (FK), `OnboardingRecordId` (FK), `Action` (`Uploaded`, `Replaced`, `FileRemoved`, `MarkedNotApplicable`, `ReviewStarted`, `Verified`, `Rejected`, `Resubmitted`, `Viewed`, `RequirementChanged`), `FromStatus`, `ToStatus`, `AttachmentId`, `FileName`, `RejectionReason`, `Comments`, `ActorUserId`, `ActorName`, `IpAddress`, `ActionAt`, + standard columns. Indexed on (EmployeeDocumentId, ActionAt).
+
+## Phase 19 tables (Employee Personal Record Declaration)
+
+Only the new employee and HR can read these (family, bank, health and beneficiary details).
+
+### EmployeePersonalRecords
+One per onboarding (unique `OnboardingRecordId`, **FK → Onboardings**), `EmployeeUserId` (**FK → Users**). Name, staff number, department, position and service date are **not** repeated here: they come from the onboarding.
+
+| Column | Type | Rules |
+|---|---|---|
+| Qualification | VARCHAR(200) | optional |
+| SsnitNumber | VARCHAR(30) | required to save, upper-case |
+| DateOfBirth | DATE | required; age 15-75 (the age is calculated, not stored) |
+| ResidentialAddress / HomeTown | VARCHAR(500) / VARCHAR(100) | required |
+| Region | VARCHAR(20) | Ghana's 16 regions or `OutsideGhana` |
+| Tribe / Religion | VARCHAR(100) | optional |
+| Email / MobileNumber | VARCHAR(256) / VARCHAR(30) | the mobile number is required and must be a usable phone number |
+| HasDisability / DisabilityDetails | TINYINT(1) / TEXT | details required when there is a disability |
+| VisibleMarks | VARCHAR(500) | optional |
+| NextOfKinName, NextOfKinTelephone, NextOfKinRelationship, NextOfKinDateOfBirth, NextOfKinAddress | | name, relationship and telephone required |
+| DeclaredAt / CurrentDeclarationId | DATETIME(6) / INT | when the current version was signed and which declaration row; both cleared by any change |
+| Version | CHAR(36) | concurrency token |
+| + standard columns | | |
+
+### The lists (replaced as a whole on every save; rows removed are deleted and recorded in the audit trail)
+| Table | Columns | Rules |
+|---|---|---|
+| EmployeeLanguages | `Language` VARCHAR(60), `Proficiency` (`VeryFluent`, `Fluent`, `Passable`) | at least one; each language once |
+| EmployeeBankAccounts | `BankName`, `Branch` VARCHAR(100), `AccountNumber` VARCHAR(40), `IsPrimary` | at least one; **exactly one primary** |
+| EmployeeSpouses | `FullName`, `Occupation`, `DateOfBirth`, `Address`, `Telephone` | optional, up to 4 |
+| EmployeeChildren | `FullName`, `Gender` (`Male`, `Female`), `DateOfBirth`, `PlaceOfBirth`, `CurrentResidence` | any number |
+| EmployeeDependants | `FullName`, `Relationship`, `Age` (0-120) | any number |
+| EmployeeEmergencyContacts | `Name`, `Relationship`, `Telephone1`, `Telephone2` | 1 to 3 |
+| EmployeeBeneficiaries | `Name`, `Relationship`, `DateOfBirth`, `Percentage` DECIMAL(5,2) | at least one; each > 0; **the total must be exactly 100.00**, checked by the application before anything is saved |
+
+Each list row has `Id` and `PersonalRecordId` (**FK → EmployeePersonalRecords**, CASCADE).
+
+### EmployeeDeclarations (immutable)
+`PersonalRecordId` (**FK**), `EmployeeUserId` (**FK → Users**), `DeclarationText` (*"I declare that the above information is accurate and correct to the best of my knowledge."*), `SignatureName` (the typed full name), `SignedAt`, `IpAddress`, `Snapshot` TEXT (the whole record as signed, JSON), `SnapshotSha256`, plus the standard columns. **Insert-only:** any attempt to change or delete a row (even a soft delete) is refused when saving. Signing again after a change adds a new row.
+
+## Phase 21 tables (probation and confirmation)
+See [25 Probation management](25-probation-management.md).
+
+### ProbationRecords
+One per activated employee: `Number` (`PRB-<year>-<0000>`, unique), the employee (`EmployeeUserId`, `EmployeeName`, `StaffNumber`, `JobTitle`, `DepartmentId`), `OnboardingRecordId` (unique), `StartDate`, `EndDate` (moves when extended), `OriginalEndDate`, `Status` (InitialMeeting, InProgress, Extended, AwaitingHrDecision, Confirmed, NotConfirmed), `HodUserId`, `HrManagerUserId` (who decided), `InitialMeetingDueDate` (start + 7 days), `InitialMeetingDate`, `InitialMeetingNotes`, the two signatures (`HodSignedAt`/`HodSignatureName`, `EmployeeSignedAt`/`EmployeeSignatureName`), `ExtendedMonths` (total, at most 3), `ExtensionReason`, `ExtensionImprovementPlan`, `Version` (concurrency).
+
+### ProbationObjectives, ProbationDevelopmentPlans
+The initial meeting's rows: objective, success indicators, due date; training need, development need, timeline.
+
+### ProbationAssessments
+`Kind` (First, Final), `AssessorUserId`, the six ratings (`AbilityToSupervise` may be NULL), `Comments`, `ImprovementPlan`, and for the final one `Outcome` (Confirm, Extend, DoNotConfirm), `ExtensionMonths`, `ExtensionReason`, `HrApproved` (NULL = waiting), `HrComments`.
+
+### ProbationActions
+The history: `Action`, `FromStatus`, `ToStatus`, `ActorUserId`, `ActorName`, `ActionAt`, `Comments`.
+
+### ConfirmationRecords
+One per confirmed probation (`ProbationRecordId` unique): `EmployeeUserId`, `LetterNumber` (`CNF-<year>-<0000>`, unique), `ConfirmationDate`, `ApprovedByUserId`, `PersonnelFileDocumentId` (the frozen letter in the personnel file).
+
+## Phase 20 tables and columns (departmental induction and personnel file)
+
+### OnboardingTasks: new columns (the departmental induction tasks)
+| Column | Type | Rules |
+|---|---|---|
+| Area | VARCHAR(40) | the induction area: `HumanResource`, `CorporateIt`, `CorporateProcurement`, `CorporateSupplyChain`, `CorporateFinance`, `FactoryOperations`, `TbuOperations`, `StoresOperations`, `Engineering`, `Security`, `HealthAndSafety`, `Administration`; NULL for the new employee's own department (its HOD) |
+| Description | TEXT | optional |
+| AssignedAt | DATETIME(6) | when it was given to its current owner ("assigned date") |
+| VerifiedAt / VerifiedByUserId | DATETIME(6) / VARCHAR(255) **FK → Users** | HR's check that a task done by someone else was done; set at once when HR marks it done |
+
+The existing `Title` (task name), `DueDate`, `CompletedAt` (completed date), `AssignedToUserId` and `Status` (`Open`, `Done`, `NotNeeded`) complete the spec's *DepartmentalOnboardingTask*. The migration gives existing HR and IT tasks their area, sets `AssignedAt` to `CreatedAt`, and counts finished tasks as verified by whoever finished them.
+
+### InductionAreaSettings
+One row per area once it has been saved (**unique** `Area`): `OwnerUserId` (**FK → Users**, NULL = HR), `IsDefault` (ticked by default on approval), `Tasks` TEXT (one per line; NULL = the built-in list), plus the standard columns.
+
+### PersonnelFileCategories (seeded)
+`Id` (fixed), `Name`, `SortOrder`: 1 Recruitment Documents, 2 Employee Records, 3 Identification Records, 4 Compliance Records, 5 Onboarding Records, 6 Probation Records, 7 Generated Letters.
+
+### PersonnelFiles
+One per employee (**unique** `EmployeeUserId`, **FK → Users**): `FileNumber` VARCHAR(40) **unique** (e.g. `PF-2026-0001`), `EmployeeName`, `StaffNumber`, `JobTitle`, `DepartmentId` (**FK → Departments**), `OnboardingRecordId` (**FK → Onboardings**), `OpenedAt`, plus the standard columns.
+
+### PersonnelFileDocuments
+| Column | Type | Rules |
+|---|---|---|
+| PersonnelFileId / CategoryId | INT **FKs** | the file and its folder |
+| Title | VARCHAR(200) | |
+| Kind | VARCHAR(20) | `File` (an uploaded file), `Letter` (frozen HTML), `Record` (e.g. the signed declaration, kept in its own table) |
+| AttachmentId | INT **FK → Attachments** | for files: the stored path, name, type, size and SHA-256 are on the attachment (files are never copied) |
+| Content | TEXT | for letters: the letter as filed, built from encoded values and cleaned again before display |
+| SourceType / SourceId | VARCHAR(50) / INT | where it came from, e.g. (`Attachment`, 12), (`EmployeeDeclaration`, 3), (`AppointmentLetter`, 5); indexed so nothing is filed twice |
+| DocumentDate | DATETIME(6) | the date of the document itself |
+| AddedByUserId | VARCHAR(255) **FK → Users** | NULL when filed automatically |
+| + standard columns | | |
+
+Files HR adds directly are `Attachments` rows with `OwnerType = 'PersonnelFile'` and category `PersonnelFileDocument`.
 
 ## Phase 10 tables
 
@@ -384,6 +541,37 @@ Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `
 
 ### SurveyAnswers
 `SurveyInvitationId` (FK), `QuestionKey` VARCHAR(30) (**unique per invitation**), `Rating` 1-5 (null = not applicable), `Text` TEXT, plus the standard columns. **Not copied into AuditLogs** (confidential).
+
+## Phase 16 tables
+
+### SystemSettings
+One row per setting saved on the System settings screen: `Key` (e.g. `Email:SmtpHost`), `SettingValue` (TEXT; for secrets, encrypted with the data-protection keys) and `IsSecret`. A setting without a row, or with an empty value, uses the server configuration, then the built-in default. In the audit trail a secret shows only *(secret, changed)*.
+
+### EmailTemplates
+One row per candidate email reworded on the Email templates screen: `Key` (e.g. `offer.sent`), `Subject`, `Body` (plain text with placeholders). *Reset* soft-deletes the row, so the built-in wording applies again; editing again adds a new row.
+
+## Phase 15 tables and columns (ATS)
+
+### New columns on JobApplications
+| Column | Meaning |
+|---|---|
+| `AtsClassification` | The band of the overall match (`HighlyRecommended`, `Recommended`, `ReviewRequired`, `LowMatch`, `AutoReject`) |
+| `CvText` (MEDIUMTEXT) | The CV's plain text (up to 100,000 characters), used to match requirements. **Not copied into the audit trail.** |
+| `CvParsed` (MEDIUMTEXT) | What the ATS read from the CV, as JSON (name, email, phone, education, jobs with dates, skills, certifications, warnings, which reader) |
+| `AtsDecision` | `None`, `AutoRejected` (held for HR), `Confirmed`, `Overridden` or `Cleared` |
+| `AtsRejectionReason` (TEXT) | Why the ATS rejected it, one reason per line |
+| `AtsDecisionByUserId`, `AtsDecisionAt`, `AtsDecisionNote` | Who confirmed or overrode it, when, and their note or reason |
+
+The Phase 6 columns stay: `ScreeningScore` is now the overall match %, `MeetsMinimum` means every requirement and knockout question passed, and `ScreeningDetails` holds the ATS breakdown as JSON (`"Version":2`; older Phase 6 breakdowns are ignored until screening is re-run). The value `AutoRejected` was added to `Status`.
+
+### VacancyKnockoutQuestions
+A vacancy's mandatory questions (`VacancyId`, `Text` up to 300 characters). Replaced as a set when the vacancy is edited; deleted with it.
+
+### JobApplicationKnockoutAnswers
+The applicant's answers (`JobApplicationId`, `Question` = the wording as asked, `Answer` 1 = Yes). Never edited.
+
+### AtsSettings
+One row: the four weights, the four band limits, the six automatic-rejection switches and `UseAiReader`. It is created the first time the Super Admin saves **ATS settings**; until then the defaults in code apply (25 % each; bands 90 / 80 / 70 / 50; every rule on except "required skill"; AI reader off).
 
 ## Relationship diagram (Phases 1-8)
 
@@ -427,6 +615,18 @@ Application history gains `OnboardingStarted`, `LetterIssued`, `LetterSigned`, `
 | `11_phase08_hiring.sql` | 8 | BackgroundChecks, HiringRecommendations, Offers |
 | `12_phase09_onboarding.sql` | 9 | Onboardings, OnboardingTasks |
 | `13_phase10_notifications_surveys.sql` | 10 | Notifications, SentReminders, SurveyInvitations, SurveyAnswers |
+| `14_phase14_super_admin_permissions.sql` | 14 | KnownPermissions; the Super Admin role; RoleClaims text columns shortened (the table was empty) and a unique index. The default permissions and the first Super Admin are added by GRSMS at start-up, not by the script. |
+| `16_admin_role.sql` | — | The built-in **Admin** role (id `admin`). Its default permissions and the new permission `settings.view` are added by GRSMS at start-up. If someone already added a *custom* role called "Admin", rename it first (role names are unique). |
+| `17_phase16_system_settings.sql` | 16 | SystemSettings (values saved on the System settings screen; secrets encrypted) and EmailTemplates (reworded candidate emails). The new permissions `settings.manage` and `backups.manage` are added by GRSMS at start-up. |
+| `18_qf8111_recruitment_request_form.sql` | QF-81-11 | No new tables. The QF-81-11 form fields on RecruitmentRequests (StaffCategory, PurposeOther, RequestDate, ProposedStartDate, PostDescription, EducationLevel, QualificationCategory, TrainingLevel, CertificateRequired, MinYearsExperience, ProfessionalExperience, DrivingLicence (`NotNeeded` by default), DrivingLicenceClass, Remarks; all optional, so existing requests are untouched) and `RequisitionNumber` (unique, NULL for older vacancies) on Vacancies. The one-time grant of the request permissions to Employees is made by GRSMS at start-up. |
+| `19_phase18_onboarding_workflow.sql` | 18 | OnboardingActions, EmployeeDocuments; `ExpectedCompletionDate`, `CompletedAt`, `Notes` on Onboardings and `Status` widened to 40. **Moves existing onboardings to the new stages** (in progress → Draft, Awaiting employee submission or Awaiting departmental induction, by letter state), sets the expected completion dates, and gives onboardings still waiting for the new employee their 16-document checklist. Checked on MySQL 8.4 against a copy of the development database. |
+| `20_phase19_personal_record_declaration.sql` | 19 | EmployeePersonalRecords, EmployeeLanguages, EmployeeBankAccounts, EmployeeSpouses, EmployeeChildren, EmployeeDependants, EmployeeEmergencyContacts, EmployeeBeneficiaries, EmployeeDeclarations. New tables only. Checked on MySQL 8.4 (with script 19) against a copy of the development database. |
+| `21_phase20_induction_and_personnel_file.sql` | 20 | InductionAreaSettings, PersonnelFileCategories (seeded with the 7 categories), PersonnelFiles, PersonnelFileDocuments; `Area`, `Description`, `AssignedAt`, `VerifiedAt`, `VerifiedByUserId` on OnboardingTasks, with existing tasks given their area and assigned date and finished ones counted as verified. The new permission `personnel.view` is added by GRSMS at start-up. Checked on MySQL 8.4 (after scripts 19 and 20) against a copy of the development database. |
+| `22_phase21_probation_and_confirmation.sql` | 21 | ProbationRecords, ProbationObjectives, ProbationDevelopmentPlans, ProbationAssessments, ProbationActions, ConfirmationRecords. New tables only. Checked on MySQL 8.4 (after scripts 19, 20 and 21) against a copy of the development database. |
+| `23_interview_score_validation.sql` | 9 Nov | Interview score validation columns. |
+| `24_phase27_onboarding_document_portal.sql` | 27 | OnboardingDocumentTypes (seeded, 25 rows), EmployeeDocumentEvents; new columns on EmployeeDocuments (existing rows get `IsApplicable` = 1) and Onboardings. **Moves onboardings waiting for HR approval, or in the old pre-activation induction, to `AwaitingActivation`** (their documents were verified). The four `onboarding.*` permissions are added by GRSMS at start-up. Not yet run on MySQL. |
+| `25_audit_drop_redundant_vacancy_status_index.sql` | audit | Drops `IX_Vacancies_Status` (the index on (Status, ClosingDate) starts with Status and serves the same queries). Codebase audit B7, 10 November 2026. Not yet run on MySQL. |
+| `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:
 * runs **once**, in number order, against an empty database (or one that already has the earlier scripts applied);

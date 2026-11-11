@@ -1,9 +1,10 @@
-@* Create / edit a vacancy (Recruitment Officer). Department, number of positions and employment type
+@* Create / edit a vacancy (Recruitment Officer): HR converts an approved recruitment request into a job vacancy. The form is
+   pre-filled from the request; a Job Requisition Number is given on saving. Department, number of positions and employment type
    come from the approved request and cannot be changed here. *@
 @model VacancyFormDto
 @{
     var isNew = Model.Id == 0;
-    ViewData["Title"] = isNew ? "Create vacancy" : $"Edit vacancy";
+    ViewData["Title"] = isNew ? "Convert into a job vacancy" : $"Edit vacancy";
 }
 
 <div class="page-header">
@@ -19,20 +20,51 @@
     <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
 
     <div class="row g-3">
+        @* ---------------------------------------------------------------- Job requisition *@
+        <div class="col-12">
+            <div class="card glass border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Job requisition</h2>
+                    @if (isNew)
+                    {
+                        <p class="small text-body-secondary">The details below were filled in from the approved request. Check them, then choose who owns the recruitment, how long it runs and who may apply.</p>
+                    }
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label" for="requisitionNumber">Job Requisition Number</label>
+                            <input id="requisitionNumber" class="form-control" value="@(Model.RequisitionNumber ?? "Given when you save")" disabled />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="OwnerUserId" class="form-label"></label>
+                            <select asp-for="OwnerUserId" asp-items="ViewBag.OwnerList" class="form-select">
+                                <option value="">— Choose —</option>
+                            </select>
+                            <span asp-validation-for="OwnerUserId" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="ClosingDate" class="form-label">Recruitment closing date</label>
+                            <input asp-for="ClosingDate" type="date" class="form-control" />
+                            <span asp-validation-for="ClosingDate" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="VacancyType" class="form-label"></label>
+                            <select asp-for="VacancyType" asp-items="Html.GetEnumSelectList<VacancyType>()" class="form-select"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         @* ---------------------------------------------------------------- The job *@
         <div class="col-12">
             <div class="card glass">
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-3">The job</h2>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label asp-for="JobTitle" class="form-label"></label>
                             <input asp-for="JobTitle" class="form-control" />
                             <span asp-validation-for="JobTitle" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="VacancyType" class="form-label"></label>
-                            <select asp-for="VacancyType" asp-items="Html.GetEnumSelectList<VacancyType>()" class="form-select"></select>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Department</label>
@@ -106,6 +138,11 @@
                             <label asp-for="EssentialSkills" class="form-label"></label>
                             <textarea asp-for="EssentialSkills" class="form-control" rows="5" placeholder="Risk assessment&#10;Incident investigation"></textarea>
                         </div>
+                        @* Usability U4: the less-used fields fold away; open when one is filled in or the form came back with errors. *@
+                        <div class="col-12">
+                        <details class="more-options" open="@(!string.IsNullOrWhiteSpace(Model.DesirableSkills) || !string.IsNullOrWhiteSpace(Model.EssentialCertifications) || !string.IsNullOrWhiteSpace(Model.DesirableCertifications) || !string.IsNullOrWhiteSpace(Model.KnockoutQuestions) || !ViewData.ModelState.IsValid)">
+                            <summary class="fw-semibold">More options: desirable skills, certifications and knockout questions</summary>
+                            <div class="row g-3 mt-1">
                         <div class="col-md-6">
                             <label asp-for="DesirableSkills" class="form-label"></label>
                             <textarea asp-for="DesirableSkills" class="form-control" rows="5" placeholder="Microsoft Excel&#10;Report writing"></textarea>
@@ -117,6 +154,20 @@
                         <div class="col-md-6">
                             <label asp-for="DesirableCertifications" class="form-label"></label>
                             <textarea asp-for="DesirableCertifications" class="form-control" rows="3" placeholder="First Aid at Work"></textarea>
+                        </div>
+                        @* Phase 15: knockout questions *@
+                        <div class="col-12">
+                            <label asp-for="KnockoutQuestions" class="form-label"></label>
+                            <textarea asp-for="KnockoutQuestions" class="form-control" rows="4"
+                                      placeholder="Do you have a Bachelor's degree?&#10;Do you have at least 3 years' experience?&#10;Are you willing to relocate to the site?&#10;Do you have a valid driver's licence?"></textarea>
+                            <div class="form-text">
+                                Applicants answer each one Yes or No when they apply. Word them so <strong>Yes</strong> is the answer you need:
+                                a <strong>No</strong> rejects the application automatically (held for HR to confirm or override). At most 10.
+                            </div>
+                            <span asp-validation-for="KnockoutQuestions" class="text-danger small"></span>
+                        </div>
+                            </div>
+                        </details>
                         </div>
                     </div>
                 </div>
@@ -144,11 +195,6 @@
                                 <input asp-for="ShowSalary" class="form-check-input" />
                                 <label asp-for="ShowSalary" class="form-check-label"></label>
                             </div>
-                        </div>
-                        <div class="col-md-3">
-                            <label asp-for="ClosingDate" class="form-label"></label>
-                            <input asp-for="ClosingDate" type="date" class="form-control" />
-                            <span asp-validation-for="ClosingDate" class="text-danger small"></span>
                         </div>
                     </div>
                 </div>

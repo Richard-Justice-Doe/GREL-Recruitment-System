@@ -8,7 +8,7 @@
 <div class="page-header">
     <div>
         <h1>Interview results: @ViewBag.JobTitle</h1>
-        <p><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@ViewBag.VacancyId">@ViewBag.VacancyNumber</a> · averages are of the panel members' weighted scorecards (out of 100)</p>
+        <p><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@ViewBag.VacancyId">@ViewBag.VacancyNumber</a> · averages are of the panel members' weighted scorecards (out of 100). Only scores validated by the Recruitment Officer are counted.</p>
     </div>
     <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@ViewBag.VacancyId" class="btn btn-outline-secondary">Shortlisting board</a>
 </div>
@@ -51,6 +51,6 @@
                 </tbody>
             </table>
         </div>
-        <p class="small text-body-secondary mb-0">The final hiring recommendation, with the Head of Department, is made in the next step (Phase 8).</p>
+        <p class="small text-body-secondary mb-0">Next, the Recruitment Officer chooses which candidate(s) to proceed with and approves the hire.</p>
     </div>
 </div>

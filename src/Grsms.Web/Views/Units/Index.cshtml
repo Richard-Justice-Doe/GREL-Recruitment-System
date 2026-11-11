@@ -37,7 +37,7 @@
                         <td><a asp-controller="Departments" asp-action="Details" asp-route-id="@u.DepartmentId" class="text-decoration-none">@u.DepartmentName</a></td>
                         <td class="fw-semibold">@u.Name</td>
                         <td><code>@u.Code</code></td>
-                        <td><partial name="_StatusBadge" model="u.IsActive" /></td>
+                        <td><partial name="_ActiveBadge" model="u.IsActive" /></td>
                         <td class="text-end text-nowrap">
                             <a asp-action="Edit" asp-route-id="@u.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
                             <form asp-action="SetActive" asp-route-id="@u.Id" method="post" class="d-inline">

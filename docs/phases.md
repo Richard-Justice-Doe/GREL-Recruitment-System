@@ -278,10 +278,258 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 
 **Not tested here** (needs GREL's environment): a real domain and Let's Encrypt certificate, GREL's SMTP server, Microsoft 365 sign-in, an SMS account.
 
-## 🎉 All 13 phases delivered
+## ✅ Phase 14: Super Admin and granular permissions (5 November 2026)
+
+**Asked for** (5 November 2026): a Super Admin role with full access; only Super Admins create HR Managers, Recruiters and HOD accounts and configure system-wide permissions; granular RBAC; every action in the audit trail. Part of a larger request that also covers the ATS screening engine (Phase 15) and system settings (Phase 16). The order was swapped so that the ATS settings can be protected by the new permissions from the start.
+
+**Delivered**
+* **Super Admin** role: holds every permission (it can't be taken away), sees every department, and is the only role that can create privileged accounts or change permissions. The `SeedAdmin` account is a Super Admin. On an existing installation, the first start-up gives that account the role (it keeps its other roles); a brand-new installation creates it as Super Admin + Employee.
+* **Permissions** (13, in `Domain/Security/Permissions.cs`): every screen policy is now a permission held by roles, stored in `RoleClaims`. The defaults reproduce exactly what each role could open before, so nobody gained or lost access. New permissions get their defaults once (table `KnownPermissions`), so the Super Admin's later choices are never overwritten. "See all departments" replaces the fixed role list used by every module's visibility rule.
+* **Roles & permissions** screen (Super Admin): a tick-box grid of roles × permissions grouped by area, with the Super Admin column and the two "Super Admin only" permissions locked. Changes apply **straight away** without signing anyone out (an in-memory copy refreshed on save, and at most a minute old otherwise).
+* **Custom roles:** add (readable id `custom-...`), describe, rename, tick permissions, delete when nobody holds them. Built-in roles can't be renamed or deleted.
+* **Privileged accounts:** only a Super Admin can give or remove any role other than Employee and Interview Panel Member, or edit, reset the password of, or deactivate an account holding one. The Users screen shows a 🔒 *Super Admin* label instead of the buttons, and the user form locks those roles. The "last active HR Administrator" rule became "last active Super Admin"; you can't remove your own Super Admin role.
+* Audit trail: permission grants are `RoleClaim` rows (new friendly name), roles are `Role` rows, role assignments `UserRole` rows, so every change records who, when and from where.
+* MySQL script `database/14_phase14_super_admin_permissions.sql`; migration `Phase14_SuperAdminAndPermissions`
+* 6 new automated tests (117 in total), including taking a permission from a signed-in HOD through the real pages
+* Security, admin, database, getting-started, configuration, deployment and testing docs updated
+
+**Decisions recorded**
+* **Permissions open screens; workflow steps stay with the role.** Who raises, reviews, approves and gives final approval is separation of duties written in each workflow class, so no setting can switch it off. A Super Admin who must approve as the MD also needs the Managing Director role, and the "not your own request" rules still apply.
+* **Privileged = every role except Employee and Interview Panel Member**, including HR Administrator, the MD and custom roles. The request named HR Managers, Recruiters and HODs; HR Administrator and MD were added because giving them would also raise access, and custom roles because they can carry any permission.
+* **Permission list in code, assignments in the database.** Each permission is checked by code, so new ones come with a new version; which roles hold them is GREL's choice.
+* **Live permission check instead of copying permissions into the sign-in cookie**, so a removed permission stops working at once.
+* Custom-role descriptions are stored as a `RoleClaims` row (`grsms:description`) rather than changing the Identity role table.
+
+**Problem found and fixed while checking against MySQL:** an empty tick-box value in a posted grid arrived as *null* and gave an error page (500). Empty values are now ignored. While checking, a test script of mine that read the grid wrongly saved it with most boxes empty, which removed 37 default grants from the **local Docker database**. The defaults were re-applied by clearing the `grsms:permission` rows and `KnownPermissions` and restarting (now described in [03 Database](03-database.md#roleclaims-and-knownpermissions-phase-14)). The app had done exactly what was posted. **Lesson:** a "save the whole grid" form saves what it is sent, so check the posted fields before trusting a hand-made post.
+
+## ✅ Phase 15: ATS screening engine (5 November 2026)
+
+**Asked for** (5 November 2026): an AI CV screening and ATS engine. It parses CVs (name, email, phone, education, experience, certifications, skills, employment history), compares them with configurable vacancy criteria and mandatory knockout questions, rejects automatically with a recorded reason, gives education / experience / skills / certification scores, an overall match % and five bands, provides a recruiter dashboard, lets HR override, and stores and audits every decision.
+
+**Delivered**
+* **CV reading on GREL's server**: text from PDF (PdfPig 0.1.16, Apache 2.0) and Word .docx (read directly, DTDs refused, size and page limits), then GRSMS's own published rules extract name, email, phone, highest qualification, employment history with dates (years of experience, overlaps counted once), skills and certifications. A scanned CV is flagged instead of guessed.
+* **Optional Claude AI reader** (official Anthropic C# SDK 13.5.0, Claude Opus 5.5, structured JSON output, low effort). **Off by default.** It needs `Ats:Ai:ApiKey` **and** the Super Admin's switch. It sends only the CV text, only reads, and falls back to the rules on any failure, so applying never fails because of it.
+* **Scoring** (`AtsEngine`): Education, Experience, Skills (required count double) and Certifications as percentages, compared with the profile **and** the CV text; overall = weighted average (25 % each by default, so 90/100/75/80 → 86 %); bands Highly recommended ≥ 90, Recommended ≥ 80, Review required ≥ 70, Low match ≥ 50, Auto reject below.
+* **Knockout questions** on the vacancy form (up to 10, worded so Yes passes), answered with Yes / No on the apply page; each application keeps the wording it was asked.
+* **Automatic rejection held for HR**: new status *Automatically rejected*, the reasons stored and in the history (actor *ATS (automatic screening)*). The applicant sees *Under review* and nothing about the ATS until a Recruitment Officer or HR Manager **confirms** (→ Not successful, polite email) or **overrides** with a reason (→ Under review). There is also *Confirm all* per vacancy and *cleared on re-screening* when a relaxed rule no longer applies. Six switchable rules: knockout No, education, experience, required certification and Auto reject band are on; required skill is off.
+* **Recruiter dashboard** (Menu → ATS screening, with a badge for rejections awaiting HR): an overview per vacancy, and for each vacancy band tiles, top ranked candidates, held rejections with confirm / override, a ranking table with the four sub-scores, a **missing skill analysis** (have / missing per requirement), the knockout questions and the rules in force. The application page has a score breakdown card, a "read from the CV" card, the knockout answers and the decision card. The Applications list has a new *ATS rejected (awaiting HR)* tab.
+* **ATS settings** (Super Admin only, new permission `ats.configure`): weights, bands, rules, AI reader; validated (weights add up to 100, bands in order); audited.
+* Shortlisting board, Phase 6 screening and re-run screening now use the ATS; the Phase 6 points score is retired (`CvScreening.cs` removed).
+* MySQL script `database/15_phase15_ats_engine.sql`; migration `Phase15_AtsEngine`
+* 6 new automated tests (123 in total), including real PDF and Word CVs and the whole held-rejection journey through the pages
+* New [ATS screening guide](22-ats-screening.md); shortlisting, database, security, configuration and testing docs updated
+
+**Decisions recorded**
+* **Rules by default, AI as an option** (the user's choice). Every value has a published reason, nothing personal leaves GREL, and there is no running cost. The AI reader only *reads* CVs: scores and rejections follow the same published rules whichever reader is used.
+* **Automatic rejections are held for HR** (the user's choice). This reverses Phase 6's "no one is rejected automatically" only partly: the ATS proposes, a person decides, and the applicant is told only after that decision. Ghana's Data Protection Act lets people object to decisions taken by automated means alone.
+* **The CV adds, never subtracts.** A requirement counts as met when it appears in the profile *or* the CV, and education uses the higher of the two levels, so a CV that GRSMS reads badly can't lower a score. Experience uses the applicant's declared years, and the CV's own figure is shown beside it.
+* **Required skills don't reject by default**: skills are written in many ways, so a missing one is a reason to look, not to reject. Required certifications do reject, because they have fixed names.
+* **The CV text is not copied into the audit trail**: it is already in the file, and copying it would spread personal data. The trail records what was read and decided.
+* **No server-side model fallback for the AI reader.** If Claude declines or fails, GRSMS's own reader takes over, so no second AI model receives the CV.
+* Weights and bands are system-wide (one setting for GREL) rather than per vacancy. Per-vacancy criteria are the vacancy's requirements, minimums and knockout questions.
+
+**Problems found and fixed while building**
+* The generated migration gave existing applications an empty `AtsDecision`, which could not be read back and would have broken every application page. Existing rows now get `None`. Found by reading the script before applying it.
+* Checked against MySQL with real rows on a **scratch copy** of the Docker database (dropped afterwards; the real one was not touched): two candidates registered, uploaded a Word CV and applied; the CV was read (name, Bachelor's, 8 years); "Yes" scored 87 % (Recommended) and "No" was held as rejected with the reason; the dashboard, application page and Applications tab loaded; confirming worked; every step was audited. No errors.
+
+**Not done yet:** filling in a candidate's profile from their CV (the CV is read when they apply, not when they upload it); the AI reader has not been run against the real Anthropic API (no key here; its request shape compiles against the official SDK and its failures are handled).
+
+## ✅ Phase 16: System settings, email templates, backups and audit monitor (5 November 2026)
+
+**Asked for** (the Super Admin functions of the 5 November request): email template management, recruitment workflow configuration, vacancy configuration, system settings, Microsoft 365 integration settings, backup & restore management, audit log monitoring. The ATS configuration and AI thresholds were delivered in Phase 15; user, role, permission and organisation management in Phase 14.
+
+**Delivered**
+* **System settings** screen (Super Admin changes, Admin reads): organisation name, email greeting and signature; **email server** (sender, SMTP server, port, encryption, login, with **Send test**); **Microsoft 365 sign-in** (tenant, client, secret, and the redirect URI to register); **recruitment workflow** (vacancy advertising window, longest offer reply time, approver reminder days, knockout questions suggested for every new vacancy). A value saved on screen wins; an empty one falls back to the server configuration, then the default, and each field shows which applies. **Secrets are encrypted** with the data-protection keys, never shown again, and masked in the audit trail.
+* **Microsoft 365 sign-in without a restart:** the sign-in method is always registered, configured from the settings in force, offered and accepted only once complete, and rebuilt when the settings change.
+* **Email templates** for the 11 candidate emails (received, not successful, shortlisted, interview invitation / rescheduled / cancelled, offer sent / withdrawn / accepted, offer and interview reminders): plain text with checked `{{placeholders}}`, preview, reset. Nothing typed becomes HTML. Every email (staff ones too) uses the greeting and signature from settings.
+* **Backups** screen (Super Admin): the backups made by the backup service, latest-backup and stuck-request warnings, **Back up now** (a request file the backup service picks up within 30 seconds; `deploy/backup.sh` and the production compose file updated), **download** of database dumps; every request and download audited. Restore stays a server procedure.
+* **Audit monitor** (audit-trail readers): alerts (5+ failed sign-ins for an account or 10+ from one address in 24 h, lockouts, permission/settings changes), 24-hour and 7-day figures, failed sign-ins by account and address, most active users, changes by record type, recent settings changes and security events.
+* New permissions `settings.manage` and `backups.manage` (Super Admin only); the Admin's `settings.view` now also covers System settings and Email templates.
+* Migration `Phase16_SystemSettings`, script `database/17_phase16_system_settings.sql`; 6 new tests (134 in total); new [System settings guide](23-system-settings.md); configuration, production, security, database and testing docs updated.
+
+**Decisions recorded**
+* **Screen first, server configuration as fallback**, so GREL IT's existing set-up keeps working and nothing that needs a file or a restart (database, keys, folders) is on the screen.
+* **Only candidate emails are templates.** They are the ones GREL may want to word its own way; staff notifications stay built in, which keeps 40 internal messages accurate as the workflows change.
+* **Templates are plain text**, so no template can carry a harmful link or script.
+* **The files-and-keys backup archive can't be downloaded**: it holds the encryption keys, so IT copies it on the server. Database dumps can be downloaded by the Super Admin, with an audit row.
+* **No restore button**, as decided on 5 November: restoring replaces live data and stays with IT.
+* **"Vacancy configuration"** is the advertising window and the suggested knockout questions; everything else about a vacancy stays per vacancy.
+
+**Problems found and fixed while building**
+* The developer's own edit to `EmailService.cs` put the SMTP sender and password into the source code, and the file stopped compiling. The credentials were moved to the developer's local user-secrets (never committed); the code has no credentials. The real mailbox (Hostinger, `smtp.hostinger.com`, port 587 STARTTLS) was checked with one test email to itself.
+* The service tests' container had no configuration registered, which the settings store needs; `AddInfrastructure` now registers the configuration it is given.
+
+**Checked:** 134/134 tests. **Back up now** end to end, with the real `backup.sh` in a throwaway backup container against the local database: daily backup at start, request picked up within 30 seconds, backup made, request cleared. On the Docker MySQL (after a backup): migration applied, both new permissions seeded, every new screen opened, and a settings save and clear round-tripped with audit rows.
+
+**Not tested here:** Microsoft 365 sign-in against a real Entra tenant (no tenant available); the Backups screen inside the full production stack (the pieces were checked separately).
+
+## ✅ Phase 17: Digital QF-81-11 Recruitment Request Form (5 November 2026)
+
+**Asked for:** a digital version of form QF-81-11 (employment details, request information, a rich-text description of the post with formatting and a character counter, qualification requirements, observations/remarks, five supporting documents in PDF/DOCX/XLSX stored securely on the server); a three-stage approval (Department Head → HR Manager → Managing Director, each with Approve / Reject / Return for correction), recruitment only after final approval; and HR converting the approved request into a job vacancy (auto-populated, Job Requisition Number, vacancy owner, closing date, internal or external).
+
+**Delivered**
+* **The form** ([user guide](08-recruitment-requests.md)) in six sections: Engagement type (Permanent / Contract), Category (Executive / Senior / Junior), Purpose (Internal restructuring / Replacement / Expansion / New position / Other, with "please specify"), Request date, Specific job title, Number of staff required, Proposed starting date, **Description of the post**, Educational level, Category (field of study), Level of training, Certificate(s) required, Professional experience (years and description), Driving licence (optional: Not needed / Desirable / Mandatory, class optional; only Mandatory becomes an applicant knockout question), Observations / remarks, plus the existing justification. **No budget fields** (not on QF-81-11; removed on request): the budget is shown by the Budget approval document, which the HR Manager confirms at stage 2.
+* **Rich-text editor** (`wwwroot/js/rich-text-editor.js`, self-hosted because the security policy allows only GRSMS's own scripts): bold, italic, underline, heading, bulleted and numbered lists, clear formatting, undo/redo, a live character counter (10,000 maximum, 50 minimum, formatting not counted, counted the same way on the server). Without JavaScript a plain text box is used. Saved HTML is **cleaned by HtmlSanitizer** (`Infrastructure/Security/RichTextSanitizer.cs`): only p, br, strong/b, em/i, u, ul, ol, li, h3, h4 and blockquote, **no attributes**; scripts, styles, frames and links are removed, with their content where it is code.
+* **Supporting documents:** Job description (required), Main accountabilities, Organisational structure, Department justification, Budget approval document, with a checklist on the request page. **PDF, DOCX and XLSX only** for requests (content checked against the file type), random file names on the server outside the web root, path and SHA-256 in `Attachments`.
+* **Workflow:** Draft → **Department Head review** (the Head of *that* department) → **HR Manager review** (budget confirmed) → **MD approval** → Approved. Return for correction goes back to the requester and restarts at stage 1; reject is final. Emails and waiting reminders at every stage; "Awaiting my action" for the HOD covers only their departments.
+* **Conversion into a job vacancy** ([vacancies guide](09-vacancies.md)): "Convert into a job vacancy" opens the vacancy form pre-filled from the request (job title, unit, site, description as plain text, education, field of study, level of training, experience, certificates, the driving licence: Mandatory → essential certificate and knockout question, Desirable → desirable certificate). A **Job Requisition Number** `JRN-<year>-<0000>` is given on saving; HR picks the **Vacancy owner** (an active Recruitment Officer), the **recruitment closing date** and **internal / external / both**. The vacancy's requesting HOD is now the department's HOD, not whoever raised the request.
+* Migrations `Qf8111RecruitmentRequestForm` and `DrivingLicenceRequirement` (the yes/no licence flag became the three choices on 6 November at the user's request; existing "required" values become Mandatory), script `database/18_qf8111_recruitment_request_form.sql` (columns only, all optional). New package `HtmlSanitizer` 10.0.1120 (Infrastructure). Tests rewritten for the new workflow, plus tests for the form rules, sanitising, documents, conversion and the one-time grant: **149 in total**. Docs updated: 03, 04, 08, 09, changelog.
+
+**Decisions recorded** (asked 5 November 2026)
+* **Department staff raise requests; their HOD does stage 1.** Employees now hold *Open recruitment requests* and *Raise recruitment requests* by default, for their own department only (granted once to existing installations; the Super Admin can take it away). **A request the HOD raises is their stage-1 sign-off** and goes straight to the HR Manager, recorded as such in the history. A request can't be submitted while its department has no HOD.
+* **The Recruitment Officer review stage is removed**, to match QF-81-11's three stages. The recruiter is now chosen as the **Vacancy owner** when the vacancy is created. Requests already waiting at the old Recruitment review can still be decided by a Recruitment Officer and go on to HR (status kept as `RecruitmentReview`, shown as "earlier workflow").
+* **Engagement type "Contract" is the existing `FixedTermContract` value** and Purpose "Internal restructuring" the existing `Restructuring`, so existing data, vacancies and reports keep working. The other employment types and "Temporary cover" stay only for older records.
+* **The budget section is not on the form** (the user asked for it to be removed: QF-81-11 has none). Budget code and cost columns stay for older requests and are shown only when filled in; the HR Manager's stage-2 tick is now "Budget confirmed", referring to the Budget approval document. The justification text stays.
+* **Converting is done by a Recruitment Officer** (the HR staff who run vacancies), as before; HR Manager approval of the vacancy is unchanged.
+* **Pasting into the editor keeps text and line breaks only**, so Word fonts, colours and links never reach the record.
+
+**Checked:** 149/149 tests, including the full journey through the real web pages (staff fill in the form with formatting, upload, submit; HOD, HR Manager and MD approve; a Recruitment Officer is offered the conversion).
+
+**Not tested here:** the editor's toolbar and counter in a real browser (the pages were checked as HTML by the web tests; the script has no automated browser test); the migration against MySQL (generated by EF Core and reviewed; run `database/18_...` or start the app, which migrates).
+
+## ✅ Phase 18: Onboarding workflow and new-hire documents (6 November 2026)
+
+**Asked for** (stage 1 of the onboarding → probation → confirmation extension): an eight-stage onboarding workflow (Draft, Awaiting employee submission, Awaiting document verification, Awaiting HR approval, Awaiting departmental induction, Awaiting activation, Completed, Cancelled), and the GREL New Hire Administrative Records Form as documents the new employee uploads and HR verifies (Pending / Submitted / Verified / Rejected, with who verified and the rejection reason), stored securely with the file path in the database.
+
+**Delivered** ([user guide](24-onboarding-module.md))
+* **Workflow** in `OnboardingWorkflow` (Domain): the stages, who acts at each, when documents may change. History of every step (`OnboardingActions`), shown on the onboarding page with a progress stepper and the expected completion date (start + 30 days).
+* **Stage moves** in `OnboardingService`: issuing the letter → employee submission; the employee (or HR) submits once the letter is signed and every document is in → verification; HR sends rejected documents back or marks everything verified → HR approval; an HR Manager approves (→ induction) or returns; HR closes the induction (every task done, start date reached) → activation; HR activates with the staff number → Completed. Cancel at any stage.
+* **New-hire documents** (`EmployeeDocument`, `DocumentVerificationService`): the 16 documents, 11 required and 5 "if applicable" (marriage certificate, children's birth certificates, dependants' photographs, passport biodata page, non-citizen card). Several files per document; PDF, JPG or PNG only, checked by extension and content, random names outside the web root, SHA-256 (the existing Attachments storage). HR verifies, accepts "not applicable" or rejects with a reason; verified documents are locked.
+* **Activation** (`IEmployeeAccounts`): the account gets the staff number, department and site, the Employee role, and loses the Candidate role.
+* **Screens:** the onboarding page (stepper, next-step panel per stage, document checklist with verify/reject, history, HR notes); the new employee's **My new-hire documents** page in the portal; a shared `_EmployeeDocuments` partial.
+* **Emails:** three new candidate templates (*Onboarding: letter and documents*, *documents need attention*, *staff account active*, editable on Email templates) plus staff notifications at each stage.
+* Migration `Phase18_OnboardingWorkflow`, script `database/19_phase18_onboarding_workflow.sql`. Tests: `OnboardingServiceTests` (rewritten on a shared `OnboardingTestBase`, full eight-stage workflow, segregation), new `DocumentVerificationServiceTests`, `OnboardingWebTests` with the employee onboarding journey and the document verification journey: **156 in total**.
+
+**Decisions recorded**
+* **The existing Phase 9 onboarding was extended, not duplicated** (user's choice). `OnboardingRecord` is the spec's onboarding record: `Number` = OnboardingNumber, `EmployeeUserId` = EmployeeId, `JobApplicationId` = CandidateId, `RequestingHodUserId` = HODId, and `Status` is the current stage (there is no separate CurrentStage column, so the two can never disagree).
+* **Existing onboardings are migrated**, not reset: in progress with no letter → Draft; letter issued → Awaiting employee submission (they get the document checklist); letter signed → Awaiting departmental induction (they started before documents existed).
+* **Files stay in the shared Attachments table** (OwnerType `EmployeeDocument`) rather than path columns on EmployeeDocument, so upload checks, storage and downloads are the same code everywhere, and a document can have several files.
+* **"Not applicable"** is an extra document status, only for the five documents that don't apply to everyone, and HR must accept it.
+* **HODs never see the new-hire documents** (Ghana Card, birth, medical and police records): only HR and the employee.
+* **Segregation of duties:** the HR Manager who marked the documents verified cannot also approve; nobody acts on their own onboarding.
+* **The "bring on your first day" checklist items are dropped** for new onboardings: the documents replace them.
+* **Activation is a workflow step**, so HR (Recruitment Officer or HR Manager) can give the everyday Employee role there without user-admin rights; privileged roles still need a Super Admin.
+
+**Checked:** 156/156 tests. Script 19 run on MySQL 8.4 against a throwaway copy of the development database with test onboardings in each state: stages, completion dates and document checklists as expected; the copy was then dropped.
+
+**Not tested here:** the pages in a real browser (they were exercised as HTML by the web tests).
+
+## ✅ Phase 19: Employee Personal Record Declaration (6 November 2026)
+
+**Asked for** (stage 2 of the onboarding → probation → confirmation extension): the whole GREL Employee Personal Record Declaration form: employee information (name, staff number, department, position, qualification, SSNIT number, service date, date of birth, age, residential address, home town, region, tribe, religion, email, mobile, disability, visible marks), languages with proficiency, bank accounts, spouse, children, dependants, next of kin, emergency contact, beneficiaries that must total 100% (no save otherwise, checked in the Application layer), and a signed declaration storing the name, date and IP as an immutable record.
+
+**Delivered** ([user guide](24-onboarding-module.md#your-personal-record-employee-personal-record-declaration))
+* **Domain** (`PersonalRecord.cs`): `EmployeePersonalRecord` (one per onboarding) with `EmployeeLanguage`, `EmployeeBankAccount`, `EmployeeSpouse`, `EmployeeChild`, `EmployeeDependant`, `EmployeeEmergencyContact`, `EmployeeBeneficiary`; next of kin on the record; `EmployeeDeclaration`; enums for the 16 regions, proficiency and gender.
+* **`PersonalRecordService`**: all the form's rules in one place (required fields, usable phone numbers, at least one language / bank account / emergency contact / beneficiary, exactly one primary bank account, beneficiaries exactly 100%, dates not in the future), all-or-nothing saves, blank rows ignored; signing by typing the full name with a confirmation tick.
+* **The declaration** is immutable: each signature is a new `EmployeeDeclarations` row with the name, time, IP address, a JSON snapshot of everything declared and its SHA-256. The audit interceptor refuses any update or delete of one. Changing the record clears the signature, so it must be signed again.
+* **Workflow:** submitting to HR now needs the signed personal record (letter → personal record → documents). HR can send the onboarding back to correct the personal record with a message, even when no document was rejected.
+* **Screens:** *My personal record* in the portal (add/remove rows with a small self-hosted `repeater.js`, which also shows the running beneficiary total; without JavaScript one blank row per list); HR's read-only, printable view from the onboarding page; a shared `_PersonalRecordView`.
+* Migration `Phase19_PersonalRecordDeclaration`, script `database/20_phase19_personal_record_declaration.sql` (nine new tables). New `PersonalRecordServiceTests`; the onboarding web journeys now fill in and sign the record through the real page: **161 tests**.
+
+**Decisions recorded**
+* **Name, staff number, department, position and service date are not typed again**: they come from the onboarding (and the staff number from activation), so they can't disagree. Age is calculated from the date of birth, not stored.
+* **Next of kin is one person** (on the record); **emergency contacts are 1 to 3** and **spouses up to 4**; children and dependants are unlimited (up to 30 rows per list).
+* **The lists are replaced as a whole on each save** (like a vacancy's requirements); the audit trail keeps every row added or removed.
+* **Every signature is kept.** A new signature never overwrites an old one, so what was declared on any date can be shown and proved (fingerprint).
+* **Only the employee and HR see it**, like the new-hire documents. The employee can change it only while the onboarding is with them.
+
+**Checked:** 161/161 tests. Scripts 19 and 20 applied together on MySQL 8.4 to a throwaway copy of the development database (then dropped).
+
+**Not tested here:** the add/remove-row buttons and the running total in a real browser (the page and its posted rows were exercised by the web tests).
+
+## 🚧 Phase 27: Candidate onboarding document portal (10 November 2026), stage A of 3 delivered
+
+Numbered 27 because 22 to 26 are reserved for the approved automation plan ([26](26-automation-analysis.md)).
+
+**Asked for:** after an accepted offer, the candidate uploads every onboarding document in a mobile-friendly *My Onboarding* portal; the Recruitment Officer reviews each one (verify, or reject with a reason, then the candidate resubmits); configurable document types (education certificates split, expatriate documents); statuses Not submitted / Submitted / Under review / Verified / Rejected / Resubmitted; upload history; virus-scan placeholder; a tracking dashboard with filters; "ready for activation" logic; notifications; audit of every upload, view, verification, rejection and resubmission; permissions `onboarding.view / .manage / .verify-documents / .complete`.
+
+**Delivery in three committed stages:** **A, rules and data (done)**; **B, the candidate's *My Onboarding* (done 10 Nov with usability U2: menu link with progress, renamed dashboard page, next-step card, 6-step personal record, phone uploads)**; C, the RO's verification and tracking dashboards, daily digest, reminders, overdue flags and the deadline extension.
+
+**Delivered in stage A** ([user guide](24-onboarding-module.md))
+* **This extends Phase 18; it is not a parallel module.** The spec's `OnboardingRecord` is the existing one, its `OnboardingDocument` is `EmployeeDocument` and its `OnboardingActivity` is `OnboardingActionEntry`. New: `OnboardingDocumentType` (the configurable checklist, seeded with 24 active types plus the legacy "School certificates") and `EmployeeDocumentEvent` (the spec's `OnboardingDocumentVerification`: every upload, replacement, removal, review, verification, rejection, resubmission and **every time a file is opened**, with user, time, IP and status before and after). All of them derive from `BaseEntity` (soft delete, audit interceptor) and have a concurrency `Version`.
+* **The stage follows the facts** (`OnboardingWorkflow.CheckReadiness`, `StageFor`, `OnboardingProgressService`): no letter → *Letter being prepared*; something outstanding for the new employee → *Awaiting the new employee*; documents to verify → *Awaiting document verification*; otherwise → **Ready for activation**. There is no "Submit" and **no HR Manager approval**.
+* **Activation** (RO or HR Manager) grants the staff account, starts the probation and **creates the induction tasks**, which are then finished while the employee is active (*Induction in progress*); closing the induction completes the onboarding and files the induction record.
+* **Documents:** uploads open the moment the RO starts the onboarding (welcome email with the deadline); each document goes to the RO as it arrives; *Start review* locks it; rejection uses a fixed list (unreadable, wrong document, expired, missing pages, other) and emails the candidate at once; the replacement is *Resubmitted, awaiting verification*; replaced or removed files stay in the history and remain downloadable; "Two recommendation letters" cannot be verified with one file.
+* **Requirements per hire:** on the start form (and later on the onboarding page) the RO ticks the **education certificates** this person must provide and whether they are an **expatriate** (passport, non-citizen card, work and residence permits required; Ghana Card not shown).
+* **Onboarding documents screen** (*Organisation → Onboarding documents*, "Maintain organisation data"): add, rename, regroup, retire and reorder types, set when each is required, the files needed, Word files allowed and the personnel-file category. A change **applies at once to onboardings not yet activated**.
+* **Files:** PDF, JPG, JPEG, PNG; DOCX also for the application letter, CV and recommendation letters; 10 MB; extension + magic-byte checks; `IVirusScanner` hook (placeholder `NoVirusScanner` passes every file; a refused file is never stored); stored outside wwwroot with SHA-256.
+* **Permissions** (Super Admin can change): `onboarding.view` RO + HR Manager; `onboarding.manage` and `onboarding.verify-documents` RO; `onboarding.complete` RO + HR Manager.
+* **Deadline:** 10 working days from the start (System settings → *Time a new employee has to provide the onboarding documents*), stored on the onboarding; reminders and the extension come in stage C.
+* **Provisional personnel file** opened at start; filled at activation; the induction record filed when the induction closes.
+* Migration `Phase27_OnboardingDocumentPortal`, script `database/24_phase27_onboarding_document_portal.sql` (onboardings waiting for HR approval, or in the old pre-activation induction, move to *Ready for activation*; existing documents keep their Phase 18 codes).
+
+**Decisions recorded** (user's answers, 10 November 2026)
+* **The RO still clicks "Click to proceed to onboarding"** (not automatic on acceptance). That click creates the onboarding, checklist and provisional file; "employee record" means these. The Employee role is still granted at activation. *(Supersedes the 9 Nov Phase 24 plan to start automatically.)*
+* **Uploads open when onboarding starts**, without waiting for the appointment letter.
+* **Each document is reviewed as it arrives**; the RO gets one email when everything is in (the daily digest comes in stage C).
+* **Only the Recruitment Officer verifies or rejects**, including the medical report and police clearance (no second verifier). **HR Managers view only**, except that they **can activate**.
+* **The RO issues the appointment letter** (it used to be the HR Manager).
+* **Skip HR Manager approval:** documents verified + declaration and letter signed + no rejection ⇒ ready for activation. **Induction runs after activation.** *(Reverses the Phase 18/20 order and the "approver ≠ verifier" rule.)* I added the signed appointment letter to the readiness rule, as before.
+* **Education certificates are ticked by the RO** per hire; unticked ones stay listed as optional. **The RO ticks "Expatriate"**; there is no nationality field.
+* **Family documents stay optional** with "Not applicable". A "not applicable" declaration does not need the RO's acceptance to be ready (it can still be rejected).
+* **DOCX only for the letters and the CV**; replacing a file keeps the old one as history; *Under review* is set by the RO clicking *Start review*; rejection reasons are a list plus *Other*; **no limit** on rejections; the virus scan is a hook that passes everything.
+* **Deadline 10 working days**, reminders every 3 working days (the last copies the RO), **overdue is flagged** and the RO may extend once (up to 14 days) or cancel; the employee may start work with documents outstanding (stage C).
+* **Document type changes apply to running onboardings**; onboardings already running keep their old "School certificates" item.
+* **Dashboard:** everyone with onboarding.view sees every onboarding. Candidates get a new *My Onboarding* menu and keep the link under *My applications* (stage B).
+* **Every opening of a file is recorded.**
+
+**Checked:** 188/188 tests (document checklist tests rewritten for the new flow: open at start, file checks, history, stage automation, RO-only verification, review lock, rejection reasons and resubmission, two recommendation letters, education/expatriate requirements, document-type changes on running onboardings, virus scan refusal; service and web journeys without HR approval and with the induction after activation; a web test for the Onboarding documents screen).
+
+**Not tested here:** the SQL script on MySQL (no database credentials in this session); the pages in a real browser (exercised as HTML by the web tests).
+
+## ✅ Phase 21: Probation, confirmation, dashboards and reports (6 November 2026)
+
+**Asked for** (stage 4, the last, of the onboarding → probation → confirmation extension): a 6-month probation with an initial meeting within 7 days (objectives and a development plan signed by the employee and the HOD), a first assessment at 3 months and a final one at 6 months recommending *Confirm*, *Extend* (at most 3 months, with a reason, an improvement plan and a new end date) or *Do not confirm*; a confirmation letter and confirmation record; emails to the employee, HR and the HOD; HR and HOD dashboard widgets; seven CSV reports.
+
+**Delivered** ([user guide](25-probation-management.md))
+* **Domain** (`Grsms.Domain.Probation`): `ProbationRecord` with its objectives, development plan, assessments and history; `ConfirmationRecord`; `ProbationWorkflow` (6 months, 7 days, 3 months, at most 3 months' extension, assessments open 14 days early).
+* **ProbationService**: the probation opens at activation (`PRB-<year>-<0000>`, once only); the HOD records and signs the initial meeting, the employee signs it in **My probation** and it is filed in the personnel file; first and final assessments, each filed; the HR Manager approves (confirm: letter `CNF-<year>-<0000>` frozen in *Generated Letters* + confirmation record; extend: new end date; do not confirm) or returns to the HOD with comments. Emails at every step; three new reworded templates (*probation confirmed / extended / not confirmed*).
+* **Screens**: *Probation* (tabs Reviews due / In progress / Awaiting HR decision / All, department filter, details with the forms for the viewer's step), *My probation*, the printable confirmation letter.
+* **Home dashboard** (`WorkforceDashboardService`): HR's six widgets (Employees onboarding, Documents awaiting verification, Incomplete onboarding cases, Probation reviews due, Probation extensions, Confirmations pending) and the HOD's four (New employees assigned, Objectives pending, Assessments due, Probation cases), each linking to its list.
+* **Reports** (`WorkforceReportService`): *Onboarding status* (the existing onboarding report, renamed) plus *Missing documents*, *Document verification*, *Beneficiaries*, *Probation*, *Probation extensions*, *Confirmations*: seven in all, each with the usual filters and CSV download.
+* Migration `Phase21_ProbationAndConfirmation`, script `database/22_phase21_probation_and_confirmation.sql`. New `ProbationServiceTests` (8) and the probation assessment web journey: **177 tests**.
+
+**Decisions recorded**
+* **The probation starts at activation**, from the onboarding's start date, and only for onboardings activated from this phase on (older employees have no probation in GRSMS).
+* **Signatures are typed full names** that must match the signer's account, with the date and time recorded, as for the appointment letter and the declaration.
+* **Only an HR Manager decides**, never on an assessment they recorded; the HOD's recommendation takes effect only when approved. The 3-month limit counts every extension together.
+* **The ratings** are six areas (application of skills, quality of work, productivity, co-operation, dependability, ability to supervise) on a five-point scale, Outstanding to Unacceptable; *Ability to supervise* may be left empty.
+* **Letters are frozen HTML** in the personnel file (user's choice in Phase 18: no PDF library); *Save as PDF* from the print dialog.
+* **Personal-data reports** (missing documents, document verification, beneficiaries) need *Open personnel files*; a HOD sees an empty report saying why. The probation reports follow the usual department rules.
+* **No automatic reminders** yet: due and overdue steps show on the dashboards and the *Reviews due* tab.
+* Out of scope, as asked: payroll, leave, performance management, an ESS portal, training, medical claims.
+
+**Checked:** 177/177 tests. Scripts 19, 20, 21 and 22 applied in order on MySQL 8.4 to a throwaway copy of the development database (six new tables, migration recorded); the copy was dropped.
+
+**Not tested here:** the new pages in a real browser (exercised as HTML by the web tests).
+
+## ✅ Phase 20: Departmental induction and the electronic personnel file (6 November 2026)
+
+**Asked for** (stage 3 of the onboarding → probation → confirmation extension): after HR verification, departments complete onboarding tasks across twelve induction areas (Human Resource, Corporate IT, Procurement, Supply Chain, Finance, Factory Operations, TBU Operations, Stores Operations, Engineering, Security, Health & Safety, Administration), each task with department, name, description, assigned, due and completed dates, verified by and status; and an electronic personnel file per employee, as database records (not Windows folders), with seven categories.
+
+**Delivered** ([user guide](24-onboarding-module.md#departmental-induction))
+* **Induction areas** (`InductionArea`, `InductionAreaSetting`, `InductionAreaService`, screen *Organisation → Induction areas*): per area an owner (none = HR; Corporate IT falls back to the Head of IT), whether it is ticked by default (Human Resource, Corporate IT, Security, Health & Safety out of the box) and its tasks (built-in lists, changeable).
+* **Induction tasks** are the onboarding checklist tasks, extended with the area, a description, the assigned date and **HR verification**. On approval the HR Manager ticks the areas that apply; their tasks are added to the owners (due a week after the induction starts), never twice. Tasks done outside HR wait for HR to **Verify**; the induction can't close until every task is done and verified. HR can add tasks to any area.
+* **Personnel file** (`PersonnelFile`, `PersonnelFileCategory` seeded with the 7 categories, `PersonnelFileDocument`, `PersonnelFileService`): opened automatically at activation (`PF-<year>-<0000>`) and filled with the verified new-hire documents (each in its category), the application's files, the signed Personal Record Declaration, the appointment letter frozen as signed, and the onboarding and induction record. Filing again never duplicates. HR can add documents; letters open printable (*Print or save as PDF*). Older completed onboardings get **Open the personnel file**.
+* New permission **Open personnel files** (`personnel.view`, Recruitment Officers and HR Managers by default); menu *Personnel files*.
+* Migration `Phase20_InductionAndPersonnelFile`, script `database/21_phase20_induction_and_personnel_file.sql`. New `InductionAndPersonnelFileTests`; the onboarding web journey ticks an area, completes the induction and opens the personnel file, its letter and a file; a web test for the Induction areas screen: **168 tests**.
+
+**Decisions recorded**
+* **The twelve areas are a fixed list** (user's choice), each with an owner set on the Induction areas screen; **an area without an owner goes to HR** (the vacancy's recruiter). The new employee's own department stays a separate group owned by its HOD.
+* **The spec's DepartmentalOnboardingTask is the existing OnboardingTasks table, extended**, so the Phase 9 checklist and the induction are one list and nothing is duplicated. HR and IT preparation tasks still start with the onboarding (they must be ready before day one); the other areas' tasks are added when the HR Manager approves.
+* **HR verifies tasks done by others**; tasks HR marks done count as verified. Tasks finished before this phase count as verified by whoever finished them.
+* **The personnel file is HR's**: only holders of *Open personnel files* see it (not the HOD, not the employee: the ESS portal is out of scope).
+* **Files are never copied** into the personnel file; it points at the Attachments rows. **Letters are frozen HTML** (user's choice: no PDF library), built only from encoded values and cleaned again on display.
+* **Only verified new-hire documents are filed.**
+
+**Checked:** 168/168 tests. Scripts 19, 20 and 21 applied in order on MySQL 8.4 to a throwaway copy of the development database: 7 categories seeded, new columns present; the copy was dropped.
+
+**Not tested here:** the new pages in a real browser (exercised as HTML by the web tests).
+
+## 🎉 All 13 original phases delivered
 Next steps are GREL's: work through the [go-live checklist](21-production-deployment.md#8-go-live-checklist), then gather users' feedback for improvements.
 
 **Rules every later phase must follow** (from the GREL requirements, 4 November 2026; see [12 Divisions and departments](12-divisions-and-departments.md#what-later-phases-must-do)):
 * Every candidate application, interview panel, hiring report, dashboard KPI and onboarding record stores its **division, department and requesting HOD** (copied from the vacancy, the same way vacancies copy them from the request).
 * Reports (Phase 11) filter by **division, department, vacancy, recruitment status and recruitment period**.
-* The department's **HOD takes part** in shortlisting (Phase 6), interview evaluation and scorecard review (Phase 7), and gives the final hiring recommendation (Phase 8) for positions in their department.
+* The department's **HOD takes part** in shortlisting (Phase 6), interview evaluation and scorecard review (Phase 7), and gives the final hiring recommendation (Phase 8) for positions in their department. **Changed 9 November 2026 (user's decision):** hires are approved by the Recruitment Officer only; the HOD, HR Manager and MD no longer approve (the HOD still sits on every panel).

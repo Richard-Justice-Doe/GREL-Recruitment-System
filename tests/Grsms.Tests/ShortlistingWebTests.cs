@@ -77,7 +77,7 @@ public class ShortlistingWebTests(GrsmsWebFactory factory) : IClassFixture<Grsms
                 Phone = "0240000000", HighestEducation = EducationLevel.Bachelors, YearsExperience = 4, Skills = "Adult training",
                 SubmittedAt = DateTime.UtcNow, StatusChangedAt = DateTime.UtcNow
             };
-            app.ApplyScreening(CvScreening.Score(vacancy, app), DateTime.UtcNow);
+            app.ApplyScreening(AtsEngine.Score(vacancy, app, null, null, [], new AtsSettings()), DateTime.UtcNow);
             app.RecordStep(ApplicationAction.Submitted, ApplicationStatus.Submitted, candidate, "Yaa Asantewaa", null, DateTime.UtcNow);
             db.JobApplications.Add(app);
             await db.SaveChangesAsync();

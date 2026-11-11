@@ -1,0 +1,48 @@
+@* Phase 27: the configurable onboarding document checklist. Each row is its own form; the last card adds a document. *@
+@model IReadOnlyList<OnboardingDocumentTypeForm>
+@{
+    ViewData["Title"] = "Onboarding documents";
+}
+<div class="page-header">
+    <div>
+        <h1>Onboarding documents</h1>
+        <p>The documents a new employee uploads in My Onboarding. A change applies at once to every onboarding not yet activated:
+            a new or re-activated document is added as "Not submitted"; a retired one stops counting, but files already uploaded are kept.</p>
+    </div>
+    <a href="#add" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add a document</a>
+</div>
+
+@foreach (var group in Model.Where(t => !t.IsLegacy).GroupBy(t => t.Group))
+{
+    <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-2">@group.Key.DisplayName()</h2>
+    <div class="row g-3">
+        @foreach (var t in group)
+        {
+            <div class="col-lg-6" id="type-@t.Id">
+                <div class="card glass h-100 @(t.IsActive ? "" : "opacity-75")">
+                    <div class="card-body p-3">
+                        <partial name="_DocumentTypeForm" model="t" />
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (Model.Any(t => t.IsLegacy))
+{
+    <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-2">Old checklist (read-only)</h2>
+    <ul class="small">
+        @foreach (var t in Model.Where(t => t.IsLegacy))
+        {
+            <li><strong>@t.Name</strong>: @t.Description (@t.InUse onboarding(s) in progress)</li>
+        }
+    </ul>
+}
+
+<h2 class="h6 text-uppercase text-body-secondary mt-4 mb-2" id="add">Add a document</h2>
+<div class="card glass mb-4">
+    <div class="card-body p-3">
+        <partial name="_DocumentTypeForm" model="new OnboardingDocumentTypeForm { SortOrder = (Model.Count + 1) * 10 }" />
+    </div>
+</div>

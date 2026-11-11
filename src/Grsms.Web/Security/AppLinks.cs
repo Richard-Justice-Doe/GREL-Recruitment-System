@@ -20,12 +20,15 @@ public class AppLinks(IHttpContextAccessor accessor, LinkGenerator linkGenerator
     public string MyApplication(int id) => Build("Details", "MyApplications", new { id });
 
     public string Shortlist(int vacancyId) => Build("Vacancy", "Shortlisting", new { id = vacancyId });
+    public string AtsVacancy(int vacancyId) => Build("Vacancy", "Ats", new { id = vacancyId });
 
     public string Interview(int id) => Build("Details", "Interviews", new { id });
 
     public string HiringCase(int applicationId) => Build("Case", "Hiring", new { id = applicationId });
 
     public string Onboarding(int id) => Build("Details", "Onboarding", new { id });
+    public string Probation(int id) => Build("Details", "Probation", new { id });
+    public string MyProbation() => Build("Index", "MyProbation", new { });
 
     public string Survey(int invitationId) => Build("Take", "Surveys", new { id = invitationId });
 

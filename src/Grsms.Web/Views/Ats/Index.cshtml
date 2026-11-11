@@ -1,0 +1,63 @@
+@* Phase 15: ATS overview. One row per vacancy with applications: how the ATS classified them and how many rejections
+   are waiting for HR. Vacancies with rejections waiting come first. *@
+@model IReadOnlyList<AtsVacancySummaryDto>
+@{
+    ViewData["Title"] = "Screening";
+}
+
+<partial name="_CandidatesTabs" />
+<div class="page-header">
+    <div>
+        <h1>Screening</h1>
+        <p>Every application is read and scored automatically when it arrives (the ATS). Automatic rejections wait until HR confirms or overrules them.</p>
+    </div>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="card glass"><div class="card-body p-4 text-body-secondary">No applications yet in the vacancies you can see.</div></div>
+}
+else
+{
+    <div class="card glass">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover datatable" data-order='[]'>
+                    <thead>
+                    <tr>
+                        <th>Vacancy</th>
+                        <th>Department</th>
+                        <th class="text-end">Applications</th>
+                        <th class="text-end" title="Highly recommended">Highly rec.</th>
+                        <th class="text-end">Recommended</th>
+                        <th class="text-end" title="Review required">Review</th>
+                        <th class="text-end">Low match</th>
+                        <th class="text-end" title="In the Auto reject band">Auto reject</th>
+                        <th class="text-end">Top match</th>
+                        <th class="text-end">Awaiting HR</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var v in Model)
+                    {
+                        <tr>
+                            <td><a asp-action="Vacancy" asp-route-id="@v.VacancyId" class="fw-semibold">@v.JobTitle</a><div class="small text-body-secondary">@v.VacancyNumber · @v.Status.DisplayName()</div></td>
+                            <td>@v.DepartmentName</td>
+                            <td class="text-end">@v.Applications@(v.Screened < v.Applications ? $" ({v.Applications - v.Screened} not screened)" : "")</td>
+                            <td class="text-end">@v.HighlyRecommended</td>
+                            <td class="text-end">@v.Recommended</td>
+                            <td class="text-end">@v.ReviewRequired</td>
+                            <td class="text-end">@v.LowMatch</td>
+                            <td class="text-end">@v.AutoRejectBand</td>
+                            <td class="text-end" data-order="@(v.TopScore ?? -1)">@(v.TopScore is int t ? $"{t}%" : "—")</td>
+                            <td class="text-end" data-order="@v.AwaitingHr">
+                                @if (v.AwaitingHr > 0) { <span class="badge rounded-pill badge-soft-danger">@v.AwaitingHr</span> } else { <span class="text-body-secondary">0</span> }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}

@@ -1,0 +1,321 @@
+@* Phase 19: the Employee Personal Record Declaration, filled in by the new employee in their portal.
+   Lists (languages, bank accounts, family, contacts, beneficiaries) use js/repeater.js to add and remove rows; without
+   JavaScript the saved rows plus one blank row are shown. Every rule is checked by PersonalRecordService on save.
+   When the record can no longer be changed, the read-only view (_PersonalRecordView) is shown instead. *@
+@model PersonalRecordPageDto
+@{
+    ViewData["Title"] = "My personal record";
+    var f = Model.Form;
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    string D(DateOnly? d) => d?.ToString("yyyy-MM-dd") ?? "";
+
+    // A row is shown for each saved entry, plus one blank row when the list is empty (so the form works without JavaScript).
+    IEnumerable<(string Key, T Row)> Rows<T>(List<T> list) where T : new() =>
+        (list.Count == 0 ? [new T()] : list).Select((r, i) => (i.ToString(), r));
+}
+
+<div class="page-header">
+    <div>
+        <h1>My personal record</h1>
+        <p>Employee Personal Record Declaration · onboarding @Model.OnboardingNumber ·
+            @if (Model.Signed) { <span class="badge rounded-pill badge-soft-success">Signed @Model.DeclaredAt!.Value.ToString("dd MMM yyyy HH:mm")</span> }
+            else if (Model.Saved) { <span class="badge rounded-pill badge-soft-warning">Saved, not signed yet</span> }
+            else { <span class="badge rounded-pill badge-soft-secondary">Not started</span> }
+        </p>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.ApplicationId" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>My application</a>
+</div>
+
+@if (!Model.CanEdit)
+{
+    <div class="alert alert-info small">Your personal record is with HR. You can change it only if HR sends your onboarding back to you.</div>
+    <partial name="_PersonalRecordView" model="Model" />
+    return;
+}
+
+@if (Model.CanSign)
+{
+    @* ---- The declaration: shown at the top once the record is saved and not yet signed *@
+    <div class="card glass mb-3 border border-primary">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Declaration</h2>
+            <form asp-action="SignPersonalRecord" asp-route-id="@Model.ApplicationId" method="post">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="confirm" name="confirm" value="true" />
+                    <label class="form-check-label" for="confirm"><strong>@PersonalRecordService.DeclarationText</strong></label>
+                </div>
+                <div class="input-group" style="max-width: 32rem">
+                    <input name="fullName" class="form-control" maxlength="200" required placeholder="Type your full name: @Model.EmployeeName" aria-label="Your full name" />
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-signature me-1"></i>Sign</button>
+                </div>
+                <div class="form-text">Your name, the date and time and your IP address are recorded, with a copy of what you declared. Changing the record afterwards means signing again.</div>
+            </form>
+        </div>
+    </div>
+}
+
+<form asp-action="PersonalRecord" asp-route-id="@Model.ApplicationId" method="post" novalidate data-steps>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+
+    @* ---------------------------------------------------------------- Employee information *@
+    <div class="card glass mb-3" data-step="About you">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Employee information</h2>
+            <dl class="details-grid small mb-3">
+                <dt>Employee name</dt><dd>@Model.EmployeeName</dd>
+                <dt>Staff number</dt><dd>@(Model.StaffNumber ?? "Given by HR when you start")</dd>
+                <dt>Department</dt><dd>@Model.DepartmentName</dd>
+                <dt>Position</dt><dd>@Model.Position</dd>
+                <dt>Service date</dt><dd>@Model.ServiceDate.ToString("dd MMM yyyy")</dd>
+                <dt>Age</dt><dd>@(Model.Age?.ToString() ?? "From your date of birth")</dd>
+            </dl>
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label" for="Qualification">Qualification</label>
+                    <input id="Qualification" name="Qualification" class="form-control" maxlength="200" value="@f.Qualification" placeholder="e.g. BSc Agriculture, KNUST" /></div>
+                <div class="col-md-3"><label class="form-label" for="SsnitNumber">SSNIT number</label>
+                    <input id="SsnitNumber" name="SsnitNumber" class="form-control text-uppercase" maxlength="30" value="@f.SsnitNumber" required /></div>
+                <div class="col-md-3"><label class="form-label" for="DateOfBirth">Date of birth</label>
+                    <input id="DateOfBirth" name="DateOfBirth" type="date" class="form-control" value="@D(f.DateOfBirth)" max="@today.ToString("yyyy-MM-dd")" required /></div>
+                <div class="col-md-6"><label class="form-label" for="ResidentialAddress">Residential address</label>
+                    <textarea id="ResidentialAddress" name="ResidentialAddress" class="form-control" rows="2" maxlength="500" required>@f.ResidentialAddress</textarea></div>
+                <div class="col-md-3"><label class="form-label" for="HomeTown">Home town</label>
+                    <input id="HomeTown" name="HomeTown" class="form-control" maxlength="100" value="@f.HomeTown" required /></div>
+                <div class="col-md-3"><label class="form-label" for="Region">Region</label>
+                    <select id="Region" name="Region" class="form-select" required>
+                        <option value="">— Choose —</option>
+                        @foreach (var r in Enum.GetValues<GhanaRegion>()) { <option value="@r" selected="@(f.Region == r)">@r.DisplayName()</option> }
+                    </select></div>
+                <div class="col-md-3"><label class="form-label" for="Tribe">Tribe</label>
+                    <input id="Tribe" name="Tribe" class="form-control" maxlength="100" value="@f.Tribe" /></div>
+                <div class="col-md-3"><label class="form-label" for="Religion">Religion</label>
+                    <input id="Religion" name="Religion" class="form-control" maxlength="100" value="@f.Religion" /></div>
+                <div class="col-md-3"><label class="form-label" for="Email">Email</label>
+                    <input id="Email" name="Email" type="email" class="form-control" maxlength="256" value="@f.Email" /></div>
+                <div class="col-md-3"><label class="form-label" for="MobileNumber">Mobile number</label>
+                    <input id="MobileNumber" name="MobileNumber" type="tel" class="form-control" maxlength="30" value="@f.MobileNumber" required /></div>
+                <div class="col-md-6">
+                    <div class="form-check mt-1">
+                        <input class="form-check-input" type="checkbox" id="HasDisability" name="HasDisability" value="true" checked="@f.HasDisability" data-toggle-disability />
+                        <label class="form-check-label" for="HasDisability">I have a disability</label>
+                    </div>
+                    <div class="mt-2" id="disabilityDetailsGroup">
+                        <label class="form-label small" for="DisabilityDetails">The disability, and any support you need at work</label>
+                        <textarea id="DisabilityDetails" name="DisabilityDetails" class="form-control form-control-sm" rows="2" maxlength="2000">@f.DisabilityDetails</textarea>
+                    </div>
+                </div>
+                <div class="col-md-6"><label class="form-label" for="VisibleMarks">Visible marks</label>
+                    <input id="VisibleMarks" name="VisibleMarks" class="form-control" maxlength="500" value="@f.VisibleMarks" placeholder="e.g. scar on the left hand" /></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        @* ---------------------------------------------------------------- Languages *@
+        <div class="col-lg-6" data-step="Languages">
+            <div class="card glass h-100"><div class="card-body p-4" data-repeater>
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Languages spoken</h2>
+                @{
+                    async Task LanguageRowHtml(string key, LanguageRow r)
+                    {
+                        <div class="row g-2 mb-2 align-items-end" data-repeater-row>
+                            <input type="hidden" name="Languages.Index" value="@key" />
+                            <div class="col-6"><input name="Languages[@key].Language" class="form-control form-control-sm" maxlength="60" value="@r.Language" placeholder="Language" aria-label="Language" /></div>
+                            <div class="col-5"><select name="Languages[@key].Proficiency" class="form-select form-select-sm" aria-label="Proficiency">
+                                <option value="">— How well —</option>
+                                @foreach (var p in Enum.GetValues<LanguageProficiency>()) { <option value="@p" selected="@(r.Proficiency == p)">@p.DisplayName()</option> }
+                            </select></div>
+                            <div class="col-1"><button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></div>
+                        </div>
+                    }
+                }
+                <div data-repeater-list>@foreach (var (k, r) in Rows(f.Languages)) { await LanguageRowHtml(k, r); }</div>
+                <template data-repeater-template>@{ await LanguageRowHtml("__key__", new()); }</template>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add a language</button>
+            </div></div>
+        </div>
+
+        @* ---------------------------------------------------------------- Bank accounts *@
+        <div class="col-lg-6" data-step="Bank account">
+            <div class="card glass h-100"><div class="card-body p-4" data-repeater>
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Bank accounts</h2>
+                @{
+                    async Task BankRowHtml(string key, BankAccountRow r)
+                    {
+                        <div class="row g-2 mb-2 align-items-center" data-repeater-row>
+                            <input type="hidden" name="BankAccounts.Index" value="@key" />
+                            <div class="col-md-4"><input name="BankAccounts[@key].BankName" class="form-control form-control-sm" maxlength="100" value="@r.BankName" placeholder="Bank" aria-label="Bank" /></div>
+                            <div class="col-md-3"><input name="BankAccounts[@key].Branch" class="form-control form-control-sm" maxlength="100" value="@r.Branch" placeholder="Branch" aria-label="Branch" /></div>
+                            <div class="col-md-3"><input name="BankAccounts[@key].AccountNumber" class="form-control form-control-sm" maxlength="40" value="@r.AccountNumber" placeholder="Account number" aria-label="Account number" /></div>
+                            <div class="col-md-2 d-flex align-items-center gap-2">
+                                <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="BankAccounts[@key].IsPrimary" value="true" checked="@r.IsPrimary" id="primary-@key" />
+                                    <label class="form-check-label small" for="primary-@key">Primary</label></div>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
+                    }
+                }
+                <div data-repeater-list>@foreach (var (k, r) in Rows(f.BankAccounts)) { await BankRowHtml(k, r); }</div>
+                <template data-repeater-template>@{ await BankRowHtml("__key__", new()); }</template>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add an account</button>
+                <div class="form-text">Your salary is paid into the <strong>primary</strong> account.</div>
+            </div></div>
+        </div>
+    </div>
+
+    @* ---------------------------------------------------------------- Family *@
+    <div class="card glass my-3" data-step="Family">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Family records</h2>
+
+            <div data-repeater class="mb-4">
+                <h3 class="h6">Spouse <span class="text-body-secondary small fw-normal">(if any)</span></h3>
+                @{
+                    async Task SpouseRowHtml(string key, SpouseRow r)
+                    {
+                        <div class="row g-2 mb-2" data-repeater-row>
+                            <input type="hidden" name="Spouses.Index" value="@key" />
+                            <div class="col-md-3"><input name="Spouses[@key].FullName" class="form-control form-control-sm" maxlength="200" value="@r.FullName" placeholder="Full name" aria-label="Spouse's full name" /></div>
+                            <div class="col-md-2"><input name="Spouses[@key].Occupation" class="form-control form-control-sm" maxlength="100" value="@r.Occupation" placeholder="Occupation" aria-label="Occupation" /></div>
+                            <div class="col-md-2"><input name="Spouses[@key].DateOfBirth" type="date" class="form-control form-control-sm" value="@D(r.DateOfBirth)" aria-label="Date of birth" /></div>
+                            <div class="col-md-3"><input name="Spouses[@key].Address" class="form-control form-control-sm" maxlength="500" value="@r.Address" placeholder="Address" aria-label="Address" /></div>
+                            <div class="col-md-2 d-flex gap-2"><input name="Spouses[@key].Telephone" type="tel" class="form-control form-control-sm" maxlength="30" value="@r.Telephone" placeholder="Telephone" aria-label="Telephone" />
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></div>
+                        </div>
+                    }
+                }
+                <div data-repeater-list>@foreach (var (k, r) in Rows(f.Spouses)) { await SpouseRowHtml(k, r); }</div>
+                <template data-repeater-template>@{ await SpouseRowHtml("__key__", new()); }</template>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add a spouse</button>
+            </div>
+
+            <div data-repeater class="mb-4">
+                <h3 class="h6">Children</h3>
+                @{
+                    async Task ChildRowHtml(string key, ChildRow r)
+                    {
+                        <div class="row g-2 mb-2" data-repeater-row>
+                            <input type="hidden" name="Children.Index" value="@key" />
+                            <div class="col-md-3"><input name="Children[@key].FullName" class="form-control form-control-sm" maxlength="200" value="@r.FullName" placeholder="Full name" aria-label="Child's full name" /></div>
+                            <div class="col-md-2"><select name="Children[@key].Gender" class="form-select form-select-sm" aria-label="Gender">
+                                <option value="">— Gender —</option>
+                                @foreach (var g in Enum.GetValues<Gender>()) { <option value="@g" selected="@(r.Gender == g)">@g.DisplayName()</option> }
+                            </select></div>
+                            <div class="col-md-2"><input name="Children[@key].DateOfBirth" type="date" class="form-control form-control-sm" value="@D(r.DateOfBirth)" aria-label="Date of birth" /></div>
+                            <div class="col-md-2"><input name="Children[@key].PlaceOfBirth" class="form-control form-control-sm" maxlength="100" value="@r.PlaceOfBirth" placeholder="Place of birth" aria-label="Place of birth" /></div>
+                            <div class="col-md-3 d-flex gap-2"><input name="Children[@key].CurrentResidence" class="form-control form-control-sm" maxlength="200" value="@r.CurrentResidence" placeholder="Current residence" aria-label="Current residence" />
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></div>
+                        </div>
+                    }
+                }
+                <div data-repeater-list>@foreach (var (k, r) in Rows(f.Children)) { await ChildRowHtml(k, r); }</div>
+                <template data-repeater-template>@{ await ChildRowHtml("__key__", new()); }</template>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add a child</button>
+            </div>
+
+            <div data-repeater>
+                <h3 class="h6">Dependants</h3>
+                @{
+                    async Task DependantRowHtml(string key, DependantRow r)
+                    {
+                        <div class="row g-2 mb-2" data-repeater-row>
+                            <input type="hidden" name="Dependants.Index" value="@key" />
+                            <div class="col-md-5"><input name="Dependants[@key].FullName" class="form-control form-control-sm" maxlength="200" value="@r.FullName" placeholder="Full name" aria-label="Dependant's full name" /></div>
+                            <div class="col-md-4"><input name="Dependants[@key].Relationship" class="form-control form-control-sm" maxlength="100" value="@r.Relationship" placeholder="Relationship" aria-label="Relationship" /></div>
+                            <div class="col-md-3 d-flex gap-2"><input name="Dependants[@key].Age" type="number" min="0" max="120" class="form-control form-control-sm" value="@r.Age" placeholder="Age" aria-label="Age" />
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></div>
+                        </div>
+                    }
+                }
+                <div data-repeater-list>@foreach (var (k, r) in Rows(f.Dependants)) { await DependantRowHtml(k, r); }</div>
+                <template data-repeater-template>@{ await DependantRowHtml("__key__", new()); }</template>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add a dependant</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3" data-step="Next of kin and emergency contacts">
+        @* ---------------------------------------------------------------- Next of kin *@
+        <div class="col-lg-6">
+            <div class="card glass h-100"><div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Next of kin</h2>
+                <div class="row g-2">
+                    <div class="col-md-6"><label class="form-label small" for="NextOfKinName">Name</label>
+                        <input id="NextOfKinName" name="NextOfKinName" class="form-control form-control-sm" maxlength="200" value="@f.NextOfKinName" required /></div>
+                    <div class="col-md-6"><label class="form-label small" for="NextOfKinRelationship">Relationship</label>
+                        <input id="NextOfKinRelationship" name="NextOfKinRelationship" class="form-control form-control-sm" maxlength="100" value="@f.NextOfKinRelationship" required /></div>
+                    <div class="col-md-6"><label class="form-label small" for="NextOfKinTelephone">Telephone</label>
+                        <input id="NextOfKinTelephone" name="NextOfKinTelephone" type="tel" class="form-control form-control-sm" maxlength="30" value="@f.NextOfKinTelephone" required /></div>
+                    <div class="col-md-6"><label class="form-label small" for="NextOfKinDateOfBirth">Date of birth</label>
+                        <input id="NextOfKinDateOfBirth" name="NextOfKinDateOfBirth" type="date" class="form-control form-control-sm" value="@D(f.NextOfKinDateOfBirth)" /></div>
+                    <div class="col-12"><label class="form-label small" for="NextOfKinAddress">Address</label>
+                        <input id="NextOfKinAddress" name="NextOfKinAddress" class="form-control form-control-sm" maxlength="500" value="@f.NextOfKinAddress" /></div>
+                </div>
+            </div></div>
+        </div>
+
+        @* ---------------------------------------------------------------- Emergency contacts *@
+        <div class="col-lg-6">
+            <div class="card glass h-100"><div class="card-body p-4" data-repeater>
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Emergency contact</h2>
+                @{
+                    async Task EmergencyRowHtml(string key, EmergencyContactRow r)
+                    {
+                        <div class="row g-2 mb-2" data-repeater-row>
+                            <input type="hidden" name="EmergencyContacts.Index" value="@key" />
+                            <div class="col-md-6"><input name="EmergencyContacts[@key].Name" class="form-control form-control-sm" maxlength="200" value="@r.Name" placeholder="Name" aria-label="Name" /></div>
+                            <div class="col-md-6"><input name="EmergencyContacts[@key].Relationship" class="form-control form-control-sm" maxlength="100" value="@r.Relationship" placeholder="Relationship" aria-label="Relationship" /></div>
+                            <div class="col-md-5"><input name="EmergencyContacts[@key].Telephone1" type="tel" class="form-control form-control-sm" maxlength="30" value="@r.Telephone1" placeholder="Telephone 1" aria-label="Telephone 1" /></div>
+                            <div class="col-md-5"><input name="EmergencyContacts[@key].Telephone2" type="tel" class="form-control form-control-sm" maxlength="30" value="@r.Telephone2" placeholder="Telephone 2 (optional)" aria-label="Telephone 2" /></div>
+                            <div class="col-md-2"><button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></div>
+                        </div>
+                    }
+                }
+                <div data-repeater-list>@foreach (var (k, r) in Rows(f.EmergencyContacts)) { await EmergencyRowHtml(k, r); }</div>
+                <template data-repeater-template>@{ await EmergencyRowHtml("__key__", new()); }</template>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add a contact</button>
+            </div></div>
+        </div>
+    </div>
+
+    @* ---------------------------------------------------------------- Beneficiaries *@
+    <div class="card glass my-3" data-step="Beneficiaries">
+        <div class="card-body p-4" data-repeater>
+            <h2 class="h6 text-uppercase text-body-secondary mb-1">Beneficiaries</h2>
+            <p class="small text-body-secondary">The shares must add up to exactly <strong>100%</strong>. Total so far: <span><strong data-percent-total>0</strong>%</span></p>
+            @{
+                async Task BeneficiaryRowHtml(string key, BeneficiaryRow r)
+                {
+                    <div class="row g-2 mb-2" data-repeater-row>
+                        <input type="hidden" name="Beneficiaries.Index" value="@key" />
+                        <div class="col-md-4"><input name="Beneficiaries[@key].Name" class="form-control form-control-sm" maxlength="200" value="@r.Name" placeholder="Name" aria-label="Beneficiary's name" /></div>
+                        <div class="col-md-3"><input name="Beneficiaries[@key].Relationship" class="form-control form-control-sm" maxlength="100" value="@r.Relationship" placeholder="Relationship" aria-label="Relationship" /></div>
+                        <div class="col-md-2"><input name="Beneficiaries[@key].DateOfBirth" type="date" class="form-control form-control-sm" value="@D(r.DateOfBirth)" aria-label="Date of birth" /></div>
+                        <div class="col-md-3 d-flex gap-2">
+                            <div class="input-group input-group-sm">
+                                <input name="Beneficiaries[@key].Percentage" type="number" min="0.01" max="100" step="0.01" class="form-control" value="@r.Percentage?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" placeholder="Share" aria-label="Percentage" data-percent />
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+                }
+            }
+            <div data-repeater-list>@foreach (var (k, r) in Rows(f.Beneficiaries)) { await BeneficiaryRowHtml(k, r); }</div>
+            <template data-repeater-template>@{ await BeneficiaryRowHtml("__key__", new()); }</template>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add a beneficiary</button>
+        </div>
+    </div>
+
+    <div data-steps-finish>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save my personal record</button>
+    @if (Model.Signed)
+    {
+        <span class="small text-body-secondary ms-2">Saving changes means signing the declaration again.</span>
+    }
+    </div>
+</form>
+
+@section Scripts {
+    <script src="~/js/repeater.js" asp-append-version="true"></script>
+    <script src="~/js/form-steps.js" asp-append-version="true"></script>
+}

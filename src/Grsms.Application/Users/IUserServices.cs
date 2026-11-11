@@ -30,6 +30,9 @@ public interface IUserDirectory
     /// <summary>The user's home department (Users.DepartmentId), or null.</summary>
     Task<int?> GetDepartmentIdAsync(string userId, CancellationToken ct = default);
 
+    /// <summary>Usability U4: the user's site (Users.SiteId), or null, to pre-fill forms.</summary>
+    Task<int?> GetSiteIdAsync(string userId, CancellationToken ct = default);
+
     /// <summary>True for an active GREL staff account (not a candidate).</summary>
     Task<bool> IsActiveStaffAsync(string userId, CancellationToken ct = default);
 
@@ -53,12 +56,21 @@ public record CandidateSummary(string Id, string FullName, string Email, DateTim
 public record UserContact(string Id, string FullName, string Email);
 
 /// <summary>
-/// User account management for the HR Administrator (Users screen).
+/// User account management for the Super Admin and HR Administrator (Users screen).
 /// </summary>
 public interface IUserAdminService
 {
     /// <summary>All users. Staff only by default; set <paramref name="includeCandidates"/> to also list portal candidates.</summary>
     Task<IReadOnlyList<UserListItemDto>> GetAllAsync(bool includeCandidates, CancellationToken ct = default);
+
+    /// <summary>Phase 14: every role a staff account can be given (built-in staff roles, then custom roles).</summary>
+    Task<IReadOnlyList<string>> GetAssignableRolesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Creates a CANDIDATE account for someone (e.g. while self-registration is closed for a trial). It has no password:
+    /// the person chooses one through the welcome email's link. Returns the new user id.
+    /// </summary>
+    Task<Result<string>> CreateCandidateAsync(string fullName, string email, CancellationToken ct = default);
 
     /// <summary>Loads a staff account into the edit form, or null if not found.</summary>
     Task<UserFormDto?> GetForEditAsync(string id, CancellationToken ct = default);

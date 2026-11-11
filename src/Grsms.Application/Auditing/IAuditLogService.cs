@@ -14,6 +14,27 @@ public record AuditLogDto(
     string? NewValues,
     string? IpAddress);
 
+/// <summary>Phase 16: counts for one period on the Audit monitor.</summary>
+public record AuditPeriodDto(int SignIns, int FailedSignIns, int Lockouts, int RecordChanges, int SettingsChanges);
+
+/// <summary>A name (account, address, user, record type) and how many times it appears.</summary>
+public record AuditCountDto(string Name, int Count, DateTime Last);
+
+/// <summary>
+/// Phase 16: the Audit monitor. Alerts: an account with 5+ failed sign-ins, or an address with 10+, in the last 24 hours;
+/// any lockout in the last 24 hours; any change to permissions, roles or settings in the last 24 hours.
+/// </summary>
+public record AuditMonitorDto(
+    AuditPeriodDto Last24Hours,
+    AuditPeriodDto Last7Days,
+    IReadOnlyList<string> Alerts,
+    IReadOnlyList<AuditCountDto> FailedSignInsByAccount,
+    IReadOnlyList<AuditCountDto> FailedSignInsByAddress,
+    IReadOnlyList<AuditCountDto> MostActiveUsers,
+    IReadOnlyList<AuditCountDto> ChangesByRecordType,
+    IReadOnlyList<AuditLogDto> RecentSettingsChanges,
+    IReadOnlyList<AuditLogDto> RecentSecurityEvents);
+
 /// <summary>Filters typed into the Audit Trail screen. Every filter is optional.</summary>
 public class AuditLogQuery
 {
@@ -57,6 +78,17 @@ public interface IAuditLogService
 
     /// <summary>Searches the trail, newest first.</summary>
     Task<PagedResult<AuditLogDto>> SearchAsync(AuditLogQuery query, CancellationToken ct = default);
+
+    /// <summary>
+    /// "My audit trail" (every user, 5 November 2026): what the user did (every row recorded under their account, which
+    /// includes sign-ins, failed sign-ins and lockouts on their account, and password changes) PLUS what others did to
+    /// their account (their user record, role assignments and sign-in tokens). On rows made by someone else the IP
+    /// address is removed. Filters: Action, EntityName, From, To and paging (UserName and EntityId are ignored).
+    /// </summary>
+    Task<PagedResult<AuditLogDto>> SearchMineAsync(string userId, string? userName, AuditLogQuery query, CancellationToken ct = default);
+
+    /// <summary>Phase 16: the Audit monitor's figures, worked out from the trail as of <paramref name="nowUtc"/>.</summary>
+    Task<AuditMonitorDto> MonitorAsync(DateTime nowUtc, CancellationToken ct = default);
 
     /// <summary>Distinct record types that appear in the trail, for the filter drop-down.</summary>
     Task<IReadOnlyList<string>> GetEntityNamesAsync(CancellationToken ct = default);

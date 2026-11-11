@@ -92,12 +92,15 @@ public record InterviewListItemDto(
     int ScorecardsIn,
     decimal? AverageScore);
 
-public record PanelMemberDto(string UserId, string Name, bool IsChair, bool HasSubmitted);
+/// <summary>A panel member. HasSubmitted = a valid scorecard; ScorecardReturned = theirs was sent back for correction.</summary>
+public record PanelMemberDto(string UserId, string Name, bool IsChair, bool HasSubmitted, bool ScorecardReturned = false,
+    PanelAttendance Attendance = PanelAttendance.NotRecorded, string? AttendanceNote = null);
 
 public record CriterionDto(int Id, string Name, int Weight);
 
 public record ScorecardDto(string PanelUserId, string PanelName, PanelRecommendation Recommendation, decimal WeightedScore,
-    IReadOnlyDictionary<int, int> Ratings, string? Strengths, string? Concerns, DateTime SubmittedAt);
+    IReadOnlyDictionary<int, int> Ratings, string? Strengths, string? Concerns, DateTime SubmittedAt,
+    DateTime? ReturnedAt = null, string? ReturnReason = null, string? ReturnedByName = null);
 
 /// <summary>The interview page: details, panel, criteria, my scorecard, the scorecards I may see, and actions.</summary>
 public record InterviewDetailsDto
@@ -135,6 +138,28 @@ public record InterviewDetailsDto
     public bool CanScore { get; init; }
     public bool CanManage { get; init; }
     public string? ScoreNotYetReason { get; init; }
+
+    // ---- Score validation (9 Nov 2026)
+
+    /// <summary>The vacancy's Recruitment Officer, who validates the scores (another Recruitment Officer may stand in).</summary>
+    public string? ValidatorName { get; init; }
+
+    /// <summary>Panel members still owing a valid scorecard, by name.</summary>
+    public IReadOnlyList<string> MissingScorers { get; init; } = [];
+
+    /// <summary>The current user may validate, return scorecards and mark absences (a Recruitment Officer not on this panel).</summary>
+    public bool IsValidator { get; init; }
+
+    /// <summary>Validate is possible now; otherwise <see cref="ValidationBlockedReason"/> says why.</summary>
+    public bool CanValidate { get; init; }
+    public string? ValidationBlockedReason { get; init; }
+
+    /// <summary>The current user's scorecard was returned and must be corrected and submitted again.</summary>
+    public bool MyScorecardReturned { get; init; }
+
+    public string? ValidatedByName { get; init; }
+    public DateTime? ValidatedAt { get; init; }
+    public string? ValidationNote { get; init; }
 }
 
 /// <summary>One applicant's interview results for a vacancy (the results board).</summary>

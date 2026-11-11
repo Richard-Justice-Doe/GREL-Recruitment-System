@@ -44,6 +44,8 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         nameof(BaseEntity.UpdatedBy),
         nameof(BaseEntity.DeletedAt),
         nameof(BaseEntity.DeletedBy),
+        // Phase 15: the full text of a CV (it is in the CV file itself; the audit trail records what the ATS decided).
+        nameof(Domain.Applications.JobApplication.CvText),
     ];
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
@@ -143,14 +145,19 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
     private void Prepare(DbContext db)
     {
         var now = DateTime.UtcNow;
-        var user = currentUser.UserName ?? "system";
+        // Work the system does on its own inside someone's request (e.g. ATS screening) is recorded as the system.
+        var user = Application.Common.SystemActor.Current ?? currentUser.UserName ?? "system";
         _pending = [];
 
         foreach (var entry in db.ChangeTracker.Entries().ToList())
         {
             // Audit rows themselves, and the technical reference-number counters, are not audited.
-            if (entry.Entity is AuditLog or NumberSequence) continue;
+            if (entry.Entity is AuditLog or NumberSequence or Domain.Security.KnownPermission) continue;
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
+
+            // Phase 19: a signed Personal Record Declaration is immutable. Nothing may change or remove it, not even soft-delete.
+            if (entry.Entity is Domain.Onboarding.EmployeeDeclaration && entry.State != EntityState.Added)
+                throw new InvalidOperationException("A signed declaration can never be changed or deleted.");
 
             string action;
             if (entry.Entity is BaseEntity entity)
@@ -233,15 +240,23 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         // e.g. a sign-in that only bumped LastSignInAt: nothing meaningful changed.
         if (action == AuditActions.Updated && newValues.Count == 0) return null;
 
+        // Phase 16: a secret setting (SMTP password, Microsoft 365 secret) shows only that it changed, never a value.
+        if (entry.Entity is Domain.Settings.SystemSetting { IsSecret: true })
+        {
+            const string field = nameof(Domain.Settings.SystemSetting.SettingValue);
+            if (oldValues.ContainsKey(field)) oldValues[field] = oldValues[field] is null ? null : "(secret)";
+            if (newValues.ContainsKey(field)) newValues[field] = newValues[field] is null ? null : "(secret, changed)";
+        }
+
         return new PendingAudit(
             entry,
             EntityNameOf(entry),
             action,
             oldValues.Count == 0 ? null : JsonSerializer.Serialize(oldValues, Json),
             newValues.Count == 0 ? null : JsonSerializer.Serialize(newValues, Json),
-            currentUser.UserId,
-            currentUser.UserName,
-            currentUser.IpAddress,
+            Application.Common.SystemActor.Current is null ? currentUser.UserId : null,
+            Application.Common.SystemActor.Current ?? currentUser.UserName,
+            Application.Common.SystemActor.Current is null ? currentUser.IpAddress : null,
             DateTime.UtcNow);
     }
 
@@ -254,6 +269,7 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         IdentityUserClaim<string> => "UserClaim",
         IdentityUserToken<string> => "UserToken",
         IdentityRole => "Role",
+        IdentityRoleClaim<string> => "RoleClaim", // Phase 14: a role's permissions (and a custom role's description)
         _ => entry.Metadata.ClrType.Name
     };
 

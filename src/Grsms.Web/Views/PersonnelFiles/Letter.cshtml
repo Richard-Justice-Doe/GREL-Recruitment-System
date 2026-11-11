@@ -1,0 +1,21 @@
+@* Phase 20: a letter filed in a personnel file, exactly as filed (printable; "Save as PDF" from the browser's print dialog).
+   The HTML was built from encoded values and is cleaned again by the HTML sanitiser before display. *@
+@model FiledLetterDto
+@{
+    ViewData["Title"] = Model.Title;
+}
+<div class="page-header d-print-none">
+    <div>
+        <h1>@Model.Title</h1>
+        <p>@Model.EmployeeName · personnel file @Model.FileNumber · filed @Model.DocumentDate.ToString("dd MMM yyyy")</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-print><i class="fa-solid fa-print me-1"></i>Print or save as PDF</button>
+        <a asp-action="Details" asp-route-id="@Model.PersonnelFileId" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>The personnel file</a>
+    </div>
+</div>
+<div class="card glass">
+    <div class="card-body p-4 p-md-5 rich-text">
+        @Html.Raw(Model.Html)
+    </div>
+</div>

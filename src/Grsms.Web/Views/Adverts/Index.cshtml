@@ -32,6 +32,8 @@
     };
 }
 
+<partial name="_VacanciesAndAdvertsTabs" />
+
 <div class="page-header">
     <div>
         <h1>Job adverts</h1>
@@ -136,7 +138,7 @@
                             }
                         </td>
                         <td class="small text-nowrap">@a.StartDate.ToString("dd MMM") – @a.EndDate.ToString("dd MMM yyyy")</td>
-                        <td><partial name="_StatusBadge" model="a.Status" /></td>
+                        <td><partial name="_AdvertStatusBadge" model="a.Status" /></td>
                     </tr>
                 }
                 </tbody>

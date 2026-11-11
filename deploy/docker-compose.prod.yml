@@ -71,9 +71,13 @@ services:
       Sms__SenderId: ${SMS_SENDER_ID:-GREL}
       Sms__ClientId: ${SMS_CLIENT_ID:-}
       Sms__ClientSecret: ${SMS_CLIENT_SECRET:-}
+      # Phase 16: the backup folder as seen by the app (see volumes below)
+      Backups__Folder: /app/backups
     volumes:
       - app-data:/app/App_Data   # uploads, data-protection keys, saved emails / texts
       - app-logs:/app/logs
+      # Phase 16: the Backups screen lists these files, downloads database dumps and leaves "back up now" requests.
+      - ${BACKUP_FOLDER:-./backups}:/app/backups
     networks: [grsms]
 
   proxy:

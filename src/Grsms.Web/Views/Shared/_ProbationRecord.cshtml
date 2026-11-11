@@ -1,0 +1,73 @@
+@* Phase 21: a probation's agreed objectives, development plan, extension and assessments, read-only.
+   Shared by the staff probation page and the employee's My probation page. *@
+@model ProbationDetailsDto
+@{
+    string R(ProbationRating? r) => r?.DisplayName() ?? "Not applicable";
+}
+<div class="card glass mb-3">
+    <div class="card-body p-4">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Objectives and development plan</h2>
+        @if (Model.Objectives.Count == 0)
+        {
+            <p class="small text-body-secondary mb-0">Not agreed yet: the initial meeting is due by @Model.InitialMeetingDueDate.ToString("dd MMM yyyy").</p>
+        }
+        else
+        {
+            <p class="small text-body-secondary">Initial meeting held @Model.InitialMeetingDate?.ToString("dd MMM yyyy")@(Model.InitialMeetingDate > Model.InitialMeetingDueDate ? " (after the 7-day deadline)" : "").</p>
+            <table class="table table-sm small">
+                <thead><tr><th>Objective</th><th>Success indicators</th><th>Due</th></tr></thead>
+                <tbody>
+                    @foreach (var o in Model.Objectives) { <tr><td>@o.Objective</td><td>@o.SuccessIndicators</td><td class="text-nowrap">@o.DueDate?.ToString("dd MMM yyyy")</td></tr> }
+                </tbody>
+            </table>
+            @if (Model.DevelopmentPlan.Count > 0)
+            {
+                <table class="table table-sm small">
+                    <thead><tr><th>Training need</th><th>Development need</th><th>Timeline</th></tr></thead>
+                    <tbody>
+                        @foreach (var d in Model.DevelopmentPlan) { <tr><td>@d.TrainingNeed</td><td>@d.DevelopmentNeed</td><td>@d.Timeline</td></tr> }
+                    </tbody>
+                </table>
+            }
+            @if (Model.InitialMeetingNotes is not null) { <p class="small" style="white-space: pre-wrap">@Model.InitialMeetingNotes</p> }
+            <p class="small mb-0">
+                <i class="fa-solid fa-signature me-1"></i>Head of Department: @(Model.HodSignatureName is null ? "not signed" : $"{Model.HodSignatureName}, {Model.HodSignedAt:dd MMM yyyy HH:mm}")
+                · Employee: @(Model.EmployeeSignatureName is null ? "not signed yet" : $"{Model.EmployeeSignatureName}, {Model.EmployeeSignedAt:dd MMM yyyy HH:mm}")
+            </p>
+        }
+    </div>
+</div>
+
+@if (Model.ExtendedMonths > 0)
+{
+    <div class="alert alert-warning small">
+        <strong>Extended</strong> by @Model.ExtendedMonths month(s), from @Model.OriginalEndDate.ToString("dd MMM yyyy") to @Model.EndDate.ToString("dd MMM yyyy").
+        <div>Reason: @Model.ExtensionReason</div>
+        @if (Model.ExtensionImprovementPlan is not null) { <div>Improvement plan: @Model.ExtensionImprovementPlan</div> }
+    </div>
+}
+
+@foreach (var a in Model.Assessments)
+{
+    <div class="card glass mb-3">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-1">@a.Kind.DisplayName()</h2>
+            <p class="small text-body-secondary">By @a.Assessor on @a.AssessedAt.ToString("dd MMM yyyy")</p>
+            <dl class="details-grid small">
+                @foreach (var (category, rating) in a.Ratings) { <dt>@category.DisplayName()</dt><dd>@R(rating)</dd> }
+            </dl>
+            <h3 class="h6 small fw-semibold">Comments</h3>
+            <p class="small" style="white-space: pre-wrap">@a.Comments</p>
+            @if (a.ImprovementPlan is not null)
+            {
+                <h3 class="h6 small fw-semibold">Improvement plan</h3>
+                <p class="small" style="white-space: pre-wrap">@a.ImprovementPlan</p>
+            }
+            @if (a.Outcome is { } outcome)
+            {
+                <p class="small mb-0"><strong>Recommendation:</strong> @outcome.DisplayName()@(a.ExtensionMonths is { } m ? $" by {m} month(s): {a.ExtensionReason}" : "")
+                    · @(a.HrApproved switch { true => "approved by HR", false => $"returned by HR: {a.HrComments}", _ => "waiting for the HR Manager" })</p>
+            }
+        </div>
+    </div>
+}

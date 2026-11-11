@@ -4,6 +4,245 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 10 November 2026: shorter forms, helpful empty lists (usability U4)
+
+* **Recruitment request** in 5 steps (one per section of QF-81-11), *Save draft* on every step, site pre-filled; **vacancy form** with *More options* for desirable skills, certifications and knockout questions.
+* **Empty lists** say how things get there; **application status** explains itself on hover.
+* **Checked:** 193/193 tests. Not checked in a browser.
+
+---
+
+## 10 November 2026: next step on every record page; busy pages in topics (usability U3)
+
+* **"Your next step"** banner on the request, vacancy, application and probation pages (`Views/Shared/_NextStepBanner.cshtml`).
+* **Onboarding page** and **hiring case** split into topics with tabs (`js/section-tabs.js`); everything still on the page without JavaScript.
+* After acting on a document you come back to that document.
+* **Checked:** 193/193 tests. Not checked in a browser.
+
+---
+
+## 10 November 2026: candidates see their next step; My onboarding (usability U2, Phase 27 stage B)
+
+* **Candidate home** starts with "Your next step" (offer to answer, letter to sign, personal record, documents, interview, profile), one big button, sticky on phones (`MyNextStepService`, `Views/Shared/_MyNextSteps.cshtml`).
+* **My onboarding**: a menu link with the progress % while onboarding is in progress; the documents page renamed and linked to the letter and personal record.
+* **Personal record in 6 steps** (`js/form-steps.js`), still one form saved at the end: no rule changed.
+* **Phones**: My applications as cards; uploads say "Take a photo or choose a file", bigger, with a preview.
+* **Checked:** 193/193 tests. Not checked on a real phone.
+
+---
+
+## 10 November 2026: simpler menus and complete to-dos (usability U1)
+
+**Why:** "make the whole project very simple and easy to use". Review, decisions and progress: [28 Usability review](28-usability-review.md). Look and flow only: no business rule or permission changed.
+
+* **Menu:** Candidates (applications + screening), one Administration page instead of 13 links, survey results under Reports, staff's own job search in the menu under their name, a flat menu for people with few links, no Screening or Hiring & offers for Heads of Department.
+* **Home to-dos** now include screening rejections to confirm, letters to issue, documents to verify, employees to activate, inductions to close, probation meetings, assessments and decisions.
+* **Words:** "ATS" → "screening" where users read it; two outdated developer notes removed.
+* **Files:** `Controllers/AdministrationController.cs`, `Views/Administration/Index.cshtml`, `Views/Shared/_CandidatesTabs.cshtml`, `Helpers/MenuRules.cs`, `_Sidebar.cshtml`, `_Layout.cshtml`; `OnboardingService.MyWorkAsync`, `ProbationService.MyWorkAsync`, `AtsService.AwaitingHrByVacancyAsync`, `DashboardService`.
+* **Checked:** 192/192 tests. Not checked in a browser.
+
+---
+
+## 10 November 2026: codebase audit and cleanup
+
+**Why:** a full audit of the codebase (dead code, duplicates, structure, database, security, performance) before Phase 27 stages B and C. Report, decisions and results: [27 Codebase audit](27-codebase-audit.md). No business rule changed except the two decisions below.
+
+* **Removed (no callers):** 7 methods, 1 constructor parameter, 1 view helper, the unchecked permission `users.manage-privileged`, 11 CSS rules, ~9.3 MB of unused Bootstrap/jQuery variants.
+* **Faster:** the onboarding page runs 16 queries instead of 71; several lists and reports filter in the database; reminders and dashboards prefetch lookups.
+* **Simpler:** shared `Text.Clean`, `Signatures.SameName`, `TrySaveAsync`, `AppController.Fail`/`RunAsync` replace ~90 copies.
+* **Clearer:** `ScheduledJobsWorker` (was `VacancyAutoCloseWorker`), four status-badge partials named by what they show, `Application/Workforce`, one controller per file.
+* **Decisions:** **probation now uses permissions** (`probation.view`: RO and HR Manager; `probation.decide`: HR Manager), like onboarding; onboarding and probation actions are also guarded per action by policy. **Virus scanning:** the placeholder stays; [06 Configuration](06-configuration.md#virus-scanning-of-uploads-connect-before-go-live) explains how to connect ClamAV or Defender.
+* **Database:** migration `AuditDropRedundantVacancyStatusIndex`, script `database/25_audit_drop_redundant_vacancy_status_index.sql` (drops one redundant index).
+* **Checked:** 190/190 tests (new: onboarding page query count, per-action policies); full rebuild without warnings.
+* **Open:** splitting `OnboardingService` (after Phase 27 B and C); scripts 24 and 25 not yet run on MySQL.
+
+---
+
+## 10 November 2026: Phase 27 stage A, onboarding documents reviewed one by one, no HR approval
+
+**Why:** GREL asked for a candidate onboarding document portal with per-document verification. Stage A (rules and data) of three; details and every decision in [Phase 27](phases.md#-phase-27-candidate-onboarding-document-portal-10-november-2026-stage-a-of-3-delivered).
+
+* **Domain:** `OnboardingDocumentType` (configurable, 24 default types + legacy "School certificates"), `EmployeeDocumentEvent` (history incl. every file opening), new statuses *Under review* and *Resubmitted*, rejection reasons, `IsApplicable`, `Version`; onboarding `IsExpatriate`, `DocumentsDueDate`, correction request; `OnboardingWorkflow.CheckReadiness / StageFor / ApplyRequirement / AddWorkingDays`; four permissions `onboarding.*`; setting *Onboarding:DocumentDeadlineWorkingDays*; three email templates (welcome, document rejected, requirements complete).
+* **Application:** `OnboardingProgressService` (works the stage out after every change), `OnboardingDocumentTypeService`, `DocumentVerificationService` rewritten (replace with history, start review, reject with a reason, requirements, logging opens), `OnboardingService` (RO starts and issues the letter; activation creates the induction; closing the induction completes; HR approval, "Submit" and "Mark verified" removed), `AttachmentService` (`IVirusScanner`, `MoveAsync`), `PersonnelFileService` (provisional file at start), reports and dashboard adapted.
+* **Web:** new *Onboarding documents* screen; start form with education certificates and the expatriate tick; onboarding page *Next step* panel (progress, outstanding, correction, requirements, activation with induction areas); shared document partial grouped by heading with *Start review*, reason list, *Replace*, history; candidate page shows progress and what is still needed (no *Submit* button).
+* **Database:** migration `Phase27_OnboardingDocumentPortal`, script `database/24_phase27_onboarding_document_portal.sql`.
+* **Checked:** 188/188 tests.
+* **Open:** stage B (*My Onboarding* dashboard and menu), stage C (RO tracking dashboard with filters, daily digest, reminders, overdue flag and extension). The script has not been run on MySQL here.
+
+---
+
+## 9 November 2026: dark mode, text readable again
+
+**Why:** after the redesign some text could not be seen in dark mode.
+
+* **Cause:** `--bs-emphasis-color` and `--bs-border-color` were set only in the light block of `site.css`. The page's `<html>` matches both `:root` and `[data-bs-theme="dark"]`, and `site.css` loads after Bootstrap, so the light values (near-black text) won in dark mode. Bootstrap uses the emphasis colour for **table text**, emphasised text and some headings, which therefore turned near-black on the dark background.
+* **Fix:** both are now set in the dark block too (white emphasis, a soft light border), with a comment saying every variable of the light block must also be set there.
+* **Also:** in dark mode the brand and stage colours are light, so white text on them failed contrast. **Primary and danger buttons**, the logo mark, red menu counts, completed stepper dots, the "today" date chip and checked tick boxes now use dark text; the avatar keeps a strong purple.
+* **Checked:** CSS only; the Content-Security-Policy already allows the `data:` image used for the tick. Not checked in a browser here.
+
+---
+
+## 9 November 2026: interview score validation by the Recruitment Officer
+
+**Why:** GREL asked that, after a candidate has been scored, **all scores go to the Recruitment Officer for validation** before anything else happens. Until now a session could be "marked completed" with only one scorecard, and the HOD and MD saw the scores and ranking straight away.
+
+**Decisions (user's choices):** the **vacancy's Recruitment Officer** validates (another may stand in); **every panel member who took part** must submit (Absent/Excused members exempt); the RO **validates or returns one scorecard** with a reason and never changes scores; scores stay **hidden until validated** from the HOD, MD, HR and the results. Added safeguard: the **HOD cannot be marked absent** (their scorecard is required). (A first version also stopped a Recruitment Officer on the panel from validating; the user asked for the validate button to be available, so **any Recruitment Officer validates**, only never returning their own scorecard. When the vacancy owner is not a Recruitment Officer, all of them are asked.)
+
+* **Domain:** `InterviewStatus.AwaitingValidation` (set automatically when the last expected scorecard arrives); `InterviewPanelMember.Attendance` (+ note, who, when; ready for Phase 23's attendance); `Scorecard.ReturnedAt/ReturnReason/ReturnedByUserId`; `Interview.ValidatedAt/ValidatedByUserId/ValidationNote`; rules in `InterviewWorkflow`.
+* **Application:** `InterviewService.ValidateAsync`, `ReturnScorecardAsync`, `SetAttendanceAsync`, `ListAwaitingMyValidationAsync` (replaces `CompleteAsync`); emails to the RO (ready), the panel member (returned) and panel + HOD (validated). Results, lists and the hiring case count **validated scores only**; a hiring recommendation needs a validated interview. Home to-do card *Validate the scores*; the *Interviews* menu count includes validations.
+* **Web:** interview page with the redesign's **Your next step** panel, a *Validate the scores* card, panel statuses (Scored / Returned / Absent / Excused); *To validate* tab.
+* **Database:** migration `InterviewScoreValidation`, script `database/23_interview_score_validation.sql` (existing panel members get Attendance = NotRecorded).
+* **Docs:** [16 Interviews](16-interviews.md#3-score-validation-recruitment-officer).
+* **Checked:** 179/179 tests (two new: the validate / return / resubmit journey with visibility, and absent / excused rules; the web journey now validates before the HOD sees results).
+* **Hiring and offers (same day):** the hiring case shows an **Interview scores** panel (every round, each panel member's validated score, recommendation and comments, average, who validated; or what an unvalidated round is waiting for), and the Hiring list has an *Interview score* column. Scores never reach the candidate or the offer letter. Tests: 181/181.
+* **Validation → hiring (same day):** validating takes the Recruitment Officer straight to the hiring case (*Your next step: write the hiring recommendation*, justification pre-filled from the validated scores); the vacancy's Recruitment Officer is emailed and gets a *Recommend for hire* to-do; new tab **Hiring and offers → Ready to recommend** (`HiringService.ListReadyToRecommendAsync`). 181/181 tests.
+* **Proceed with chosen candidates (same day, user's choice):** validating now lands on *Ready to recommend* for the vacancy; the Recruitment Officer ticks who to proceed with, and GRSMS starts the hiring process for each: new `HiringStatus.Draft` recommendation (advertised minimum salary, start in 30 days, justification from the validated scores) and the five standard background checks as Pending (`HiringService.ProceedAsync`, `DiscardDraftAsync`; `RecommendAsync` submits a draft to the HOD). Nobody decides on a draft. No database change (status stored as text). 182/182 tests.
+* **Recruitment Officer approval only (same day, user's decision):** after *Proceed*, the Recruitment Officer clicks **Approve hire** and the hire is approved at once: **no HOD, HR Manager or MD approval** (reverses the 4 Nov rule; recorded in phases.md). Only Recruitment Officers approve; selections are capped at the vacancy's positions (`SelectionProblemAsync`). The hiring case leads through *Send the offer* and, once accepted, **Click to proceed to onboarding**. Recommendations already waiting in the old chain still finish there. No database change. 183/183 tests.
+* **Open:** sessions already fully scored but still *Scheduled* before this change can be validated from their page, but appear on *To validate* only after another scorecard change. The 3-person quorum is not enforced yet (Phase 23).
+
+---
+
+## 6 November 2026: Phase 21, probation, confirmation, dashboards and reports
+
+**Why:** stage 4, the last, of GREL's onboarding → probation → confirmation request. Details in [Phase 21](phases.md#-phase-21-probation-confirmation-dashboards-and-reports-6-november-2026).
+
+* **Domain:** `ProbationRecord` (objectives, development plan, assessments, history), `ConfirmationRecord`, `ProbationWorkflow`.
+* **Application:** `ProbationService` (started by `OnboardingService` at activation), `WorkforceDashboardService`, `WorkforceReportService` (called by `ReportService`); `PersonnelFileService` files the meeting, assessments and confirmation letter; three new email templates.
+* **Web:** *Probation* and *My probation* screens, the confirmation letter, the Home dashboard widgets, six new reports.
+* **Database:** `database/22_phase21_probation_and_confirmation.sql`, checked on MySQL 8.4 after scripts 19, 20 and 21.
+* **Checked:** 177/177 tests.
+* **Open:** no automatic reminders for due reviews (shown on the dashboards instead).
+
+---
+
+## 6 November 2026: Phase 20, departmental induction and the electronic personnel file
+
+**Why:** stage 3 of GREL's onboarding → probation → confirmation request. Details in [Phase 20](phases.md#-phase-20-departmental-induction-and-the-electronic-personnel-file-6-november-2026).
+
+* **Domain:** `InductionArea` (12), `InductionAreaSetting`; `OnboardingTask` gets area, description, assigned date and verification; `PersonnelFile`, `PersonnelFileCategory` (7, seeded), `PersonnelFileDocument`; permission `personnel.view`.
+* **Application:** `InductionAreaService`, `PersonnelFileService`; `OnboardingService` adds the chosen areas' tasks on approval, task verification, opens the personnel file at activation.
+* **Web:** *Induction areas* screen, *Personnel files* (list, folders, letters, downloads, uploads), area checkboxes on approval, grouped and verifiable induction tasks.
+* **Database:** `database/21_phase20_induction_and_personnel_file.sql`, checked on MySQL 8.4 after scripts 19 and 20.
+* **Checked:** 168/168 tests.
+
+---
+
+## 6 November 2026: Phase 19, Employee Personal Record Declaration
+
+**Why:** stage 2 of GREL's onboarding → probation → confirmation request. Details in [Phase 19](phases.md#-phase-19-employee-personal-record-declaration-6-november-2026).
+
+* **Domain:** `EmployeePersonalRecord` and its seven lists, immutable `EmployeeDeclaration`.
+* **Application:** `PersonalRecordService` (every rule, incl. beneficiaries = 100%); submitting needs the signed record; HR may send back with a message.
+* **Infrastructure:** `PersonalRecordRepository`, EF configuration, the audit interceptor refuses changes to declarations, migration `Phase19_PersonalRecordDeclaration`.
+* **Web:** *My personal record* (portal), HR read-only view, `_PersonalRecordView`, `js/repeater.js`.
+* **Database:** `database/20_phase19_personal_record_declaration.sql` (new tables only), checked on MySQL 8.4 with script 19.
+* **Checked:** 161/161 tests.
+
+---
+
+## 6 November 2026: Phase 18, onboarding workflow and new-hire documents
+
+**Why:** stage 1 of GREL's onboarding → probation → confirmation request (decisions: extend the Phase 9 onboarding; 12 induction areas; HTML letters; four committed stages). Details in [Phase 18](phases.md#-phase-18-onboarding-workflow-and-new-hire-documents-6-november-2026) and the [user guide](24-onboarding-module.md).
+
+* **Domain:** `OnboardingStatus` is now the eight stages; `OnboardingActionEntry` history; `EmployeeDocument` with 16 types; `OnboardingWorkflow` rules; three email templates.
+* **Application:** `OnboardingService` stage moves (submit, return, verified, HR decision, induction complete, activate, notes); new `DocumentVerificationService`; `IEmployeeAccounts`; reminders and reports use "active" instead of "in progress".
+* **Infrastructure:** `EmployeeAccounts` (Identity), EF configuration, migration `Phase18_OnboardingWorkflow` (moves existing onboardings to the new stages).
+* **Web:** onboarding page (stepper, next step, documents, history, notes), portal page *My new-hire documents*, shared `_EmployeeDocuments` partial.
+* **Database:** `database/19_phase18_onboarding_workflow.sql`, run on MySQL 8.4 against a throwaway copy of the development database.
+* **Checked:** 156/156 tests.
+
+---
+
+## 5 November 2026 (19:40): Digital QF-81-11 Recruitment Request Form
+
+**Why:** GREL asked for a digital version of form QF-81-11 with a three-stage approval (Department Head → HR Manager → MD) and conversion of the approved request into a job vacancy. Recorded as [Phase 17](phases.md#-phase-17-digital-qf-81-11-recruitment-request-form-5-november-2026), with the decisions taken (department staff raise and their HOD reviews; the Recruitment Officer stage removed).
+
+* **Domain:** new `DepartmentHeadReview` status, `StaffCategory`, purpose `Other`, the QF-81-11 fields on `RecruitmentRequest`, `RequisitionNumber` on `Vacancy`, three new document categories; `RecruitmentWorkflow` rewritten for the three stages (old `RecruitmentReview` kept for requests already there).
+* **Application:** `RecruitmentRequestService` (who raises, stage-1 rules, HOD sign-off, form checks, document types, emails), `VacancyService` (pre-fill, requisition number, owner), `RichText` helpers, `AttachmentService` type restriction, reminders and dashboard know the new stage.
+* **Infrastructure:** `RichTextSanitizer` (HtmlSanitizer 10.0.1120), one-time permission grants in `PermissionSeeder`, EF configuration, migration `Qf8111RecruitmentRequestForm`.
+* **Web:** the form, details page, stepper, vacancy form (Job requisition card), `rich-text-editor.js`, editor styles.
+* **Database:** `database/18_qf8111_recruitment_request_form.sql` (columns only).
+* **Driving licence optional (6 November):** Not needed (default) / Desirable / Mandatory instead of a yes/no "required" switch, class optional; only Mandatory becomes a knockout question on the vacancy. Migration `DrivingLicenceRequirement`, included in script `18_`.
+* **One menu item for vacancies and adverts (6 November):** the sidebar shows "Vacancies & adverts"; a Vacancies / Job adverts tab bar (`Views/Shared/_VacanciesAndAdvertsTabs.cshtml`) sits at the top of both lists. People who may open only one of the two see just that one.
+* **Checked:** 149/149 tests. **Open:** the editor not yet tried in a real browser; the migration not yet run on MySQL.
+
+---
+
+## 5 November 2026 (13:50): Public trial link, closed registration, candidate accounts by HR
+
+**Why:** the user wants a public link for specific people to try GRSMS, with only accounts the user creates (choices: Cloudflare quick tunnel; self-registration off).
+
+* **`docker-compose.share.yml`**: Production mode, forwarded headers trusted only from the Docker network, and a `cloudflared` 2024.12.2 quick tunnel giving a public `https://...trycloudflare.com` link to this PC. See [10 Docker → Sharing a trial link](10-docker.md#sharing-a-trial-link-5-november-2026).
+* **Self-registration switch** (System settings → Recruitment workflow, default on). When off, the Register page and its post send people to sign-in, and the "create a candidate account" links are hidden.
+* **Add candidate account** on Users & roles: no password is set; the person is emailed (template *New candidate account*) a 24-hour link to choose one.
+* 1 new test (136 in total).
+* **Done on this PC:** self-registration switched off, then the share stack started. Link at the time: `https://handhelds-levy-receives-accompanied.trycloudflare.com`, also set as `APP_BASE_URL` in `.env`. Checked through the public link: `/health`, sign-in page over HTTPS with secure cookies, HSTS and the security policy, Register refused, Super Admin sign-in, the app seeing its public HTTPS address (so emailed links use it), and the audit trail recording the visitor's real address.
+
+---
+
+## 5 November 2026 (13:30): Welcome email for every new account
+
+**Why:** the user asked that every user receive an email when an account is created for them.
+
+* **Staff accounts created on Users & roles** (Super Admin, Admin or HR Administrator) are emailed at once (template *New staff account*): who created it, the sign-in address, the roles, and a **link to choose their own password**. It's the same 24-hour link as "Forgot password"; choosing a password through it also clears the "must change password" flag. **The temporary password is never emailed** (email is not a safe place for passwords); it still works if HR hands it over.
+* **Accounts created at a first Microsoft 365 sign-in** get a welcome email too (template *New account (Microsoft 365)*).
+* **Candidates** already received an email when they registered (the confirmation link), so nothing changed for them.
+* Both templates can be reworded on **Email templates** (now 13 templates).
+* 1 new test (135 in total): through the real pages, the Super Admin creates an account, the email has the address and roles but not the password, and the link lets the person choose a password and sign in.
+
+---
+
+## 5 November 2026 (12:40): Phase 16 and the SMTP details
+
+* Phase 16 (system settings, email templates, backups, audit monitor) is recorded in the [phase log](phases.md#-phase-16-system-settings-email-templates-backups-and-audit-monitor-5-november-2026).
+* **SMTP:** the user's edit put the sender address and password for `jobmaster@grelghana.com` into `EmailService.cs`, which also stopped it compiling. At the user's choice the credentials were moved to **local user-secrets** (`Email:FromAddress`, `Email:FromName`, `Email:UserName`, `Email:Password`, `Email:SmtpHost` = `smtp.hostinger.com`, `Email:SmtpPort` = 587, `Email:EnableSsl` = true). These are plain text in the developer's Windows profile and never in the repository. `EmailService.cs` has no credentials and a comment saying where they belong. One test email to the jobmaster mailbox was sent successfully. The local `dotnet run` app now sends **real** email; the Docker app still saves emails as files (it reads `.env`). For production, put the same values in `deploy/.env` or on **System settings** (encrypted).
+* New package `Microsoft.AspNetCore.DataProtection` 10.0.14 in Infrastructure (encrypting saved secrets).
+
+---
+
+## 5 November 2026 (11:10): Animation
+
+**Why:** the user asked for "nice and well designed animation". The request did not say where, so it was applied across the whole interface, kept subtle and consistent for a business tool.
+
+**Changed**
+* New **`wwwroot/css/motion.css`**, loaded after `site.css` by all three layouts. Durations and easing are tokens at the top (`--motion-fast` 140 ms, `--motion-base` 240 ms, `--motion-slow` 520 ms), so the whole app can be sped up or slowed down in one place.
+  * **Page enter:** the page header, then each block, then the cards in each row rise 8 px and fade in, with a short stagger (all of it under about 0.4 s). Rows don't move themselves, so cards never rise twice. The sign-in card settles in.
+  * **Charts:** report bars, dashboard 7-day bars, ATS score bars, missing-skill bars and progress bars grow from their baseline, one after another.
+  * **Feedback:** clickable cards and dashboard tiles lift 2 px under the pointer; buttons press in; arrow / plus / refresh icons nudge on hover; links, tabs, form fields and table rows change colour smoothly; menus and alerts slide in.
+  * **Attention:** the current step of an applicant's tracker has a slow pulsing ring; the "needs you" counts in the menu pulse three times and then rest; the bell count pops in.
+  * **Light / dark switch:** colours cross-fade for a third of a second.
+* **`site.js` section 8:** numbers on dashboard and ATS tiles count up when they come into view. The text from the server is always restored exactly at the end, and a timer guarantees that even when the browser pauses animation (background tab, battery saving).
+* **Off for "reduce motion" and printing:** with the operating system's *reduce motion* setting, every animation and transition is effectively instant and nothing counts up; printed pages have no animation.
+* Only `transform` and `opacity` are animated, and every animation ends at `transform: none`, so nothing stays shifted. No inline scripts or styles were added, so the Content-Security-Policy is unchanged.
+
+**Checked:** 128/128 tests (new: every layout loads `motion.css`, and the file contains the reduce-motion and print rules). In a real browser (headless Edge, against the Docker app): the sign-in card mid-animation and settled; the careers page settled; a check page using the real `site.js` and `motion.css` mid-way (numbers counting, bars growing) and at the end (exact values 1,234 / 86% / 12.5, full-length bars). The first version of the count-up stalled when the browser slowed animation frames; the timer above fixes that. Signed-in pages were not screenshotted (headless Edge cannot sign in); they use the same classes as the check page.
+
+---
+
+## 5 November 2026 (10:30): Admin role and "My audit trail"
+
+**Why:** the user asked for "admin and super admin" and for each user to see their own audit trail. Choices made: a **new Admin role** between HR Administrator and Super Admin, and a personal trail showing **what I did and what was done to my account**.
+
+**Changed**
+* **Admin** (built-in role, id `admin`). Manages every user account except Admins and Super Admins: details, password resets, unlock, deactivate. Maintains organisation data and reads the whole audit trail. Sees Roles & permissions and ATS settings **read-only** (new permission `settings.view`). Like the HR Administrator, an Admin gives only the Employee and Interview Panel Member roles: the GREL requirement that **only a Super Admin creates HR Managers, Recruiters and HODs** still holds, and only a Super Admin creates Admins. When an Admin edits a HOD's account, its locked roles are kept automatically. Default permissions are given once at start-up (`Permissions.RolesAddedLater`, marker `role:Admin` in KnownPermissions); other roles keep the Super Admin's choices.
+* **My audit trail** (`/MyAuditTrail`, in everyone's menu, candidates too). It shows the user's own record changes, sign-ins, failed sign-ins and lockouts, and password changes (with their own IP address). It also shows changes others made to their account (details, roles, password resets, deactivation), naming who did it but **without that person's IP address**.
+* **System work is recorded as the system.** `SystemActor` marks work GRSMS does by itself inside someone's request. The ATS screening on submission now appears in the audit trail as *ATS (automatic screening)*, with no user and no IP, instead of under the applicant's name. This was needed so a rejection held for HR can never show in the applicant's own trail.
+* Migration `AdminRole`, script `database/16_admin_role.sql`; 4 new tests (127 in total); security, admin, database and testing docs updated.
+
+**Problem found and fixed:** the first version kept locked roles by quietly dropping privileged roles a non-Super-Admin tried to add, so such an attempt "succeeded" without doing anything. Now a missing locked role is kept, and adding a privileged role is refused with a message (found by the existing HR Administrator test).
+
+**Checked:** 127/127 tests. On the Docker MySQL (after a backup): the migration applied, the Admin role received its 11 default permissions, every other role kept exactly its grants, and My audit trail, Roles & permissions, Users, ATS settings and the audit trail all opened. Builds and tests ran in a separate output folder, because the user's own debug session (VS Code, port 5014) had the normal build folder open; it was left running.
+
+---
+
+## 5 November 2026: Clean-up committed; Phase 14 started
+
+* The 4 November clean-up (unused demo mode code and two methods nothing called) was committed on branch `feature/ats-and-super-admin`. The `_removed-for-review/` copies are still on disk (git-ignored) until they are deleted.
+* Phase 14 (Super Admin and permissions) is recorded in the [phase log](phases.md#-phase-14-super-admin-and-granular-permissions-5-november-2026).
+* Phase 15 (ATS screening engine) is recorded in the [phase log](phases.md#-phase-15-ats-screening-engine-5-november-2026). New packages: PdfPig 0.1.16 (PDF text) and Anthropic 13.5.0 (official SDK, used only by the optional AI reader); no known vulnerabilities.
+
+---
+
 ## 4 November 2026 (22:00): SweetAlert2 for confirmations and messages
 
 **Why:** the user asked to use SweetAlert instead of the browser's plain boxes.

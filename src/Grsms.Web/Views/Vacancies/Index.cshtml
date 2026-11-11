@@ -30,6 +30,8 @@
     };
 }
 
+<partial name="_VacanciesAndAdvertsTabs" />
+
 <div class="page-header">
     <div>
         <h1>Vacancies</h1>
@@ -57,7 +59,7 @@
     var approved = (IReadOnlyList<ApprovedRequestDto>)ViewBag.ApprovedRequests;
     <div class="card glass">
         <div class="card-body">
-            <p class="text-body-secondary small">These recruitment requests have been fully approved by the Managing Director. Create a vacancy for each one so it can be advertised.</p>
+            <p class="text-body-secondary small">These recruitment requests have been fully approved by the Managing Director. Convert each one into a job vacancy (it is filled in from the request and given a Job Requisition Number) so recruitment can begin.</p>
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead><tr><th>Request no.</th><th>Position</th><th>Department</th><th>Approved</th><th>Assigned recruiter</th><th></th></tr></thead>
@@ -77,7 +79,7 @@
                             <td class="text-end">
                                 @if (ViewBag.CanCreate == true)
                                 {
-                                    <a asp-action="Create" asp-route-requestId="@r.Id" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus me-1"></i>Create vacancy</a>
+                                    <a asp-action="Create" asp-route-requestId="@r.Id" class="btn btn-sm btn-primary"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Convert into vacancy</a>
                                 }
                             </td>
                         </tr>
@@ -123,12 +125,12 @@ else
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
-                    <tr><th>Vacancy no.</th><th>Job title</th><th>Division</th><th>Department</th><th>Open to</th><th>Recruiter</th><th>Status</th><th>Closing date</th></tr>
+                    <tr><th>Vacancy no.</th><th>Job title</th><th>Division</th><th>Department</th><th>Open to</th><th>Vacancy owner</th><th>Status</th><th>Closing date</th></tr>
                     </thead>
                     <tbody>
                     @if (Model.Items.Count == 0)
                     {
-                        <tr><td colspan="8" class="text-center text-body-secondary py-4">No vacancies here.</td></tr>
+                        <tr><td colspan="8" class="text-center text-body-secondary py-4">No vacancies here. A vacancy is made from an approved recruitment request (see <em>Approved requests</em> above).</td></tr>
                     }
                     @foreach (var v in Model.Items)
                     {
@@ -140,7 +142,7 @@ else
                             <td>@v.DepartmentName</td>
                             <td class="small">@v.VacancyType.DisplayName()</td>
                             <td>@v.RecruiterName</td>
-                            <td><partial name="_StatusBadge" model="v.Status" /></td>
+                            <td><partial name="_VacancyStatusBadge" model="v.Status" /></td>
                             <td class="small text-nowrap">
                                 @v.ClosingDate.ToString("dd MMM yyyy")
                                 @if (v.Status == VacancyStatus.Published && daysLeft is >= 0 and <= 3)

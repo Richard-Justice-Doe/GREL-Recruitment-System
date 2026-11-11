@@ -1,5 +1,7 @@
 # 18. Appointment letters and onboarding: user guide
 
+> **Updated 6 November 2026 (Phase 18):** onboarding now runs through eight stages, with the new employee uploading the **new-hire documents** and HR verifying them, an HR Manager approval, the departmental induction and **activation** of the staff account. The new-hire documents replace the "bring on your first day" checklist items, and *Complete onboarding* is replaced by *Induction complete* and *Activate the employee*. See [24 Employee onboarding](24-onboarding-module.md). The rest of this page (letter, first-day details, checklist) still applies.
+
 Phase 9 takes a candidate who has **accepted the offer** to their first day and beyond:
 
 1. HR **starts the onboarding**, which creates a checklist for HR, the department, IT and the new employee;
@@ -35,7 +37,7 @@ The form is pre-filled. Check:
 | Human Resources | personal file and certificates; induction programme; payroll set-up (bank, SSNIT, GRA, staff number); benefits; GRSMS account changed to a staff account | the vacancy's recruiter | 5 days before to 14 days after the start |
 | Department | workspace, tools and PPE; department induction; probation objectives | the department's Head | the day before to 14 days after |
 | IT | email account and system access; computer / phone | the Head of the IT department | 2 days and 1 day before |
-| New employee | Ghana Card, SSNIT number, bank details, original certificates, two passport photographs | nobody: HR ticks each one when received | the first day |
+| New employee (onboardings started before 6 November 2026 only) | Ghana Card, SSNIT number, bank details, original certificates, two passport photographs | nobody: HR ticks each one when received | the first day |
 
 Each item can be marked **Done** (with an optional note, e.g. the new email address) or **Not needed** (a reason is required). A finished item can be reopened. Overdue items are outlined in red.
 
@@ -75,12 +77,8 @@ GRSMS records the time, the name typed and the network address. HR (the person w
 
 ## 5. Completing or cancelling (Recruitment Officer or HR Manager)
 
-**Complete onboarding** is available when:
-* the letter is signed;
-* the start date has arrived;
-* no item is still *to do* (each is done or not needed).
+**Since Phase 18** there is no single *Complete onboarding* button: HR closes the induction once every item is done or not needed and the start date has come, then **activates** the employee with their staff number. See [24 Employee onboarding](24-onboarding-module.md#induction-and-activation).
 
-The department's Head is emailed. The checklist is then locked.
 
 **Cancel onboarding** (e.g. the new employee did not report) needs a reason. The department's Head is emailed, and the new employee no longer sees the appointment.
 

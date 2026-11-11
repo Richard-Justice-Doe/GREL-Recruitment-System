@@ -152,6 +152,76 @@ docker compose -f docker-compose.prod.yml start web
 - [ ] Someone named to check the log and backups weekly
 - [ ] One full journey done on the live system with test data (request → vacancy → advert → application → shortlist → interview → offer → onboarding), then the test records removed or marked
 
+## 8b. Windows Server with Docker (first installation)
+
+The containers (GRSMS, MySQL 8.4, Caddy) are **Linux containers**. Windows Server's own Docker runs only Windows containers and Docker Desktop is not supported on Windows Server, so Docker runs inside a small Linux (Ubuntu) under **WSL2**, and Windows passes ports 80 and 443 to it. Needs **Windows Server 2022 or 2025** with current updates; if the server is a virtual machine, **nested virtualisation** must be on (Hyper-V: `Set-VMProcessor -VMName <vm> -ExposeVirtualizationExtensions $true`; VMware: "Expose hardware assisted virtualization"). On Windows Server 2019 or older, use IIS (section 9) instead.
+
+**Step 1: Ubuntu under WSL2** (PowerShell as Administrator):
+```powershell
+wsl --install -d Ubuntu-24.04      # restart the server if asked, then open "Ubuntu" and create a Linux user
+wsl --set-default-version 2
+wsl -l -v                          # Ubuntu-24.04 must show VERSION 2
+```
+
+**Step 2: Docker inside Ubuntu** (in the Ubuntu window):
+```bash
+sudo tee /etc/wsl.conf > /dev/null <<'EOF'
+[boot]
+systemd=true
+EOF
+```
+Back in PowerShell: `wsl --shutdown`, then open Ubuntu again and install Docker Engine:
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER      # then close and reopen the Ubuntu window
+docker compose version             # must print a version
+```
+
+**Step 3: the code** (keep it in the Linux file system, `~/grsms`, not under `/mnt/c`: much faster). The repository is private, so use a GitHub **personal access token** (GitHub → Settings → Developer settings → Fine-grained token, *Contents: read-only* on this repository) as the password when asked:
+```bash
+cd ~
+git clone -b feature/ats-and-super-admin https://github.com/Richard-Justice-Doe/GREL-Recruitment-System.git grsms
+cd grsms/deploy
+cp .env.production.example .env && chmod 600 .env && nano .env
+```
+Fill in `.env` as in section 2. For GREL's Hostinger mailbox: `SMTP_HOST=smtp.hostinger.com`, `SMTP_PORT=587` (**not 465**: .NET's mail client only does STARTTLS on 587), `SMTP_SSL=true`, `SMTP_USER` / `SMTP_PASSWORD` = the mailbox and its password, `EMAIL_FROM` = the same mailbox. `GRSMS_TLS`: empty for a public name (Let's Encrypt), `tls internal` for an intranet name, or GREL's certificate files (section 3).
+
+**Step 4: start it**:
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml logs -f web    # wait for "Now listening"; Ctrl+C to leave
+curl -k https://localhost/health                         # "Healthy"
+```
+The first build takes several minutes. All tables are created at start-up (`APPLY_MIGRATIONS=true`): **no SQL script needs running by hand** on a new installation.
+
+**Step 5: let other PCs reach it.** WSL2 is reachable from the server itself (`https://localhost`) but not from the network until Windows forwards the ports. PowerShell as Administrator, saved as `C:\grsms\wsl-ports.ps1`:
+```powershell
+$ip = (wsl -d Ubuntu-24.04 hostname -I).Trim().Split(' ')[0]
+foreach ($port in 80, 443) {
+    netsh interface portproxy delete v4tov4 listenport=$port listenaddress=0.0.0.0 2>$null
+    netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$ip
+}
+```
+Run it once, then open the firewall (once):
+```powershell
+New-NetFirewallRule -DisplayName "GRSMS HTTP/HTTPS" -Direction Inbound -Protocol TCP -LocalPort 80,443 -Action Allow
+```
+The WSL address changes when the server restarts, which is why the script is run again at start-up (step 6).
+
+**Step 6: start everything when the server starts** (Task Scheduler, PowerShell as Administrator):
+```powershell
+$keepUp = New-ScheduledTaskAction -Execute "wsl.exe" -Argument "-d Ubuntu-24.04 -u root -- bash -c 'sleep infinity'"
+$ports  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"Start-Sleep 60; & C:\grsms\wsl-ports.ps1`""
+$atBoot = New-ScheduledTaskTrigger -AtStartup
+Register-ScheduledTask -TaskName "GRSMS WSL" -Action $keepUp -Trigger $atBoot -User "SYSTEM" -RunLevel Highest
+Register-ScheduledTask -TaskName "GRSMS ports" -Action $ports -Trigger $atBoot -User "SYSTEM" -RunLevel Highest
+```
+The first task starts Ubuntu (systemd then starts Docker, and Docker restarts the containers: `restart: unless-stopped`); the second waits a minute and forwards the ports. **Test it once: restart the server** and open `https://<GRSMS_DOMAIN>` from another PC.
+
+**Step 7: first sign-in and checks**: as in section 2 (change the administrator password, remove `SEED_ADMIN_PASSWORD` from `.env`, create accounts and roles, give someone the **IT Manager** role), then **Administration → System settings → Send a test email**. Backups are written to `~/grsms/deploy/backups`, which Windows sees as `\\wsl$\Ubuntu-24.04\home\<linux user>\grsms\deploy\backups`: copy them off the server regularly (section 5).
+
+**Updating later**: section 4, in the Ubuntu window (`cd ~/grsms/deploy`, backup, `git pull`, `docker compose ... up -d --build`).
+
 ## 9. Without Docker (Windows Server + IIS)
 
 GRSMS can also run on IIS: install the **ASP.NET Core 10 Hosting Bundle** and MySQL 8.4, publish with `dotnet publish src/Grsms.Web -c Release`, and set the same settings as environment variables or in `appsettings.Production.json` (see [06 Configuration](06-configuration.md)). Under IIS, HTTPS ends in IIS itself, so `ReverseProxy:Enabled` stays `false`. Run the SQL scripts in `database/` in order, or set `Database:ApplyMigrationsOnStartup=true`. Backups must then be scheduled with Windows Task Scheduler (`mysqldump` plus a copy of `App_Data`).

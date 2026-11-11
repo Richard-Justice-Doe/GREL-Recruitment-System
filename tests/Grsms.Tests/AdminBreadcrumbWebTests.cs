@@ -39,6 +39,11 @@ public class AdminBreadcrumbWebTests(GrsmsWebFactory factory) : IClassFixture<Gr
         Assert.DoesNotContain("aria-label=\"Breadcrumb\"", await client.GetStringAsync("/Administration"));
         Assert.DoesNotContain("aria-label=\"Breadcrumb\"", await client.GetStringAsync("/"));
 
+        // 11 November 2026: Reports are on the Administration page, not in the main menu.
+        Assert.Contains("href=\"/Reports\"", await client.GetStringAsync("/Administration"));
+        Assert.Contains("<li class=\"breadcrumb-item active\" aria-current=\"page\">Reports</li>", await client.GetStringAsync("/Reports"));
+        Assert.DoesNotContain("fa-chart-column\"></i> Reports", await client.GetStringAsync("/"));
+
         // docs/32: the menu groups are named after what is in them.
         var home = await client.GetStringAsync("/");
         foreach (var group in new[] { "recruitment", "candidates", "hiring", "onboarding", "employees" })

@@ -2,7 +2,7 @@ namespace Grsms.Web.Helpers;
 
 /// <summary>
 /// docs/32 (11 November 2026): where each staff page sits in the menu: its group (Recruitment, Candidates, Hiring, Employees,
-/// Reports) and its menu item with that item's list. Used by the sidebar (which group is open) and by the breadcrumb at the
+/// Onboarding) and its menu item with that item's list. Used by the sidebar (which group is open) and by the breadcrumb at the
 /// top of each page ("Recruitment › Vacancies › VAC-2026-0012"). Administration screens have their own list in
 /// AdministrationController. Pages not listed here (Home, the candidate portal, profile, ...) have no breadcrumb.
 /// </summary>
@@ -28,8 +28,6 @@ public static class MenuMap
         "Employees" => new("Employees", "Employees", controller),
         "Probation" => new("Onboarding", "Probation", controller),
         "PersonnelFiles" => new("Employees", "Personnel files", controller),
-        "Reports" => new("Reports", "Reports", controller),
-        "Surveys" when action == "Results" => new("Reports", "Reports", "Reports"),
         _ => null
     };
 }

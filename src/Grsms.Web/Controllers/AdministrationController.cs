@@ -16,6 +16,9 @@ public class AdministrationController(IAuthorizationService auth) : AppControlle
 {
     private static readonly (string Policy, AdminLink Link)[] Screens =
     [
+        // 11 November 2026: Reports live here rather than in the main menu (user's request).
+        (Policies.Reports, new("Reports", "Reports", "Recruitment, onboarding and probation reports, with CSV downloads.", "fa-chart-column", "Reports", "Index")),
+        (Policies.SurveyResults, new("Reports", "Survey results", "What candidates and new hires said about the process.", "fa-star-half-stroke", "Surveys", "Results")),
         (Policies.MasterData, new("Organisation", "Divisions", "Corporate and Operations, and which departments belong to each.", "fa-building", "Divisions", "Index")),
         (Policies.MasterData, new("Organisation", "Departments", "GREL's departments and each one's Head of Department.", "fa-sitemap", "Departments", "Index")),
         (Policies.MasterData, new("Organisation", "Units", "Units inside departments.", "fa-diagram-project", "Units", "Index")),
@@ -40,8 +43,10 @@ public class AdministrationController(IAuthorizationService auth) : AppControlle
     public static AdminLink? ScreenFor(string? controller, string? action)
     {
         if (controller is null) return null;
-        if (controller == "Ats") return action == "Settings" ? Screens.First(s => s.Link.Controller == "Ats").Link : null; // the rest of Ats is Candidates
-        return Screens.Select(s => s.Link).FirstOrDefault(l => string.Equals(l.Controller, controller, StringComparison.OrdinalIgnoreCase));
+        // A screen whose page is not Index (Ats/Settings, Surveys/Results) shares its controller with pages elsewhere
+        // (screening is under Candidates, the survey itself is for candidates): only that action counts.
+        return Screens.Select(s => s.Link).FirstOrDefault(l => string.Equals(l.Controller, controller, StringComparison.OrdinalIgnoreCase)
+            && (l.Action == "Index" || string.Equals(l.Action, action, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>The screens this person may open (for the page and for the menu: no link when the list is empty).</summary>

@@ -49,8 +49,8 @@ Candidates      Candidates (applications | screening | shortlisting) · Intervie
 Hiring          Hiring & offers (recommendations and offers)
 Onboarding      Onboarding (documents, verification, induction) · Probation (and confirmation)
 Employees       Employees · Personnel files
-Reports
-Administration  (one page: departments, sites, units, divisions, users, roles & permissions, settings, ...)
+
+Administration  (one page: Reports and survey results; departments, sites, units, divisions; users, roles & permissions; settings; audit)
 ```
 
 *Movements* is not built yet (docs/30, Phase 31), so it is not in the menu; do not promise it as present in the demo.

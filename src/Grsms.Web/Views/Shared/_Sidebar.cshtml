@@ -7,7 +7,7 @@
      Hiring       (Hiring & offers: recommendations and offers)
      Onboarding   (Onboarding: documents, verification, induction; Probation and confirmation)
      Employees    (Employees, Personnel files)
-   then Reports (survey results inside) and Administration (one page). Same pages and addresses as before. Which group each
+   then Administration (one page; Reports and survey results are on it since 11 November 2026). Same pages and addresses as before. Which group each
    page belongs to is in Helpers/MenuMap.cs (also used for the breadcrumb at the top of each page).
    Usability U1 (docs/28) still applies: staff's own "My applications / Job openings / My probation" live in the menu under
    their name; Heads of Department without a recruitment role don't see Screening or Hiring & offers (Helpers/MenuRules.cs);
@@ -26,9 +26,7 @@
     var canVacancies = (await Auth.AuthorizeAsync(User, Policies.Vacancies)).Succeeded;
     var canAdverts = (await Auth.AuthorizeAsync(User, Policies.Adverts)).Succeeded;
     var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
-    var canSurveyResults = (await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded;
     var canPersonnelFiles = (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded;
-    var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
     var canEmployees = (await Auth.AuthorizeAsync(User, Policies.Employees)).Succeeded; // Phase 28
     var adminLinks = await Grsms.Web.Controllers.AdministrationController.VisibleAsync(Auth, User);
     var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
@@ -45,7 +43,7 @@
     var hiringLinks = showHiring ? 1 : 0;
     var onboardingLinks = new[] { showOnboarding, canApplications }.Count(x => x);
     var employeeLinks = new[] { canEmployees, canPersonnelFiles }.Count(x => x);
-    var otherLinks = (canReports || canSurveyResults ? 1 : 0) + (adminLinks.Count > 0 ? 1 : 0);
+    var otherLinks = adminLinks.Count > 0 ? 1 : 0; // Administration (with Reports since 11 Nov 2026)
     var flat = !isStaff || recruitmentLinks + candidateLinks + hiringLinks + onboardingLinks + employeeLinks + otherLinks <= 7;
 
     var current = MenuMap.For(controller, action)?.Group;
@@ -218,20 +216,7 @@
             @GroupEnd(flat)
         }
 
-        @if (canReports)
-        {
-            @* Reports, with the survey results as one of them (Views/Reports/Index.cshtml). *@
-            <a class="nav-link @(controller == "Reports" || (controller == "Surveys" && action == "Results") ? "active" : "")" asp-controller="Reports" asp-action="Index">
-                <i class="fa-solid fa-chart-column"></i> Reports
-            </a>
-        }
-        else if (canSurveyResults)
-        {
-            <a class="nav-link @(controller == "Surveys" && action == "Results" ? "active" : "")" asp-controller="Surveys" asp-action="Results">
-                <i class="fa-regular fa-star-half-stroke"></i> Survey results
-            </a>
-        }
-
+        @* Reports and survey results are on the Administration page (11 November 2026). *@
         @if (adminLinks.Count > 0)
         {
             @* One page listing every administration screen this person may open (AdministrationController). *@

@@ -4,6 +4,15 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 11 November 2026: Phase 28, the employee master record
+
+* **What:** every employee now has a record (staff number, job, grade, line manager, status) with a job history. See [31 Employees](31-employees.md) and the [phase log](phases.md).
+* **Existing code touched (additive only):** one call at the end of `OnboardingService.ActivateAsync` and of the probation decision; three new constructor dependencies on `PersonnelFileService` (offer letter and interview results filed); four new methods on `IEmployeeAccounts`; the backfill in `DbInitializer`; menu group *People*; *Grades* on the Administration page; three permissions.
+* **Database:** script `28_phase28_employee_master_record.sql` creates three new tables only.
+* **Checked:** 209/209 tests (the 197 earlier ones unchanged).
+
+---
+
 ## 11 November 2026: the appointment page opens before the letter is issued
 
 * **Fix:** *My onboarding* links to **Appointment letter and first day** (`/MyApplications/Appointment/{id}`) from the start, but the page answered *Not found* until HR issued the letter. It now always opens for the new employee: before the letter it shows **Your letter is being prepared** and the first-day information; once issued, the letter, the signature box and the first day as before.

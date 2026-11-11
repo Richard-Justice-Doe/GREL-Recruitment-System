@@ -1,0 +1,112 @@
+@* Phase 28 (docs/30): register an existing member of staff (hired before GRSMS). New hires come through onboarding. *@
+@model RegisterEmployeeForm
+@{
+    ViewData["Title"] = "Register existing employee";
+    bool hasGrades = ViewBag.HasGrades;
+}
+
+<div class="page-header">
+    <div>
+        <h1>Register existing employee</h1>
+        <p>For staff hired before GRSMS. People hired through GRSMS get their record automatically when their onboarding is activated.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Import" class="btn btn-outline-primary"><i class="fa-solid fa-file-import me-1"></i>Import many from CSV</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</div>
+
+<form asp-action="Register" method="post" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+    <div class="row g-3">
+        <div class="col-xl-6">
+            <div class="card glass h-100">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">The person</h2>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="FullName" class="form-label"></label>
+                            <input asp-for="FullName" class="form-control" autocomplete="off" />
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-7">
+                            <label asp-for="Email" class="form-label"></label>
+                            <input asp-for="Email" class="form-control" type="email" autocomplete="off" />
+                            <div class="form-text">If they already have a GRSMS staff account with this address (e.g. a Head of Department), that account is used.</div>
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-5">
+                            <label asp-for="Phone" class="form-label"></label>
+                            <input asp-for="Phone" class="form-control" type="tel" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EmployeeNumber" class="form-label"></label>
+                            <input asp-for="EmployeeNumber" class="form-control text-uppercase" placeholder="e.g. GREL-0456" />
+                            <span asp-validation-for="EmployeeNumber" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="HireDate" class="form-label">Date joined GREL</label>
+                            <input id="HireDate" name="HireDate" type="date" class="form-control" value="@Model.HireDate?.ToString("yyyy-MM-dd")" max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" required />
+                            <span asp-validation-for="HireDate" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Status" class="form-label"></label>
+                            <select asp-for="Status" class="form-select">
+                                <option value="@EmployeeStatus.Active">Active (confirmed)</option>
+                                <option value="@EmployeeStatus.OnProbation">On probation</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="ConfirmationDate" class="form-label">Confirmation date <span class="text-body-secondary">(if known)</span></label>
+                            <input id="ConfirmationDate" name="ConfirmationDate" type="date" class="form-control" value="@Model.ConfirmationDate?.ToString("yyyy-MM-dd")" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="card glass h-100">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">The job</h2>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="PositionTitle" class="form-label"></label>
+                            <input asp-for="PositionTitle" class="form-control" />
+                            <span asp-validation-for="PositionTitle" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="DepartmentId" class="form-label"></label>
+                            <select asp-for="DepartmentId" asp-items="ViewBag.DepartmentList" class="form-select"><option value="">Choose…</option></select>
+                            <span asp-validation-for="DepartmentId" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SiteId" class="form-label"></label>
+                            <select asp-for="SiteId" asp-items="ViewBag.SiteList" class="form-select"><option value="">Choose…</option></select>
+                            <span asp-validation-for="SiteId" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="GradeId" class="form-label"></label>
+                            <select asp-for="GradeId" asp-items="ViewBag.GradeList" class="form-select"><option value="">@(hasGrades ? "No grade yet" : "No grades set up yet")</option></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ReportsToUserId" class="form-label"></label>
+                            <select asp-for="ReportsToUserId" asp-items="ViewBag.StaffList" class="form-select"><option value="">The Head of Department</option></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EmploymentType" class="form-label"></label>
+                            <select asp-for="EmploymentType" asp-items="Html.GetEnumSelectList<EmploymentType>()" class="form-select"></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="ContractEndDate" class="form-label">Contract end date <span class="text-body-secondary">(contracts only)</span></label>
+                            <input id="ContractEndDate" name="ContractEndDate" type="date" class="form-control" value="@Model.ContractEndDate?.ToString("yyyy-MM-dd")" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="small text-body-secondary mt-3">A new account has no password: the employee sets one with <em>Forgot password</em> on the sign-in page. They get the Employee role only.</p>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus me-1"></i>Register employee</button>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

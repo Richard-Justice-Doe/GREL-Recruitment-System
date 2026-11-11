@@ -72,6 +72,11 @@ public static class DependencyInjection
         services.AddScoped<Workforce.WorkforceDashboardService>(); // Phase 21
         services.AddScoped<Workforce.WorkforceReportService>(); // Phase 21
 
+        // Phase 28 (docs/30): the employee master record, job history and grades
+        services.AddScoped<Employees.EmployeeLifecycle>();
+        services.AddScoped<Employees.EmployeeService>();
+        services.AddScoped<Employees.GradeService>();
+
         // Phase 10: reminders and surveys (notifications themselves are stored by Infrastructure)
         services.AddScoped<Notifications.ReminderService>();
         services.AddScoped<Surveys.SurveyService>();

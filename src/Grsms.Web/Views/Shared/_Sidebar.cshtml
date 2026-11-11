@@ -25,6 +25,7 @@
     var canSurveyResults = (await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded;
     var canPersonnelFiles = (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded;
     var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
+    var canEmployees = (await Auth.AuthorizeAsync(User, Policies.Employees)).Succeeded; // Phase 28
     var adminLinks = await Grsms.Web.Controllers.AdministrationController.VisibleAsync(Auth, User);
     var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
     var hodOnly = MenuRules.IsHodOnly(User);
@@ -38,12 +39,14 @@
     // How many links each group has, to choose between groups and one flat list.
     var hireLinks = new[] { canRequests, canVacancies || canAdverts, canApplications, isStaff, showHiring }.Count(x => x);
     var onboardLinks = new[] { showOnboarding, canApplications, canPersonnelFiles }.Count(x => x);
+    var peopleLinks = canEmployees ? 1 : 0;
     var otherLinks = (canReports || canSurveyResults ? 1 : 0) + (adminLinks.Count > 0 ? 1 : 0);
-    var flat = !isStaff || hireLinks + onboardLinks + otherLinks <= 7;
+    var flat = !isStaff || hireLinks + onboardLinks + peopleLinks + otherLinks <= 7;
 
     var inHire = In("RecruitmentRequests", "Vacancies", "Adverts", "Applications", "Ats", "Shortlisting", "Interviews", "Hiring") && !atsSettingsPage;
     var inOnboard = In("Onboarding", "Probation", "PersonnelFiles");
-    var inAdmin = In("Administration", "Divisions", "Departments", "Units", "Sites", "InductionAreas", "OnboardingDocuments", "Users", "Roles",
+    var inPeople = In("Employees");
+    var inAdmin = In("Administration", "Divisions", "Departments", "Units", "Sites", "InductionAreas", "OnboardingDocuments", "Users", "Roles", "Grades",
                      "SystemSettings", "EmailTemplates", "Backups", "AuditMonitor", "AuditLogs") || atsSettingsPage;
 
     // Badge totals on a group's header, so nothing waiting for you is hidden when the group is closed.
@@ -192,6 +195,26 @@
                     <i class="fa-regular fa-folder-open"></i> Personnel files
                 </a>
             }
+            if (!flat)
+            {
+                @:</details>
+            }
+        }
+
+        @if (peopleLinks > 0)
+        {
+            @* Phase 28 (docs/30): the HR platform after hiring. Leave, movements, performance and separation join this group later. *@
+            if (!flat)
+            {
+                @:<details class="nav-group group-people" data-nav-group="people" data-nav-current="@(inPeople ? "yes" : "no")" open>
+                <summary>
+                    <span class="group-dot" aria-hidden="true"></span> People
+                    <i class="fa-solid fa-chevron-down group-chevron" aria-hidden="true"></i>
+                </summary>
+            }
+            <a class="nav-link @Active("Employees")" asp-controller="Employees" asp-action="Index">
+                <i class="fa-solid fa-id-card-clip"></i> Employees
+            </a>
             if (!flat)
             {
                 @:</details>

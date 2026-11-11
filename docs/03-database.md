@@ -577,6 +577,35 @@ The applicant's answers (`JobApplicationId`, `Question` = the wording as asked, 
 ### AtsSettings
 One row: the four weights, the four band limits, the six automatic-rejection switches and `UseAiReader`. It is created the first time the Super Admin saves **ATS settings**; until then the defaults in code apply (25 % each; bands 90 / 80 / 70 / 50; every rule on except "required skill"; AI reader off).
 
+## Phase 28 tables (the employee master record, docs/31)
+
+New tables only; no existing table changed. Script `28_phase28_employee_master_record.sql`.
+
+### Employees
+| Column | Type | Rules |
+|---|---|---|
+| EmployeeNumber | VARCHAR(30) | the staff number; **unique** |
+| UserId | VARCHAR(255) | **FK → Users**, **unique** (one record per person; name, email, phone stay on Users) |
+| OnboardingRecordId | INT NULL | **FK → Onboardings**; null for staff registered by HR |
+| PositionTitle | VARCHAR(150) | current job, copied from the open assignment |
+| DepartmentId / SiteId | INT | **FKs** |
+| GradeId | INT NULL | **FK → Grades** |
+| ReportsToUserId | VARCHAR(255) NULL | **FK → Users**; null = the Head of Department |
+| EmploymentType | VARCHAR(30) | the recruitment `EmploymentType` values |
+| ContractEndDate, HireDate, ConfirmationDate | DATE | |
+| Status | VARCHAR(20) | `OnProbation`, `Active`, `Separated` |
+| StatusChangedAt | DATETIME | |
+| Version | CHAR(36) | concurrency stamp |
+| + standard columns | | index `DepartmentId, Status` |
+
+### EmployeeAssignments (job history)
+`EmployeeId` (**FK**), `EffectiveFrom`, `EffectiveTo` (null = current), `PositionTitle`, `DepartmentId`, `SiteId`, `GradeId`, `ReportsToUserId`, `EmploymentType`, `ContractEndDate`, `Source` (`Hire`, `Registration`, `Update`), `SourceId`, `Note` (500), `RecordedByUserId`. A change closes the open row and adds a new one; rows are never edited. Index `EmployeeId, EffectiveFrom`.
+
+### Grades
+`Code` (20, **unique**), `Name` (100, **unique**), `SortOrder`, `MinMonthlySalary` / `MaxMonthlySalary` (DECIMAL(18,2), optional), `IsActive`. None seeded.
+
+**Data:** records for employees activated before Phase 28 are created by GRSMS at start-up (`EmployeeLifecycle.BackfillAsync`), not by the script, so the script only creates tables.
+
 ## Relationship diagram (Phases 1-8)
 
 ```
@@ -632,6 +661,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `25_audit_drop_redundant_vacancy_status_index.sql` | audit | Drops `IX_Vacancies_Status` (the index on (Status, ClosingDate) starts with Status and serves the same queries). Codebase audit B7, 10 November 2026. Not yet run on MySQL. |
 | `26_bank_details_as_data.sql` | docs/29 change 4 | Makes `EmployeeBankAccounts.Branch` optional, retires the bank confirmation letter document type (Id 17), and on onboardings not yet activated makes existing bank-letter rows not required (kept as applicable only if a file was uploaded). 11 November 2026. Not yet run on MySQL. |
 | `27_it_manager_advert_approval.sql` | docs/29 change 2 | Adds the built-in role **IT Manager** (`it-manager`), the advert review columns on JobAdverts (SubmittedBy/At, HrReviewedBy/At, ItApprovedBy/At, ReviewComment) and widens JobAdverts.Status and JobAdvertActions.FromStatus/ToStatus to 30 characters. No data moves: published and scheduled adverts stay published, drafts go through the new review. The `adverts.*` permissions and the IT Manager's defaults are added by GRSMS at start-up. 11 November 2026. Not yet run on MySQL. |
+| `28_phase28_employee_master_record.sql` | Phase 28 (docs/30, docs/31) | Creates **Employees**, **EmployeeAssignments** and **Grades**. No existing table changes. At the next start-up GRSMS creates the records of employees already activated, files their offer letter and interview results, and grants `employees.view`, `employees.manage` and `grades.manage` to their default roles. 11 November 2026. Not yet run on MySQL. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

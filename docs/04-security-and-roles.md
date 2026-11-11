@@ -47,6 +47,16 @@ GRSMS uses **role-based access control with permissions**:
 
 These are also guarded on the controller actions (Publish, HrApprove, Return, Unpublish, MarkPosted, MarkRemoved), on top of the checks in `AdvertService`.
 
+**Employees (Phase 28, 11 November 2026, docs/31).** Three new permissions in the group *Employees*, given to these roles once at the next start-up:
+
+| Permission | Super Admin | HR Manager | HR Administrator | RO, MD, Admin | Head of Department |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Open employees (`employees.view`) | 🔒 | ✅ | ✅ | ✅ | ✅ (own departments) |
+| Manage employees: register, import, update job details (`employees.manage`) | 🔒 | ✅ | ✅ | | |
+| Maintain grades (`grades.manage`) | 🔒 | ✅ | ✅ | | |
+
+Guarded on `EmployeesController` / `GradesController` and again in `EmployeeService` / `GradeService`. Nobody can change their own job details. Registering staff gives the **Employee** role only, so it needs no Super Admin.
+
 🔒 = always held, cannot be removed. ✅ = default, can be changed by the Super Admin. **Candidate** can never be given a staff permission. **Everyone** (candidates included) can always open **My audit trail** (below); it is not a permission.
 
 **Onboarding and probation actions** are also guarded on each controller action by these permissions (codebase audit, 10 November 2026), on top of the checks in the services; the onboarding and probation pages themselves stay open to the task owners and HODs who need them.

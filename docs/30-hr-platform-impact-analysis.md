@@ -1,6 +1,6 @@
 # 30. GRSMS Phase 2, the HR platform: impact analysis
 
-**Status:** analysis (11 November 2026). No code has been changed. Questions 1, 2, 3 and 11 were decided on 11 November 2026 (section 13). Questions 4 to 10 have suggested answers that still need confirming. Building starts with Phase 28 once it is approved.
+**Status:** approved 11 November 2026, with the suggested answers in section 13. **Phase 28 (employee master record) is delivered**: see [31 Employees](31-employees.md). Next: Phase 29, self-service (*My HR*).
 
 **Goal:** extend GRSMS from recruitment and selection into the whole employee lifecycle (employee record, movements, leave, performance, payroll, self-service, separation). It is **additive only**: the recruitment modules, their URLs, permissions, approval chains, tables and tests stay as they are.
 

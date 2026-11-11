@@ -39,7 +39,8 @@ public class ProbationService(
     AccessScope scope,
     WorkflowMailer mailer,
     IAppLinks links,
-    PersonnelFileService personnelFiles)
+    PersonnelFileService personnelFiles,
+    Employees.EmployeeLifecycle employeeLifecycle)
 {
     private const string ConflictMessage = "Someone else updated this probation at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
@@ -438,6 +439,8 @@ public class ProbationService(
         await mailer.ToUserAsync(p.HodUserId, $"Probation {p.Number}: {EnumText.Label(p.Status)}",
             $"The HR Manager approved the outcome of <b>{E(p.EmployeeName)}</b>'s probation: <b>{E(EnumText.Label(p.Status))}</b>" +
             (p.Status == ProbationStatus.Extended ? $" to {p.EndDate.ToString("d MMMM yyyy", Gb)}" : "") + ".", links.Probation(p.Id), "Open the probation", ct);
+        // Phase 28 (docs/30): the employee becomes Active. Last, after everything above is saved; it never fails the decision.
+        if (confirmation is not null) await employeeLifecycle.OnConfirmedAsync(p.EmployeeUserId, confirmation.ConfirmationDate, ct);
         return saved;
     }
 

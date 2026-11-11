@@ -1,0 +1,73 @@
+@* Phase 28 (docs/30): update an employee's job details. Adds a line to the job history from the effective date; the
+   current line is closed, never changed. *@
+@model UpdateJobForm
+@{
+    var employee = (EmployeeDetailsDto)ViewBag.Employee;
+    ViewData["Title"] = $"Update job details: {employee.Name}";
+    bool hasGrades = ViewBag.HasGrades;
+}
+
+<div class="page-header">
+    <div>
+        <h1>Update job details</h1>
+        <p>@employee.Name · staff number @employee.EmployeeNumber · currently @employee.PositionTitle, @employee.DepartmentName</p>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.EmployeeId" class="btn btn-outline-secondary">Cancel</a>
+</div>
+
+<div class="card glass">
+    <div class="card-body p-4">
+        <form asp-action="UpdateJob" asp-route-id="@Model.EmployeeId" method="post" novalidate>
+            <input type="hidden" asp-for="Version" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label asp-for="PositionTitle" class="form-label"></label>
+                    <input asp-for="PositionTitle" class="form-control" />
+                    <span asp-validation-for="PositionTitle" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label for="EffectiveFrom" class="form-label">With effect from</label>
+                    <input id="EffectiveFrom" name="EffectiveFrom" type="date" class="form-control" value="@Model.EffectiveFrom?.ToString("yyyy-MM-dd")" max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" required />
+                    <span asp-validation-for="EffectiveFrom" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="DepartmentId" class="form-label"></label>
+                    <select asp-for="DepartmentId" asp-items="ViewBag.DepartmentList" class="form-select"></select>
+                    <div class="form-text">Changing the department also changes what its Head of Department sees. Recruitment records stay where they are.</div>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="SiteId" class="form-label"></label>
+                    <select asp-for="SiteId" asp-items="ViewBag.SiteList" class="form-select"></select>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="GradeId" class="form-label"></label>
+                    <select asp-for="GradeId" asp-items="ViewBag.GradeList" class="form-select"><option value="">@(hasGrades ? "No grade" : "No grades set up yet")</option></select>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ReportsToUserId" class="form-label"></label>
+                    <select asp-for="ReportsToUserId" asp-items="ViewBag.StaffList" class="form-select"><option value="">The Head of Department</option></select>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="EmploymentType" class="form-label"></label>
+                    <select asp-for="EmploymentType" asp-items="Html.GetEnumSelectList<EmploymentType>()" class="form-select"></select>
+                </div>
+                <div class="col-md-6">
+                    <label for="ContractEndDate" class="form-label">Contract end date <span class="text-body-secondary">(contracts only)</span></label>
+                    <input id="ContractEndDate" name="ContractEndDate" type="date" class="form-control" value="@Model.ContractEndDate?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-12">
+                    <label asp-for="Note" class="form-label"></label>
+                    <textarea asp-for="Note" class="form-control" rows="2" maxlength="500"></textarea>
+                    <div class="form-text">Kept in the job history, e.g. "Grade given after the 2026 grading exercise" or "Contract renewed for one year".</div>
+                    <span asp-validation-for="Note" class="text-danger small"></span>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save and add to the job history</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

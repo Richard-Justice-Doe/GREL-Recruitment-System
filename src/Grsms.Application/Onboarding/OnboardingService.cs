@@ -54,7 +54,8 @@ public class OnboardingService(
     Probation.ProbationService probation,
     OnboardingProgressService progress,
     IRepository<OnboardingDocumentType> documentTypes,
-    Settings.ISettingsStore settings)
+    Settings.ISettingsStore settings,
+    Employees.EmployeeLifecycle employeeLifecycle)
 {
     private const string ConflictMessage = "Someone else updated this record at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
@@ -714,6 +715,8 @@ public class OnboardingService(
                 $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}, starts {o.StartDate.ToString("d MMMM yyyy", Gb)}) is now an " +
                 $"active GREL employee, staff number {WorkflowMailer.Enc(staffNumber)}. Please complete your induction tasks.",
                 links.Onboarding(o.Id), "Open the onboarding", ct);
+        // Phase 28 (docs/30): the employee master record. Last, after everything above is saved; it never fails the activation.
+        await employeeLifecycle.OnActivatedAsync(o, ct);
         return saved;
     }
 

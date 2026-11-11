@@ -62,6 +62,10 @@ public static class Policies
     /// <summary>Phase 20: open employees' electronic personnel files.</summary>
     public const string PersonnelFiles = nameof(PersonnelFiles);
 
+    /// <summary>Phase 28 (docs/30): the employee master record and grades.</summary>
+    public const string Employees = nameof(Employees);
+    public const string ManageEmployees = nameof(ManageEmployees);
+    public const string Grades = nameof(Grades);
     /// <summary>Open the Reports (Phase 11). HODs see only their own departments (decided by ReportService).</summary>
     public const string Reports = nameof(Reports);
 
@@ -104,6 +108,9 @@ public static class Policies
             .AddPermissionPolicy(VerifyOnboardingDocuments, Permissions.VerifyOnboardingDocuments)
             .AddPermissionPolicy(CompleteOnboarding, Permissions.CompleteOnboarding)
             .AddPermissionPolicy(DecideProbation, Permissions.DecideProbation)
+            .AddPermissionPolicy(Employees, Permissions.ViewEmployees)
+            .AddPermissionPolicy(ManageEmployees, Permissions.ManageEmployees)
+            .AddPermissionPolicy(Grades, Permissions.ManageGrades)
             .AddPermissionPolicy(Reports, Permissions.ViewReports)
             .AddPermissionPolicy(RolesAndPermissions, Permissions.ManagePermissions)
             .AddPermissionPolicy(SystemSettings, Permissions.ViewSystemSettings)

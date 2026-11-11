@@ -1,0 +1,70 @@
+@* Phase 28 (docs/30): import existing staff from a CSV file. All or nothing: if a row is wrong, nothing is imported. *@
+@model EmployeeImportResult
+@{
+    ViewData["Title"] = "Import employees";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Import employees from CSV</h1>
+        <p>For bringing GREL's current staff into GRSMS in one go. People hired through GRSMS do not need importing.</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+</div>
+
+@if (Model.Errors.Count > 0)
+{
+    <div class="alert alert-danger">
+        <p class="fw-semibold mb-2">@(Model.Imported > 0
+            ? $"{Model.Imported} employee(s) were imported, then a row failed. Remove the imported rows from the file, fix this one and import the rest:"
+            : "Nothing was imported. Fix these rows and import the file again:")</p>
+        <ul class="mb-0 small">
+            @foreach (var e in Model.Errors.Take(100)) { <li>@e</li> }
+        </ul>
+        @if (Model.Errors.Count > 100) { <p class="small mb-0 mt-2">… and @(Model.Errors.Count - 100) more.</p> }
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-xl-5">
+        <div class="card glass h-100">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">1. Fill in the template</h2>
+                <p class="small">Download the template, fill in one employee per line in Excel, then <strong>Save as → CSV UTF-8 (comma delimited)</strong>.</p>
+                <a asp-action="ImportTemplate" class="btn btn-sm btn-outline-primary mb-3"><i class="fa-solid fa-download me-1"></i>Download the template</a>
+                <h2 class="h6 text-uppercase text-body-secondary mb-3 mt-2">2. Import it</h2>
+                <form asp-action="Import" method="post" enctype="multipart/form-data">
+                    <input type="file" name="file" accept=".csv,text/csv" class="form-control mb-2" required aria-label="CSV file" />
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-file-import me-1"></i>Import</button>
+                </form>
+                <p class="small text-body-secondary mt-3 mb-0">Every row is checked first. If any row is wrong, nothing is imported and the problems are listed by row, so you can fix the file and try again.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-7">
+        <div class="card glass h-100">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">The columns</h2>
+                <table class="table table-sm small mb-0">
+                    <tbody>
+                    <tr><th>StaffNumber *</th><td>From payroll, e.g. GREL-0456. Must be new.</td></tr>
+                    <tr><th>FullName *</th><td>As on their Ghana Card.</td></tr>
+                    <tr><th>Email *</th><td>Their sign-in. An existing staff account with this address is used.</td></tr>
+                    <tr><th>Phone</th><td></td></tr>
+                    <tr><th>Position *</th><td>e.g. Field Supervisor.</td></tr>
+                    <tr><th>Department *</th><td>The department's name or code, exactly as in GRSMS.</td></tr>
+                    <tr><th>Site *</th><td>The site's name or code.</td></tr>
+                    <tr><th>Grade</th><td>The grade's code or name (Administration → Grades).</td></tr>
+                    <tr><th>EmploymentType</th><td>Permanent (default), Contract, Temporary, Casual, Internship, National Service.</td></tr>
+                    <tr><th>HireDate *</th><td>2019-03-01 or 01/03/2019.</td></tr>
+                    <tr><th>Status</th><td>Active (default) or On probation.</td></tr>
+                    <tr><th>ConfirmationDate</th><td>If known.</td></tr>
+                    <tr><th>ReportsToEmail</th><td>The line manager's email: someone in GRSMS or elsewhere in the file. Empty = the Head of Department.</td></tr>
+                    <tr><th>ContractEndDate</th><td>For contract staff.</td></tr>
+                    </tbody>
+                </table>
+                <p class="small text-body-secondary mt-2 mb-0">* required. At most @EmployeeService.MaxImportRows employees and 2 MB per file. New accounts have no password: each person sets one with <em>Forgot password</em>.</p>
+            </div>
+        </div>
+    </div>
+</div>

@@ -882,3 +882,7 @@ dl.details-grid dd { margin: 0; }
     .doc-upload .input-group > .btn { width: 100%; border-radius: 0.75rem !important; }
 }
 .doc-upload-preview { max-height: 6rem; max-width: 100%; border-radius: 0.5rem; margin-top: 0.5rem; display: block; }
+
+/* docs/32: home-page action cards. A card whose items wait for the user gets a red edge while its count is above 0. */
+.action-card .kpi-value { font-size: 2rem; }
+.action-card.is-waiting { box-shadow: inset 4px 0 0 var(--bs-danger); }

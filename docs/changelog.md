@@ -4,6 +4,16 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 11 November 2026: clearer menu, breadcrumbs, action cards (docs/32, priority 2)
+
+* **Menu** in groups named after what is in them: **Recruitment**, **Candidates**, **Hiring**, **Employees**, then Reports and Administration. Same pages and addresses.
+* **Breadcrumbs** at the top of every staff page (*Recruitment › Vacancies › VAC-2026-0012*) and every administration screen (*← Administration › Divisions*).
+* **Home page:** action cards (requests awaiting your approval, vacancies awaiting publication, applications received, interviews this week, offers awaiting the candidate) replace the KPI charts; 55 → 39 database queries.
+* **Forms:** a red `*` on every required field. **Buttons:** approve green, return amber, reject / withdraw red, everywhere.
+* No business rule, permission, URL or data changed. Details: [32 §13](32-ux-navigation-performance-audit.md#13-progress). 217 tests pass.
+
+---
+
 ## 11 November 2026: keeping the user's place, faster pages (docs/32, priority 1)
 
 * **Lists and pages keep your place:** back to a list returns to the same page, search, filters and tab; after Approve, Save, Return and the like the page comes back where you were, with the same sections open; tables keep their page and search.

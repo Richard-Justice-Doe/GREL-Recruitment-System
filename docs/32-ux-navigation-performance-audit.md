@@ -222,4 +222,18 @@ Each step a separate commit; the full suite runs after each; no rule, permission
 
 **Tests:** 214 (the 209 before, plus 5; the two Phase 28 list assertions adapted to the paged result). **Not checked:** the real pages in a browser against MySQL, and timings on GREL's server; after deploying, look in the log for "Slow database command" and the request durations.
 
-**Next:** priority 2 (dashboard action cards replacing the KPI row, menu regroup with breadcrumbs, required-field stars, button colours) waits for a go-ahead.
+### Administration breadcrumb (11 November 2026, asked for)
+`1d8ec86`: every administration screen starts with **← Administration › screen** (pages inside a screen link back to its list too); one list of screens in `AdministrationController` drives the breadcrumb and the menu highlight.
+
+### Priority 2 (done, 11 November 2026)
+
+| Commit | Step | What changed |
+|---|---|---|
+| `1a6d192` | **UX5** required fields | A red `*` after the label of every required field, found from the field's own `required` / `data-val-required` (CSS `:has()`), so no form was edited; none on disabled or hidden fields or check boxes. Checked in headless Chrome. |
+| `f8050be` | **6.1** button rule | Approve / validate green (advert HR and IT steps, approve hire, validate scores); Return amber outline (return to the panel member); Withdraw, discard and confirm rejections red outline (solid red only in the confirmation dialog). Most decision buttons already followed the rule. |
+| `bb109f0` | **N1-N3** menu and breadcrumbs | Groups **Recruitment / Candidates / Hiring / Employees** (then Reports, Administration), same pages and addresses; *Candidates* stays one item with tabs (decision 2). A breadcrumb on every staff page (*group › item › this page*), the item linking back to its list (as left, step 5.1). `Helpers/MenuMap.cs` says where each page belongs. |
+| (this commit) | **§8 / PF2** dashboard | **Action cards** replace the KPI row (decision 4): requests awaiting your approval, vacancies awaiting publication, applications received (7 days), interviews this week, offers awaiting the candidate; the first two are marked *Action needed* while above 0. Onboarding and probation stay in the workforce panel (not repeated). The 7-day series and totals are no longer computed: **home page 55 → 39 queries** for an HR Manager (with the menu numbers kept). Docs 11 updated. Test `DashboardCardsWebTests`. |
+
+**Tests:** 217. **Not checked:** the pages in a real browser against MySQL (the headless checks covered the script and the star rule only).
+
+**Next (priority 3, waiting for a go-ahead):** read-only queries (PF3), remaining whole-table loads (DB1), topic tabs on the request, vacancy, advert and application pages (UX9), one primary button per page (UX4), mobile wrappers on Home and Probation details, DataTables only where used (PF6).

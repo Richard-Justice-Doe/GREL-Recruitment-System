@@ -40,10 +40,26 @@ public class EmailOptions
 /// <summary>
 /// Sends emails through SMTP, or, when no SMTP host is configured, writes each email as a .eml file
 /// that can be opened in Outlook or any mail program. Business code only sees <see cref="IEmailService"/>.
+///
+/// 11 November 2026: with a mail server, <see cref="SendAsync"/> only queues the email (<see cref="EmailQueue"/>) and the
+/// <see cref="EmailSendingWorker"/> sends it. The log showed 4 to 5 seconds per email with GREL's server, which made
+/// approving a request take 17 seconds and applying for a job 18. Saving to a folder stays immediate (it is local).
 /// </summary>
-public class EmailService(IOptions<EmailOptions> options, ILogger<EmailService> logger, Grsms.Application.Settings.ISettingsStore settings) : IEmailService
+public class EmailService(IOptions<EmailOptions> options, ILogger<EmailService> logger, Grsms.Application.Settings.ISettingsStore settings,
+    EmailQueue queue) : IEmailService
 {
-    public async Task SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default)
+    /// <summary>How long one email may take before the mail server is given up on (System.Net.Mail's own default is 100 s).</summary>
+    public const int SmtpTimeoutMilliseconds = 30_000;
+
+    public Task SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(settings.Get(SettingCatalogue.SmtpHost))) return SendNowAsync(to, subject, htmlBody, ct);
+        queue.Enqueue(new OutgoingEmail(to, subject, htmlBody, DateTime.UtcNow));
+        logger.LogInformation("Email '{Subject}' to {To} queued for sending ({Waiting} waiting)", subject, to, queue.Count);
+        return Task.CompletedTask;
+    }
+
+    public async Task SendNowAsync(string to, string subject, string htmlBody, CancellationToken ct = default)
     {
         var _options = Effective();
         using var message = new MailMessage
@@ -70,6 +86,7 @@ public class EmailService(IOptions<EmailOptions> options, ILogger<EmailService> 
             client.Host = _options.SmtpHost;
             client.Port = _options.SmtpPort;
             client.EnableSsl = _options.EnableSsl;
+            client.Timeout = SmtpTimeoutMilliseconds;
             if (!string.IsNullOrEmpty(_options.UserName))
                 client.Credentials = new NetworkCredential(_options.UserName, _options.Password);
             logger.LogInformation("Sending email '{Subject}' to {To} via {Host}", subject, to, _options.SmtpHost);

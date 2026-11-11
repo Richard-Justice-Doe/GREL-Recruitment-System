@@ -59,7 +59,11 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogService, AuditLogService>();
 
         services.Configure<EmailOptions>(config.GetSection("Email"));
-        services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<EmailService>();
+        services.AddScoped<IEmailService>(sp => sp.GetRequiredService<EmailService>());
+        // 11 November 2026: emails to a mail server are sent in the background, so nobody waits for the server.
+        services.AddSingleton<EmailQueue>();
+        services.AddHostedService<EmailSendingWorker>();
 
         // Phase 10: the bell, reminder keys, and text messages (written to files until "Sms:Enabled" is true)
         services.AddScoped<Application.Notifications.INotificationCenter, Notifications.NotificationCenter>();

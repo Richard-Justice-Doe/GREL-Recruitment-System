@@ -220,7 +220,7 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                             </div>
                             <label for="justification" class="form-label small">Why this candidate (interview results, references, fit)</label>
                             <textarea id="justification" name="justification" class="form-control mb-2" rows="6" maxlength="4000" required>@justificationStart</textarea>
-                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
+                            <button type="submit" class="btn btn-success"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
                         </form>
                     }
                     else
@@ -251,8 +251,8 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                         <label for="justification" class="form-label small">Why this candidate (started from the validated scores: add references and fit)</label>
                         <textarea id="justification" name="justification" class="form-control mb-2" rows="7" maxlength="4000" required>@r.Justification</textarea>
                         <div class="d-flex flex-wrap gap-2">
-                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
-                            <button type="submit" form="discard-draft" class="btn btn-outline-secondary" data-confirm="Discard this draft? The candidate goes back to Ready to recommend; the background checks are kept.">Discard draft</button>
+                            <button type="submit" class="btn btn-success"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
+                            <button type="submit" form="discard-draft" class="btn btn-outline-danger" data-confirm="Discard this draft? The candidate goes back to Ready to recommend; the background checks are kept.">Discard draft</button>
                         </div>
                     </form>
                     <form id="discard-draft" asp-action="DiscardDraft" asp-route-id="@Model.ApplicationId" method="post"></form>
@@ -298,7 +298,7 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                         <form asp-action="WithdrawRecommendation" asp-route-id="@Model.ApplicationId" method="post" class="mt-3">
                             <div class="input-group input-group-sm">
                                 <input name="reason" class="form-control" placeholder="Reason for withdrawing" maxlength="2000" required aria-label="Reason for withdrawing" />
-                                <button type="submit" class="btn btn-outline-secondary" data-confirm="Withdraw this recommendation?">Withdraw</button>
+                                <button type="submit" class="btn btn-outline-danger" data-confirm="Withdraw this recommendation?">Withdraw</button>
                             </div>
                         </form>
                     }

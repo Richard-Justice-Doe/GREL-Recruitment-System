@@ -194,7 +194,7 @@
                         <form asp-action="HrApprove" asp-route-id="@Model.Id" method="post" class="mb-3">
                             <label for="hrComment" class="form-label small">Read the advert, then send it to the IT Manager for approval.</label>
                             <input id="hrComment" name="comment" class="form-control form-control-sm mb-2" placeholder="Comment (optional)" maxlength="2000" />
-                            <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-check me-1"></i>Approve and send to IT</button>
+                            <button type="submit" class="btn btn-success w-100"><i class="fa-solid fa-check me-1"></i>Approve and send to IT</button>
                         </form>
                     }
                     @if (Model.CanPublish)
@@ -210,7 +210,7 @@
                             }
                         </p>
                         <form asp-action="Publish" asp-route-id="@Model.Id" method="post" class="mb-3">
-                            <button type="submit" class="btn btn-primary w-100" data-confirm="@(later ? "Approve and schedule this advert?" : "Approve and publish this advert now?")">
+                            <button type="submit" class="btn btn-success w-100" data-confirm="@(later ? "Approve and schedule this advert?" : "Approve and publish this advert now?")">
                                 <i class="fa-solid @(later ? "fa-clock" : "fa-bullhorn") me-1"></i>@(later ? "Approve and schedule" : "Approve and publish now")
                             </button>
                         </form>

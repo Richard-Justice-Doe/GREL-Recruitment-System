@@ -4,6 +4,16 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 11 November 2026: keeping the user's place, faster pages (docs/32, priority 1)
+
+* **Lists and pages keep your place:** back to a list returns to the same page, search, filters and tab; after Approve, Save, Return and the like the page comes back where you were, with the same sections open; tables keep their page and search.
+* **Faster pages:** the menu numbers are kept for 30 seconds per user (your own actions refresh them at once; the bell is always live), about 8 fewer database queries on every page.
+* **Employees and Users & roles** are searched and paged on the server (50 per page).
+* **Slow database commands are logged** (`Database:SlowQueryMilliseconds`, 500 ms) to find what is slow on the real server.
+* No business rule, permission, URL or data changed. Details and commits: [32](32-ux-navigation-performance-audit.md#13-progress). 214 tests pass.
+
+---
+
 ## 11 November 2026: Phase 28, the employee master record
 
 * **What:** every employee now has a record (staff number, job, grade, line manager, status) with a job history. See [31 Employees](31-employees.md) and the [phase log](phases.md).

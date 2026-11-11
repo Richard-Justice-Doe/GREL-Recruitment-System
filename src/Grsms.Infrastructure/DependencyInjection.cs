@@ -33,12 +33,13 @@ public static class DependencyInjection
 
         // The audit interceptor is scoped because it needs the current user of THIS web request.
         services.AddScoped<AuditSaveChangesInterceptor>();
+        services.AddSingleton<SlowQueryInterceptor>(); // docs/32: logs database commands slower than Database:SlowQueryMilliseconds
 
         // MySQL. (The automated tests swap in SQLite themselves; see tests/Grsms.Tests/Infrastructure/TestDatabase.cs.)
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
         {
             options.UseMySQL(connectionString);
-            options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+            options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>(), sp.GetRequiredService<SlowQueryInterceptor>());
         });
 
         // The DbContext is also the unit of work.

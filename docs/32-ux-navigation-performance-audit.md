@@ -208,3 +208,18 @@ Each step a separate commit; the full suite runs after each; no rule, permission
 | 2 | **Keep *Candidates* as one menu item with tabs** (applications, screening, shortlisting). |
 | 3 | Menu numbers may be up to **30 seconds** old for other people's actions (PF1 uses 30 s, not 60 s). |
 | 4 | When the dashboard is done (priority 2), the **action cards replace the KPI row**. |
+
+## 13. Progress
+
+### Priority 1 (done, 11 November 2026)
+
+| Commit | Step | What changed |
+|---|---|---|
+| `92ec44a` | **5.1** keep the place | `site.js`: list pages remember their address (page, search, filters, tab) for the session and record pages' plain links back to them use it; after a form posts back to the same page the scroll position, open accordions and `<details>` are restored (first validation error wins; anchors win); DataTables `stateSave`. Checked in headless Chrome (no script errors; back link, scroll, sections; a position older than a minute is ignored). |
+| `a40dc50` | **PF1** menu numbers | Kept per user for 30 s (`Navigation:CountsCacheSeconds`); any form the user posts clears theirs; **the bell stays live** (opening a notification is a link, so caching it would show read notifications as unread). Saves ~8 queries per page. Test `NavCountsWebTests`. |
+| `cbd979b` | **PF4/PF5** lists | Employees: new `EmployeeRepository` filters, searches, counts and pages in the database (50 per page); grade counts and the backfill no longer read the whole table. Users & roles: server search (name, email, staff no.), sort (name / latest sign-in), paging (50); only the page's roles are read; deactivate and unlock return to the same page and search (local addresses only). Tests in `EmployeeServiceTests` and `UsersListWebTests`. |
+| (this commit) | **PF7** measure | `SlowQueryInterceptor` logs commands slower than `Database:SlowQueryMilliseconds` (500 ms) with the SQL, never the values; each request's duration was already logged (Serilog). Tests `SlowQueryInterceptorTests`. |
+
+**Tests:** 214 (the 209 before, plus 5; the two Phase 28 list assertions adapted to the paged result). **Not checked:** the real pages in a browser against MySQL, and timings on GREL's server; after deploying, look in the log for "Slow database command" and the request durations.
+
+**Next:** priority 2 (dashboard action cards replacing the KPI row, menu regroup with breadcrumbs, required-field stars, button colours) waits for a go-ahead.

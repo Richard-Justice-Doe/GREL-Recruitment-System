@@ -16,6 +16,8 @@ The environment is chosen by the `ASPNETCORE_ENVIRONMENT` variable: `Development
 |---|---|---|
 | `ConnectionStrings:DefaultConnection` | *(empty: required)* | MySQL connection, e.g. `server=localhost;port=3306;database=grsms;user=grsms;password=...` |
 | `Database:ApplyMigrationsOnStartup` | `false` (`true` in Development and in the `deploy/` production set-up) | Create or update the tables automatically at start-up. When `false`, a DBA runs the SQL scripts in `database/`; GRSMS then **refuses to start** while any update is missing and names it in the log (Phase 13). |
+| `Database:SlowQueryMilliseconds` | `500` | docs/32: any database command slower than this is written to the log as a warning, with its time and SQL (never the values). `0` switches it off. Use it to find what is slow on the real server. |
+| `Navigation:CountsCacheSeconds` | `30` | docs/32: how long each user's menu numbers (requests awaiting you, open vacancies, ...) are kept before being counted again. A form the user posts refreshes theirs at once; the bell is always live. `0` = count on every page. |
 
 ### First administrator
 | Setting | Default | Meaning |

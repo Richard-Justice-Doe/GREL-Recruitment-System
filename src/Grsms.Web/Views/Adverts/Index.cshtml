@@ -133,7 +133,14 @@
                 {
                     <tr>
                         <td colspan="8" class="text-center text-body-secondary py-4">
-                            No adverts here. To advertise a vacancy, open a <a asp-controller="Vacancies" asp-action="Index" asp-route-tab="open">published vacancy</a> and click <em>Create advert</em>.
+                            @if (canVacancies)
+                            {
+                                <span>No adverts here. To advertise a vacancy, open a <a asp-controller="Vacancies" asp-action="Index" asp-route-tab="open">published vacancy</a> and click <em>Create advert</em>.</span>
+                            }
+                            else
+                            {
+                                <span>No adverts here. Adverts appear once the Recruitment Officer writes them and the HR Manager has reviewed them.</span>
+                            }
                         </td>
                     </tr>
                 }

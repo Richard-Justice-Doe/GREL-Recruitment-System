@@ -1,0 +1,11 @@
+@* "Full change log (audit trail)" for one record, shown only to people who may open the audit trail (docs/33: the link used
+   to lead others to "Access denied"). Usage: <partial name="_AuditTrailLink" model="@(("Vacancy", Model.Id))" /> *@
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
+@model (string Entity, int Id)
+@if ((await Auth.AuthorizeAsync(User, Policies.AuditTrail)).Succeeded)
+{
+    <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="@Model.Entity" asp-route-entityId="@Model.Id" class="small">
+        <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
+    </a>
+}

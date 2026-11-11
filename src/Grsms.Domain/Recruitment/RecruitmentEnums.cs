@@ -24,7 +24,7 @@ public enum RecruitmentRequestStatus
     /// </summary>
     [Display(Name = "Recruitment review (earlier workflow)")] RecruitmentReview,
 
-    /// <summary>Stage 2: waiting for the HR Manager (including budget validation).</summary>
+    /// <summary>Stage 2: waiting for the HR Manager (a budget approval document is optional).</summary>
     [Display(Name = "HR Manager review")] HrApproval,
 
     /// <summary>Stage 3: waiting for the Managing Director's final approval.</summary>

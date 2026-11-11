@@ -66,8 +66,6 @@ public static class OnboardingWorkflow
     /// <summary>The new employee may upload documents and change the personal record until activation.</summary>
     public static bool EmployeeMayEditDocuments(OnboardingStatus s) => BeforeActivation(s);
 
-    /// <summary>The RO may upload documents for the new employee (e.g. originals brought in) until activation.</summary>
-    public static bool HrMayEditDocuments(OnboardingStatus s) => BeforeActivation(s);
 
     /// <summary>Documents are reviewed as they arrive, until activation.</summary>
     public static bool DocumentsMayBeReviewed(OnboardingStatus s) => BeforeActivation(s);
@@ -118,7 +116,8 @@ public static class OnboardingWorkflow
     }
 
     /// <summary>One document with what <see cref="CheckReadiness"/> needs to know about it.</summary>
-    public record DocumentState(EmployeeDocument Document, string Name, int Files, int MinFiles);
+    /// <param name="Counts">False for a retired document type: its files stay visible but it never holds up the onboarding.</param>
+    public record DocumentState(EmployeeDocument Document, string Name, int Files, int MinFiles, bool Counts = true);
 
     /// <summary>What is still outstanding before an onboarding is ready for activation.</summary>
     /// <param name="ForEmployee">What the new employee must still do, in plain words (empty = nothing).</param>
@@ -140,7 +139,7 @@ public static class OnboardingWorkflow
         else if (!o.LetterAcknowledged) todo.Add("Sign your appointment letter");
         if (!personalRecordSigned) todo.Add("Fill in and sign your personal record");
         if (o.CorrectionRequestedAt is not null) todo.Add($"Make the correction HR asked for: {o.CorrectionMessage}");
-        var applicable = docs.Where(x => x.Document.IsApplicable).ToList();
+        var applicable = docs.Where(x => x.Document.IsApplicable && x.Counts).ToList();
         foreach (var x in applicable)
         {
             var d = x.Document;

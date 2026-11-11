@@ -33,12 +33,13 @@ public static class DependencyInjection
 
         // The audit interceptor is scoped because it needs the current user of THIS web request.
         services.AddScoped<AuditSaveChangesInterceptor>();
+        services.AddSingleton<SlowQueryInterceptor>(); // docs/32: logs database commands slower than Database:SlowQueryMilliseconds
 
         // MySQL. (The automated tests swap in SQLite themselves; see tests/Grsms.Tests/Infrastructure/TestDatabase.cs.)
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
         {
             options.UseMySQL(connectionString);
-            options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+            options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>(), sp.GetRequiredService<SlowQueryInterceptor>());
         });
 
         // The DbContext is also the unit of work.
@@ -58,7 +59,11 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogService, AuditLogService>();
 
         services.Configure<EmailOptions>(config.GetSection("Email"));
-        services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<EmailService>();
+        services.AddScoped<IEmailService>(sp => sp.GetRequiredService<EmailService>());
+        // 11 November 2026: emails to a mail server are sent in the background, so nobody waits for the server.
+        services.AddSingleton<EmailQueue>();
+        services.AddHostedService<EmailSendingWorker>();
 
         // Phase 10: the bell, reminder keys, and text messages (written to files until "Sms:Enabled" is true)
         services.AddScoped<Application.Notifications.INotificationCenter, Notifications.NotificationCenter>();
@@ -76,6 +81,7 @@ public static class DependencyInjection
 
         // Phase 3: vacancies. The same repository also answers "is there a vacancy for this request?".
         services.AddScoped<IVacancyRepository, VacancyRepository>();
+        services.AddScoped<Application.Employees.IEmployeeRepository, EmployeeRepository>(); // docs/32
         services.AddScoped<Application.Adverts.IAdvertRepository, AdvertRepository>();
         services.AddScoped<Application.Applications.IApplicationRepository, ApplicationRepository>();
         services.AddScoped<Application.Interviews.IInterviewRepository, InterviewRepository>();

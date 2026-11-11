@@ -20,6 +20,17 @@
 <form asp-action="@(isNew ? "Create" : "Edit")" asp-route-id="@(isNew ? null : Model.Id)" method="post" novalidate>
     <input type="hidden" asp-for="VacancyId" />
     <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+    @if (Model.TakesOffline)
+    {
+        <div class="alert alert-warning small">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i><strong>This advert is published.</strong>
+            Saving changes takes it offline and sends it back to the HR Manager and the IT Manager for approval.
+        </div>
+    }
+    @if (Model.ReviewComment is not null && !Model.TakesOffline)
+    {
+        <div class="alert alert-info small"><i class="fa-solid fa-comment me-1"></i><strong>What to correct:</strong> <span style="white-space: pre-wrap">@Model.ReviewComment</span></div>
+    }
 
     <div class="row g-3">
         <div class="col-xl-8">
@@ -54,7 +65,7 @@
                         <label asp-for="StartDate" class="form-label"></label>
                         <input asp-for="StartDate" type="date" class="form-control" min="@today.ToString("yyyy-MM-dd")"
                                value="@Model.StartDate?.ToString("yyyy-MM-dd")" />
-                        <div class="form-text">Today = live as soon as you publish. A later date = scheduled; it goes live by itself that day.</div>
+                        <div class="form-text">Today = live as soon as the IT Manager approves it. A later date = scheduled; it goes live by itself that day.</div>
                         <span asp-validation-for="StartDate" class="text-danger small"></span>
                     </div>
                     <div>
@@ -83,14 +94,14 @@
                                    checked="@Model.Channels.Contains(c)" disabled="@(!allowed)" />
                             <label class="form-check-label @(allowed ? "" : "text-body-secondary")" for="ch-@c">
                                 @c.DisplayName()
-                                <span class="small text-body-secondary">· @(auto ? "published automatically" : "copy-ready text, posted by you")</span>
+                                <span class="small text-body-secondary">· @(auto ? "published automatically" : "copy-ready text, posted by the IT Manager")</span>
                             </label>
                         </div>
                     }
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-floppy-disk me-1"></i>Save @(isNew ? "draft" : "changes")</button>
+            <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-floppy-disk me-1"></i>@(isNew ? "Save draft" : Model.TakesOffline ? "Save and send for approval" : "Save changes")</button>
         </div>
     </div>
 </form>

@@ -259,9 +259,7 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                         </li>
                     }
                 </ul>
-                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="OnboardingRecord" asp-route-entityId="@Model.Id" class="small">
-                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
-                </a>
+                <partial name="_AuditTrailLink" model="@(("OnboardingRecord", Model.Id))" />
             </div>
         </div>
     </div>

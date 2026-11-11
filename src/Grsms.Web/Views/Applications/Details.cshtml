@@ -166,7 +166,7 @@
                         <form asp-controller="Ats" asp-action="Confirm" asp-route-id="@Model.Id" method="post" class="mb-3">
                             <input type="hidden" name="returnTo" value="application" />
                             <input type="text" name="note" class="form-control form-control-sm mb-2" maxlength="2000" placeholder="Note (optional, internal)" aria-label="Note" />
-                            <button type="submit" class="btn btn-sm btn-danger w-100"
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100"
                                     data-confirm="Confirm the automatic rejection? The application becomes Not successful and the applicant is emailed.">Confirm rejection</button>
                         </form>
                         <form asp-controller="Ats" asp-action="Override" asp-route-id="@Model.Id" method="post">
@@ -297,9 +297,7 @@
                     }
                 </ul>
                 <p class="small text-body-secondary mb-2">Department HOD: @Model.RequestingHodName</p>
-                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="JobApplication" asp-route-entityId="@Model.Id" class="small">
-                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
-                </a>
+                <partial name="_AuditTrailLink" model="@(("JobApplication", Model.Id))" />
             </div>
         </div>
     </div>

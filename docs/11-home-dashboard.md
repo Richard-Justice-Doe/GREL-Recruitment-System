@@ -8,21 +8,27 @@ Everything on the page follows the same visibility rules as the lists: a Head of
 
 ### Division / Department filter (top right)
 
-Two drop-downs next to the greeting narrow the page to one **division** (Corporate or Operations) and/or one **department**. They apply to the KPI cards (except *Registered candidates*), *Requests in approval* and the closing calendar. *My tasks* is never filtered, so nothing waiting for you is hidden. The filter is kept when you change month, and clicking a KPI card opens its list with the same filter. **Clear** removes it. See [12 Divisions, departments and sites](12-divisions-and-departments.md#filtering).
+Two drop-downs next to the greeting narrow the page to one **division** (Corporate or Operations) and/or one **department**. They apply to the activity cards (*Applications received*, *Interviews this week*, *Offers awaiting the candidate*), *Requests in approval* and the closing calendar. *My tasks* is never filtered, so nothing waiting for you is hidden. The filter is kept when you change month, and clicking one of those cards opens its list with the same filter. **Clear** removes it. See [12 Divisions, departments and sites](12-divisions-and-departments.md#filtering).
 
-### The KPI cards (top row)
+### The action cards (top row)
 
-| Card | The big number | The 7 bars | Who sees it |
+Since 11 November 2026 (docs/32) the top row shows **what needs attention**, each card opening the list that shows it. They replaced the KPI cards with 7-day bar charts.
+
+| Card | The number | Opens | Who sees it |
 |---|---|---|---|
-| **Recruitment requests** | All submitted requests (drafts not counted) | Requests submitted on each of the last 7 days | Anyone who can open Recruitment requests |
-| **Approved requests** | Requests that are fully approved | Requests given final approval on each day | Anyone who can open Recruitment requests |
-| **Open vacancies** | Vacancies currently published | Vacancies published on each day | Anyone who can open Vacancies |
-| **Applications** | All applications received | Applications submitted on each day | Anyone who can open Vacancies (Phase 5) |
-| **Registered candidates** | All candidate accounts | Candidate accounts created on each day | All staff |
+| **Requests awaiting your approval** | Requests at your decision stage | Requests, *Awaiting my action* | Heads of Department, Recruitment Officers, HR Manager, MD (others only when something waits for them) |
+| **Vacancies awaiting publication** | Vacancies waiting for your approval | Vacancies, *Pending approval* | HR Manager |
+| **Applications received** | Applications submitted in the last 7 days | Candidates, *All* | Anyone who can open Vacancies |
+| **Interviews this week** | Scheduled interviews today and the next 6 days (yours, or all for HR and HODs, as on the Interviews list) | Interviews, *Upcoming*, the same dates | Anyone who can open Vacancies, or who has an interview this week |
+| **Offers awaiting the candidate** | Offers sent and not yet answered | Hiring & offers, *Offers* | Recruitment staff (not Heads of Department only) |
 
-* The bars read left to right from 6 days ago to **today** (the darker bar). Hover over a bar to see the date and number.
-* The coloured figure compares the last 7 days with the 7 days before: green ↗ is up, red ↘ is down, grey — is no change. When there was nothing in the week before, the card shows "+N this week" or "No change this week" instead of a percentage.
-* Click a card to open the matching list (Approved opens *All requests* filtered to Approved).
+* The first two are **work waiting for you**: while their number is above 0 the card has a red edge and says *Action needed*. Like *My tasks*, they ignore the Division / Department filter.
+* The other three follow the filter, and their links carry it to the list.
+* *Employees onboarding* and *Probation reviews due* are in the workforce panel (onboarding and probation), so they are not repeated here.
+
+### Job adverts (IT Manager)
+
+Since 11 November 2026 the IT Manager (holder of `adverts.publish`) sees four cards above the action cards: **Awaiting your approval**, **Scheduled**, **Active (published)** and **Expired or closed**. Each opens the matching tab of *Job adverts*. See [13 Job adverts](13-job-adverts.md#4-it-approval-it-manager).
 
 ### My tasks
 
@@ -37,6 +43,9 @@ The things waiting for **you**, oldest first, so the longest-waiting item is at 
 | Head of Department | Vacancies in your departments with shortlist recommendations waiting for you → *Give your view on N shortlist recommendations* (opens the shortlisting board; Phase 6) |
 | Any staff member on an interview panel | Sessions that have started and still need your scorecard → *Submit your scorecard* (Phase 7) |
 | Head of Department, HR Manager, Managing Director | Hiring recommendations at your stage → *Hire …: Endorse or not* / *Approve or reject* (Phase 8) |
+| HR Manager (`adverts.review.hr`) | Job adverts sent for review → *Review the advert* (11 Nov 2026) |
+| IT Manager (`adverts.publish`) | Job adverts reviewed by HR → *Approve and publish* (11 Nov 2026) |
+| Recruitment Officer, HR Manager | Your own job adverts returned for correction → *Make the changes and send it again* (11 Nov 2026) |
 
 Click a task to open it. A red badge (for example **4 d**) means it has waited 3 days or more. On a phone the *From* and *Waiting since* columns are hidden to save space.
 

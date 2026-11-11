@@ -34,6 +34,7 @@ public class AdvertRepository(ApplicationDbContext context) : Repository<JobAdve
         var q = Visible(visibility);
 
         if (filter.Status is { } status) q = q.Where(a => a.Status == status);
+        if (filter.Statuses is { Count: > 0 } statuses) q = q.Where(a => statuses.Contains(a.Status));
         if (filter.VacancyId is { } vacancyId) q = q.Where(a => a.VacancyId == vacancyId);
         if (filter.DivisionId is { } divId) q = q.Where(a => a.DivisionId == divId);
         if (filter.DepartmentId is { } deptId) q = q.Where(a => a.DepartmentId == deptId);
@@ -94,7 +95,8 @@ public class AdvertRepository(ApplicationDbContext context) : Repository<JobAdve
         var liveIds = Visible(visibility).Where(a => a.Status == AdvertStatus.Live).Select(a => a.Id);
         var toPost = await Db.AdvertChannels.CountAsync(c => liveIds.Contains(c.JobAdvertId) && c.Status == ChannelPostStatus.ToPost, ct);
 
-        return new AdvertCounts(Of(AdvertStatus.Live), Of(AdvertStatus.Scheduled), Of(AdvertStatus.Draft), toPost);
+        return new AdvertCounts(Of(AdvertStatus.Live), Of(AdvertStatus.Scheduled), Of(AdvertStatus.Draft) + Of(AdvertStatus.ReturnedForCorrection), toPost,
+            Of(AdvertStatus.AwaitingHrReview), Of(AdvertStatus.AwaitingItApproval), Of(AdvertStatus.Closed) + Of(AdvertStatus.Rejected));
     }
 
     public async Task<IReadOnlyList<JobAdvert>> GetDueToPublishAsync(DateOnly today, CancellationToken ct = default) =>

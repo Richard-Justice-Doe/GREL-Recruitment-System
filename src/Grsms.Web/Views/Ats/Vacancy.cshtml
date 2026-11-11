@@ -95,7 +95,7 @@
                     {
                         <form asp-action="ConfirmAll" method="post">
                             <input type="hidden" name="vacancyId" value="@Model.VacancyId" />
-                            <button type="submit" class="btn btn-sm btn-danger"
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
                                     data-confirm="Confirm all @held.Count(r => r.CanDecide) held rejection(s)? Each becomes Not successful and the applicants are emailed.">Confirm all</button>
                         </form>
                     }

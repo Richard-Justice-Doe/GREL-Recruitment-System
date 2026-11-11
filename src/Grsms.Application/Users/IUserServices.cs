@@ -63,6 +63,9 @@ public interface IUserAdminService
     /// <summary>All users. Staff only by default; set <paramref name="includeCandidates"/> to also list portal candidates.</summary>
     Task<IReadOnlyList<UserListItemDto>> GetAllAsync(bool includeCandidates, CancellationToken ct = default);
 
+    /// <summary>docs/32: one page of staff or candidate accounts, searched and sorted in the database.</summary>
+    Task<PagedResult<UserListItemDto>> SearchAsync(UserSearch search, CancellationToken ct = default);
+
     /// <summary>Phase 14: every role a staff account can be given (built-in staff roles, then custom roles).</summary>
     Task<IReadOnlyList<string>> GetAssignableRolesAsync(CancellationToken ct = default);
 

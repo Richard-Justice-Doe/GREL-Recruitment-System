@@ -16,9 +16,6 @@ namespace Grsms.Web.Controllers;
 [Authorize(Policy = Policies.Staff)]
 public class OnboardingController(OnboardingService onboarding, DocumentVerificationService documents, PersonalRecordService personalRecords) : AppController
 {
-    /// <summary>Upload limit for document files, slightly above the file limit to allow for form overhead.</summary>
-    private const long UploadRequestLimitBytes = 25 * 1024 * 1024;
-
     /// <param name="filter">Tab "tasks" (my checklist items), "progress", "start" (accepted offers waiting) or "all", plus filters.</param>
     public async Task<IActionResult> Index([FromQuery] OnboardingFilter filter, CancellationToken ct)
     {
@@ -165,29 +162,9 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         return model is null ? NotFound() : View(model);
     }
 
-    // ================================================================= Phase 18: new-hire documents (HR)
-
-    [HttpPost]
-    [RequestSizeLimit(UploadRequestLimitBytes)]
-    [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimitBytes)]
-    [Authorize(Policy = Policies.ManageOnboarding)]
-    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, int? replacesAttachmentId, CancellationToken ct)
-    {
-        if (file is null || file.Length == 0) return await Act(id, () => Task.FromResult(Result.Failure("Choose a file to upload.")), "");
-        await using var stream = file.OpenReadStream();
-        var result = await documents.UploadAsync(documentId, file.FileName, stream, ct, replacesAttachmentId);
-        return await Act(id, () => Task.FromResult(result.Succeeded ? Result.Success() : Result.Failure([.. result.Errors])), $"'{Path.GetFileName(file.FileName)}' uploaded.");
-    }
-
-    [HttpPost]
-    [Authorize(Policy = Policies.ManageOnboarding)]
-    public Task<IActionResult> RemoveDocumentFile(int id, int documentId, int attachmentId, CancellationToken ct) =>
-        Act(id, () => documents.RemoveFileAsync(documentId, attachmentId, ct), "File removed.");
-
-    [HttpPost]
-    [Authorize(Policy = Policies.ManageOnboarding)]
-    public Task<IActionResult> MarkNotApplicable(int id, int documentId, string? reason, CancellationToken ct) =>
-        Act(id, () => documents.MarkNotApplicableAsync(documentId, reason, ct), "Marked not applicable.");
+    // ================================================================= New-hire documents: review only
+    // 11 Nov 2026 (docs/29, change 3): staff never upload, replace, remove or mark documents not applicable for the new
+    // employee; they only open, review, verify and reject them. The new employee does all of that in My onboarding.
 
     [HttpPost]
     [Authorize(Policy = Policies.VerifyOnboardingDocuments)]

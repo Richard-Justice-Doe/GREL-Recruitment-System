@@ -1,6 +1,6 @@
 @* Staff home page (dashboard). Data comes from DashboardService (Application/Dashboard).
-   Layout (redesign, November 2026): green welcome banner, "Your to-dos" cards, workforce panel, coloured KPI cards with
-   7-day bar charts, then requests in progress + latest candidates on the left and the vacancy closing calendar on the
+   Layout (redesign, November 2026): green welcome banner, "Your to-dos" cards, workforce panel, action cards (docs/32; they
+   replaced the KPI cards with 7-day bar charts), then requests in progress + latest candidates on the left and the vacancy closing calendar on the
    right. Panels the user may not see are left out. *@
 @using System.Globalization
 @using Grsms.Application.Dashboard
@@ -38,7 +38,6 @@
         return AvatarColours[(h & 0x7fffffff) % AvatarColours.Length];
     }
 
-    private static string DayLetter(DateOnly day) => day.DayOfWeek.ToString()[..1];
 
     // The page a task opens.
     private string? TaskUrl(DashboardTaskDto t) => t.Target switch
@@ -54,6 +53,7 @@
         DashboardTaskTarget.OnboardingLetter or DashboardTaskTarget.OnboardingDocuments or DashboardTaskTarget.OnboardingActivate
             or DashboardTaskTarget.OnboardingInduction => Url.Action("Details", "Onboarding", new { id = t.Id }),
         DashboardTaskTarget.ProbationStep or DashboardTaskTarget.ProbationDecision => Url.Action("Details", "Probation", new { id = t.Id }),
+        DashboardTaskTarget.Advert => Url.Action("Details", "Adverts", new { id = t.Id }),
         _ => Url.Action("Create", "Vacancies", new { requestId = t.Id })
     };
 
@@ -76,17 +76,8 @@
         DashboardTaskTarget.OnboardingInduction => ("tone-onboard", "Induction", "Close the onboarding"),
         DashboardTaskTarget.ProbationStep => ("tone-probation", "Probation", "Open the probation"),
         DashboardTaskTarget.ProbationDecision => ("tone-probation", "Probation decision", "Decide"),
+        DashboardTaskTarget.Advert => ("tone-hire", "Job advert", "Open advert"),
         _ => ("tone-onboard", "Onboarding", "Open checklist")
-    };
-
-    // KPI card colours.
-    private static string KpiTone(KpiKind kind) => kind switch
-    {
-        KpiKind.Requests => "tone-hire",
-        KpiKind.Approved => "tone-onboard",
-        KpiKind.OpenVacancies => "tone-probation",
-        KpiKind.Applications => "tone-interview",
-        _ => "tone-offer"
     };
 }
 
@@ -116,7 +107,7 @@
     }
     @if (Model.DivisionList is not null)
     {
-        @* Division / Department filter for the KPI cards, the in-progress list and the calendar. *@
+        @* Division / Department filter for the activity cards, the in-progress list and the calendar. *@
         <form method="get" class="dash-filter" aria-label="Filter the dashboard">
             @if (d.Month != new DateOnly(today.Year, today.Month, 1))
             {
@@ -207,68 +198,58 @@
     <partial name="_WorkforcePanel" model="Model.Workforce" />
 }
 
-@* ---------------------------------------------------------------- KPI cards *@
-<div class="kpi-grid mb-3">
-    @foreach (var k in d.Kpis)
-    {
-        var link = k.Kind switch
+@* ---------------------------------------------------------------- IT Manager: job adverts (11 Nov 2026, docs/29 change 2) *@
+@if (d.AdvertCards is { } ac)
+{
+    <h2 class="h6 text-uppercase text-body-secondary mb-2">Job adverts</h2>
+    <div class="kpi-grid mb-3">
+        @foreach (var (title, icon, count, tab, tone) in new[]
+                 {
+                     ("Awaiting your approval", "fa-hourglass-half", ac.AwaitingApproval, "it", "tone-offer"),
+                     ("Scheduled", "fa-clock", ac.Scheduled, "scheduled", "tone-probation"),
+                     ("Active (published)", "fa-tower-broadcast", ac.Active, "live", "tone-onboard"),
+                     ("Expired or closed", "fa-box-archive", ac.Expired, "closed", "tone-hire"),
+                 })
         {
-            KpiKind.Requests => Url.Action("Index", "RecruitmentRequests", new { tab = "all", Model.Filter.DivisionId, Model.Filter.DepartmentId }),
-            KpiKind.Approved => Url.Action("Index", "RecruitmentRequests", new { tab = "all", Status = "Approved", Model.Filter.DivisionId, Model.Filter.DepartmentId }),
-            KpiKind.OpenVacancies => Url.Action("Index", "Vacancies", new { Tab = "open", Model.Filter.DivisionId, Model.Filter.DepartmentId }),
-            KpiKind.Applications => Url.Action("Index", "Applications", new { tab = "all", Model.Filter.DivisionId, Model.Filter.DepartmentId }),
-            KpiKind.Candidates when canUsers => Url.Action("Index", "Users", new { candidates = true }),
-            _ => null
-        };
-        var max = Math.Max(1, k.Last7Days.Max(x => x.Count));
-        <section class="dash-card kpi-card @KpiTone(k.Kind)">
-            <header class="kpi-head">
-                <i class="fa-solid @k.Icon"></i>
-                @if (link is not null)
-                {
-                    <a href="@link" class="stretched-link text-reset text-decoration-none">@k.Title</a>
-                }
-                else
-                {
-                    <span>@k.Title</span>
-                }
-                @if (link is not null)
-                {
+            <section class="dash-card kpi-card @tone">
+                <header class="kpi-head">
+                    <i class="fa-solid @icon"></i>
+                    <a href="@Url.Action("Index", "Adverts", new { tab })" class="stretched-link text-reset text-decoration-none">@title</a>
                     <i class="fa-solid fa-chevron-right kpi-go"></i>
-                }
-            </header>
-            <div class="kpi-figure">
-                <span class="kpi-value">@k.Total.ToString("N0")</span>
-                @if (k.ChangePercent is int pct)
-                {
-                    <span class="kpi-trend @(pct > 0 ? "up" : pct < 0 ? "down" : "flat")">
-                        <i class="fa-solid @(pct > 0 ? "fa-arrow-trend-up" : pct < 0 ? "fa-arrow-trend-down" : "fa-minus")"></i>@Math.Abs(pct)%
-                    </span>
-                    <span class="kpi-note">vs last week</span>
-                }
-                else if (k.ThisWeek > 0)
-                {
-                    <span class="kpi-trend up"><i class="fa-solid fa-arrow-trend-up"></i>+@k.ThisWeek</span>
-                    <span class="kpi-note">this week</span>
-                }
-                else
-                {
-                    <span class="kpi-note">No change this week</span>
-                }
-            </div>
-            <div class="kpi-bars" role="img" aria-label="@k.Title per day for the last 7 days: @string.Join(", ", k.Last7Days.Select(x => $"{x.Day:ddd} {x.Count}"))">
-                @foreach (var day in k.Last7Days)
-                {
-                    var h = 12 + (int)Math.Round(88.0 * day.Count / max);
-                    <div class="kpi-bar @(day.Day == today ? "today" : "")" title="@day.Day.ToString("ddd d MMM"): @day.Count">
-                        <span style="height:@h%"></span>
-                        <small>@DayLetter(day.Day)</small>
-                    </div>
-                }
-            </div>
-        </section>
-    }
-</div>
+                </header>
+                <div class="kpi-figure"><span class="kpi-value">@count.ToString("N0")</span></div>
+            </section>
+        }
+    </div>
+}
+
+@* ---------------------------------------------------------------- Action cards (docs/32, 11 November 2026)
+   What needs attention, each opening the list that shows it. They replace the KPI row with 7-day charts; the work waiting
+   for you is listed one by one under "Your to-dos", and onboarding and probation are in the workforce panel. *@
+@if (d.Cards.Count > 0)
+{
+    <div class="kpi-grid mb-3">
+        @foreach (var c in d.Cards)
+        {
+            var waiting = c.Attention && c.Count > 0;
+            <section class="dash-card kpi-card action-card @c.Tone @(waiting ? "is-waiting" : "")">
+                <header class="kpi-head">
+                    <i class="fa-solid @c.Icon"></i>
+                    <a href="@Url.Action(c.Action, c.Controller, c.Route.ToDictionary(x => x.Key, x => (object?)x.Value))" class="stretched-link text-reset text-decoration-none" data-fresh>@c.Title</a>
+                    <i class="fa-solid fa-chevron-right kpi-go"></i>
+                </header>
+                <div class="kpi-figure mb-0">
+                    <span class="kpi-value">@c.Count.ToString("N0")</span>
+                    @if (waiting)
+                    {
+                        <span class="badge rounded-pill text-bg-danger">Action needed</span>
+                    }
+                </div>
+                <span class="kpi-note">@c.Hint</span>
+            </section>
+        }
+    </div>
+}
 
 <div class="row g-3">
     <div class="@(showCalendar ? "col-xl-8" : "col-12")">

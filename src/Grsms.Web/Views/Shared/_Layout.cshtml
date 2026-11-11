@@ -35,7 +35,7 @@
     <link rel="stylesheet" href="~/css/motion.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
-<body>
+<body data-path-base="@Context.Request.PathBase">
 <div class="app-shell">
     <partial name="_Sidebar" />
     <div class="sidebar-backdrop" data-sidebar-toggle></div>
@@ -118,6 +118,7 @@
 
         <main class="app-content">
             <partial name="_Alerts" />
+            <partial name="_Breadcrumb" />
             @RenderBody()
         </main>
 

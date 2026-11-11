@@ -14,13 +14,13 @@ public class LanguageRow
     public bool IsEmpty => string.IsNullOrWhiteSpace(Language) && Proficiency is null;
 }
 
+/// <summary>The employee's bank account: since 11 Nov 2026 (docs/29) exactly one, with the bank name and account number only.</summary>
 public class BankAccountRow
 {
     [StringLength(100)] public string? BankName { get; set; }
-    [StringLength(100)] public string? Branch { get; set; }
     [StringLength(40)] public string? AccountNumber { get; set; }
     public bool IsPrimary { get; set; }
-    public bool IsEmpty => string.IsNullOrWhiteSpace(BankName) && string.IsNullOrWhiteSpace(Branch) && string.IsNullOrWhiteSpace(AccountNumber);
+    public bool IsEmpty => string.IsNullOrWhiteSpace(BankName) && string.IsNullOrWhiteSpace(AccountNumber);
 }
 
 public class SpouseRow

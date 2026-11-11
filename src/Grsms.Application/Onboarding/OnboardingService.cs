@@ -54,7 +54,8 @@ public class OnboardingService(
     Probation.ProbationService probation,
     OnboardingProgressService progress,
     IRepository<OnboardingDocumentType> documentTypes,
-    Settings.ISettingsStore settings)
+    Settings.ISettingsStore settings,
+    Employees.EmployeeLifecycle employeeLifecycle)
 {
     private const string ConflictMessage = "Someone else updated this record at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
@@ -258,6 +259,13 @@ public class OnboardingService(
         var manage = MayManage && !own && OnboardingWorkflow.IsActive(o.Status);
         var complete = MayComplete && !own;
         var snap = await progress.SnapshotAsync(o, ct);
+        // Self-healing: if the facts changed outside a document action (e.g. a document type retired by a data update, such as
+        // the bank letter on 11 Nov 2026), bring the stage up to date before showing the page.
+        if (OnboardingWorkflow.BeforeActivation(o.Status) && OnboardingWorkflow.StageFor(o, snap.Readiness) != o.Status)
+        {
+            await progress.RefreshAsync(o.Id, ct);
+            snap = await progress.SnapshotAsync(o, ct);
+        }
         var inductionBlocked = InductionProblem(o, list);
         var steps = (await history.ListAsync(a => a.OnboardingRecordId == o.Id, ct)).OrderBy(a => a.ActionAt).ThenBy(a => a.Id)
             .Select(a => new OnboardingHistoryDto(a.Action, a.FromStatus, a.ToStatus, a.ActorName, a.Comments, a.ActionAt)).ToList();
@@ -707,6 +715,8 @@ public class OnboardingService(
                 $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}, starts {o.StartDate.ToString("d MMMM yyyy", Gb)}) is now an " +
                 $"active GREL employee, staff number {WorkflowMailer.Enc(staffNumber)}. Please complete your induction tasks.",
                 links.Onboarding(o.Id), "Open the onboarding", ct);
+        // Phase 28 (docs/30): the employee master record. Last, after everything above is saved; it never fails the activation.
+        await employeeLifecycle.OnActivatedAsync(o, ct);
         return saved;
     }
 
@@ -806,10 +816,25 @@ public class OnboardingService(
         var deptNames = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.Name);
         var divNames = (await divisions.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.Name);
 
+        // docs/33: the documents at a glance, counted as on the onboarding page (OnboardingWorkflow.CheckReadiness): only documents
+        // that apply to the person, and of active or legacy types. One query for every onboarding on the list.
+        var types = (await documentTypes.ListAsync(ct: ct)).ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
+        var docs = (await documents.ListAsync(d => ids.Contains(d.OnboardingRecordId), ct))
+            .Where(d => d.IsApplicable && (types.GetValueOrDefault(d.DocumentTypeCode) is not { } t || t.IsActive || t.IsLegacy))
+            .ToLookup(d => d.OnboardingRecordId);
+
         return list.OrderBy(o => o.Status).ThenBy(o => o.StartDate)
-            .Select(o => new OnboardingListItemDto(o.Id, o.Number, o.JobApplicationId, o.EmployeeName, o.JobTitle, divNames.GetValueOrDefault(o.DivisionId, ""),
-                deptNames.GetValueOrDefault(o.DepartmentId, ""), o.StartDate, o.Status, o.LetterIssued, o.LetterAcknowledged,
-                counts.GetValueOrDefault(o.Id).Done, counts.GetValueOrDefault(o.Id).Total))
+            .Select(o =>
+            {
+                var mine = docs[o.Id].ToList();
+                var required = mine.Where(d => d.IsRequired).ToList();
+                return new OnboardingListItemDto(o.Id, o.Number, o.JobApplicationId, o.EmployeeName, o.JobTitle, divNames.GetValueOrDefault(o.DivisionId, ""),
+                    deptNames.GetValueOrDefault(o.DepartmentId, ""), o.StartDate, o.Status, o.LetterIssued, o.LetterAcknowledged,
+                    counts.GetValueOrDefault(o.Id).Done, counts.GetValueOrDefault(o.Id).Total,
+                    required.Count, required.Count(d => d.Status == EmployeeDocumentStatus.Verified),
+                    required.Count(d => d.Status == EmployeeDocumentStatus.Pending),
+                    mine.Count(d => OnboardingWorkflow.AwaitsReview(d.Status)), mine.Count(d => d.Status == EmployeeDocumentStatus.Rejected));
+            })
             .ToList();
     }
 

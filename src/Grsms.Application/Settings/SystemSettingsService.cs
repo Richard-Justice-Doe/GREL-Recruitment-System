@@ -73,7 +73,7 @@ public class SystemSettingsService(
         if (string.IsNullOrWhiteSpace(to) || !MailAddress.TryCreate(to.Trim(), out _)) return Result.Failure("Enter the address to send the test to.");
         try
         {
-            await email.SendAsync(to.Trim(), "GRSMS test email",
+            await email.SendNowAsync(to.Trim(), "GRSMS test email", // waits for the server, so the result is real
                 "<p>This is a test email from GRSMS. If you can read it, the email settings work.</p>", ct);
             return Result.Success();
         }

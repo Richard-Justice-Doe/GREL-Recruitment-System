@@ -140,11 +140,17 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
     /// <summary>The recruiter issues the letter (Phase 27); the new employee signs it.</summary>
     private async Task LetterIssuedAndSignedAsync(Cast c, string url, int id, string fullName)
     {
+        // Before the letter is issued the page still opens (linked from "My onboarding"): first day, letter being prepared.
+        var employee = await SignedInAsync(c.Email("cand"));
+        var letterPage = $"/MyApplications/Appointment/{c.ApplicationId}";
+        var waiting = await employee.GetStringAsync(letterPage);
+        Assert.Contains("Your letter is being prepared", waiting);
+        Assert.Contains("Your first day", waiting);
+        Assert.DoesNotContain("Sign the letter", waiting);
+
         var recruiter = await SignedInAsync(c.Email("ro"));
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/IssueLetter/{id}",
             new() { ["terms"] = "Probation: 6 months. Hours: 7:30 to 16:30, Monday to Friday." })).StatusCode);
-        var employee = await SignedInAsync(c.Email("cand"));
-        var letterPage = $"/MyApplications/Appointment/{c.ApplicationId}";
         Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(letterPage, $"/MyApplications/SignLetter/{c.ApplicationId}",
             new() { ["fullName"] = fullName, ["confirm"] = "true" })).StatusCode);
     }
@@ -203,7 +209,7 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
             ["HomeTown"] = "Elmina", ["Region"] = "Central", ["MobileNumber"] = "0244000111",
             ["NextOfKinName"] = "Yaw Mensah", ["NextOfKinRelationship"] = "Father", ["NextOfKinTelephone"] = "0208000222",
             ["Languages.Index"] = "0", ["Languages[0].Language"] = "English", ["Languages[0].Proficiency"] = "VeryFluent",
-            ["BankAccounts.Index"] = "0", ["BankAccounts[0].BankName"] = "Absa", ["BankAccounts[0].Branch"] = "Takoradi", ["BankAccounts[0].AccountNumber"] = "0331001",
+            ["BankAccounts.Index"] = "0", ["BankAccounts[0].BankName"] = "Absa", ["BankAccounts[0].AccountNumber"] = "0331001",
             ["EmergencyContacts.Index"] = "0", ["EmergencyContacts[0].Name"] = "Yaw Mensah", ["EmergencyContacts[0].Relationship"] = "Father",
             ["EmergencyContacts[0].Telephone1"] = "0208000222",
             ["Beneficiaries.Index"] = "k7", ["Beneficiaries[k7].Name"] = "Yaw Mensah", ["Beneficiaries[k7].Relationship"] = "Father",

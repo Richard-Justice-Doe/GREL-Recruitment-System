@@ -108,21 +108,44 @@
             else
             {
                 <table class="table table-hover">
-                    <thead><tr><th>Reference</th><th>New employee</th><th>Department</th><th>Starts</th><th>Letter</th><th>Checklist</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Reference</th><th>New employee</th><th class="d-none d-md-table-cell">Department</th><th>Starts</th><th>Documents</th><th class="d-none d-lg-table-cell">Letter</th><th class="d-none d-lg-table-cell">Checklist</th><th>Status</th></tr></thead>
                     <tbody>
                     @if (Model.Count == 0)
                     {
-                        <tr><td colspan="7" class="text-center text-body-secondary py-4">Nothing here.</td></tr>
+                        <tr><td colspan="8" class="text-center text-body-secondary py-4">Nothing here.</td></tr>
                     }
                     @foreach (var o in Model)
                     {
                         <tr>
                             <td class="text-nowrap"><a asp-action="Details" asp-route-id="@o.Id" class="fw-semibold text-decoration-none">@o.Number</a></td>
                             <td>@o.EmployeeName<div class="small text-body-secondary">@o.JobTitle</div></td>
-                            <td>@o.DepartmentName<div class="small text-body-secondary">@o.DivisionName</div></td>
+                            <td class="d-none d-md-table-cell">@o.DepartmentName<div class="small text-body-secondary">@o.DivisionName</div></td>
                             <td class="small text-nowrap">@o.StartDate.ToString("dd MMM yyyy")</td>
-                            <td class="small">@(o.LetterSigned ? "Signed" : o.LetterIssued ? "Issued, not signed" : "Not issued")</td>
-                            <td class="small text-nowrap">@o.TasksDone / @o.TasksTotal</td>
+                            <td class="small">
+                                @* docs/33: the documents at a glance (the same counts as the onboarding page). *@
+                                @if (o.DocsRequired > 0)
+                                {
+                                    <div class="text-nowrap" title="Required documents verified"><i class="fa-solid fa-circle-check text-success me-1"></i>@o.DocsVerified / @o.DocsRequired verified</div>
+                                }
+                                @if (o.DocsMissing > 0)
+                                {
+                                    <span class="badge rounded-pill badge-soft-secondary me-1" title="Required documents not uploaded yet">@o.DocsMissing missing</span>
+                                }
+                                @if (o.DocsToVerify > 0)
+                                {
+                                    <span class="badge rounded-pill badge-soft-warning me-1" title="Uploaded, waiting for the Recruitment Officer">@o.DocsToVerify to verify</span>
+                                }
+                                @if (o.DocsRejected > 0)
+                                {
+                                    <span class="badge rounded-pill badge-soft-danger me-1" title="Rejected, waiting for a replacement">@o.DocsRejected rejected</span>
+                                }
+                                @if (o.DocsRequired == 0 && o.DocsToVerify == 0 && o.DocsRejected == 0)
+                                {
+                                    <span class="text-body-secondary">—</span>
+                                }
+                            </td>
+                            <td class="small d-none d-lg-table-cell">@(o.LetterSigned ? "Signed" : o.LetterIssued ? "Issued, not signed" : "Not issued")</td>
+                            <td class="small text-nowrap d-none d-lg-table-cell">@o.TasksDone / @o.TasksTotal</td>
                             <td><span class="badge rounded-pill @(o.Status == OnboardingStatus.Completed ? "badge-soft-success" : o.Status == OnboardingStatus.Cancelled ? "badge-soft-secondary" : "badge-soft-warning")">@o.Status.DisplayName()</span></td>
                         </tr>
                     }

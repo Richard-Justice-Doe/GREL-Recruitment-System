@@ -437,6 +437,23 @@ Not a numbered phase. Full details are in the [change log](changelog.md).
 
 **Not tested here:** the add/remove-row buttons and the running total in a real browser (the page and its posted rows were exercised by the web tests).
 
+## ✅ Phase 28: Employee master record (11 November 2026)
+
+The first phase of "GRSMS Phase 2, the HR platform" ([30](30-hr-platform-impact-analysis.md)); user guide [31 Employees](31-employees.md). Additive only: no recruitment, onboarding or probation behaviour changed.
+
+**Delivered**
+* **Employees** (new tables Employees, EmployeeAssignments, Grades; script `28_phase28_employee_master_record.sql`): one record per employee with the staff number, position, department, site, grade, line manager, employment type, contract end, date joined, confirmation and status, and a job history that is added to, never edited.
+* **Created automatically** when an onboarding is activated (*On probation*) and made **Active** when the probation is confirmed: one added call at the end of each, which never fails them. Employees activated earlier get their record at the first start-up (backfill).
+* **Existing staff**: *Register existing employee* (uses an existing staff account, or creates one with the Employee role and no password) and **CSV import** (all or nothing, errors listed by row; line managers may be in the same file).
+* **Update job details** (HR, never their own): effective date and reason; a department or site change also moves the account (HOD visibility follows), recruitment records stay put.
+* **Grades** on the Administration page.
+* **Personnel file**: the accepted offer and the validated interview results are filed in *Recruitment Documents*.
+* **Permissions** `employees.view`, `employees.manage`, `grades.manage` (group *Employees*), menu group **People**.
+
+**Checked:** 209/209 tests: the 197 earlier tests unchanged, and 12 new (`EmployeeServiceTests`, `EmployeeWebTests`). The migration creates only the three new tables.
+
+**Not done here:** script 28 not yet run on MySQL; pages not checked in a browser. Staff registered directly have no personal record or personnel file yet (Phase 29, *My HR*).
+
 ## 🚧 Phase 27: Candidate onboarding document portal (10 November 2026), stage A of 3 delivered
 
 Numbered 27 because 22 to 26 are reserved for the approved automation plan ([26](26-automation-analysis.md)).

@@ -46,6 +46,22 @@ public static class Permissions
     public const string ViewReports = "reports.view";
     public const string ViewSurveyResults = "surveys.results";
 
+    // ---------------------------------------------------------------- Job advert approval (11 Nov 2026, docs/29 change 2)
+    /// <summary>The HR review of a job advert: approve it and send it to the IT Manager, or reject it.</summary>
+    public const string ReviewAdvertsHr = "adverts.review.hr";
+
+    /// <summary>The IT review of a job advert: see the adverts awaiting IT approval and reject one.</summary>
+    public const string ReviewAdvertsIt = "adverts.review.it";
+
+    /// <summary>Approve and publish a job advert after the HR review, and record where it is posted (external channels).</summary>
+    public const string PublishAdverts = "adverts.publish";
+
+    /// <summary>Return a job advert under review to the Recruitment Officer for correction, with a reason.</summary>
+    public const string ReturnAdverts = "adverts.return";
+
+    /// <summary>Take a published (or scheduled) job advert offline and send it back for correction.</summary>
+    public const string UnpublishAdverts = "adverts.unpublish";
+
     /// <summary>Phase 20: open employees' electronic personnel files (personal and identification documents).</summary>
     public const string ViewPersonnelFiles = "personnel.view";
 
@@ -68,6 +84,16 @@ public static class Permissions
 
     /// <summary>Decide the outcome of a probation (confirm, extend, do not confirm) and issue the confirmation letter.</summary>
     public const string DecideProbation = "probation.decide";
+
+    // ---------------------------------------------------------------- Phase 28 (docs/30): the employee master record
+    /// <summary>See employees and their job history (a HOD without "See all departments" sees their own departments).</summary>
+    public const string ViewEmployees = "employees.view";
+
+    /// <summary>Register existing staff (one by one or by CSV import) and update employees' job details.</summary>
+    public const string ManageEmployees = "employees.manage";
+
+    /// <summary>Keep GREL's list of salary grades.</summary>
+    public const string ManageGrades = "grades.manage";
 
     // ---------------------------------------------------------------- Data visibility
     /// <summary>See the records of every department (otherwise a HOD sees only their own departments).</summary>
@@ -106,6 +132,16 @@ public static class Permissions
             "Create and submit new recruitment requests for their department."),
         new(ViewVacancies, "Recruitment", "Open vacancies", "See vacancies and their history."),
         new(ViewAdverts, "Recruitment", "Open job adverts", "See job adverts and where they are posted."),
+        new(ReviewAdvertsHr, "Job adverts", "Review job adverts (HR)",
+            "Check a job advert sent in by the Recruitment Officer: approve it for the IT Manager, or reject it."),
+        new(ReviewAdvertsIt, "Job adverts", "Review job adverts (IT)",
+            "See the job adverts waiting for IT approval and reject one."),
+        new(PublishAdverts, "Job adverts", "Approve and publish job adverts",
+            "Give the final approval of a job advert the HR Manager has reviewed, which publishes it (now or on its start date), and record where it is posted."),
+        new(ReturnAdverts, "Job adverts", "Return job adverts for correction",
+            "Send a job advert under review back to the Recruitment Officer with the changes needed."),
+        new(UnpublishAdverts, "Job adverts", "Take job adverts offline",
+            "Take a published or scheduled job advert offline and send it back to the Recruitment Officer for correction."),
         new(ViewApplications, "Recruitment", "Open applications",
             "See applications, the shortlisting board, hiring and onboarding."),
         new(ViewReports, "Recruitment", "Open reports", "See the recruitment reports and download them as CSV."),
@@ -125,6 +161,12 @@ public static class Permissions
             "See every probation, its objectives, assessments and confirmation letter, and the probation reports."),
         new(DecideProbation, "Probation", "Decide probation outcomes",
             "Confirm the employment, extend the probation or decide not to confirm, on the HOD's recommendation (issues the confirmation letter)."),
+
+        new(ViewEmployees, "Employees", "Open employees",
+            "See the employee list, each employee's record and job history (a Head of Department sees their own departments)."),
+        new(ManageEmployees, "Employees", "Manage employees",
+            "Register existing staff (one by one or by CSV import) and update employees' job details: position, grade, reporting line, contract, place of work."),
+        new(ManageGrades, "Employees", "Maintain grades", "Add and edit GREL's salary grades."),
 
         new(SeeAllDepartments, "Data visibility", "See all departments",
             "See the records of every department. Without it, a Head of Department sees only their own departments."),
@@ -150,27 +192,30 @@ public static class Permissions
         [Roles.Admin] =
         [
             ManageUsers, ManageMasterData, ViewAuditTrail, ViewSystemSettings, ViewRecruitmentRequests, ViewVacancies, ViewAdverts,
-            ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments
+            ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewEmployees
         ],
         [Roles.HrAdministrator] =
         [
             ManageUsers, ManageMasterData, ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts,
-            ViewApplications, ViewReports, SeeAllDepartments
+            ViewApplications, ViewReports, SeeAllDepartments, ViewEmployees, ManageEmployees, ManageGrades
         ],
         [Roles.HrManager] =
         [
             ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports,
-            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding, ViewProbation, DecideProbation
+            ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding, ViewProbation, DecideProbation,
+            ReviewAdvertsHr, ReturnAdverts, ViewEmployees, ManageEmployees, ManageGrades
         ],
+        // 11 Nov 2026 (docs/29 change 2): approves, publishes and takes down job adverts after the HR Manager's review.
+        [Roles.ItManager] = [ViewAdverts, SeeAllDepartments, ReviewAdvertsIt, PublishAdverts, ReturnAdverts, UnpublishAdverts],
         [Roles.ManagingDirector] =
-            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments],
+            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewEmployees],
         [Roles.RecruitmentOfficer] =
         [
             ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles,
-            ViewOnboarding, ManageOnboarding, VerifyOnboardingDocuments, CompleteOnboarding, ViewProbation
+            ViewOnboarding, ManageOnboarding, VerifyOnboardingDocuments, CompleteOnboarding, ViewProbation, ViewEmployees
         ],
         [Roles.HeadOfDepartment] =
-            [ViewRecruitmentRequests, RaiseRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports],
+            [ViewRecruitmentRequests, RaiseRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewEmployees],
         [Roles.PanelMember] = [],
         // QF-81-11 (November 2026): department staff fill in recruitment requests for their own department; the HOD reviews them.
         [Roles.Employee] = [ViewRecruitmentRequests, RaiseRecruitmentRequests],
@@ -182,7 +227,7 @@ public static class Permissions
     /// ALL its <see cref="Defaults"/> once (its permissions already existed, so the per-permission defaults never reached it).
     /// Roles that existed before are not touched, so the Super Admin's choices for them stay.
     /// </summary>
-    public static readonly IReadOnlyList<string> RolesAddedLater = [Roles.Admin];
+    public static readonly IReadOnlyList<string> RolesAddedLater = [Roles.Admin, Roles.ItManager];
 
     /// <summary>
     /// Single grants added to <see cref="Defaults"/> after the permission itself already existed. Each is applied ONCE at the

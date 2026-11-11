@@ -50,6 +50,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 builder.Services.AddScoped<IAppLinks, AppLinks>();
 builder.Services.AddScoped<Grsms.Web.Helpers.NavCounts>(); // sidebar badges + notification bell
+builder.Services.AddMemoryCache(); // docs/32: the badges are kept per user for a few seconds (Navigation:CountsCacheSeconds)
 
 // Background job: every hourly date-driven job (vacancy closing, adverts, offer expiry, reminders, surveys; Workers/ScheduledJobsWorker.cs).
 builder.Services.AddHostedService<ScheduledJobsWorker>();
@@ -216,6 +217,14 @@ app.UseRouting();
 app.UseRateLimiter(); // Phase 12: limits on the sign-in, registration and password pages (see section 4)
 app.UseAuthentication();
 app.UseAuthorization();
+// docs/32: a user who posts a form (approve, save, ...) sees their own menu numbers updated on the next page.
+app.Use(async (context, next) =>
+{
+    if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method) && context.User.Identity?.IsAuthenticated == true)
+        Grsms.Web.Helpers.NavCounts.Forget(context.RequestServices.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+            context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value);
+    await next();
+});
 
 // CSS, JavaScript, fonts and images are public, so the sign-in page itself is styled.
 // (Without this, the "sign-in required" fallback policy would block them too.)

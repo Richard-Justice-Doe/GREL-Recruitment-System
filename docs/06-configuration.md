@@ -16,6 +16,8 @@ The environment is chosen by the `ASPNETCORE_ENVIRONMENT` variable: `Development
 |---|---|---|
 | `ConnectionStrings:DefaultConnection` | *(empty: required)* | MySQL connection, e.g. `server=localhost;port=3306;database=grsms;user=grsms;password=...` |
 | `Database:ApplyMigrationsOnStartup` | `false` (`true` in Development and in the `deploy/` production set-up) | Create or update the tables automatically at start-up. When `false`, a DBA runs the SQL scripts in `database/`; GRSMS then **refuses to start** while any update is missing and names it in the log (Phase 13). |
+| `Database:SlowQueryMilliseconds` | `500` | docs/32: any database command slower than this is written to the log as a warning, with its time and SQL (never the values). `0` switches it off. Use it to find what is slow on the real server. |
+| `Navigation:CountsCacheSeconds` | `30` | docs/32: how long each user's menu numbers (requests awaiting you, open vacancies, ...) are kept before being counted again. A form the user posts refreshes theirs at once; the bell is always live. `0` = count on every page. |
 
 ### First administrator
 | Setting | Default | Meaning |
@@ -58,6 +60,8 @@ The **Email**, **AzureAd** (tenant, client, secret) and **Reminders:ApprovalWait
 | `Email:EnableSsl` | `true` | Use STARTTLS/SSL |
 | `Email:UserName` / `Email:Password` | *(empty)* | SMTP login, if the server needs one |
 | `Email:PickupDirectory` | `App_Data/mail` | Folder for `.eml` files when `SmtpHost` is empty |
+
+**Emails are sent in the background (11 November 2026).** With a mail server set, an action that emails people (approving a request, applying for a job, ...) no longer waits for the server: the emails are queued and a background sender (`EmailSendingWorker`) sends them a moment later, one at a time, each with a 30-second limit, trying a failed email again after 10 seconds and after 1 minute. The log shows *queued*, then *sent in N ms*, or *could not be sent ... dropped*. **Send a test email** on System settings still waits for the server and reports the real result. Before this, GREL's server (Hostinger) took 4-5 s per email, so approving a request took 17 s and applying for a job 18 s. The queue is in memory: emails still waiting when GRSMS stops are sent during shutdown for up to 30 seconds; anything left is logged as not sent. Saving `.eml` files (no server) stays immediate.
 
 Example for an internal relay server:
 ```powershell

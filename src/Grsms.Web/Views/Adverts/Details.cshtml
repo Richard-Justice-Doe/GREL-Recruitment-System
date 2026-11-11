@@ -1,9 +1,12 @@
 @* One job advert: status and dates, the advert as applicants see it, each channel (with copy-ready text and
    "record posting" for external channels), the actions the user may take now, and the history. *@
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
 @model AdvertDetailsDto
 @{
     ViewData["Title"] = Model.AdvertNumber;
     var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var canVacancies = (await Auth.AuthorizeAsync(User, Policies.Vacancies)).Succeeded;
     string ChannelCss(ChannelPostStatus s) => s switch
     {
         ChannelPostStatus.Posted => "badge-soft-success",
@@ -15,14 +18,15 @@
 <div class="page-header">
     <div>
         <h1>@Model.Title <partial name="_AdvertStatusBadge" model="Model.Status" /></h1>
-        <p>@Model.AdvertNumber · vacancy <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a>
+        <p>@Model.AdvertNumber · vacancy @if (canVacancies) { <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> } else { @Model.VacancyNumber }
             · @Model.DivisionName → @Model.DepartmentName</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All adverts</a>
         @if (Model.CanEdit)
         {
-            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary"
+               title="@(Model.EditTakesOffline ? "Saving changes takes the advert offline until it is approved again" : null)"><i class="fa-solid fa-pen me-1"></i>Edit</a>
         }
         @if (Model.PublicLink is not null)
         {
@@ -36,14 +40,26 @@
         @switch (Model.Status)
         {
             case AdvertStatus.Draft:
-                <span class="text-body-secondary">Draft: not visible anywhere yet. Runs @Model.StartDate.ToString("dd MMM") – @Model.EndDate.ToString("dd MMM yyyy") once published.</span>
+                <span class="text-body-secondary">Draft: not visible anywhere yet. Runs @Model.StartDate.ToString("dd MMM") – @Model.EndDate.ToString("dd MMM yyyy") once the HR Manager has reviewed it and the IT Manager has approved it.</span>
+                break;
+            case AdvertStatus.AwaitingHrReview:
+                <span class="text-info-emphasis"><i class="fa-solid fa-hourglass-half me-1"></i>Waiting for the <strong>HR Manager's review</strong>@(Model.SubmittedAt is { } sent ? $" (sent {sent:dd MMM yyyy HH:mm} by {Model.SubmittedByName})" : ""). Next: the IT Manager approves and publishes it.</span>
+                break;
+            case AdvertStatus.AwaitingItApproval:
+                <span class="text-info-emphasis"><i class="fa-solid fa-hourglass-half me-1"></i>Reviewed by HR@(Model.HrReviewedByName is { } hr ? $" ({hr})" : ""). Waiting for the <strong>IT Manager's approval</strong>, which publishes it.</span>
+                break;
+            case AdvertStatus.ReturnedForCorrection:
+                <span class="text-warning-emphasis"><i class="fa-solid fa-rotate-left me-1"></i>Returned for correction. Not visible anywhere. Make the changes, then send it for review again.</span>
+                break;
+            case AdvertStatus.Rejected:
+                <span class="text-danger"><i class="fa-solid fa-ban me-1"></i>Rejected. It will not be published; it can be cloned into a new draft.</span>
                 break;
             case AdvertStatus.Scheduled:
                 <span class="text-warning-emphasis"><i class="fa-solid fa-clock me-1"></i>Scheduled: goes live by itself on <strong>@Model.StartDate.ToString("dddd dd MMM yyyy")</strong> and runs until @Model.EndDate.ToString("dd MMM yyyy").</span>
                 break;
             case AdvertStatus.Live:
                 var days = Model.EndDate.DayNumber - today.DayNumber;
-                <span class="text-success"><i class="fa-solid fa-tower-broadcast me-1"></i>Live since @Model.PublishedAt?.ToString("dd MMM yyyy HH:mm"). Ends @Model.EndDate.ToString("dddd dd MMM yyyy") (@(days == 0 ? "today" : $"in {days} days")).</span>
+                <span class="text-success"><i class="fa-solid fa-tower-broadcast me-1"></i>Published since @Model.PublishedAt?.ToString("dd MMM yyyy HH:mm"). Ends @Model.EndDate.ToString("dddd dd MMM yyyy") (@(days == 0 ? "today" : $"in {days} days")).</span>
                 break;
             default:
                 <span class="text-body-secondary">Closed on @Model.ClosedAt?.ToString("dd MMM yyyy HH:mm").</span>
@@ -52,9 +68,16 @@
     </div>
 </div>
 
+@if (Model.ReviewComment is not null && Model.Status is AdvertStatus.ReturnedForCorrection or AdvertStatus.Rejected)
+{
+    <div class="alert @(Model.Status == AdvertStatus.Rejected ? "alert-danger" : "alert-warning") small">
+        <i class="fa-solid fa-comment me-1"></i><strong>@(Model.Status == AdvertStatus.Rejected ? "Reason for rejecting:" : "What to correct:")</strong>
+        <span class="text-break" style="white-space: pre-wrap">@Model.ReviewComment</span>
+    </div>
+}
 @if (Model.PublishBlockedReason is not null)
 {
-    <div class="alert alert-warning small"><i class="fa-solid fa-triangle-exclamation me-1"></i><strong>Can't publish yet:</strong> @Model.PublishBlockedReason</div>
+    <div class="alert alert-warning small"><i class="fa-solid fa-triangle-exclamation me-1"></i><strong>Can't go ahead yet:</strong> @Model.PublishBlockedReason</div>
 }
 
 <div class="row g-3">
@@ -130,7 +153,7 @@
                                     </div>
                                 </form>
                             }
-                            @if ((Model.CanManageChannels || Model.Status == AdvertStatus.Closed && Model.CanClone) && c.Status == ChannelPostStatus.Posted)
+                            @if (Model.CanRecordRemoval && c.Status == ChannelPostStatus.Posted)
                             {
                                 <form asp-action="MarkRemoved" asp-route-id="@Model.Id" method="post" class="mt-2">
                                     <input type="hidden" name="channelId" value="@c.Id" />
@@ -147,26 +170,84 @@
     </div>
 
     <div class="col-xl-5">
-        @if (Model.CanPublish)
+        @if (Model.CanSubmit)
+        {
+            <div class="card glass mb-3 border border-primary">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Ready?</h2>
+                    <p class="small">The HR Manager reviews the advert, then the IT Manager approves and publishes it. You'll get an email at each step.</p>
+                    <form asp-action="Submit" asp-route-id="@Model.Id" method="post">
+                        <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-paper-plane me-1"></i>Send for review</button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @if (Model.CanHrApprove || Model.CanPublish || Model.CanReturn || Model.CanReject)
         {
             var later = Model.StartDate > today;
             <div class="card glass mb-3 border border-primary">
                 <div class="card-body p-4">
-                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Ready?</h2>
-                    <p class="small">
-                        @if (later)
-                        {
-                            @:The start date is @Model.StartDate.ToString("dd MMM yyyy"), so the advert will be <strong>scheduled</strong> and go live by itself that day.
-                        }
-                        else
-                        {
-                            @:The advert goes <strong>live now</strong> on the internal portal and/or careers page. External channels get copy-ready text for you to post.
-                        }
-                    </p>
-                    <form asp-action="Publish" asp-route-id="@Model.Id" method="post">
-                        <button type="submit" class="btn btn-primary w-100" data-confirm="@(later ? "Schedule this advert?" : "Publish this advert now?")">
-                            <i class="fa-solid @(later ? "fa-clock" : "fa-bullhorn") me-1"></i>@(later ? "Schedule" : "Publish now")
-                        </button>
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">@(Model.Status == AdvertStatus.AwaitingHrReview ? "HR review" : "IT approval")</h2>
+                    @if (Model.CanHrApprove)
+                    {
+                        <form asp-action="HrApprove" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <label for="hrComment" class="form-label small">Read the advert, then send it to the IT Manager for approval.</label>
+                            <input id="hrComment" name="comment" class="form-control form-control-sm mb-2" placeholder="Comment (optional)" maxlength="2000" />
+                            <button type="submit" class="btn btn-success w-100"><i class="fa-solid fa-check me-1"></i>Approve and send to IT</button>
+                        </form>
+                    }
+                    @if (Model.CanPublish)
+                    {
+                        <p class="small">
+                            @if (later)
+                            {
+                                @:The start date is @Model.StartDate.ToString("dd MMM yyyy"), so the advert will be <strong>scheduled</strong> and go live by itself that day.
+                            }
+                            else
+                            {
+                                @:The advert goes <strong>live now</strong> on the internal portal and/or careers page. External channels get copy-ready text for you to post.
+                            }
+                        </p>
+                        <form asp-action="Publish" asp-route-id="@Model.Id" method="post" class="mb-3">
+                            <button type="submit" class="btn btn-success w-100" data-confirm="@(later ? "Approve and schedule this advert?" : "Approve and publish this advert now?")">
+                                <i class="fa-solid @(later ? "fa-clock" : "fa-bullhorn") me-1"></i>@(later ? "Approve and schedule" : "Approve and publish now")
+                            </button>
+                        </form>
+                    }
+                    @if (Model.CanReturn || Model.CanReject)
+                    {
+                        <form method="post" asp-route-id="@Model.Id">
+                            <label for="reviewReason" class="form-label small">Or send it back with the changes needed, or reject it (final)</label>
+                            <textarea id="reviewReason" name="reason" class="form-control form-control-sm mb-2" rows="2" maxlength="1000" required
+                                      placeholder="What needs to change, or why it is rejected"></textarea>
+                            <div class="d-flex gap-2">
+                                @if (Model.CanReturn)
+                                {
+                                    <button type="submit" asp-action="Return" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-warning flex-fill"><i class="fa-solid fa-rotate-left me-1"></i>Return for correction</button>
+                                }
+                                @if (Model.CanReject)
+                                {
+                                    <button type="submit" asp-action="Reject" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-danger flex-fill" data-confirm="Reject this advert? This is final.">
+                                        <i class="fa-solid fa-ban me-1"></i>Reject
+                                    </button>
+                                }
+                            </div>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (Model.CanUnpublish)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Take offline</h2>
+                    <form asp-action="Unpublish" asp-route-id="@Model.Id" method="post">
+                        <label for="offlineReason" class="form-label small">Takes it off the internal portal and careers page and sends it back to the Recruitment Officer for correction.</label>
+                        <textarea id="offlineReason" name="reason" class="form-control form-control-sm mb-2" rows="2" maxlength="1000" required placeholder="What needs to change"></textarea>
+                        <button type="submit" class="btn btn-sm btn-outline-warning w-100" data-confirm="Take this advert offline?"><i class="fa-solid fa-eye-slash me-1"></i>Take offline</button>
                     </form>
                 </div>
             </div>
@@ -209,12 +290,24 @@
                 <h2 class="h6 text-uppercase text-body-secondary mb-3">Details</h2>
                 <dl class="details-grid mb-0">
                     <dt>Advert number</dt><dd>@Model.AdvertNumber</dd>
-                    <dt>Vacancy</dt><dd><a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> (@Model.VacancyStatus.DisplayName(), closes @Model.VacancyClosingDate.ToString("dd MMM yyyy"))</dd>
+                    <dt>Vacancy</dt><dd>@if (canVacancies) { <a asp-controller="Vacancies" asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> } else { @Model.VacancyNumber } (@Model.VacancyStatus.DisplayName(), closes @Model.VacancyClosingDate.ToString("dd MMM yyyy"))</dd>
                     <dt>Division</dt><dd>@Model.DivisionName</dd>
                     <dt>Department</dt><dd>@Model.DepartmentName</dd>
                     <dt>Requesting HOD</dt><dd>@Model.RequestingHodName</dd>
                     <dt>Runs</dt><dd>@Model.StartDate.ToString("dd MMM yyyy") – @Model.EndDate.ToString("dd MMM yyyy")</dd>
                     <dt>Created by</dt><dd>@Model.CreatedByName</dd>
+                    @if (Model.SubmittedAt is { } submitted)
+                    {
+                        <dt>Sent for review</dt><dd>@Model.SubmittedByName, @submitted.ToString("dd MMM yyyy HH:mm")</dd>
+                    }
+                    @if (Model.HrReviewedAt is { } hrAt)
+                    {
+                        <dt>Reviewed by HR</dt><dd>@Model.HrReviewedByName, @hrAt.ToString("dd MMM yyyy HH:mm")</dd>
+                    }
+                    @if (Model.ItApprovedAt is { } itAt)
+                    {
+                        <dt>Approved by IT</dt><dd>@Model.ItApprovedByName, @itAt.ToString("dd MMM yyyy HH:mm")</dd>
+                    }
                     @if (Model.ClonedFromAdvertId is int sourceId)
                     {
                         <dt>Cloned from</dt><dd><a asp-action="Details" asp-route-id="@sourceId">@Model.ClonedFromAdvertNumber</a></dd>
@@ -230,7 +323,7 @@
                     @foreach (var h in Model.History)
                     {
                         <li>
-                            <span class="tl-dot @(h.Action is AdvertAction.Closed or AdvertAction.AutoClosed ? "warning" : "")"></span>
+                            <span class="tl-dot @(h.Action is AdvertAction.Closed or AdvertAction.AutoClosed or AdvertAction.Returned or AdvertAction.Unpublished ? "warning" : h.Action == AdvertAction.Rejected ? "danger" : "")"></span>
                             <div><strong>@h.Action.DisplayName()</strong> by @h.ActorName</div>
                             <div class="small text-body-secondary">@h.ActionAt.ToString("dd MMM yyyy HH:mm")</div>
                             @if (h.Comments is not null)
@@ -240,9 +333,7 @@
                         </li>
                     }
                 </ul>
-                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="JobAdvert" asp-route-entityId="@Model.Id" class="small">
-                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
-                </a>
+                <partial name="_AuditTrailLink" model="@(("JobAdvert", Model.Id))" />
             </div>
         </div>
     </div>

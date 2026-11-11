@@ -68,9 +68,10 @@ public class PersonalRecordServiceTests : OnboardingTestBase
         Assert.Contains(await ErrorsFor(app, f => f.Children[0].DateOfBirth = Today.AddDays(1)), e => e.Contains("child's date of birth"));
         Assert.Contains(await ErrorsFor(app, f =>
         {
-            f.BankAccounts.Add(new() { BankName = "Ecobank", Branch = "Accra", AccountNumber = "0020" });
+            f.BankAccounts.Add(new() { BankName = "Ecobank", AccountNumber = "0020" });
             f.BankAccounts.ForEach(b => b.IsPrimary = true);
-        }), e => e.Contains("exactly one bank account"));
+        }), e => e.Contains("one bank account only")); // 11 Nov 2026: exactly one account
+        Assert.Contains(await ErrorsFor(app, f => f.BankAccounts[0].AccountNumber = null), e => e.Contains("bank name and the account number"));
 
         // Completely empty rows (e.g. the blank row shown on the page) are ignored; one account becomes the primary one.
         Assert.Empty(await ErrorsFor(app, f => { f.Children.Add(new()); f.Dependants.Add(new()); f.BankAccounts[0].IsPrimary = false; }));

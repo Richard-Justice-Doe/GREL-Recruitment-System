@@ -58,9 +58,6 @@ public class SurveyService(
     WorkflowMailer mailer,
     IAppLinks links)
 {
-    /// <summary>Roles that may read the results.</summary>
-    public static readonly IReadOnlyList<string> ResultRoles = [Roles.HrManager, Roles.RecruitmentOfficer, Roles.ManagingDirector];
-
     /// <summary>Invitations stay open this many days.</summary>
     public const int AnswerDays = 30;
 
@@ -187,7 +184,8 @@ public class SurveyService(
     /// <summary>Response rate, average per question and comments (no names). Null if the user may not see results.</summary>
     public async Task<SurveyResultsDto?> ResultsAsync(SurveyResultsFilter filter, CancellationToken ct = default)
     {
-        if (!ResultRoles.Any(me.IsInRole)) return null;
+        // docs/33: the same permission the page checks (Read survey results), so the Super Admin, the Admin and any role given it can read them.
+        if (!me.HasPermission(Permissions.ViewSurveyResults)) return null;
         IEnumerable<SurveyInvitation> q = await invitations.ListAsync(i => i.Type == filter.Type, ct);
         if (filter.DivisionId is { } div) q = q.Where(i => i.DivisionId == div);
         if (filter.DepartmentId is { } dep) q = q.Where(i => i.DepartmentId == dep);

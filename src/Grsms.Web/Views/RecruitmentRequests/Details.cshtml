@@ -145,17 +145,12 @@
                     }
                     <dt>Budget approval document</dt>
                     <dd>@(attachedCategories.Contains(AttachmentCategory.BudgetApproval) ? "Attached (see Supporting documents)" : "Not attached")</dd>
-                    <dt>Budget confirmed</dt>
-                    <dd>
-                        @if (Model.BudgetValidated)
-                        {
-                            <span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Yes, by @Model.BudgetValidatedByName</span>
-                        }
-                        else
-                        {
-                            <span class="text-body-secondary">Not yet (done by the HR Manager)</span>
-                        }
-                    </dd>
+                    @if (Model.BudgetValidated)
+                    {
+                        @* Requests approved before 11 Nov 2026 recorded a budget confirmation; it is no longer asked for. *@
+                        <dt>Budget confirmed</dt>
+                        <dd><span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Yes, by @Model.BudgetValidatedByName</span></dd>
+                    }
                 </dl>
             </div>
         </div>
@@ -183,9 +178,7 @@
                         </li>
                     }
                 </ul>
-                <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="RecruitmentRequest" asp-route-entityId="@Model.Id" class="small">
-                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Full change log (audit trail)
-                </a>
+                <partial name="_AuditTrailLink" model="@(("RecruitmentRequest", Model.Id))" />
             </div>
         </div>
     </div>
@@ -244,16 +237,7 @@
                     <form asp-action="Decide" asp-route-id="@Model.Id" method="post">
                         <input type="hidden" name="ExpectedStatus" value="@Model.Status" />
 
-                        @if (Model.Status == RecruitmentRequestStatus.HrApproval)
-                        {
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" id="BudgetValidated" name="BudgetValidated" value="true" />
-                                <label class="form-check-label small" for="BudgetValidated">
-                                    <strong>Budget confirmed:</strong> I have checked that this post is budgeted for
-                                    @(attachedCategories.Contains(AttachmentCategory.BudgetApproval) ? "(see the budget approval document attached)" : "(no budget approval document is attached)").
-                                </label>
-                            </div>
-                        }
+                        @* 11 Nov 2026 (docs/29, change 1): the HR Manager no longer confirms the budget to approve. *@
 
                         <div class="mb-3">
                             <label for="Comments" class="form-label small">Comments <span class="text-body-secondary">(required to return or reject)</span></label>

@@ -13,7 +13,8 @@ namespace Grsms.Tests;
 
 /// <summary>
 /// The advert journey through the real web pages: a Recruitment Officer opens a published vacancy, creates an advert,
-/// publishes it, sees the copy-ready LinkedIn text and records the posting; the advert then appears on the public
+/// sends it for review; the HR Manager reviews it and the IT Manager approves and publishes it and records the LinkedIn
+/// posting (11 Nov 2026, docs/29 change 2); the advert then appears on the public
 /// careers page for anyone, without signing in.
 /// </summary>
 public class AdvertWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFactory>
@@ -96,21 +97,38 @@ public class AdvertWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFac
         var detailsUrl = created.Headers.Location!.ToString();
         var id = int.Parse(Regex.Match(detailsUrl, @"/(\d+)$").Groups[1].Value);
 
-        // ---- Publish (start date today → live)
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(detailsUrl, $"/Adverts/Publish/{id}", new())).StatusCode);
-        var page = await recruiter.GetStringAsync(detailsUrl);
-        Assert.Contains("Live since", page);
+        // ---- 11 Nov 2026 (docs/29 change 2): the recruiter cannot publish; they send it for review
+        Assert.Contains("Send for review", await recruiter.GetStringAsync(detailsUrl));
+        Assert.Contains("/Account/AccessDenied", (await recruiter.PostFormAsync(detailsUrl, $"/Adverts/Publish/{id}", new())).Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(detailsUrl, $"/Adverts/Submit/{id}", new())).StatusCode);
+        Assert.Contains("Awaiting HR review", await recruiter.GetStringAsync(detailsUrl));
+
+        // ---- HR Manager: review and send to IT
+        await UserAsync("a.hrm@grel.test", Roles.HrManager);
+        var hr = await SignedInAsync("a.hrm@grel.test");
+        Assert.Contains("Approve and send to IT", await hr.GetStringAsync(detailsUrl));
+        Assert.Contains("/Account/AccessDenied", (await hr.PostFormAsync(detailsUrl, $"/Adverts/Publish/{id}", new())).Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await hr.PostFormAsync(detailsUrl, $"/Adverts/HrApprove/{id}", new())).StatusCode);
+
+        // ---- IT Manager: the to-do and the cards on the home page, then approve and publish (start date today → live)
+        await UserAsync("a.itm@grel.test", Roles.ItManager);
+        var it = await SignedInAsync("a.itm@grel.test");
+        var home = await it.GetStringAsync("/");
+        Assert.Contains("Awaiting your approval", home);
+        Assert.Contains($"/Adverts/Details/{id}", home);
+        Assert.Contains("Approve and publish now", await it.GetStringAsync(detailsUrl));
+        Assert.Equal(HttpStatusCode.Redirect, (await it.PostFormAsync(detailsUrl, $"/Adverts/Publish/{id}", new())).StatusCode);
+        var page = await it.GetStringAsync(detailsUrl);
+        Assert.Contains("Published since", page);
         Assert.Contains("Copy-ready text for LinkedIn", page);
         var number = Regex.Match(page, @"ADV-\d{4}-\d{4}").Value;
         Assert.Contains($"/Adverts/Details/{id}", await recruiter.GetStringAsync("/Adverts?tab=live"));
 
-        // ---- Record the LinkedIn posting
+        // ---- The IT Manager records the LinkedIn posting (the recruiter may not)
         var channelId = Regex.Match(page, @"name=""channelId"" value=""(\d+)""").Groups[1].Value;
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(detailsUrl, $"/Adverts/MarkPosted/{id}", new()
-        {
-            ["channelId"] = channelId,
-            ["reference"] = "https://www.linkedin.com/jobs/view/123"
-        })).StatusCode);
+        var posting = new Dictionary<string, string> { ["channelId"] = channelId, ["reference"] = "https://www.linkedin.com/jobs/view/123" };
+        Assert.Contains("/Account/AccessDenied", (await recruiter.PostFormAsync(detailsUrl, $"/Adverts/MarkPosted/{id}", posting)).Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await it.PostFormAsync(detailsUrl, $"/Adverts/MarkPosted/{id}", posting)).StatusCode);
         Assert.Contains("https://www.linkedin.com/jobs/view/123", await recruiter.GetStringAsync(detailsUrl));
 
         // ---- Anyone, without signing in, sees it on the careers page

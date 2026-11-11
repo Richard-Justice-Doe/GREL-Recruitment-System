@@ -18,11 +18,11 @@ namespace Grsms.Tests;
 /// </summary>
 public class AdvertServiceTests : IAsyncLifetime
 {
-    private const int Apm = 31, Finance = 3, HeadOffice = 1;
+    private const int Apm = 31, Finance = 3, HeadOffice = 1, It = 2;
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
     private readonly TestDatabase _db = new();
-    private string _hod = "", _otherHod = "", _ro1 = "", _ro2 = "", _hrm = "";
+    private string _hod = "", _otherHod = "", _ro1 = "", _ro2 = "", _hrm = "", _itm = "";
 
     public async Task InitializeAsync()
     {
@@ -31,6 +31,7 @@ public class AdvertServiceTests : IAsyncLifetime
         _ro1 = await _db.CreateUserAsync("ro1@grel.test", 1, Roles.RecruitmentOfficer);
         _ro2 = await _db.CreateUserAsync("ro2@grel.test", 1, Roles.RecruitmentOfficer);
         _hrm = await _db.CreateUserAsync("hrm@grel.test", 1, Roles.HrManager);
+        _itm = await _db.CreateUserAsync("itm@grel.test", It, Roles.ItManager);
 
         using var scope = _db.NewScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -48,6 +49,26 @@ public class AdvertServiceTests : IAsyncLifetime
 
     private void As(string userId, params string[] roles) => _db.CurrentUser.SignInAs(userId, userId, roles);
     private void AsRecruiter() => As(_ro1, Roles.RecruitmentOfficer);
+    private void AsHrManager() => As(_hrm, Roles.HrManager);
+    private void AsItManager() => As(_itm, Roles.ItManager);
+
+    /// <summary>
+    /// 11 Nov 2026 (docs/29 change 2): the RO sends the advert for review, the HR Manager approves it, the IT Manager
+    /// approves and publishes it. Ends signed in as the recruiter again.
+    /// </summary>
+    private async Task ApproveAsync(int id)
+    {
+        AsRecruiter();
+        var r = await Run(s => s.SubmitAsync(id));
+        Assert.True(r.Succeeded, string.Join(" ", r.Errors));
+        AsHrManager();
+        r = await Run(s => s.HrApproveAsync(id, null));
+        Assert.True(r.Succeeded, string.Join(" ", r.Errors));
+        AsItManager();
+        r = await Run(s => s.PublishAsync(id));
+        Assert.True(r.Succeeded, string.Join(" ", r.Errors));
+        AsRecruiter();
+    }
 
     private async Task<T> Run<T>(Func<AdvertService, Task<T>> call)
     {
@@ -192,7 +213,7 @@ public class AdvertServiceTests : IAsyncLifetime
         // Not visible anywhere while it is a draft.
         Assert.Empty(await Run(s => s.GetRunningJobsAsync(includeInternal: true)));
 
-        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
+        await ApproveAsync(id);
         var a = (await Details(id))!;
         Assert.Equal(AdvertStatus.Live, a.Status);
         Assert.Matches(@"^ADV-\d{4}-0001$", a.AdvertNumber);
@@ -219,7 +240,7 @@ public class AdvertServiceTests : IAsyncLifetime
         var vacancyId = await VacancyAsync();
         var id = await DraftAdvertAsync(vacancyId, Today.AddDays(3));
 
-        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
+        await ApproveAsync(id);
         Assert.Equal(AdvertStatus.Scheduled, (await Details(id))!.Status);
         Assert.Empty(await Run(s => s.GetRunningJobsAsync(includeInternal: true)));
 
@@ -243,13 +264,14 @@ public class AdvertServiceTests : IAsyncLifetime
     {
         var vacancyId = await VacancyAsync();
         var live = await DraftAdvertAsync(vacancyId);
-        Assert.True((await Run(s => s.PublishAsync(live))).Succeeded);
+        await ApproveAsync(live);
         var draft = await DraftAdvertAsync(vacancyId);
 
         Assert.True((await RunVacancy(s => s.CloseAsync(vacancyId, "Enough applicants"))).Succeeded);
 
         // The draft can no longer be published, and the next scheduler run closes the live advert.
-        Assert.False((await Run(s => s.PublishAsync(draft))).Succeeded);
+        AsRecruiter();
+        Assert.False((await Run(s => s.SubmitAsync(draft))).Succeeded);
         Assert.NotNull((await Details(draft))!.PublishBlockedReason);
         Assert.Equal((0, 1), await Run(s => s.RunScheduleAsync(Today)));
         Assert.Equal(AdvertStatus.Closed, (await Details(live))!.Status);
@@ -267,25 +289,36 @@ public class AdvertServiceTests : IAsyncLifetime
         var website = (await Details(id))!.Channels.Single(c => c.Channel == AdvertChannel.CompanyWebsite).Id;
 
         // Not while the advert is a draft; never for automatic channels; a link/reference is required.
+        AsItManager();
         Assert.False((await Run(s => s.MarkPostedAsync(id, jobberman, "https://jobberman.example/job/1"))).Succeeded);
-        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
+        await ApproveAsync(id);
+        AsItManager();
         Assert.False((await Run(s => s.MarkPostedAsync(id, website, "https://x.example"))).Succeeded);
         Assert.False((await Run(s => s.MarkPostedAsync(id, jobberman, "  "))).Succeeded);
 
+        // 11 Nov 2026 (docs/29 change 2): only the IT Manager records postings, not the recruiter.
+        AsRecruiter();
+        Assert.False((await Details(id))!.CanManageChannels);
+        Assert.False((await Run(s => s.MarkPostedAsync(id, jobberman, "https://jobberman.example/job/1"))).Succeeded);
+
+        AsItManager();
+        Assert.True((await Details(id))!.CanManageChannels);
         Assert.True((await Run(s => s.MarkPostedAsync(id, jobberman, "https://jobberman.example/job/1"))).Succeeded);
         var posted = (await Details(id))!.Channels.Single(c => c.Id == jobberman);
-        Assert.Equal((ChannelPostStatus.Posted, "https://jobberman.example/job/1", _ro1), (posted.Status, posted.Reference, posted.PostedByName)); // test users are named by their id
+        Assert.Equal((ChannelPostStatus.Posted, "https://jobberman.example/job/1", _itm), (posted.Status, posted.Reference, posted.PostedByName)); // test users are named by their id
 
         // A HOD can see the advert but not change it.
         As(_hod, Roles.HeadOfDepartment);
         var hodView = (await Details(id))!;
-        Assert.False(hodView.CanManageChannels || hodView.CanClose || hodView.CanEdit || hodView.CanClone);
+        Assert.False(hodView.CanManageChannels || hodView.CanClose || hodView.CanEdit || hodView.CanClone || hodView.CanUnpublish);
         Assert.False((await Run(s => s.MarkRemovedAsync(id, jobberman))).Succeeded);
 
-        // Closing the advert leaves the posted external channel for the recruiter to take down.
+        // Closing the advert leaves the posted external channel for the IT Manager to take down.
         AsRecruiter();
         Assert.True((await Run(s => s.CloseAsync(id, null))).Succeeded);
         Assert.Equal(ChannelPostStatus.Posted, (await Details(id))!.Channels.Single(c => c.Id == jobberman).Status);
+        Assert.False((await Run(s => s.MarkRemovedAsync(id, jobberman))).Succeeded);
+        AsItManager();
         Assert.True((await Run(s => s.MarkRemovedAsync(id, jobberman))).Succeeded);
         Assert.Equal(ChannelPostStatus.Removed, (await Details(id))!.Channels.Single(c => c.Id == jobberman).Status);
     }
@@ -295,7 +328,7 @@ public class AdvertServiceTests : IAsyncLifetime
     {
         var vacancyId = await VacancyAsync();
         var id = await DraftAdvertAsync(vacancyId, null, AdvertChannel.CompanyWebsite, AdvertChannel.LinkedIn);
-        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
+        await ApproveAsync(id);
         Assert.True((await Run(s => s.CloseAsync(id, "Wrong salary in the text"))).Succeeded);
 
         var clone = await Run(s => s.CloneAsync(id, null));
@@ -309,7 +342,7 @@ public class AdvertServiceTests : IAsyncLifetime
         Assert.Equal([AdvertChannel.CompanyWebsite, AdvertChannel.LinkedIn], copy.Channels.Select(c => c.Channel).ToArray());
         Assert.All(copy.Channels, c => Assert.Equal(ChannelPostStatus.ToPost, c.Status));
         Assert.Equal((Today, Today.AddDays(14)), (copy.StartDate, copy.EndDate));
-        Assert.True((await Run(s => s.PublishAsync(clone.Value))).Succeeded);
+        await ApproveAsync(clone.Value);
     }
 
     [Fact]
@@ -317,7 +350,7 @@ public class AdvertServiceTests : IAsyncLifetime
     {
         var vacancyId = await VacancyAsync(type: VacancyType.Internal);
         var id = await DraftAdvertAsync(vacancyId);
-        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
+        await ApproveAsync(id);
 
         Assert.Empty(await Run(s => s.GetRunningJobsAsync(includeInternal: false)));
         var number = (await Details(id))!.AdvertNumber;
@@ -351,5 +384,158 @@ public class AdvertServiceTests : IAsyncLifetime
         // The advert stores the division, department and requesting HOD of its vacancy.
         var stored = await Db(db => db.JobAdverts.SingleAsync(a => a.Id == id));
         Assert.Equal((2, Apm, _hod), (stored.DivisionId, stored.DepartmentId, stored.RequestingHodUserId));
+    }
+
+    // ------------------------------------------------------------------ 11 Nov 2026 (docs/29 change 2): HR review, then IT approval
+
+    [Fact]
+    public async Task An_advert_is_reviewed_by_the_hr_manager_then_approved_and_published_by_the_it_manager()
+    {
+        var vacancyId = await VacancyAsync();
+        var id = await DraftAdvertAsync(vacancyId);
+
+        // Nobody can skip a step.
+        AsHrManager();
+        Assert.False((await Run(s => s.HrApproveAsync(id, null))).Succeeded); // still a draft
+        AsItManager();
+        Assert.False((await Run(s => s.PublishAsync(id))).Succeeded);
+
+        AsRecruiter();
+        Assert.True((await Details(id))!.CanSubmit);
+        Assert.True((await Run(s => s.SubmitAsync(id))).Succeeded);
+        var sent = (await Details(id))!;
+        Assert.Equal((AdvertStatus.AwaitingHrReview, "ro1"), (sent.Status, sent.SubmittedByName));
+        Assert.False(sent.CanEdit); // under review: the reviewer returns it if it needs changes
+        Assert.Null(await Run(s => s.GetForEditAsync(id)));
+        var stale = new AdvertFormDto { Id = id, VacancyId = vacancyId, Title = sent.Title, Body = sent.Body, HowToApply = sent.HowToApply,
+            StartDate = sent.StartDate, EndDate = sent.EndDate, Channels = [AdvertChannel.InternalPortal] };
+        Assert.False((await Run(s => s.UpdateAsync(stale))).Succeeded);
+        Assert.Contains(DecodedEmails(), m => m.Contains("To: hrm@grel.test") && m.Contains("advert to review"));
+
+        // The recruiter and the IT Manager cannot do the HR review; the IT Manager cannot publish before it.
+        Assert.False((await Run(s => s.HrApproveAsync(id, null))).Succeeded);
+        AsItManager();
+        Assert.False((await Run(s => s.HrApproveAsync(id, null))).Succeeded);
+        Assert.False((await Run(s => s.PublishAsync(id))).Succeeded);
+        Assert.Empty(await Run(s => s.GetRunningJobsAsync(includeInternal: true)));
+
+        AsHrManager();
+        var hrView = (await Details(id))!;
+        Assert.True(hrView.CanHrApprove && hrView.CanReturn && hrView.CanReject && !hrView.CanPublish);
+        Assert.Contains(await Run(s => s.MyWorkAsync()), w => w.Id == id && w.Status == AdvertStatus.AwaitingHrReview);
+        Assert.True((await Run(s => s.HrApproveAsync(id, "Text checked"))).Succeeded);
+        Assert.Equal(AdvertStatus.AwaitingItApproval, (await Details(id))!.Status);
+        Assert.False((await Run(s => s.PublishAsync(id))).Succeeded); // the HR Manager does not publish
+        Assert.Contains(DecodedEmails(), m => m.Contains("To: itm@grel.test") && m.Contains("advert to approve"));
+
+        AsItManager();
+        var itView = (await Details(id))!;
+        Assert.True(itView.CanPublish && itView.CanReturn && itView.CanReject && !itView.CanHrApprove);
+        Assert.Contains(await Run(s => s.MyWorkAsync()), w => w.Id == id && w.Status == AdvertStatus.AwaitingItApproval);
+        Assert.Equal(1, (await Run(s => s.ItSummaryAsync()))!.AwaitingApproval);
+        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
+
+        var live = (await Details(id))!;
+        Assert.Equal(AdvertStatus.Live, live.Status);
+        Assert.Equal(("hrm", "itm"), (live.HrReviewedByName, live.ItApprovedByName));
+        Assert.Equal([AdvertAction.Created, AdvertAction.Submitted, AdvertAction.HrApproved, AdvertAction.ItApproved], live.History.Select(h => h.Action));
+        Assert.Single(await Run(s => s.GetRunningJobsAsync(includeInternal: false)));
+        Assert.Contains(DecodedEmails(), m => m.Contains("To: hrm@grel.test") && m.Contains("approved by IT"));
+        Assert.Equal(new AdvertItSummary(0, 0, 1, 0), await Run(s => s.ItSummaryAsync()));
+
+        AsRecruiter();
+        Assert.Null(await Run(s => s.ItSummaryAsync())); // the IT cards are the IT Manager's
+    }
+
+    [Fact]
+    public async Task A_returned_advert_is_corrected_and_resubmitted_and_a_rejected_one_is_final()
+    {
+        var vacancyId = await VacancyAsync();
+        var id = await DraftAdvertAsync(vacancyId);
+        AsRecruiter();
+        Assert.True((await Run(s => s.SubmitAsync(id))).Succeeded);
+
+        // The HR Manager returns it: a reason is required and the recruiter is told.
+        AsHrManager();
+        Assert.False((await Run(s => s.ReturnAsync(id, "  "))).Succeeded);
+        Assert.True((await Run(s => s.ReturnAsync(id, "Add the salary band to the text."))).Succeeded);
+        var returned = (await Details(id))!;
+        Assert.Equal((AdvertStatus.ReturnedForCorrection, "Add the salary band to the text."), (returned.Status, returned.ReviewComment));
+        Assert.Contains(DecodedEmails(), m => m.Contains("To: ro1@grel.test") && m.Contains("returned for correction") && m.Contains("salary band"));
+
+        // The recruiter corrects and resubmits; it is on their to-do list until then.
+        AsRecruiter();
+        Assert.Contains(await Run(s => s.MyWorkAsync()), w => w.Id == id && w.Status == AdvertStatus.ReturnedForCorrection);
+        var form = (await Run(s => s.GetForEditAsync(id)))!;
+        form.Title = "Safety Officer (corrected)";
+        Assert.True((await Run(s => s.UpdateAsync(form))).Succeeded);
+        Assert.Equal(AdvertStatus.ReturnedForCorrection, (await Details(id))!.Status); // saving alone does not resubmit
+        Assert.True((await Run(s => s.SubmitAsync(id))).Succeeded);
+        Assert.Null((await Details(id))!.ReviewComment);
+
+        // The IT Manager returns it too: the recruiter AND the HR reviewer are told.
+        AsHrManager();
+        Assert.True((await Run(s => s.HrApproveAsync(id, null))).Succeeded);
+        AsItManager();
+        Assert.True((await Run(s => s.ReturnAsync(id, "The careers page link is missing."))).Succeeded);
+        var mails = DecodedEmails().Where(m => m.Contains("careers page link is missing")).ToList();
+        Assert.Contains(mails, m => m.Contains("To: ro1@grel.test"));
+        Assert.Contains(mails, m => m.Contains("To: hrm@grel.test"));
+
+        // Rejected at the IT step: final. It can no longer be sent, edited or published; it can be cloned.
+        AsRecruiter();
+        Assert.True((await Run(s => s.SubmitAsync(id))).Succeeded);
+        AsHrManager();
+        Assert.True((await Run(s => s.HrApproveAsync(id, null))).Succeeded);
+        AsItManager();
+        Assert.False((await Run(s => s.RejectAsync(id, null))).Succeeded);
+        Assert.True((await Run(s => s.RejectAsync(id, "This vacancy is to be filled internally."))).Succeeded);
+        AsRecruiter();
+        var rejected = (await Details(id))!;
+        Assert.Equal(AdvertStatus.Rejected, rejected.Status);
+        Assert.False(rejected.CanEdit || rejected.CanSubmit);
+        Assert.False((await Run(s => s.SubmitAsync(id))).Succeeded);
+        Assert.True((await Run(s => s.CloneAsync(id, null))).Succeeded);
+        Assert.Equal(1, (await Run(s => s.SearchAsync(new AdvertFilter { Tab = "closed" }))).TotalCount);
+    }
+
+    [Fact]
+    public async Task Editing_or_taking_down_a_published_advert_takes_it_offline_until_it_is_approved_again()
+    {
+        var vacancyId = await VacancyAsync();
+        var id = await DraftAdvertAsync(vacancyId);
+        await ApproveAsync(id);
+        Assert.Single(await Run(s => s.GetRunningJobsAsync(includeInternal: true)));
+
+        // The recruiter edits the published advert: it goes offline and back to the HR Manager.
+        var form = (await Run(s => s.GetForEditAsync(id)))!;
+        Assert.True(form.TakesOffline);
+        form.Body += "\nPlease note: shift work is required.";
+        Assert.True((await Run(s => s.UpdateAsync(form))).Succeeded);
+        var edited = (await Details(id))!;
+        Assert.Equal(AdvertStatus.AwaitingHrReview, edited.Status);
+        Assert.All(edited.Channels.Where(c => c.IsAutomatic), c => Assert.Equal(ChannelPostStatus.Removed, c.Status));
+        Assert.Contains(edited.History, h => h.Action == AdvertAction.Unpublished);
+        Assert.Empty(await Run(s => s.GetRunningJobsAsync(includeInternal: true)));
+
+        // Approved again: back online.
+        AsHrManager();
+        Assert.True((await Run(s => s.HrApproveAsync(id, null))).Succeeded);
+        AsItManager();
+        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
+        Assert.Single(await Run(s => s.GetRunningJobsAsync(includeInternal: true)));
+
+        // Only the IT Manager takes a published advert offline, with a reason.
+        AsRecruiter();
+        Assert.False((await Run(s => s.UnpublishAsync(id, "Wrong dates"))).Succeeded);
+        AsHrManager();
+        Assert.False((await Run(s => s.UnpublishAsync(id, "Wrong dates"))).Succeeded);
+        AsItManager();
+        Assert.True((await Details(id))!.CanUnpublish);
+        Assert.False((await Run(s => s.UnpublishAsync(id, null))).Succeeded);
+        Assert.True((await Run(s => s.UnpublishAsync(id, "Wrong dates"))).Succeeded);
+        Assert.Equal(AdvertStatus.ReturnedForCorrection, (await Details(id))!.Status);
+        Assert.Empty(await Run(s => s.GetRunningJobsAsync(includeInternal: true)));
+        Assert.Contains(DecodedEmails(), m => m.Contains("To: ro1@grel.test") && m.Contains("taken offline") && m.Contains("Wrong dates"));
     }
 }

@@ -7,15 +7,16 @@ using Microsoft.AspNetCore.Mvc;
 namespace Grsms.Web.Controllers;
 
 /// <summary>
-/// Job advert screens (Module 4): list tabs, create from a published vacancy, edit, details, publish / schedule,
-/// cancel schedule, close, clone, and recording external channel postings. All rules live in <see cref="AdvertService"/>.
+/// Job advert screens (Module 4): list tabs, create from a published vacancy, edit, details, send for review, HR review,
+/// IT approval (publish / schedule), return, reject, take offline, cancel schedule, close, clone, and recording external
+/// channel postings. All rules live in <see cref="AdvertService"/>; the review steps are also guarded by policies.
 /// </summary>
 [Authorize(Policy = Policies.Adverts)]
 public class AdvertsController(AdvertService service) : AppController
 {
     // ================================================================= List
 
-    /// <param name="filter">Tab "live", "scheduled", "draft" or "all", plus the report filters.</param>
+    /// <param name="filter">Tab "live", "scheduled", "review", "hr", "it", "draft", "closed" or "all", plus the report filters.</param>
     public async Task<IActionResult> Index([FromQuery] AdvertFilter filter, CancellationToken ct)
     {
         ViewBag.Filter = filter;
@@ -46,7 +47,7 @@ public class AdvertsController(AdvertService service) : AppController
             var result = await service.CreateAsync(form, ct);
             if (result.Succeeded)
             {
-                Success("Advert saved as a draft. Check it, then click 'Publish'.");
+                Success("Advert saved as a draft. Check it, then click 'Send for review'.");
                 return RedirectToAction(nameof(Details), new { id = result.Value });
             }
             AddErrors(result);
@@ -70,7 +71,10 @@ public class AdvertsController(AdvertService service) : AppController
             var result = await service.UpdateAsync(form, ct);
             if (result.Succeeded)
             {
-                Success("Changes saved.");
+                var now = await service.GetDetailsAsync(id, ct);
+                Success(now?.Status == Domain.Advertisements.AdvertStatus.AwaitingHrReview
+                    ? "Changes saved. The advert is offline and back with the HR Manager for review."
+                    : "Changes saved.");
                 return RedirectToAction(nameof(Details), new { id });
             }
             AddErrors(result);
@@ -87,9 +91,37 @@ public class AdvertsController(AdvertService service) : AppController
         return model is null ? NotFound() : View(model);
     }
 
+    // ---- Review (11 Nov 2026, docs/29 change 2): RO → HR Manager → IT Manager
+
     [HttpPost]
+    public Task<IActionResult> Submit(int id, CancellationToken ct) =>
+        Act(id, () => service.SubmitAsync(id, ct), "Sent to the HR Manager for review.");
+
+    [HttpPost]
+    [Authorize(Policy = Policies.ReviewAdvertsHr)]
+    public Task<IActionResult> HrApprove(int id, string? comment, CancellationToken ct) =>
+        Act(id, () => service.HrApproveAsync(id, comment, ct), "Reviewed. The advert is now with the IT Manager for approval.");
+
+    /// <summary>The IT Manager's approval, which publishes the advert (now or on its start date).</summary>
+    [HttpPost]
+    [Authorize(Policy = Policies.PublishAdverts)]
     public Task<IActionResult> Publish(int id, CancellationToken ct) =>
-        Act(id, () => service.PublishAsync(id, ct), "Done. A live advert now shows on its automatic channels; a scheduled one goes live on its start date.");
+        Act(id, () => service.PublishAsync(id, ct), "Approved and published. It shows on its automatic channels now, or from its start date if that is later.");
+
+    [HttpPost]
+    [Authorize(Policy = Policies.ReturnAdverts)]
+    public Task<IActionResult> Return(int id, string? reason, CancellationToken ct) =>
+        Act(id, () => service.ReturnAsync(id, reason, ct), "Returned to the Recruitment Officer for correction.");
+
+    /// <summary>Rejecting is open to the reviewer of the current step (HR or IT); AdvertService checks which.</summary>
+    [HttpPost]
+    public Task<IActionResult> Reject(int id, string? reason, CancellationToken ct) =>
+        Act(id, () => service.RejectAsync(id, reason, ct), "Advert rejected. The Recruitment Officer has been told.");
+
+    [HttpPost]
+    [Authorize(Policy = Policies.UnpublishAdverts)]
+    public Task<IActionResult> Unpublish(int id, string? reason, CancellationToken ct) =>
+        Act(id, () => service.UnpublishAsync(id, reason, ct), "The advert is offline and back with the Recruitment Officer. Take it down from any external channels.");
 
     [HttpPost]
     public Task<IActionResult> Unschedule(int id, CancellationToken ct) =>
@@ -108,15 +140,17 @@ public class AdvertsController(AdvertService service) : AppController
             Fail(result);
             return RedirectToAction(nameof(Details), new { id });
         }
-        Success("Copy created as a new draft. Check the dates and channels, then publish it.");
+        Success("Copy created as a new draft. Check the dates and channels, then send it for review.");
         return RedirectToAction(nameof(Details), new { id = result.Value });
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.PublishAdverts)]
     public Task<IActionResult> MarkPosted(int id, int channelId, string? reference, CancellationToken ct) =>
         Act(id, () => service.MarkPostedAsync(id, channelId, reference, ct), "Channel recorded as posted.");
 
     [HttpPost]
+    [Authorize(Policy = Policies.PublishAdverts)]
     public Task<IActionResult> MarkRemoved(int id, int channelId, CancellationToken ct) =>
         Act(id, () => service.MarkRemovedAsync(id, channelId, ct), "Channel recorded as taken down.");
 

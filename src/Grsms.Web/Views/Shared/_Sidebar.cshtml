@@ -1,12 +1,17 @@
 @* Left-hand navigation. Each link is shown only to people who may open it; the server checks again on every request,
    so hiding a link is for tidiness, not security. The small numbers on the right come from NavCounts (Helpers/NavCounts.cs).
 
-   Usability U1 (10 November 2026, docs/28): a short menu.
-   * Staff: Home, Hire (requests, vacancies & adverts, Candidates = applications + screening, interviews, hiring & offers),
-     Onboard (onboarding, probation, personnel files), Reports (survey results inside), Administration (one page).
-     Their own "My applications / Job openings / My probation" live in the menu under their name (top right).
-   * Heads of Department without a recruitment role don't see Screening or Hiring & offers (Helpers/MenuRules.cs).
-   * Someone with 7 links or fewer (candidates, panel members, most employees) gets one flat list, without group headings.
+   docs/32-33 (11 November 2026): the staff menu in five groups named after what is in them, in the order work flows:
+     Recruitment  (Recruitment requests, Vacancies & adverts)
+     Candidates   (Candidates = applications + screening + shortlisting, Interviews)
+     Hiring       (Hiring & offers: recommendations and offers)
+     Onboarding   (Onboarding: documents, verification, induction; Probation and confirmation)
+     Employees    (Employees, Personnel files)
+   then Administration (one page; Reports and survey results are on it since 11 November 2026). Same pages and addresses as before. Which group each
+   page belongs to is in Helpers/MenuMap.cs (also used for the breadcrumb at the top of each page).
+   Usability U1 (docs/28) still applies: staff's own "My applications / Job openings / My probation" live in the menu under
+   their name; Heads of Department without a recruitment role don't see Screening or Hiring & offers (Helpers/MenuRules.cs);
+   someone with 7 links or fewer gets one flat list, without group headings.
    A group is a <details> element: it opens and closes without script; site.js remembers which groups you opened. *@
 @using Microsoft.AspNetCore.Authorization
 @inject IAuthorizationService Auth
@@ -16,39 +21,54 @@
     var controller = ViewContext.RouteData.Values["controller"]?.ToString();
     var action = ViewContext.RouteData.Values["action"]?.ToString();
     string Active(params string[] names) => names.Contains(controller) ? "active" : "";
-    bool In(params string[] names) => names.Contains(controller);
 
     var canRequests = (await Auth.AuthorizeAsync(User, Policies.RecruitmentRequests)).Succeeded;
     var canVacancies = (await Auth.AuthorizeAsync(User, Policies.Vacancies)).Succeeded;
     var canAdverts = (await Auth.AuthorizeAsync(User, Policies.Adverts)).Succeeded;
     var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
-    var canSurveyResults = (await Auth.AuthorizeAsync(User, Policies.SurveyResults)).Succeeded;
     var canPersonnelFiles = (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded;
-    var canReports = (await Auth.AuthorizeAsync(User, Policies.Reports)).Succeeded;
+    var canEmployees = (await Auth.AuthorizeAsync(User, Policies.Employees)).Succeeded; // Phase 28
     var adminLinks = await Grsms.Web.Controllers.AdministrationController.VisibleAsync(Auth, User);
     var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
     var hodOnly = MenuRules.IsHodOnly(User);
     var counts = await Nav.GetAsync();
 
-    var atsSettingsPage = controller == "Ats" && action == "Settings";
     var showOnboarding = canApplications || counts.OnboardingTasksToDo is > 0;
     var showScreening = canApplications && !hodOnly;
     var showHiring = canApplications && !hodOnly;
 
     // How many links each group has, to choose between groups and one flat list.
-    var hireLinks = new[] { canRequests, canVacancies || canAdverts, canApplications, isStaff, showHiring }.Count(x => x);
-    var onboardLinks = new[] { showOnboarding, canApplications, canPersonnelFiles }.Count(x => x);
-    var otherLinks = (canReports || canSurveyResults ? 1 : 0) + (adminLinks.Count > 0 ? 1 : 0);
-    var flat = !isStaff || hireLinks + onboardLinks + otherLinks <= 7;
+    var recruitmentLinks = new[] { canRequests, canVacancies || canAdverts }.Count(x => x);
+    var candidateLinks = new[] { canApplications, isStaff }.Count(x => x);
+    var hiringLinks = showHiring ? 1 : 0;
+    var onboardingLinks = new[] { showOnboarding, canApplications }.Count(x => x);
+    var employeeLinks = new[] { canEmployees, canPersonnelFiles }.Count(x => x);
+    var otherLinks = adminLinks.Count > 0 ? 1 : 0; // Administration (with Reports since 11 Nov 2026)
+    var flat = !isStaff || recruitmentLinks + candidateLinks + hiringLinks + onboardingLinks + employeeLinks + otherLinks <= 7;
 
-    var inHire = In("RecruitmentRequests", "Vacancies", "Adverts", "Applications", "Ats", "Shortlisting", "Interviews", "Hiring") && !atsSettingsPage;
-    var inOnboard = In("Onboarding", "Probation", "PersonnelFiles");
-    var inAdmin = In("Administration", "Divisions", "Departments", "Units", "Sites", "InductionAreas", "OnboardingDocuments", "Users", "Roles",
-                     "SystemSettings", "EmailTemplates", "Backups", "AuditMonitor", "AuditLogs") || atsSettingsPage;
+    var current = MenuMap.For(controller, action)?.Group;
+    // Every screen listed on the Administration page (one list, in AdministrationController).
+    var inAdmin = controller == "Administration" || Grsms.Web.Controllers.AdministrationController.ScreenFor(controller, action) is not null;
 
     // Badge totals on a group's header, so nothing waiting for you is hidden when the group is closed.
-    var hireWaiting = (counts.RequestsAwaitingMe ?? 0) + (showScreening ? counts.AtsAwaitingHr ?? 0 : 0) + (counts.ScorecardsToDo ?? 0);
-    var onboardWaiting = counts.OnboardingTasksToDo ?? 0;
+    var recruitmentWaiting = counts.RequestsAwaitingMe ?? 0;
+    var candidatesWaiting = (showScreening ? counts.AtsAwaitingHr ?? 0 : 0) + (counts.ScorecardsToDo ?? 0);
+    var onboardingWaiting = counts.OnboardingTasksToDo ?? 0;
+}
+@functions {
+    // The opening of a group (nothing in a flat menu). The closing is GroupEnd.
+    private Microsoft.AspNetCore.Html.IHtmlContent GroupStart(bool flat, string key, string label, string? current, int waiting)
+    {
+        if (flat) return Microsoft.AspNetCore.Html.HtmlString.Empty;
+        var badge = waiting > 0 ? $"<span class=\"nav-count attention group-count\" title=\"Waiting for you\">{waiting}</span>" : "";
+        return new Microsoft.AspNetCore.Html.HtmlString(
+            $"<details class=\"nav-group group-{key}\" data-nav-group=\"{key}\" data-nav-current=\"{(current == label ? "yes" : "no")}\" open>" +
+            $"<summary><span class=\"group-dot\" aria-hidden=\"true\"></span> {System.Net.WebUtility.HtmlEncode(label)} {badge}" +
+            "<i class=\"fa-solid fa-chevron-down group-chevron\" aria-hidden=\"true\"></i></summary>");
+    }
+
+    private Microsoft.AspNetCore.Html.IHtmlContent GroupEnd(bool flat) =>
+        flat ? Microsoft.AspNetCore.Html.HtmlString.Empty : new Microsoft.AspNetCore.Html.HtmlString("</details>");
 }
 <aside class="sidebar" aria-label="Main menu">
     <a class="brand" asp-controller="Home" asp-action="Index">
@@ -85,20 +105,10 @@
             </a>
         }
 
-        @if (hireLinks > 0)
+        @* ---- Recruitment *@
+        @if (recruitmentLinks > 0)
         {
-            if (!flat)
-            {
-                @:<details class="nav-group group-hire" data-nav-group="hire" data-nav-current="@(inHire ? "yes" : "no")" open>
-                <summary>
-                    <span class="group-dot" aria-hidden="true"></span> Hire
-                    @if (hireWaiting > 0)
-                    {
-                        <span class="nav-count attention group-count" title="Waiting for you">@hireWaiting</span>
-                    }
-                    <i class="fa-solid fa-chevron-down group-chevron" aria-hidden="true"></i>
-                </summary>
-            }
+            @GroupStart(flat, "recruitment", "Recruitment", current, recruitmentWaiting)
             if (canRequests)
             {
                 <a class="nav-link @Active("RecruitmentRequests")" asp-controller="RecruitmentRequests" asp-action="Index">
@@ -120,10 +130,17 @@
                     }
                 </a>
             }
+            @GroupEnd(flat)
+        }
+
+        @* ---- Candidates *@
+        @if (candidateLinks > 0)
+        {
+            @GroupStart(flat, "candidates", "Candidates", current, candidatesWaiting)
             if (canApplications)
             {
-                @* Applications and screening (ATS): one item, tabs switch between them (Views/Shared/_CandidatesTabs.cshtml). *@
-                <a class="nav-link @(In("Applications", "Shortlisting") || (controller == "Ats" && !atsSettingsPage) ? "active" : "")" asp-controller="Applications" asp-action="Index">
+                @* Applications, screening (ATS) and shortlisting: one item, tabs switch between them (Views/Shared/_CandidatesTabs.cshtml). *@
+                <a class="nav-link @(Active("Applications", "Shortlisting") is "active" || (controller == "Ats" && action != "Settings") ? "active" : "")" asp-controller="Applications" asp-action="Index">
                     <i class="fa-solid fa-inbox"></i> Candidates
                     @if (showScreening && counts.AtsAwaitingHr is > 0)
                     {
@@ -142,32 +159,23 @@
                     }
                 </a>
             }
-            if (showHiring)
-            {
-                <a class="nav-link @Active("Hiring")" asp-controller="Hiring" asp-action="Index">
-                    <i class="fa-solid fa-handshake"></i> Hiring &amp; offers
-                </a>
-            }
-            if (!flat)
-            {
-                @:</details>
-            }
+            @GroupEnd(flat)
         }
 
-        @if (onboardLinks > 0)
+        @* ---- Hiring *@
+        @if (hiringLinks > 0)
         {
-            if (!flat)
-            {
-                @:<details class="nav-group group-onboard" data-nav-group="onboard" data-nav-current="@(inOnboard ? "yes" : "no")" open>
-                <summary>
-                    <span class="group-dot" aria-hidden="true"></span> Onboard
-                    @if (onboardWaiting > 0)
-                    {
-                        <span class="nav-count attention group-count" title="Waiting for you">@onboardWaiting</span>
-                    }
-                    <i class="fa-solid fa-chevron-down group-chevron" aria-hidden="true"></i>
-                </summary>
-            }
+            @GroupStart(flat, "hiring", "Hiring", current, 0)
+            <a class="nav-link @Active("Hiring")" asp-controller="Hiring" asp-action="Index">
+                <i class="fa-solid fa-handshake"></i> Hiring &amp; offers
+            </a>
+            @GroupEnd(flat)
+        }
+
+        @* ---- Onboarding (documents, verification and induction on each onboarding; then probation) *@
+        @if (onboardingLinks > 0)
+        {
+            @GroupStart(flat, "onboarding", "Onboarding", current, onboardingWaiting)
             if (showOnboarding)
             {
                 @* HR and HODs follow every onboarding; anyone else sees the link while they have checklist items. *@
@@ -186,32 +194,29 @@
                     <i class="fa-solid fa-user-clock"></i> Probation
                 </a>
             }
+            @GroupEnd(flat)
+        }
+
+        @* ---- Employees (Phase 28 onward: the HR platform after hiring) *@
+        @if (employeeLinks > 0)
+        {
+            @GroupStart(flat, "employees", "Employees", current, 0)
+            if (canEmployees)
+            {
+                <a class="nav-link @Active("Employees")" asp-controller="Employees" asp-action="Index">
+                    <i class="fa-solid fa-id-card-clip"></i> Employees
+                </a>
+            }
             if (canPersonnelFiles)
             {
                 <a class="nav-link @Active("PersonnelFiles")" asp-controller="PersonnelFiles" asp-action="Index">
                     <i class="fa-regular fa-folder-open"></i> Personnel files
                 </a>
             }
-            if (!flat)
-            {
-                @:</details>
-            }
+            @GroupEnd(flat)
         }
 
-        @if (canReports)
-        {
-            @* Reports, with the survey results as one of them (Views/Reports/Index.cshtml). *@
-            <a class="nav-link @(In("Reports") || (controller == "Surveys" && action == "Results") ? "active" : "")" asp-controller="Reports" asp-action="Index">
-                <i class="fa-solid fa-chart-column"></i> Reports
-            </a>
-        }
-        else if (canSurveyResults)
-        {
-            <a class="nav-link @(controller == "Surveys" && action == "Results" ? "active" : "")" asp-controller="Surveys" asp-action="Results">
-                <i class="fa-regular fa-star-half-stroke"></i> Survey results
-            </a>
-        }
-
+        @* Reports and survey results are on the Administration page (11 November 2026). *@
         @if (adminLinks.Count > 0)
         {
             @* One page listing every administration screen this person may open (AdministrationController). *@

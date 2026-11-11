@@ -214,6 +214,9 @@ public static class DefaultDocumentTypes
     public const string SchoolCertificates = "SchoolCertificates";
     public const string RecommendationLetters = "RecommendationLetters";
 
+    /// <summary>Retired 11 Nov 2026 (docs/29, change 4): bank details are entered as data in the personal record.</summary>
+    public const string BankConfirmationLetter = "BankConfirmationLetter";
+
     private const int Recruitment = PersonnelFileCategories.RecruitmentDocuments, Employee = PersonnelFileCategories.EmployeeRecords,
         Identification = PersonnelFileCategories.IdentificationRecords, Compliance = PersonnelFileCategories.ComplianceRecords;
 
@@ -239,7 +242,7 @@ public static class DefaultDocumentTypes
         (15, "PoliceClearance", "Police clearance report", "Police clearance report from the Ghana Police Service.", DocumentGroup.Employment, DocumentRequirement.Required, false, 1, Compliance),
         (16, "MedicalReport", "Medical examination report", "Medical examination report from a recognised hospital.", DocumentGroup.Employment, DocumentRequirement.Required, false, 1, Compliance),
 
-        (17, "BankConfirmationLetter", "Bank confirmation letter", "A letter from your bank confirming your account name and number.", DocumentGroup.Banking, DocumentRequirement.Required, false, 1, Compliance),
+        (17, BankConfirmationLetter, "Bank confirmation letter", "A letter from your bank confirming your account name and number.", DocumentGroup.Banking, DocumentRequirement.Required, false, 1, Compliance),
 
         (18, "MarriageCertificate", "Marriage certificate", "If you are married.", DocumentGroup.Family, DocumentRequirement.Optional, false, 1, Employee),
         (19, "ChildBirthCertificates", "Children's birth certificates", "One file per child, if you have children.", DocumentGroup.Family, DocumentRequirement.Optional, false, 1, Employee),
@@ -259,6 +262,6 @@ public static class DefaultDocumentTypes
         {
             Id = r.Id, Code = r.Code, Name = r.Name, Description = r.Description, Group = r.Group, Requirement = r.Requirement, AllowsWordFiles = r.Word,
             MinFiles = r.MinFiles, PersonnelFileCategoryId = r.Category, SortOrder = r.Id * 10,
-            IsActive = r.Code != SchoolCertificates, IsLegacy = r.Code == SchoolCertificates
+            IsActive = r.Code != SchoolCertificates && r.Code != BankConfirmationLetter, IsLegacy = r.Code == SchoolCertificates
         }).ToList();
 }

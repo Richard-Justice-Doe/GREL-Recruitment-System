@@ -50,7 +50,10 @@ public class PersonnelFileService(
     IUnitOfWork unitOfWork,
     ICurrentUserService me,
     IRichTextSanitizer sanitizer,
-    IRepository<OnboardingDocumentType> documentTypes)
+    IRepository<OnboardingDocumentType> documentTypes,
+    IRepository<Domain.Hiring.Offer> offers,
+    IRepository<Domain.Interviews.Interview> interviews,
+    IRepository<Domain.Interviews.Scorecard> scorecards)
 {
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
     public bool CanView => me.HasPermission(Permissions.ViewPersonnelFiles);
@@ -135,6 +138,16 @@ public class PersonnelFileService(
         foreach (var a in await storage.ListAsync(AttachmentOwners.JobApplication, o.JobApplicationId, ct))
             Add(PersonnelFileCategories.RecruitmentDocuments, $"Application: {EnumText.Label(a.Category)}: {a.FileName}", PersonnelDocumentKind.File,
                 a.UploadedAt, nameof(Attachment), a.Id, attachmentId: a.Id);
+
+        // Phase 28 (docs/30): the accepted offer and the validated interview results, frozen as they were.
+        if (await offers.GetByIdAsync(o.OfferId, ct) is { Status: Domain.Hiring.OfferStatus.Accepted } offer)
+            Add(PersonnelFileCategories.RecruitmentDocuments, $"Offer of employment {offer.Number} (accepted)", PersonnelDocumentKind.Letter,
+                offer.RespondedAt ?? offer.SentAt, "OfferLetter", offer.Id, content: OfferLetterHtml(offer, o));
+        foreach (var interview in (await interviews.ListAsync(i => i.JobApplicationId == o.JobApplicationId && i.Status == Domain.Interviews.InterviewStatus.Completed, ct))
+                     .OrderBy(i => i.Round).ThenBy(i => i.StartsAt))
+            Add(PersonnelFileCategories.RecruitmentDocuments, $"Interview results: round {interview.Round}, {EnumText.Label(interview.Type).ToLowerInvariant()}",
+                PersonnelDocumentKind.Letter, interview.ValidatedAt ?? interview.StartsAt, "InterviewResult", interview.Id,
+                content: await InterviewResultHtmlAsync(interview, o, ct));
 
         // The signed Personal Record Declaration (the latest signature).
         if ((await declarations.ListAsync(x => x.EmployeeUserId == o.EmployeeUserId, ct)).OrderByDescending(x => x.SignedAt).FirstOrDefault() is { } decl)
@@ -289,6 +302,34 @@ public class PersonnelFileService(
                $"<h4>Conditions of appointment</h4><p>{terms}</p>" +
                $"<p><strong>Accepted and signed electronically</strong> by {E(o.LetterAcknowledgedName)} on " +
                $"{o.LetterAcknowledgedAt?.ToString("d MMMM yyyy HH:mm", Gb)} (from {E(o.LetterAcknowledgedIp)}).</p>";
+    }
+
+    /// <summary>Phase 28: the accepted offer, as the candidate accepted it.</summary>
+    private static string OfferLetterHtml(Domain.Hiring.Offer offer, OnboardingRecord o)
+    {
+        var terms = string.Join("<br>", (offer.Terms ?? "").Replace("\r\n", "\n").Split('\n').Select(E));
+        return $"<h3>Offer of employment: {E(offer.JobTitle)}</h3>" +
+               $"<p><strong>Reference:</strong> {E(offer.Number)}<br><strong>Sent:</strong> {offer.SentAt.ToString("d MMMM yyyy", Gb)}" +
+               $"<br><strong>Accepted:</strong> {offer.RespondedAt?.ToString("d MMMM yyyy HH:mm", Gb)}</p>" +
+               $"<p>Offer to {E(o.EmployeeName)} for the position of <strong>{E(offer.JobTitle)}</strong> at a monthly salary of GHS " +
+               $"{offer.MonthlySalary.ToString("N2", Gb)}, starting {offer.StartDate.ToString("d MMMM yyyy", Gb)}.</p>" +
+               (terms.Length > 0 ? $"<h4>Terms</h4><p>{terms}</p>" : "");
+    }
+
+    /// <summary>Phase 28: one validated interview: when, the panel's scores and recommendations, and who validated them.</summary>
+    private async Task<string> InterviewResultHtmlAsync(Domain.Interviews.Interview interview, OnboardingRecord o, CancellationToken ct)
+    {
+        var cards = (await scorecards.ListAsync(s => s.InterviewId == interview.Id, ct)).Where(s => s.IsValid).ToList();
+        var names = await users.GetDisplayNamesAsync(cards.Select(c => c.PanelUserId).Append(interview.ValidatedByUserId).OfType<string>().Distinct(), ct);
+        var rows = string.Concat(cards.OrderByDescending(c => c.WeightedScore).Select(c =>
+            $"<tr><td>{E(names.GetValueOrDefault(c.PanelUserId))}</td><td>{c.WeightedScore.ToString("0.0", Gb)}</td><td>{E(EnumText.Label(c.Recommendation))}</td></tr>"));
+        var average = cards.Count == 0 ? "no scorecards" : $"{cards.Average(c => c.WeightedScore).ToString("0.0", Gb)} out of 100 ({cards.Count} scorecard{(cards.Count == 1 ? "" : "s")})";
+        return $"<h3>Interview results: {E(o.EmployeeName)}, {E(o.JobTitle)}</h3>" +
+               $"<p><strong>Round {interview.Round}:</strong> {E(EnumText.Label(interview.Type))}, {E(EnumText.Label(interview.Mode))}, " +
+               $"{interview.StartsAt.ToString("d MMMM yyyy HH:mm", Gb)}<br><strong>Average weighted score:</strong> {average}</p>" +
+               (rows.Length > 0 ? $"<table><thead><tr><th>Panel member</th><th>Score</th><th>Recommendation</th></tr></thead><tbody>{rows}</tbody></table>" : "") +
+               $"<p><strong>Scores validated</strong> by {E(interview.ValidatedByUserId is { } v ? names.GetValueOrDefault(v) : null)} on " +
+               $"{interview.ValidatedAt?.ToString("d MMMM yyyy", Gb)}{(string.IsNullOrWhiteSpace(interview.ValidationNote) ? "" : $": {E(interview.ValidationNote)}")}.</p>";
     }
 
     private async Task<string> InductionRecordHtmlAsync(OnboardingRecord o, CancellationToken ct)

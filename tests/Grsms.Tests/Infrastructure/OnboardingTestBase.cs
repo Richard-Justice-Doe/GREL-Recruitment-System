@@ -188,7 +188,7 @@ public abstract class OnboardingTestBase : IAsyncLifetime
         Religion = "Christian", Email = "ama.mensah@mail.test", MobileNumber = "024 123 4567",
         NextOfKinName = "Kojo Mensah", NextOfKinRelationship = "Brother", NextOfKinTelephone = "020 555 1234",
         Languages = [new() { Language = "English", Proficiency = LanguageProficiency.VeryFluent }, new() { Language = "Nzema", Proficiency = LanguageProficiency.Fluent }],
-        BankAccounts = [new() { BankName = "GCB Bank", Branch = "Takoradi", AccountNumber = "1011130012345" }],
+        BankAccounts = [new() { BankName = "GCB Bank", AccountNumber = "1011130012345" }],
         Children = [new() { FullName = "Esi Mensah", Gender = Gender.Female, DateOfBirth = Today.AddYears(-3), PlaceOfBirth = "Takoradi" }],
         EmergencyContacts = [new() { Name = "Kojo Mensah", Relationship = "Brother", Telephone1 = "020 555 1234" }],
         Beneficiaries =

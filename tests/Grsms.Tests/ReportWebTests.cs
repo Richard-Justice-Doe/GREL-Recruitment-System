@@ -35,7 +35,7 @@ public class ReportWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFac
     public async Task Md_opens_every_report_and_downloads_csv_while_others_are_limited_or_refused()
     {
         var md = await UserAsync("r.md@grel.test", 1, Roles.ManagingDirector);
-        Assert.Contains("Reports", await md.GetStringAsync("/")); // in the menu
+        Assert.Contains("href=\"/Reports\"", await md.GetStringAsync("/Administration")); // under Administration since 11 Nov 2026 (was in the menu)
         foreach (var (key, title, _) in ReportKeys.All)
         {
             var page = await md.GetStringAsync($"/Reports?Report={key}&DivisionId=2&From=2026-01-01&To=2026-12-31");

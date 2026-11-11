@@ -59,3 +59,19 @@ public class UserFormDto
     [Display(Name = "Temporary password")]
     public string? TemporaryPassword { get; set; }
 }
+
+/// <summary>docs/32 (11 November 2026): the Users &amp; roles list's search, sort and page (server side).</summary>
+public class UserSearch
+{
+    /// <summary>True: candidate (portal) accounts; false: GREL staff.</summary>
+    public bool Candidates { get; set; }
+
+    /// <summary>Part of the name, email or staff number.</summary>
+    public string? Search { get; set; }
+
+    /// <summary>"name" (default) or "recent" (latest sign-in first).</summary>
+    public string? Sort { get; set; }
+
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 50;
+}

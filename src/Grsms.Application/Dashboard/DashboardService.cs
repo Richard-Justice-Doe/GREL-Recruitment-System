@@ -11,7 +11,7 @@ using Grsms.Domain.Vacancies;
 namespace Grsms.Application.Dashboard;
 
 /// <summary>
-/// Builds the staff home page (dashboard): KPI cards with 7-day charts, "My tasks", the vacancy closing
+/// Builds the staff home page (dashboard): action cards (docs/32), "My tasks", the vacancy closing
 /// calendar, requests in progress and the newest candidates.
 ///
 /// Every number follows the same visibility rules as the lists (see <see cref="AccessScope"/>), so a Head of
@@ -31,9 +31,18 @@ public class DashboardService(
     Onboarding.OnboardingService onboarding,
     Applications.AtsService ats,
     Probation.ProbationService probation,
-    AccessScope scope)
+    Adverts.AdvertService advertService,
+    AccessScope scope,
+    IRepository<Domain.Hiring.Offer> offers)
 {
     private const int TaskRows = 6, ProgressRows = 5, CandidateRows = 5;
+
+    /// <summary>Roles that decide recruitment requests at some stage: they always see the "awaiting your approval" card.</summary>
+    private static readonly string[] RequestApprovers = [Roles.HeadOfDepartment, Roles.RecruitmentOfficer, Roles.HrManager, Roles.ManagingDirector];
+
+    /// <summary>Roles that run recruitment day to day (the same list as the menu's, Web/Helpers/MenuRules.cs).</summary>
+    private static readonly string[] RecruitmentRoles =
+        [Roles.RecruitmentOfficer, Roles.HrManager, Roles.HrAdministrator, Roles.Admin, Roles.SuperAdmin, Roles.ManagingDirector];
 
     private static readonly RecruitmentRequestStatus[] InApproval =
         [.. RecruitmentWorkflow.DecisionStages];
@@ -42,10 +51,10 @@ public class DashboardService(
     {
         var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(now);
-        var firstDay = today.AddDays(-6);                  // the 7 days shown as bars, today included
-        var since = firstDay.AddDays(-7).ToDateTime(TimeOnly.MinValue); // ... plus the 7 before, for the trend
-
+        var firstDay = today.AddDays(-6);                  // "this week": the last 7 days, today included
         var v = await scope.VisibilityAsync(ct);
+        // A Head of Department with no recruitment role (they don't follow offers; as in the menu).
+        var hodOnlyView = scope.IsInRole(Roles.HeadOfDepartment) && !RecruitmentRoles.Any(scope.IsInRole);
         var all = v.SeeAll;
         var uid = v.UserId;
         var hod = v.HodDepartmentIds.ToList();
@@ -55,34 +64,32 @@ public class DashboardService(
         var divId = filter?.DivisionId;
         var deptId = filter?.DepartmentId;
 
-        var kpis = new List<KpiCardDto>();
+        // docs/32: action cards (they replace the KPI row with 7-day charts). Cards about work waiting for the user are not
+        // filtered (like "My tasks"); the others follow the Division / Department filter.
+        var cards = new List<ActionCardDto>();
         var tasks = new List<DashboardTaskDto>();
         var taskTotal = 0;
+        Dictionary<string, string> Route(string? tab = null, bool filtered = false)
+        {
+            var d = new Dictionary<string, string>();
+            if (tab is not null) d["tab"] = tab;
+            if (filtered && divId is { } dv) d["DivisionId"] = dv.ToString();
+            if (filtered && deptId is { } dp) d["DepartmentId"] = dp.ToString();
+            return d;
+        }
 
         // ------------------------------------------------------------ Recruitment requests
         List<RequestProgressDto>? inProgress = null;
         var inProgressTotal = 0;
         if (access.Requests)
         {
-            var submittedTotal = await requests.CountAsync(r =>
-                (all || r.RequestedByUserId == uid || hod.Contains(r.DepartmentId)) &&
-                (divId == null || r.DivisionId == divId) && (deptId == null || r.DepartmentId == deptId) && r.DateRequested != null, ct);
-            var approvedTotal = await requests.CountAsync(r =>
-                (all || r.RequestedByUserId == uid || hod.Contains(r.DepartmentId)) &&
-                (divId == null || r.DivisionId == divId) && (deptId == null || r.DepartmentId == deptId) && r.Status == RecruitmentRequestStatus.Approved, ct);
-            var recent = await requests.ListAsync(r =>
-                (all || r.RequestedByUserId == uid || hod.Contains(r.DepartmentId)) &&
-                (divId == null || r.DivisionId == divId) && (deptId == null || r.DepartmentId == deptId) &&
-                ((r.DateRequested != null && r.DateRequested >= since) || (r.ApprovedAt != null && r.ApprovedAt >= since)), ct);
-
-            kpis.Add(Card(KpiKind.Requests, "Recruitment requests", "fa-file-signature", submittedTotal,
-                recent.Where(r => r.DateRequested is not null).Select(r => r.DateRequested!.Value), firstDay));
-            kpis.Add(Card(KpiKind.Approved, "Approved requests", "fa-circle-check", approvedTotal,
-                recent.Where(r => r.ApprovedAt is not null).Select(r => r.ApprovedAt!.Value), firstDay));
-
             // Tasks: requests waiting for my decision ...
             var awaiting = await requestService.SearchAsync(new RecruitmentRequestFilter { AwaitingMe = true, PageSize = TaskRows }, ct);
             taskTotal += awaiting.TotalCount;
+            if (awaiting.TotalCount > 0 || RequestApprovers.Any(scope.IsInRole))
+                cards.Add(new ActionCardDto("Requests awaiting your approval", "fa-file-signature", awaiting.TotalCount,
+                    awaiting.TotalCount == 0 ? "Nothing waiting for you" : "Waiting for your decision", "tone-hire", "RecruitmentRequests", "Index",
+                    Route("awaiting"), true));
             tasks.AddRange(awaiting.Items.Select(r => new DashboardTaskDto(DashboardTaskTarget.Request, r.Id, r.PositionTitle,
                 r.RequestNumber, "Review and decide", r.RequestedByName, r.Status, r.StatusChangedAt)));
 
@@ -111,20 +118,13 @@ public class DashboardService(
         var shownMonth = month is { } m ? new DateOnly(m.Year, m.Month, 1) : new DateOnly(today.Year, today.Month, 1);
         if (access.Vacancies)
         {
-            var openTotal = await vacancies.CountAsync(x =>
-                (all || x.RecruiterUserId == uid || hod.Contains(x.DepartmentId)) &&
-                (divId == null || x.DivisionId == divId) && (deptId == null || x.DepartmentId == deptId) && x.Status == VacancyStatus.Published, ct);
-            var published = await vacancies.ListAsync(x =>
-                (all || x.RecruiterUserId == uid || hod.Contains(x.DepartmentId)) &&
-                (divId == null || x.DivisionId == divId) && (deptId == null || x.DepartmentId == deptId) && x.PublishedAt != null && x.PublishedAt >= since, ct);
-            kpis.Add(Card(KpiKind.OpenVacancies, "Open vacancies", "fa-briefcase", openTotal,
-                published.Select(x => x.PublishedAt!.Value), firstDay));
-
             // Tasks: vacancies to approve (HR Manager), approved requests needing a vacancy and my draft vacancies (recruiters).
             if (scope.IsInRole(Roles.HrManager))
             {
                 var pending = await vacancyService.SearchAsync(new VacancyFilter { Tab = "pending", PageSize = TaskRows }, ct);
                 taskTotal += pending.TotalCount;
+                cards.Add(new ActionCardDto("Vacancies awaiting publication", "fa-briefcase", pending.TotalCount,
+                    pending.TotalCount == 0 ? "Nothing waiting for you" : "Approve or return", "tone-probation", "Vacancies", "Index", Route("pending"), true));
                 tasks.AddRange(pending.Items.Select(x => new DashboardTaskDto(DashboardTaskTarget.Vacancy, x.Id, x.JobTitle,
                     x.VacancyNumber, "Approve or return", x.RecruiterName, x.Status, x.StatusChangedAt)));
             }
@@ -249,29 +249,53 @@ public class DashboardService(
             w.Due is { } due ? $"{w.Step}, due {due:dd MMM}" : w.Step, "Recruitment",
             w.IsDecision ? Domain.Probation.ProbationStatus.AwaitingHrDecision : Domain.Probation.ProbationStatus.InProgress, w.Since)));
 
-        // ------------------------------------------------------------ Applications (Phase 5)
+
+        // ------------------------------------------------------------ Job adverts (11 Nov 2026, docs/29 change 2): HR review, IT approval, corrections
+        var advertWork = await advertService.MyWorkAsync(ct);
+        taskTotal += advertWork.Count;
+        tasks.AddRange(advertWork.Take(TaskRows).Select(w => new DashboardTaskDto(DashboardTaskTarget.Advert, w.Id, w.Title, w.AdvertNumber,
+            w.Action, "Recruitment", w.Status, w.Since)));
+        var advertCards = await advertService.ItSummaryAsync(ct);
+
+        // ------------------------------------------------------------ docs/32: this week's activity (filtered like the lists)
         if (access.Vacancies)
         {
-            var appTotal = await applications.CountAsync(x =>
+            var weekStart = firstDay.ToDateTime(TimeOnly.MinValue);
+            var appsThisWeek = await applications.CountAsync(x =>
                 (all || hod.Contains(x.DepartmentId)) &&
-                (divId == null || x.DivisionId == divId) && (deptId == null || x.DepartmentId == deptId), ct);
-            var recentApps = await applications.ListAsync(x =>
-                (all || hod.Contains(x.DepartmentId)) &&
-                (divId == null || x.DivisionId == divId) && (deptId == null || x.DepartmentId == deptId) && x.SubmittedAt >= since, ct);
-            kpis.Add(Card(KpiKind.Applications, "Applications", "fa-inbox", appTotal, recentApps.Select(x => x.SubmittedAt), firstDay));
+                (divId == null || x.DivisionId == divId) && (deptId == null || x.DepartmentId == deptId) && x.SubmittedAt >= weekStart, ct);
+            cards.Add(new ActionCardDto("Applications received", "fa-inbox", appsThisWeek, "In the last 7 days", "tone-interview",
+                "Applications", "Index", Route("all", filtered: true), false));
+        }
+
+        var upcoming = await interviews.SearchAsync(new Interviews.InterviewFilter
+        {
+            Tab = "upcoming", From = today, To = today.AddDays(6), DivisionId = divId, DepartmentId = deptId, PageSize = 1
+        }, ct);
+        if (access.Vacancies || upcoming.TotalCount > 0)
+        {
+            var week = Route("upcoming", filtered: true);
+            (week["From"], week["To"]) = (today.ToString("yyyy-MM-dd"), today.AddDays(6).ToString("yyyy-MM-dd")); // the list shows the same interviews
+            cards.Add(new ActionCardDto("Interviews this week", "fa-people-group", upcoming.TotalCount, "Today and the next 6 days", "tone-interview",
+                "Interviews", "Index", week, false));
+        }
+
+        if (access.Vacancies && !hodOnlyView)
+        {
+            var offersOut = await offers.CountAsync(o => o.Status == Domain.Hiring.OfferStatus.Sent &&
+                (all || hod.Contains(o.DepartmentId)) && (divId == null || o.DivisionId == divId) && (deptId == null || o.DepartmentId == deptId), ct);
+            cards.Add(new ActionCardDto("Offers awaiting the candidate", "fa-envelope-open-text", offersOut,
+                offersOut == 0 ? "No offer waiting for an answer" : "Sent, not yet answered", "tone-offer", "Hiring", "Index", Route("offers", filtered: true), false));
         }
 
         // ------------------------------------------------------------ Candidates
         IReadOnlyList<CandidateSummary>? latestCandidates = null;
-        var candidateTotal = await users.CountCandidatesAsync(ct);
-        var registered = await users.GetCandidateRegistrationDatesAsync(since, ct);
-        kpis.Add(Card(KpiKind.Candidates, "Registered candidates", "fa-user-graduate", candidateTotal, registered, firstDay));
         if (access.Candidates)
             latestCandidates = await users.GetLatestCandidatesAsync(CandidateRows, ct);
 
         return new DashboardDto
         {
-            Kpis = kpis,
+            Cards = cards,
             // Oldest first: the longer something has waited, the higher it sits.
             Tasks = tasks.OrderBy(t => t.Since).Take(TaskRows).ToList(),
             TaskTotal = taskTotal,
@@ -279,20 +303,9 @@ public class DashboardService(
             Month = shownMonth,
             InProgress = inProgress,
             InProgressTotal = inProgressTotal,
-            LatestCandidates = latestCandidates
+            LatestCandidates = latestCandidates,
+            AdvertCards = advertCards
         };
-    }
-
-    /// <summary>Counts events per day for the 7 days from <paramref name="firstDay"/>, and in the 7 days before.</summary>
-    private static KpiCardDto Card(KpiKind kind, string title, string icon, int total, IEnumerable<DateTime> events, DateOnly firstDay)
-    {
-        var days = events.Select(DateOnly.FromDateTime).ToList();
-        var last7 = Enumerable.Range(0, 7)
-            .Select(i => firstDay.AddDays(i))
-            .Select(d => new DayCount(d, days.Count(x => x == d)))
-            .ToList();
-        var previous = days.Count(d => d >= firstDay.AddDays(-7) && d < firstDay);
-        return new KpiCardDto(kind, title, icon, total, last7, previous);
     }
 
     /// <summary>How far a request has come: submitted (Department Head review) 25%, HR 50%, MD 75%, approved 100%.</summary>

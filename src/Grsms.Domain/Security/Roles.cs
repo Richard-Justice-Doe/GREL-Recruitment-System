@@ -35,8 +35,14 @@ public static class Roles
     /// <summary>Recruitment Officer: manages vacancies, candidates, adverts and interview schedules.</summary>
     public const string RecruitmentOfficer = "Recruitment Officer";
 
-    /// <summary>HR Manager: approves requests, validates budgets, authorises hiring decisions.</summary>
+    /// <summary>HR Manager: approves requests (no budget confirmation since 11 Nov 2026), reviews job adverts, views onboarding.</summary>
     public const string HrManager = "HR Manager";
+
+    /// <summary>
+    /// IT Manager (11 Nov 2026, docs/29 change 2): gives the final approval of job adverts after the HR Manager's review,
+    /// publishes them, takes them offline and records where they are posted (LinkedIn, Jobberman, newspapers, ...).
+    /// </summary>
+    public const string ItManager = "IT Manager";
 
     /// <summary>Managing Director: final approval of vacancies and hires, executive dashboard.</summary>
     public const string ManagingDirector = "Managing Director";
@@ -50,7 +56,7 @@ public static class Roles
     /// <summary>Every built-in role, in the order they are shown on the user management screen.</summary>
     public static readonly IReadOnlyList<string> All =
     [
-        SuperAdmin, Admin, HrAdministrator, HrManager, ManagingDirector, RecruitmentOfficer,
+        SuperAdmin, Admin, HrAdministrator, HrManager, ManagingDirector, RecruitmentOfficer, ItManager,
         HeadOfDepartment, PanelMember, Employee, Candidate
     ];
 
@@ -90,7 +96,8 @@ public static class Roles
         SuperAdmin => "Full access to the whole system. Creates privileged accounts and sets permissions.",
         Admin => "System administrator: manages all user accounts except Admins and Super Admins, organisation data and the audit trail; sees settings read-only.",
         HrAdministrator => "Maintains departments, divisions, units and sites, and everyday staff accounts.",
-        HrManager => "Approves requests and vacancies, authorises shortlists and hiring decisions.",
+        HrManager => "Approves requests and vacancies, reviews job adverts, authorises shortlists and hiring decisions.",
+        ItManager => "Gives the final approval of job adverts, publishes them and records where they are posted.",
         ManagingDirector => "Final approval of recruitment requests and hires.",
         RecruitmentOfficer => "Runs vacancies, adverts, screening, interviews and offers.",
         HeadOfDepartment => "Reviews (stage 1) and raises recruitment requests for their department, and takes part in selection.",

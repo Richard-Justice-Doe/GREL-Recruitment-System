@@ -1,0 +1,55 @@
+@* Where am I? A breadcrumb at the top of every staff page (docs/32, 11 November 2026):
+     administration screens:  ← Administration › Divisions
+     menu pages:              Recruitment › Vacancies › VAC-2026-0012   (group › menu item › this page)
+   On an item's own list the item is plain text; on the pages inside it, it links back to the list (site.js then returns to
+   the list as you left it: page, search, tab). Groups come from Helpers/MenuMap.cs; administration screens from
+   AdministrationController. Pages in neither (Home, the candidate portal, profile) show none. *@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var pageTitle = ViewData["Title"] as string;
+    var admin = controller == "Administration" ? null : Grsms.Web.Controllers.AdministrationController.ScreenFor(controller, action);
+    var place = admin is null ? MenuMap.For(controller, action) : null;
+}
+@if (admin is not null)
+{
+    var onList = string.Equals(action, admin.Action, StringComparison.OrdinalIgnoreCase);
+    <nav aria-label="Breadcrumb" class="d-print-none">
+        <ol class="breadcrumb small mb-2">
+            <li class="breadcrumb-item"><a asp-controller="Administration" asp-action="Index"><i class="fa-solid fa-arrow-left me-1"></i>Administration</a></li>
+            @if (onList)
+            {
+                <li class="breadcrumb-item active" aria-current="page">@admin.Title</li>
+            }
+            else
+            {
+                <li class="breadcrumb-item"><a asp-controller="@admin.Controller" asp-action="@admin.Action">@admin.Title</a></li>
+            }
+        </ol>
+    </nav>
+}
+else if (place is not null)
+{
+    var onList = string.Equals(controller, place.Controller, StringComparison.OrdinalIgnoreCase)
+                 && string.Equals(action, place.ListAction, StringComparison.OrdinalIgnoreCase);
+    <nav aria-label="Breadcrumb" class="d-print-none">
+        <ol class="breadcrumb small mb-2">
+            @if (place.Group != place.Title)
+            {
+                <li class="breadcrumb-item text-body-secondary">@place.Group</li>
+            }
+            @if (onList)
+            {
+                <li class="breadcrumb-item active" aria-current="page">@place.Title</li>
+            }
+            else
+            {
+                <li class="breadcrumb-item"><a asp-controller="@place.Controller" asp-action="@place.ListAction">@place.Title</a></li>
+                @if (!string.IsNullOrWhiteSpace(pageTitle) && pageTitle != place.Title)
+                {
+                    <li class="breadcrumb-item active text-truncate" aria-current="page" style="max-width: 40ch">@pageTitle</li>
+                }
+            }
+        </ol>
+    </nav>
+}

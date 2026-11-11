@@ -39,15 +39,16 @@ public class DocumentVerificationServiceTests : OnboardingTestBase
     }
 
     [Fact]
-    public async Task Uploads_open_at_start_only_for_the_new_employee_or_the_ro_and_files_are_checked()
+    public async Task Uploads_open_at_start_only_for_the_new_employee_and_files_are_checked()
     {
         var (id, app) = await StartedAsync();
         Assert.Equal(OnboardingStatus.Draft, (await RecordAsync(id)).Status);
         Assert.Contains(_db.SentEmails(), m => m.Contains("To: ama@mail.test") && m.Contains("onboarding has started"));
         var ghanaCard = await DocAsync(id, "GhanaCard");
 
-        // Another candidate, the HOD, an unrelated staff member and the HR Manager (view only) cannot upload.
-        foreach (var (user, role) in new[] { (_candidate2, Roles.Candidate), (_hod, Roles.HeadOfDepartment), (_staff, Roles.Employee), (_hrm, Roles.HrManager) })
+        // Another candidate, the HOD, an unrelated staff member, the HR Manager and the Recruitment Officer cannot upload: only the
+        // new employee does (11 Nov 2026, docs/29 change 3).
+        foreach (var (user, role) in new[] { (_candidate2, Roles.Candidate), (_hod, Roles.HeadOfDepartment), (_staff, Roles.Employee), (_hrm, Roles.HrManager), (_ro, Roles.RecruitmentOfficer) })
         {
             As(user, role);
             Assert.False((await RunDocs(s => s.UploadAsync(ghanaCard.Id, "card.pdf", FakePdf()))).Succeeded);
@@ -280,6 +281,26 @@ public class DocumentVerificationServiceTests : OnboardingTestBase
         // The old checklist item cannot be changed.
         var legacy = (await RunTypes(s => s.GetAllAsync())).Single(t => t.IsLegacy);
         Assert.False((await RunTypes(s => s.SaveAsync(legacy))).Succeeded);
+    }
+
+    [Fact]
+    public async Task A_bank_letter_uploaded_before_it_was_retired_no_longer_holds_up_the_onboarding()
+    {
+        // 11 Nov 2026 (docs/29, change 4): bank details are data; an older onboarding may still have an uploaded bank letter.
+        var id = await ReadyAsync();
+        await Db(async db =>
+        {
+            db.EmployeeDocuments.Add(new EmployeeDocument
+            {
+                OnboardingRecordId = id, EmployeeUserId = _candidate, DocumentTypeCode = DefaultDocumentTypes.BankConfirmationLetter,
+                IsRequired = false, IsApplicable = true, Status = EmployeeDocumentStatus.Submitted, SubmittedAt = DateTime.UtcNow
+            });
+            return await db.SaveChangesAsync();
+        });
+        AsRecruiter();
+        var page = (await Run(s => s.GetAsync(id)))!; // the page re-checks the stage; the unverified letter must not count
+        Assert.Equal(OnboardingStatus.AwaitingActivation, page.Status);
+        Assert.Equal(OnboardingStatus.AwaitingActivation, (await RecordAsync(id)).Status);
     }
 
     [Fact]

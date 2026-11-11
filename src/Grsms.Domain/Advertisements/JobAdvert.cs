@@ -53,6 +53,23 @@ public class JobAdvert : BaseEntity
     /// <summary>The Recruitment Officer / HR Manager who created it (Users.Id).</summary>
     public string CreatedByUserId { get; set; } = string.Empty;
 
+    // ---------------------------------------------------------------- Review (11 Nov 2026, docs/29 change 2): RO → HR Manager → IT Manager
+
+    /// <summary>Who last sent it for review (Users.Id) and when. Null for adverts published before the review existed.</summary>
+    public string? SubmittedByUserId { get; set; }
+    public DateTime? SubmittedAt { get; set; }
+
+    /// <summary>The HR Manager who last reviewed it and sent it for IT approval.</summary>
+    public string? HrReviewedByUserId { get; set; }
+    public DateTime? HrReviewedAt { get; set; }
+
+    /// <summary>The IT Manager who last approved (published) it.</summary>
+    public string? ItApprovedByUserId { get; set; }
+    public DateTime? ItApprovedAt { get; set; }
+
+    /// <summary>The reason given with the last return, rejection or taking offline (also in the history). Cleared on resubmission.</summary>
+    public string? ReviewComment { get; set; }
+
     /// <summary>The advert this one was cloned from, if any (JobAdverts.Id).</summary>
     public int? ClonedFromAdvertId { get; set; }
 

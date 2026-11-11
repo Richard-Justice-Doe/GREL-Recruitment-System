@@ -1,0 +1,102 @@
+@* Phase 28 (docs/30): the employee list. A Head of Department sees their own departments; HR sees everyone. *@
+@model Grsms.Application.Common.PagedResult<EmployeeListItemDto>
+@{
+    ViewData["Title"] = "Employees";
+    string tab = ViewBag.Tab;
+    var counts = (EmployeeCountsDto)ViewBag.Counts;
+    bool canManage = ViewBag.CanManage;
+    Dictionary<string, string> Route(int page)
+    {
+        var d = new Dictionary<string, string> { ["tab"] = tab, ["page"] = page.ToString() };
+        if (!string.IsNullOrWhiteSpace((string?)ViewBag.Search)) d["search"] = (string)ViewBag.Search;
+        if (ViewBag.DepartmentId is int dep) d["departmentId"] = dep.ToString();
+        if (ViewBag.GradeId is int grade) d["gradeId"] = grade.ToString();
+        return d;
+    }
+    var tabs = new[]
+    {
+        ("current", "Current staff", counts.All),
+        ("probation", "On probation", counts.OnProbation),
+        ("active", "Active", counts.Active),
+        ("left", "Left GREL", counts.Separated)
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Employees</h1>
+        <p>Every GREL employee: people hired through GRSMS get a record when their onboarding is activated; staff hired before GRSMS are registered by HR.</p>
+    </div>
+    @if (canManage)
+    {
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-action="Import" class="btn btn-outline-primary"><i class="fa-solid fa-file-import me-1"></i>Import from CSV</a>
+            <a asp-action="Register" class="btn btn-primary"><i class="fa-solid fa-user-plus me-1"></i>Register existing employee</a>
+        </div>
+    }
+</div>
+
+<ul class="nav nav-tabs mb-3">
+    @foreach (var (key, label, count) in tabs)
+    {
+        <li class="nav-item">
+            <a class="nav-link @(tab == key ? "active" : "")" asp-action="Index" asp-route-tab="@key" asp-route-departmentId="@ViewBag.DepartmentId"
+               asp-route-gradeId="@ViewBag.GradeId" asp-route-search="@ViewBag.Search">@label <span class="badge text-bg-light">@count</span></a>
+        </li>
+    }
+</ul>
+
+<form method="get" class="row g-2 mb-3">
+    <input type="hidden" name="tab" value="@tab" />
+    <div class="col-md-4"><input name="search" value="@ViewBag.Search" class="form-control" placeholder="Name, staff number or position" aria-label="Search" /></div>
+    <div class="col-md-3">
+        <select name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select" aria-label="Department">
+            <option value="">All departments</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select name="gradeId" asp-items="ViewBag.GradeList" class="form-select" aria-label="Grade">
+            <option value="">All grades</option>
+        </select>
+    </div>
+    <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100"><i class="fa-solid fa-magnifying-glass me-1"></i>Search</button></div>
+</form>
+
+<div class="card glass">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Staff no.</th><th>Name</th><th>Position</th><th>Department</th><th class="d-none d-md-table-cell">Site</th><th class="d-none d-lg-table-cell">Grade</th><th class="d-none d-md-table-cell">Joined</th><th>Status</th></tr></thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="8" class="text-center text-body-secondary py-4">
+                        No employees here.@(canManage && counts.All == 0 ? " Register existing staff, or import them from a CSV file." : "")
+                    </td></tr>
+                }
+                @foreach (var e in Model.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap"><a asp-action="Details" asp-route-id="@e.Id" class="fw-semibold text-decoration-none">@e.EmployeeNumber</a></td>
+                        <td>@e.Name</td>
+                        <td>@e.PositionTitle</td>
+                        <td>@e.DepartmentName</td>
+                        <td class="d-none d-md-table-cell">@e.SiteName</td>
+                        <td class="d-none d-lg-table-cell">@(e.GradeName ?? "—")</td>
+                        <td class="d-none d-md-table-cell small text-nowrap">@e.HireDate.ToString("dd MMM yyyy")</td>
+                        <td><partial name="_EmployeeStatusBadge" model="e.Status" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3">
+        <span class="small text-body-secondary">@Model.TotalCount employee@(Model.TotalCount == 1 ? "" : "s") · page @Model.Page of @Model.TotalPages</span>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="d-flex gap-2">
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+            </div>
+        }
+    </div>
+</div>

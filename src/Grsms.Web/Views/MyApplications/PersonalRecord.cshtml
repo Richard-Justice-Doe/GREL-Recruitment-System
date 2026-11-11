@@ -136,28 +136,17 @@
 
         @* ---------------------------------------------------------------- Bank accounts *@
         <div class="col-lg-6" data-step="Bank account">
-            <div class="card glass h-100"><div class="card-body p-4" data-repeater>
-                <h2 class="h6 text-uppercase text-body-secondary mb-3">Bank accounts</h2>
-                @{
-                    async Task BankRowHtml(string key, BankAccountRow r)
-                    {
-                        <div class="row g-2 mb-2 align-items-center" data-repeater-row>
-                            <input type="hidden" name="BankAccounts.Index" value="@key" />
-                            <div class="col-md-4"><input name="BankAccounts[@key].BankName" class="form-control form-control-sm" maxlength="100" value="@r.BankName" placeholder="Bank" aria-label="Bank" /></div>
-                            <div class="col-md-3"><input name="BankAccounts[@key].Branch" class="form-control form-control-sm" maxlength="100" value="@r.Branch" placeholder="Branch" aria-label="Branch" /></div>
-                            <div class="col-md-3"><input name="BankAccounts[@key].AccountNumber" class="form-control form-control-sm" maxlength="40" value="@r.AccountNumber" placeholder="Account number" aria-label="Account number" /></div>
-                            <div class="col-md-2 d-flex align-items-center gap-2">
-                                <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="BankAccounts[@key].IsPrimary" value="true" checked="@r.IsPrimary" id="primary-@key" />
-                                    <label class="form-check-label small" for="primary-@key">Primary</label></div>
-                                <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                        </div>
-                    }
-                }
-                <div data-repeater-list>@foreach (var (k, r) in Rows(f.BankAccounts)) { await BankRowHtml(k, r); }</div>
-                <template data-repeater-template>@{ await BankRowHtml("__key__", new()); }</template>
-                <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add an account</button>
-                <div class="form-text">Your salary is paid into the <strong>primary</strong> account.</div>
+            @* 11 Nov 2026 (docs/29, change 4): one bank account, bank name and account number only; no bank letter to upload. *@
+            @{ var bank = f.BankAccounts.FirstOrDefault() ?? new BankAccountRow(); }
+            <div class="card glass h-100"><div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Bank account</h2>
+                <input type="hidden" name="BankAccounts.Index" value="0" />
+                <input type="hidden" name="BankAccounts[0].IsPrimary" value="true" />
+                <label for="bank-name" class="form-label">Bank name</label>
+                <input id="bank-name" name="BankAccounts[0].BankName" class="form-control mb-2" maxlength="100" value="@bank.BankName" required placeholder="e.g. GCB Bank" />
+                <label for="bank-account" class="form-label">Account number</label>
+                <input id="bank-account" name="BankAccounts[0].AccountNumber" class="form-control" maxlength="40" value="@bank.AccountNumber" required inputmode="numeric" autocomplete="off" />
+                <div class="form-text">Your salary is paid into this account. You don't need to upload a bank letter.</div>
             </div></div>
         </div>
     </div>

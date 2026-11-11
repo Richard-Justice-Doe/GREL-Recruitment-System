@@ -41,6 +41,12 @@ public static class Policies
     /// <summary>Open the Job adverts screens (what each person may do there is decided by AdvertService).</summary>
     public const string Adverts = nameof(Adverts);
 
+    /// <summary>11 Nov 2026 (docs/29 change 2): the advert review steps. Rejecting is checked by AdvertService (HR or IT reviewer).</summary>
+    public const string ReviewAdvertsHr = nameof(ReviewAdvertsHr);
+    public const string PublishAdverts = nameof(PublishAdverts);
+    public const string ReturnAdverts = nameof(ReturnAdverts);
+    public const string UnpublishAdverts = nameof(UnpublishAdverts);
+
     /// <summary>Read survey results (Phase 10).</summary>
     public const string SurveyResults = nameof(SurveyResults);
 
@@ -56,6 +62,10 @@ public static class Policies
     /// <summary>Phase 20: open employees' electronic personnel files.</summary>
     public const string PersonnelFiles = nameof(PersonnelFiles);
 
+    /// <summary>Phase 28 (docs/30): the employee master record and grades.</summary>
+    public const string Employees = nameof(Employees);
+    public const string ManageEmployees = nameof(ManageEmployees);
+    public const string Grades = nameof(Grades);
     /// <summary>Open the Reports (Phase 11). HODs see only their own departments (decided by ReportService).</summary>
     public const string Reports = nameof(Reports);
 
@@ -86,6 +96,10 @@ public static class Policies
             .AddPermissionPolicy(RaiseRecruitmentRequest, Permissions.RaiseRecruitmentRequests)
             .AddPermissionPolicy(Vacancies, Permissions.ViewVacancies)
             .AddPermissionPolicy(Adverts, Permissions.ViewAdverts)
+            .AddPermissionPolicy(ReviewAdvertsHr, Permissions.ReviewAdvertsHr)
+            .AddPermissionPolicy(PublishAdverts, Permissions.PublishAdverts)
+            .AddPermissionPolicy(ReturnAdverts, Permissions.ReturnAdverts)
+            .AddPermissionPolicy(UnpublishAdverts, Permissions.UnpublishAdverts)
             .AddPermissionPolicy(Applications, Permissions.ViewApplications)
             .AddPermissionPolicy(SurveyResults, Permissions.ViewSurveyResults)
             .AddPermissionPolicy(PersonnelFiles, Permissions.ViewPersonnelFiles)
@@ -94,6 +108,9 @@ public static class Policies
             .AddPermissionPolicy(VerifyOnboardingDocuments, Permissions.VerifyOnboardingDocuments)
             .AddPermissionPolicy(CompleteOnboarding, Permissions.CompleteOnboarding)
             .AddPermissionPolicy(DecideProbation, Permissions.DecideProbation)
+            .AddPermissionPolicy(Employees, Permissions.ViewEmployees)
+            .AddPermissionPolicy(ManageEmployees, Permissions.ManageEmployees)
+            .AddPermissionPolicy(Grades, Permissions.ManageGrades)
             .AddPermissionPolicy(Reports, Permissions.ViewReports)
             .AddPermissionPolicy(RolesAndPermissions, Permissions.ManagePermissions)
             .AddPermissionPolicy(SystemSettings, Permissions.ViewSystemSettings)

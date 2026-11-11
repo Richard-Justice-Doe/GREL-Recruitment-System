@@ -48,14 +48,23 @@ public class AdvertFormDto
     public DateOnly? VacancyClosingDate { get; set; }
     public VacancyType? VacancyType { get; set; }
     public IReadOnlyList<AdvertChannel> AllowedChannels { get; set; } = [];
+
+    /// <summary>The advert is published: saving takes it offline and sends it back for review (shown as a warning).</summary>
+    public bool TakesOffline { get; set; }
+
+    /// <summary>What the reviewer asked to correct, if it was returned.</summary>
+    public string? ReviewComment { get; set; }
 }
 
 /// <summary>Filters on the Job adverts list. Every filter is optional.</summary>
 public class AdvertFilter
 {
-    /// <summary>"live", "scheduled", "draft" or "all".</summary>
+    /// <summary>"live", "scheduled", "review" (HR or IT), "hr", "it", "draft" (with returned ones), "closed" (with rejected ones) or "all".</summary>
     public string Tab { get; set; } = "live";
     public AdvertStatus? Status { get; set; }
+
+    /// <summary>Several statuses at once (set from <see cref="Tab"/> by the service).</summary>
+    public IReadOnlyList<AdvertStatus>? Statuses { get; set; }
     public AdvertChannel? Channel { get; set; }
     public int? DivisionId { get; set; }
     public int? DepartmentId { get; set; }
@@ -134,17 +143,54 @@ public record AdvertDetailsDto
     public IReadOnlyList<AdvertChannelDto> Channels { get; init; } = [];
     public IReadOnlyList<AdvertHistoryDto> History { get; init; } = [];
 
+    // ---- Review (11 Nov 2026, docs/29 change 2)
+    public string? SubmittedByName { get; init; }
+    public DateTime? SubmittedAt { get; init; }
+    public string? HrReviewedByName { get; init; }
+    public DateTime? HrReviewedAt { get; init; }
+    public string? ItApprovedByName { get; init; }
+    public DateTime? ItApprovedAt { get; init; }
+
+    /// <summary>The reason given with the last return, rejection or taking offline.</summary>
+    public string? ReviewComment { get; init; }
+
     // ---- What the current user may do
     public bool CanEdit { get; init; }
+
+    /// <summary>Saving changes takes the published advert offline and sends it back for review.</summary>
+    public bool EditTakesOffline { get; init; }
+
+    /// <summary>Send it for the HR review (the author).</summary>
+    public bool CanSubmit { get; init; }
+
+    /// <summary>The HR review: approve it for the IT Manager.</summary>
+    public bool CanHrApprove { get; init; }
+
+    /// <summary>The IT approval, which publishes it (now or on its start date).</summary>
     public bool CanPublish { get; init; }
+
+    public bool CanReturn { get; init; }
+    public bool CanReject { get; init; }
+
+    /// <summary>Take a published or scheduled advert offline (IT).</summary>
+    public bool CanUnpublish { get; init; }
     public bool CanUnschedule { get; init; }
     public bool CanClose { get; init; }
     public bool CanClone { get; init; }
     public bool CanManageChannels { get; init; }
 
-    /// <summary>Why the advert cannot be published right now (e.g. the vacancy is not published), if so.</summary>
+    /// <summary>Record an external channel as taken down (the IT Manager, also after the advert closed or went offline).</summary>
+    public bool CanRecordRemoval { get; init; }
+
+    /// <summary>Why the advert cannot be sent for review or published right now (e.g. the vacancy is not published), if so.</summary>
     public string? PublishBlockedReason { get; init; }
 }
+
+/// <summary>One advert waiting for the current user (dashboard to-dos).</summary>
+public record AdvertWorkItem(int Id, string AdvertNumber, string Title, AdvertStatus Status, string Action, DateTime Since);
+
+/// <summary>The IT Manager's advert cards on the dashboard.</summary>
+public record AdvertItSummary(int AwaitingApproval, int Scheduled, int Active, int Expired);
 
 /// <summary>A running advert as shown on the careers page (public) or internal jobs page (staff).</summary>
 public record PublicJobDto(
@@ -162,7 +208,12 @@ public record PublicJobDto(
     DateTime? PublishedAt);
 
 /// <summary>Number of adverts per tab on the list page.</summary>
-public record AdvertCounts(int Live, int Scheduled, int Draft, int ChannelsToPost);
+/// <param name="Draft">Drafts and adverts returned for correction.</param>
+/// <param name="Closed">Closed and rejected adverts.</param>
+public record AdvertCounts(int Live, int Scheduled, int Draft, int ChannelsToPost, int AwaitingHr = 0, int AwaitingIt = 0, int Closed = 0)
+{
+    public int InReview => AwaitingHr + AwaitingIt;
+}
 
 /// <summary>Data access for adverts beyond the generic repository.</summary>
 public interface IAdvertRepository : IRepository<JobAdvert>

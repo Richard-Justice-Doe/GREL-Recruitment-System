@@ -330,7 +330,7 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                         <form asp-action="Validate" asp-route-id="@Model.Id" method="post" class="mb-4">
                             <label for="note" class="form-label small">Note (optional)</label>
                             <textarea id="note" name="note" class="form-control form-control-sm mb-2" rows="2" maxlength="2000" placeholder="e.g. Checked against the panel's notes."></textarea>
-                            <button type="submit" class="btn btn-primary w-100" data-confirm="Validate these scores? They become final and visible to the Head of Department and in the results.">
+                            <button type="submit" class="btn btn-success w-100" data-confirm="Validate these scores? They become final and visible to the Head of Department and in the results.">
                                 <i class="fa-solid fa-circle-check"></i>Validate the scores
                             </button>
                         </form>
@@ -350,7 +350,7 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                             </select>
                             <textarea name="reason" class="form-control form-control-sm mb-2" rows="2" minlength="10" maxlength="2000" required
                                       placeholder="What needs correcting, e.g. no concerns given although not recommended." aria-label="What needs correcting"></textarea>
-                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-rotate-left"></i>Return to the panel member</button>
+                            <button type="submit" class="btn btn-sm btn-outline-warning w-100"><i class="fa-solid fa-rotate-left"></i>Return to the panel member</button>
                         </form>
                     }
 

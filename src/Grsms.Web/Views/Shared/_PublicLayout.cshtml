@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/motion.css" asp-append-version="true" />
 </head>
-<body class="public-body">
+<body class="public-body" data-path-base="@Context.Request.PathBase">
 <header class="public-top">
     <div class="public-inner d-flex align-items-center gap-3">
         <a asp-controller="Careers" asp-action="Index" class="d-flex align-items-center gap-2 text-reset text-decoration-none">

@@ -4,6 +4,75 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 11 November 2026: emails no longer slow pages down
+
+* **Found** in the log of 10 November: each email through GREL's server (smtp.hostinger.com) took 4-5 seconds and the person who clicked waited for every one: applying for a job 18.5 s, approving a request 17.2 s, submitting a vacancy 7.0 s, publishing an advert 5.6 s. The server answers in about 0.5 s; the rest is encryption, sign-in and Hostinger's processing.
+* **Fix:** with a mail server set, emails are queued and sent by a background sender (`Infrastructure/Email/EmailQueue.cs`): the action returns at once. 30-second limit per email (was .NET's 100 s), two retries, every outcome logged. **Send a test email** still waits and reports the real result. No `.eml` change (no server set = files, immediate).
+* **Tests:** `EmailSendingTests`, with a small fake mail server that answers slowly: three emails are handed over in well under a second and then delivered by the background sender; the test-email button waits and reports a failure when the server is gone. 222 tests pass.
+* **Note:** the queue is in memory; an email still waiting when GRSMS stops is sent during shutdown (30 s) or logged as not sent.
+
+---
+
+## 11 November 2026: clearer menu, breadcrumbs, action cards (docs/32, priority 2)
+
+* **Menu** in groups named after what is in them: **Recruitment**, **Candidates**, **Hiring**, **Employees**, then Reports and Administration. Same pages and addresses.
+* **Breadcrumbs** at the top of every staff page (*Recruitment › Vacancies › VAC-2026-0012*) and every administration screen (*← Administration › Divisions*).
+* **Home page:** action cards (requests awaiting your approval, vacancies awaiting publication, applications received, interviews this week, offers awaiting the candidate) replace the KPI charts; 55 → 39 database queries.
+* **Forms:** a red `*` on every required field. **Buttons:** approve green, return amber, reject / withdraw red, everywhere.
+* No business rule, permission, URL or data changed. Details: [32 §13](32-ux-navigation-performance-audit.md#13-progress). 217 tests pass.
+
+---
+
+## 11 November 2026: keeping the user's place, faster pages (docs/32, priority 1)
+
+* **Lists and pages keep your place:** back to a list returns to the same page, search, filters and tab; after Approve, Save, Return and the like the page comes back where you were, with the same sections open; tables keep their page and search.
+* **Faster pages:** the menu numbers are kept for 30 seconds per user (your own actions refresh them at once; the bell is always live), about 8 fewer database queries on every page.
+* **Employees and Users & roles** are searched and paged on the server (50 per page).
+* **Slow database commands are logged** (`Database:SlowQueryMilliseconds`, 500 ms) to find what is slow on the real server.
+* No business rule, permission, URL or data changed. Details and commits: [32](32-ux-navigation-performance-audit.md#13-progress). 214 tests pass.
+
+---
+
+## 11 November 2026: Phase 28, the employee master record
+
+* **What:** every employee now has a record (staff number, job, grade, line manager, status) with a job history. See [31 Employees](31-employees.md) and the [phase log](phases.md).
+* **Existing code touched (additive only):** one call at the end of `OnboardingService.ActivateAsync` and of the probation decision; three new constructor dependencies on `PersonnelFileService` (offer letter and interview results filed); four new methods on `IEmployeeAccounts`; the backfill in `DbInitializer`; menu group *People*; *Grades* on the Administration page; three permissions.
+* **Database:** script `28_phase28_employee_master_record.sql` creates three new tables only.
+* **Checked:** 209/209 tests (the 197 earlier ones unchanged).
+
+---
+
+## 11 November 2026: the appointment page opens before the letter is issued
+
+* **Fix:** *My onboarding* links to **Appointment letter and first day** (`/MyApplications/Appointment/{id}`) from the start, but the page answered *Not found* until HR issued the letter. It now always opens for the new employee: before the letter it shows **Your letter is being prepared** and the first-day information; once issued, the letter, the signature box and the first day as before.
+* **Files:** `MyApplicationsController.Appointment`, `Views/MyApplications/Appointment.cshtml`; `OnboardingWebTests` checks the page before the letter is issued.
+* **Checked:** full suite, 197/197.
+
+---
+
+## 11 November 2026: the IT Manager approves job adverts (docs/29, change 2)
+
+* **New built-in role IT Manager** (given by the Super Admin). Adverts now go: Recruitment Officer **Send for review** → HR Manager **Approve and send to IT** → IT Manager **Approve and publish** (live now, or scheduled for the start date). The HR and IT Managers can **return** (with what to correct) or **reject** (final; it can still be cloned).
+* **Editing a published advert takes it offline** and sends it through both reviews again; the IT Manager can also **take it offline**. Only the IT Manager records external channels as posted or taken down.
+* **Existing data:** live and scheduled adverts stay published (shown as *Published*); drafts go through the review.
+* **Permissions** (group *Job adverts*): `adverts.review.hr` (HR Manager), `adverts.review.it`, `adverts.publish`, `adverts.unpublish` (IT Manager), `adverts.return` (both); applied once at start-up. Controller actions guarded by matching policies.
+* **Emails:** HR Managers when an advert is sent; IT Managers when HR approves; the HR reviewer when IT approves; the RO (and the HR reviewer, when IT acts) on return, rejection or taking offline.
+* **Home page:** to-dos for each step; the IT Manager's cards *awaiting approval, scheduled, active, expired or closed*. *Job adverts* list tabs: Published, Scheduled, In review, Drafts, Closed, All.
+* **Files:** `AdvertWorkflow`, `AdvertEnums`, `JobAdvert`, `Roles`, `Permissions`, `AdvertService`, `AdvertDtos`, `AdvertRepository`, `DashboardService`, `AdvertsController`, `Policies`, `Views/Adverts/*`, `Views/Home/Index`; migration `ItManagerAdvertApproval`, script `27_it_manager_advert_approval.sql`. Docs 13, 04, 11, 03.
+* **Checked:** 197/197 tests (three new review tests, web journey through all three roles). Script 27 not yet run on MySQL; not checked in a browser.
+
+---
+
+## 11 November 2026: workflow corrections (docs/29, changes 1, 3 and 4)
+
+* **Change 1, no budget tick:** the HR Manager approves a recruitment request without ticking "Budget confirmed" (the budget document was already optional). Older requests still show the tick if it was given.
+* **Change 3, candidate-only uploads:** only the new employee uploads onboarding documents or marks them "not applicable". Staff can no longer upload for them. The RO still verifies; HR still files documents in personnel files.
+* **Change 4, bank details as data:** the personal record asks for exactly **one** bank account, with bank name and account number (no branch). The bank confirmation letter is no longer asked for. Old uploads stay in the document history and the personnel file but never hold up an onboarding (`OnboardingWorkflow.DocumentState.Counts`). An onboarding page left at an old stage corrects itself when opened. Database script `26_bank_details_as_data.sql`.
+* **Checked:** 194/194 tests. Script 26 not yet run on MySQL; not checked in a browser.
+* **Change 2** is in the entry above.
+
+---
+
 ## 10 November 2026: shorter forms, helpful empty lists (usability U4)
 
 * **Recruitment request** in 5 steps (one per section of QF-81-11), *Save draft* on every step, site pre-filled; **vacancy form** with *More options* for desirable skills, certifications and knockout questions.

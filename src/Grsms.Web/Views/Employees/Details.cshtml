@@ -1,0 +1,132 @@
+@* Phase 28 (docs/30): one employee's master record: current job, employment, links to the onboarding, personnel file and
+   probation, and the job history (newest first; lines are added, never changed). *@
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Auth
+@model EmployeeDetailsDto
+@{
+    ViewData["Title"] = Model.Name;
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var canFiles = (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded;
+    var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
+    string D(DateOnly? d) => d?.ToString("d MMM yyyy") ?? "—";
+}
+
+<div class="page-header">
+    <div>
+        <h1>@Model.Name</h1>
+        <p>Staff number <strong>@Model.EmployeeNumber</strong> · @Model.PositionTitle, @Model.DepartmentName · <partial name="_EmployeeStatusBadge" model="Model.Status" /></p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (Model.CanManage)
+        {
+            <a asp-action="UpdateJob" asp-route-id="@Model.Id" class="btn btn-primary"><i class="fa-solid fa-pen me-1"></i>Update job details</a>
+        }
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All employees</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-8">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-solid fa-briefcase me-1"></i>Current job</h2>
+                <dl class="details-grid mb-0">
+                    <dt>Position</dt><dd class="fw-semibold">@Model.PositionTitle</dd>
+                    <dt>Department</dt><dd>@Model.DepartmentName@(Model.DivisionName.Length > 0 ? $" ({Model.DivisionName})" : "")</dd>
+                    <dt>Place of work</dt><dd>@Model.SiteName</dd>
+                    <dt>Grade</dt><dd>@(Model.GradeName ?? "Not given yet")</dd>
+                    <dt>Reports to</dt><dd>@(Model.ReportsTo ?? Model.LineManagerNote)</dd>
+                    <dt>Employment type</dt><dd>@Model.EmploymentType.DisplayName()@(Model.ContractEndDate is { } end ? $", until {end:d MMM yyyy}" : "")</dd>
+                </dl>
+                @if (Model.ContractEndDate is { } ends && ends >= today && ends <= today.AddDays(60))
+                {
+                    <div class="alert alert-warning small mt-3 mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>The contract ends on @ends.ToString("d MMMM yyyy"), in @((ends.DayNumber - today.DayNumber)) days.</div>
+                }
+                else if (Model.ContractEndDate is { } ended && ended < today && Model.Status != EmployeeStatus.Separated)
+                {
+                    <div class="alert alert-danger small mt-3 mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>The contract ended on @ended.ToString("d MMMM yyyy"). Update the job details with the renewed contract.</div>
+                }
+            </div>
+        </div>
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-solid fa-clock-rotate-left me-1"></i>Job history</h2>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>From</th><th>To</th><th>Position</th><th class="d-none d-md-table-cell">Department · site</th><th class="d-none d-lg-table-cell">Grade</th><th>Why</th></tr></thead>
+                        <tbody>
+                        @if (Model.History.Count == 0)
+                        {
+                            <tr><td colspan="6" class="text-body-secondary">No job history yet.</td></tr>
+                        }
+                        @foreach (var h in Model.History)
+                        {
+                            <tr class="@(h.EffectiveTo is null ? "fw-semibold" : "")">
+                                <td class="text-nowrap small">@D(h.EffectiveFrom)</td>
+                                <td class="text-nowrap small">@(h.EffectiveTo is null ? "now" : D(h.EffectiveTo))</td>
+                                <td>@h.PositionTitle<div class="small text-body-secondary fw-normal">@h.EmploymentType.DisplayName()@(h.ReportsTo is null ? "" : $" · reports to {h.ReportsTo}")</div></td>
+                                <td class="d-none d-md-table-cell small">@h.DepartmentName · @h.SiteName</td>
+                                <td class="d-none d-lg-table-cell small">@(h.GradeName ?? "—")</td>
+                                <td class="small fw-normal">@h.Source.DisplayName()@(h.Note is null ? "" : $": {h.Note}")@(h.RecordedBy is null ? "" : $" ({h.RecordedBy})")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-regular fa-id-badge me-1"></i>Employment</h2>
+                <dl class="details-grid small mb-0">
+                    <dt>Joined GREL</dt><dd>@D(Model.HireDate)</dd>
+                    <dt>Length of service</dt><dd>@Model.ServiceLength(today)</dd>
+                    <dt>Confirmed</dt><dd>@(Model.ConfirmationDate is null ? (Model.Status == EmployeeStatus.OnProbation ? "On probation" : "—") : D(Model.ConfirmationDate))</dd>
+                    <dt>Email</dt><dd class="text-break">@(Model.Email ?? "—")</dd>
+                    <dt>Phone</dt><dd>@(Model.Phone ?? "—")</dd>
+                    <dt>Sign-in</dt><dd>@(Model.AccountActive ? "Account active" : "Account deactivated")</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-solid fa-link me-1"></i>Records</h2>
+                <ul class="list-unstyled small mb-0">
+                    <li class="mb-2">
+                        <i class="fa-solid fa-door-open me-1"></i>
+                        @if (Model.OnboardingRecordId is { } oid && canApplications)
+                        {
+                            <a asp-controller="Onboarding" asp-action="Details" asp-route-id="@oid">Onboarding @Model.OnboardingNumber</a>
+                        }
+                        else if (Model.OnboardingNumber is not null) { <span>Onboarding @Model.OnboardingNumber</span> }
+                        else { <span class="text-body-secondary">Hired before GRSMS (no onboarding)</span> }
+                    </li>
+                    <li class="mb-2">
+                        <i class="fa-regular fa-folder-open me-1"></i>
+                        @if (Model.PersonnelFileId is { } fid && canFiles)
+                        {
+                            <a asp-controller="PersonnelFiles" asp-action="Details" asp-route-id="@fid">Personnel file @Model.PersonnelFileNumber</a>
+                        }
+                        else if (Model.PersonnelFileNumber is not null) { <span>Personnel file @Model.PersonnelFileNumber</span> }
+                        else { <span class="text-body-secondary">No personnel file yet</span> }
+                    </li>
+                    <li>
+                        <i class="fa-solid fa-user-clock me-1"></i>
+                        @if (Model.ProbationId is { } pid && canApplications)
+                        {
+                            <a asp-controller="Probation" asp-action="Details" asp-route-id="@pid">Probation @Model.ProbationNumber</a>
+                            <span class="text-body-secondary">(@Model.ProbationStatus?.DisplayName())</span>
+                        }
+                        else if (Model.ProbationNumber is not null) { <span>Probation @Model.ProbationNumber (@Model.ProbationStatus?.DisplayName())</span> }
+                        else { <span class="text-body-secondary">No probation in GRSMS</span> }
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

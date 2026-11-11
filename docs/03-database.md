@@ -245,7 +245,11 @@ Same shape as RecruitmentRequestActions: `VacancyId` (FK), `Action` (`Created`, 
 | Body | LONGTEXT | required; the advert text (the form allows up to 10,000 characters) |
 | HowToApply | VARCHAR(2000) | required |
 | StartDate / EndDate | DATE | the advert runs from start to end, inclusive; the end date is never after the vacancy's closing date |
-| Status | VARCHAR(20) | `Draft`, `Scheduled`, `Live`, `Closed` |
+| Status | VARCHAR(30) | `Draft`, `AwaitingHrReview`, `AwaitingItApproval`, `ReturnedForCorrection`, `Scheduled`, `Live` (shown as *Published*), `Closed`, `Rejected` (review statuses and 30 characters since 11 Nov 2026, script 27) |
+| SubmittedByUserId, SubmittedAt | VARCHAR(255), DATETIME | optional: who last sent it for the HR review |
+| HrReviewedByUserId, HrReviewedAt | VARCHAR(255), DATETIME | optional: the HR Manager who last approved it for IT |
+| ItApprovedByUserId, ItApprovedAt | VARCHAR(255), DATETIME | optional: the IT Manager who last approved (published) it |
+| ReviewComment | VARCHAR(1000) | optional: reason of the last return, rejection or taking offline (cleared on resubmission) |
 | StatusChangedAt, PublishedAt, ClosedAt | DATETIME | |
 | CreatedByUserId | VARCHAR(255) **FK → Users** | |
 | ClonedFromAdvertId | INT | optional, **FK → JobAdverts** (the advert it was copied from) |
@@ -258,7 +262,7 @@ Indexes for the scheduler (`Status, StartDate` and `Status, EndDate`), the vacan
 One row per channel of an advert (unique on `JobAdvertId, Channel`): `Channel` (`InternalPortal`, `CompanyWebsite`, `LinkedIn`, `Indeed`, `Jobberman`, `Newspaper`), `Status` (`ToPost`, `Posted`, `Removed`), `Reference` (VARCHAR(500): the link, or newspaper name and edition), `PostedAt`, `PostedByName`, `RemovedAt`. Rows are replaced when the channel ticks change on a draft, so they are not soft-deleted (changes are still in the audit trail).
 
 ### JobAdvertActions (history)
-Same shape as VacancyActions: `JobAdvertId` (FK), `Action` (`Created`, `Cloned`, `Scheduled`, `Unscheduled`, `Published`, `AutoPublished`, `ChannelPosted`, `ChannelRemoved`, `Closed`, `AutoClosed`), `FromStatus`, `ToStatus`, `ActorUserId` (**NULL = the system**), `ActorName`, `Comments`, `ActionAt`.
+Same shape as VacancyActions: `JobAdvertId` (FK), `Action` (`Created`, `Cloned`, `Scheduled`, `Unscheduled`, `Published`, `AutoPublished`, `ChannelPosted`, `ChannelRemoved`, `Closed`, `AutoClosed`, and since 11 Nov 2026 `Submitted`, `HrApproved`, `ItApproved`, `Returned`, `Rejected`, `Unpublished`), `FromStatus`, `ToStatus` (VARCHAR(30)), `ActorUserId` (**NULL = the system**), `ActorName`, `Comments`, `ActionAt`.
 
 ## Phase 5 tables
 
@@ -400,7 +404,7 @@ One row per document per onboarding, created (`Pending`) when onboarding starts.
 |---|---|---|
 | OnboardingRecordId | INT **FK → Onboardings** (RESTRICT) | unique together with DocumentType |
 | EmployeeUserId | VARCHAR(255) **FK → Users** | the new employee |
-| DocumentType | VARCHAR(40) | `ApplicationLetter`, `Cv`, `PassportPicture`, `RecommendationLetters`, `MedicalReport`, `PoliceClearance`, `SchoolCertificates`, `BirthCertificate`, `GhanaCard`, `SsnitCard`, `MarriageCertificate`, `ChildBirthCertificates`, `DependantPhotographs`, `BankConfirmationLetter`, `PassportBiodataPage`, `NonCitizenCard` |
+| DocumentType | VARCHAR(40) | `ApplicationLetter`, `Cv`, `PassportPicture`, `RecommendationLetters`, `MedicalReport`, `PoliceClearance`, `SchoolCertificates`, `BirthCertificate`, `GhanaCard`, `SsnitCard`, `MarriageCertificate`, `ChildBirthCertificates`, `DependantPhotographs`, `BankConfirmationLetter` (retired 11 Nov 2026: old files kept, never asked for or counted), `PassportBiodataPage`, `NonCitizenCard` |
 | IsRequired | TINYINT(1) | 0 for the five that may be "not applicable" |
 | Status | VARCHAR(20), indexed | `Pending`, `Submitted`, `Verified`, `Rejected`, `NotApplicable` |
 | SubmittedAt | DATETIME(6) | last upload (or "not applicable" declaration) |
@@ -462,7 +466,7 @@ One per onboarding (unique `OnboardingRecordId`, **FK → Onboardings**), `Emplo
 | Table | Columns | Rules |
 |---|---|---|
 | EmployeeLanguages | `Language` VARCHAR(60), `Proficiency` (`VeryFluent`, `Fluent`, `Passable`) | at least one; each language once |
-| EmployeeBankAccounts | `BankName`, `Branch` VARCHAR(100), `AccountNumber` VARCHAR(40), `IsPrimary` | at least one; **exactly one primary** |
+| EmployeeBankAccounts | `BankName` VARCHAR(100), `AccountNumber` VARCHAR(40), `IsPrimary`, `Branch` VARCHAR(100) NULL (no longer asked, script 26) | **exactly one** account (the salary account, always primary) |
 | EmployeeSpouses | `FullName`, `Occupation`, `DateOfBirth`, `Address`, `Telephone` | optional, up to 4 |
 | EmployeeChildren | `FullName`, `Gender` (`Male`, `Female`), `DateOfBirth`, `PlaceOfBirth`, `CurrentResidence` | any number |
 | EmployeeDependants | `FullName`, `Relationship`, `Age` (0-120) | any number |
@@ -573,6 +577,35 @@ The applicant's answers (`JobApplicationId`, `Question` = the wording as asked, 
 ### AtsSettings
 One row: the four weights, the four band limits, the six automatic-rejection switches and `UseAiReader`. It is created the first time the Super Admin saves **ATS settings**; until then the defaults in code apply (25 % each; bands 90 / 80 / 70 / 50; every rule on except "required skill"; AI reader off).
 
+## Phase 28 tables (the employee master record, docs/31)
+
+New tables only; no existing table changed. Script `28_phase28_employee_master_record.sql`.
+
+### Employees
+| Column | Type | Rules |
+|---|---|---|
+| EmployeeNumber | VARCHAR(30) | the staff number; **unique** |
+| UserId | VARCHAR(255) | **FK → Users**, **unique** (one record per person; name, email, phone stay on Users) |
+| OnboardingRecordId | INT NULL | **FK → Onboardings**; null for staff registered by HR |
+| PositionTitle | VARCHAR(150) | current job, copied from the open assignment |
+| DepartmentId / SiteId | INT | **FKs** |
+| GradeId | INT NULL | **FK → Grades** |
+| ReportsToUserId | VARCHAR(255) NULL | **FK → Users**; null = the Head of Department |
+| EmploymentType | VARCHAR(30) | the recruitment `EmploymentType` values |
+| ContractEndDate, HireDate, ConfirmationDate | DATE | |
+| Status | VARCHAR(20) | `OnProbation`, `Active`, `Separated` |
+| StatusChangedAt | DATETIME | |
+| Version | CHAR(36) | concurrency stamp |
+| + standard columns | | index `DepartmentId, Status` |
+
+### EmployeeAssignments (job history)
+`EmployeeId` (**FK**), `EffectiveFrom`, `EffectiveTo` (null = current), `PositionTitle`, `DepartmentId`, `SiteId`, `GradeId`, `ReportsToUserId`, `EmploymentType`, `ContractEndDate`, `Source` (`Hire`, `Registration`, `Update`), `SourceId`, `Note` (500), `RecordedByUserId`. A change closes the open row and adds a new one; rows are never edited. Index `EmployeeId, EffectiveFrom`.
+
+### Grades
+`Code` (20, **unique**), `Name` (100, **unique**), `SortOrder`, `MinMonthlySalary` / `MaxMonthlySalary` (DECIMAL(18,2), optional), `IsActive`. None seeded.
+
+**Data:** records for employees activated before Phase 28 are created by GRSMS at start-up (`EmployeeLifecycle.BackfillAsync`), not by the script, so the script only creates tables.
+
 ## Relationship diagram (Phases 1-8)
 
 ```
@@ -626,6 +659,9 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `23_interview_score_validation.sql` | 9 Nov | Interview score validation columns. |
 | `24_phase27_onboarding_document_portal.sql` | 27 | OnboardingDocumentTypes (seeded, 25 rows), EmployeeDocumentEvents; new columns on EmployeeDocuments (existing rows get `IsApplicable` = 1) and Onboardings. **Moves onboardings waiting for HR approval, or in the old pre-activation induction, to `AwaitingActivation`** (their documents were verified). The four `onboarding.*` permissions are added by GRSMS at start-up. Not yet run on MySQL. |
 | `25_audit_drop_redundant_vacancy_status_index.sql` | audit | Drops `IX_Vacancies_Status` (the index on (Status, ClosingDate) starts with Status and serves the same queries). Codebase audit B7, 10 November 2026. Not yet run on MySQL. |
+| `26_bank_details_as_data.sql` | docs/29 change 4 | Makes `EmployeeBankAccounts.Branch` optional, retires the bank confirmation letter document type (Id 17), and on onboardings not yet activated makes existing bank-letter rows not required (kept as applicable only if a file was uploaded). 11 November 2026. Not yet run on MySQL. |
+| `27_it_manager_advert_approval.sql` | docs/29 change 2 | Adds the built-in role **IT Manager** (`it-manager`), the advert review columns on JobAdverts (SubmittedBy/At, HrReviewedBy/At, ItApprovedBy/At, ReviewComment) and widens JobAdverts.Status and JobAdvertActions.FromStatus/ToStatus to 30 characters. No data moves: published and scheduled adverts stay published, drafts go through the new review. The `adverts.*` permissions and the IT Manager's defaults are added by GRSMS at start-up. 11 November 2026. Not yet run on MySQL. |
+| `28_phase28_employee_master_record.sql` | Phase 28 (docs/30, docs/31) | Creates **Employees**, **EmployeeAssignments** and **Grades**. No existing table changes. At the next start-up GRSMS creates the records of employees already activated, files their offer letter and interview results, and grants `employees.view`, `employees.manage` and `grades.manage` to their default roles. 11 November 2026. Not yet run on MySQL. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

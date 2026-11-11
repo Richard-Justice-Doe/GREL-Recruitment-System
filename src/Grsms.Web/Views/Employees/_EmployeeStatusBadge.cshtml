@@ -1,0 +1,11 @@
+@* Phase 28: an employee's status as a coloured badge. *@
+@model EmployeeStatus
+@{
+    var css = Model switch
+    {
+        EmployeeStatus.Active => "text-bg-success",
+        EmployeeStatus.OnProbation => "text-bg-info",
+        _ => "text-bg-secondary"
+    };
+}
+<span class="badge @css">@Model.DisplayName()</span>

@@ -76,6 +76,39 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
             .ToList();
     }
 
+    public async Task<PagedResult<UserListItemDto>> SearchAsync(UserSearch search, CancellationToken ct = default)
+    {
+        var q = db.Users.AsNoTracking().Where(u => u.IsCandidate == search.Candidates);
+        if (!string.IsNullOrWhiteSpace(search.Search))
+        {
+            var like = "%" + search.Search.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            q = q.Where(u => EF.Functions.Like(u.FullName, like, "\\") || EF.Functions.Like(u.Email!, like, "\\") ||
+                             EF.Functions.Like(u.StaffNumber!, like, "\\"));
+        }
+        q = search.Sort == "recent" ? q.OrderByDescending(u => u.LastSignInAt).ThenBy(u => u.FullName) : q.OrderBy(u => u.FullName).ThenBy(u => u.Email);
+
+        var pageSize = Math.Clamp(search.PageSize, 10, 200);
+        var total = await q.CountAsync(ct);
+        var page = Math.Clamp(search.Page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
+        var users = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+
+        // Roles of this page's accounts only; organisation names are small tables.
+        var ids = users.Select(u => u.Id).ToList();
+        var roleRows = await (from ur in db.UserRoles
+                              join r in db.Roles on ur.RoleId equals r.Id
+                              where ids.Contains(ur.UserId)
+                              select new { ur.UserId, r.Name }).ToListAsync(ct);
+        var rolesByUser = roleRows.ToLookup(x => x.UserId, x => x.Name!);
+        var deptNames = await db.Departments.ToDictionaryAsync(d => d.Id, d => d.Name, ct);
+        var siteNames = await db.Sites.ToDictionaryAsync(s => s.Id, s => s.Name, ct);
+        var now = DateTimeOffset.UtcNow;
+        var items = users.Select(u => new UserListItemDto(u.Id, u.FullName, u.Email ?? "", u.StaffNumber,
+                u.DepartmentId is int d ? deptNames.GetValueOrDefault(d) : null, u.SiteId is int s ? siteNames.GetValueOrDefault(s) : null,
+                rolesByUser[u.Id].OrderBy(r => r).ToList(), u.IsActive, u.LockoutEnd > now, u.IsCandidate, u.LastSignInAt))
+            .ToList();
+        return new PagedResult<UserListItemDto>(items, page, pageSize, total);
+    }
+
     public async Task<UserFormDto?> GetForEditAsync(string id, CancellationToken ct = default)
     {
         var u = await userManager.FindByIdAsync(id);

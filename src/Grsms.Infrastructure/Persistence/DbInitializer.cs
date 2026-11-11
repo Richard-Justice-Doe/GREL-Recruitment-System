@@ -46,6 +46,17 @@ public static class DbInitializer
 
         await PermissionSeeder.ApplyNewDefaultsAsync(db, logger);
         await EnsureSuperAdminAsync(sp, config, logger);
+
+        // Phase 28 (docs/30): an employee record for everyone activated before it existed (does nothing once they all have one).
+        try
+        {
+            using var backfillScope = services.CreateScope();
+            await backfillScope.ServiceProvider.GetRequiredService<Application.Employees.EmployeeLifecycle>().BackfillAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Creating the employee records of already-activated employees failed; GRSMS starts anyway and retries at the next start-up.");
+        }
     }
 
     /// <summary>

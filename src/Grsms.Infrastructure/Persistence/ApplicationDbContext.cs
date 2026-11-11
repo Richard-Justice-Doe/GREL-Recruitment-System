@@ -82,6 +82,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Probation.ProbationActionEntry> ProbationActions => Set<Domain.Probation.ProbationActionEntry>();
     public DbSet<Domain.Probation.ConfirmationRecord> ConfirmationRecords => Set<Domain.Probation.ConfirmationRecord>();
 
+    // Phase 28 (docs/30): the employee master record, job history and grades
+    public DbSet<Domain.Employees.Employee> Employees => Set<Domain.Employees.Employee>();
+    public DbSet<Domain.Employees.EmployeeAssignment> EmployeeAssignments => Set<Domain.Employees.EmployeeAssignment>();
+    public DbSet<Domain.Employees.Grade> Grades => Set<Domain.Employees.Grade>();
+
     // Phase 10: notifications, reminders and surveys
     public DbSet<Domain.Notifications.Notification> Notifications => Set<Domain.Notifications.Notification>();
     public DbSet<Domain.Notifications.SentReminder> SentReminders => Set<Domain.Notifications.SentReminder>();

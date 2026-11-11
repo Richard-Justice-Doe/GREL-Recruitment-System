@@ -1,0 +1,63 @@
+@* Phase 28 (docs/30): GREL's salary grades. *@
+@model IReadOnlyList<GradeListItemDto>
+@{
+    ViewData["Title"] = "Grades";
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+    string Money(decimal? v) => v is { } x ? x.ToString("N0", gb) : "—";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Grades</h1>
+        <p>GREL's salary grades. Each employee can be given a grade on their employee record.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add grade</a>
+</div>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                <tr><th>Code</th><th>Name</th><th class="text-end">Monthly salary (GHS)</th><th class="text-end">Employees</th><th>Status</th><th class="text-end">Actions</th></tr>
+                </thead>
+                <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-body-secondary py-4">No grades yet. Add GREL's grades, lowest first.</td></tr>
+                }
+                @foreach (var g in Model)
+                {
+                    <tr class="@(g.IsActive ? "" : "row-inactive")">
+                        <td><code>@g.Code</code></td>
+                        <td class="fw-semibold">@g.Name</td>
+                        <td class="text-end text-nowrap">@(g.MinMonthlySalary is null && g.MaxMonthlySalary is null ? "—" : $"{Money(g.MinMonthlySalary)} to {Money(g.MaxMonthlySalary)}")</td>
+                        <td class="text-end">
+                            @if (g.Employees > 0)
+                            {
+                                <a asp-controller="Employees" asp-action="Index" asp-route-gradeId="@g.Id" class="text-decoration-none">@g.Employees</a>
+                            }
+                            else { <span>0</span> }
+                        </td>
+                        <td><partial name="_ActiveBadge" model="g.IsActive" /></td>
+                        <td class="text-end text-nowrap">
+                            <a asp-action="Edit" asp-route-id="@g.Id" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a>
+                            <form asp-action="SetActive" asp-route-id="@g.Id" method="post" class="d-inline">
+                                <input type="hidden" name="active" value="@(!g.IsActive)" />
+                                @if (g.IsActive)
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate" data-confirm="Deactivate grade @g.Code? Employees keep it, but it can no longer be given."><i class="fa-solid fa-ban"></i></button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Activate"><i class="fa-solid fa-check"></i></button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

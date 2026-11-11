@@ -61,6 +61,8 @@ The **Email**, **AzureAd** (tenant, client, secret) and **Reminders:ApprovalWait
 | `Email:UserName` / `Email:Password` | *(empty)* | SMTP login, if the server needs one |
 | `Email:PickupDirectory` | `App_Data/mail` | Folder for `.eml` files when `SmtpHost` is empty |
 
+**Emails are sent in the background (11 November 2026).** With a mail server set, an action that emails people (approving a request, applying for a job, ...) no longer waits for the server: the emails are queued and a background sender (`EmailSendingWorker`) sends them a moment later, one at a time, each with a 30-second limit, trying a failed email again after 10 seconds and after 1 minute. The log shows *queued*, then *sent in N ms*, or *could not be sent ... dropped*. **Send a test email** on System settings still waits for the server and reports the real result. Before this, GREL's server (Hostinger) took 4-5 s per email, so approving a request took 17 s and applying for a job 18 s. The queue is in memory: emails still waiting when GRSMS stops are sent during shutdown for up to 30 seconds; anything left is logged as not sent. Saving `.eml` files (no server) stays immediate.
+
 Example for an internal relay server:
 ```powershell
 dotnet user-secrets --project src/Grsms.Web set "Email:SmtpHost" "mail.grel.example"

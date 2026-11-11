@@ -4,6 +4,15 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 11 November 2026: emails no longer slow pages down
+
+* **Found** in the log of 10 November: each email through GREL's server (smtp.hostinger.com) took 4-5 seconds and the person who clicked waited for every one: applying for a job 18.5 s, approving a request 17.2 s, submitting a vacancy 7.0 s, publishing an advert 5.6 s. The server answers in about 0.5 s; the rest is encryption, sign-in and Hostinger's processing.
+* **Fix:** with a mail server set, emails are queued and sent by a background sender (`Infrastructure/Email/EmailQueue.cs`): the action returns at once. 30-second limit per email (was .NET's 100 s), two retries, every outcome logged. **Send a test email** still waits and reports the real result. No `.eml` change (no server set = files, immediate).
+* **Tests:** `EmailSendingTests`, with a small fake mail server that answers slowly: three emails are handed over in well under a second and then delivered by the background sender; the test-email button waits and reports a failure when the server is gone. 222 tests pass.
+* **Note:** the queue is in memory; an email still waiting when GRSMS stops is sent during shutdown (30 s) or logged as not sent.
+
+---
+
 ## 11 November 2026: clearer menu, breadcrumbs, action cards (docs/32, priority 2)
 
 * **Menu** in groups named after what is in them: **Recruitment**, **Candidates**, **Hiring**, **Employees**, then Reports and Administration. Same pages and addresses.

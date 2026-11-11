@@ -1,11 +1,12 @@
 @* Left-hand navigation. Each link is shown only to people who may open it; the server checks again on every request,
    so hiding a link is for tidiness, not security. The small numbers on the right come from NavCounts (Helpers/NavCounts.cs).
 
-   docs/32 (11 November 2026): the staff menu in four groups named after what is in them, in the order work flows:
+   docs/32-33 (11 November 2026): the staff menu in five groups named after what is in them, in the order work flows:
      Recruitment  (Recruitment requests, Vacancies & adverts)
      Candidates   (Candidates = applications + screening + shortlisting, Interviews)
-     Hiring       (Hiring & offers, Onboarding)
-     Employees    (Employees, Probation, Personnel files)
+     Hiring       (Hiring & offers: recommendations and offers)
+     Onboarding   (Onboarding: documents, verification, induction; Probation and confirmation)
+     Employees    (Employees, Personnel files)
    then Reports (survey results inside) and Administration (one page). Same pages and addresses as before. Which group each
    page belongs to is in Helpers/MenuMap.cs (also used for the breadcrumb at the top of each page).
    Usability U1 (docs/28) still applies: staff's own "My applications / Job openings / My probation" live in the menu under
@@ -41,10 +42,11 @@
     // How many links each group has, to choose between groups and one flat list.
     var recruitmentLinks = new[] { canRequests, canVacancies || canAdverts }.Count(x => x);
     var candidateLinks = new[] { canApplications, isStaff }.Count(x => x);
-    var hiringLinks = new[] { showHiring, showOnboarding }.Count(x => x);
-    var employeeLinks = new[] { canEmployees, canApplications, canPersonnelFiles }.Count(x => x);
+    var hiringLinks = showHiring ? 1 : 0;
+    var onboardingLinks = new[] { showOnboarding, canApplications }.Count(x => x);
+    var employeeLinks = new[] { canEmployees, canPersonnelFiles }.Count(x => x);
     var otherLinks = (canReports || canSurveyResults ? 1 : 0) + (adminLinks.Count > 0 ? 1 : 0);
-    var flat = !isStaff || recruitmentLinks + candidateLinks + hiringLinks + employeeLinks + otherLinks <= 7;
+    var flat = !isStaff || recruitmentLinks + candidateLinks + hiringLinks + onboardingLinks + employeeLinks + otherLinks <= 7;
 
     var current = MenuMap.For(controller, action)?.Group;
     // Every screen listed on the Administration page (one list, in AdministrationController).
@@ -53,7 +55,7 @@
     // Badge totals on a group's header, so nothing waiting for you is hidden when the group is closed.
     var recruitmentWaiting = counts.RequestsAwaitingMe ?? 0;
     var candidatesWaiting = (showScreening ? counts.AtsAwaitingHr ?? 0 : 0) + (counts.ScorecardsToDo ?? 0);
-    var hiringWaiting = counts.OnboardingTasksToDo ?? 0;
+    var onboardingWaiting = counts.OnboardingTasksToDo ?? 0;
 }
 @functions {
     // The opening of a group (nothing in a flat menu). The closing is GroupEnd.
@@ -165,13 +167,17 @@
         @* ---- Hiring *@
         @if (hiringLinks > 0)
         {
-            @GroupStart(flat, "hiring", "Hiring", current, hiringWaiting)
-            if (showHiring)
-            {
-                <a class="nav-link @Active("Hiring")" asp-controller="Hiring" asp-action="Index">
-                    <i class="fa-solid fa-handshake"></i> Hiring &amp; offers
-                </a>
-            }
+            @GroupStart(flat, "hiring", "Hiring", current, 0)
+            <a class="nav-link @Active("Hiring")" asp-controller="Hiring" asp-action="Index">
+                <i class="fa-solid fa-handshake"></i> Hiring &amp; offers
+            </a>
+            @GroupEnd(flat)
+        }
+
+        @* ---- Onboarding (documents, verification and induction on each onboarding; then probation) *@
+        @if (onboardingLinks > 0)
+        {
+            @GroupStart(flat, "onboarding", "Onboarding", current, onboardingWaiting)
             if (showOnboarding)
             {
                 @* HR and HODs follow every onboarding; anyone else sees the link while they have checklist items. *@
@@ -182,6 +188,12 @@
                     {
                         <span class="nav-count attention" title="Onboarding tasks waiting for you">@counts.OnboardingTasksToDo</span>
                     }
+                </a>
+            }
+            if (canApplications)
+            {
+                <a class="nav-link @Active("Probation")" asp-controller="Probation" asp-action="Index" asp-route-tab="due">
+                    <i class="fa-solid fa-user-clock"></i> Probation
                 </a>
             }
             @GroupEnd(flat)
@@ -195,12 +207,6 @@
             {
                 <a class="nav-link @Active("Employees")" asp-controller="Employees" asp-action="Index">
                     <i class="fa-solid fa-id-card-clip"></i> Employees
-                </a>
-            }
-            if (canApplications)
-            {
-                <a class="nav-link @Active("Probation")" asp-controller="Probation" asp-action="Index" asp-route-tab="due">
-                    <i class="fa-solid fa-user-clock"></i> Probation
                 </a>
             }
             if (canPersonnelFiles)

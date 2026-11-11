@@ -41,7 +41,7 @@ public class AdminBreadcrumbWebTests(GrsmsWebFactory factory) : IClassFixture<Gr
 
         // docs/32: the menu groups are named after what is in them.
         var home = await client.GetStringAsync("/");
-        foreach (var group in new[] { "recruitment", "candidates", "employees" })
+        foreach (var group in new[] { "recruitment", "candidates", "hiring", "onboarding", "employees" })
             Assert.Contains($"data-nav-group=\"{group}\"", home);
         Assert.DoesNotContain("data-nav-group=\"hire\"", home);
 

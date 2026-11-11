@@ -1,8 +1,19 @@
 @* User accounts. Two tabs: GREL staff (managed here) and candidates (self-registered; can only be
-   deactivated or unlocked here). *@
-@model IReadOnlyList<UserListItemDto>
+   deactivated or unlocked here). docs/32: searched, sorted and paged on the server; the row buttons come back to this
+   exact page (returnUrl). *@
+@model Grsms.Application.Common.PagedResult<UserListItemDto>
 @{
     var showCandidates = ViewBag.ShowCandidates == true;
+    string? search = ViewBag.Search;
+    string sort = ViewBag.Sort;
+    var thisPage = Context.Request.Path + Context.Request.QueryString;
+    Dictionary<string, string> Route(int page)
+    {
+        var d = new Dictionary<string, string> { ["page"] = page.ToString(), ["sort"] = sort };
+        if (showCandidates) d["candidates"] = "true";
+        if (!string.IsNullOrWhiteSpace(search)) d["search"] = search;
+        return d;
+    }
     ViewData["Title"] = "Users & roles";
     // Phase 14: accounts with a privileged role can only be changed by a Super Admin (the service checks again).
     var isSuperAdmin = User.IsInRole(Roles.SuperAdmin);
@@ -31,10 +42,28 @@
     <li class="nav-item"><a class="nav-link @(showCandidates ? "active" : "")" asp-action="Index" asp-route-candidates="true">Candidates</a></li>
 </ul>
 
+<form method="get" class="row g-2 mb-3">
+    @if (showCandidates) { <input type="hidden" name="candidates" value="true" /> }
+    <div class="col-md-6"><input name="search" value="@search" class="form-control" placeholder="Name, email@(showCandidates ? "" : " or staff number")" aria-label="Search" /></div>
+    <div class="col-md-3">
+        <select name="sort" class="form-select" aria-label="Sort" data-auto-submit>
+            <option value="name" selected="@(sort == "name")">Sort by name</option>
+            <option value="recent" selected="@(sort == "recent")">Latest sign-in first</option>
+        </select>
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-outline-primary flex-grow-1"><i class="fa-solid fa-magnifying-glass me-1"></i>Search</button>
+        @if (!string.IsNullOrWhiteSpace(search))
+        {
+            <a asp-action="Index" asp-route-candidates="@(showCandidates ? "true" : null)" class="btn btn-outline-secondary" data-fresh>Clear</a>
+        }
+    </div>
+</form>
+
 <div class="card glass">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover datatable">
+            <table class="table table-hover">
                 <thead>
                 <tr>
                     <th>Name</th>
@@ -51,7 +80,11 @@
                 </tr>
                 </thead>
                 <tbody>
-                @foreach (var u in Model)
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="8" class="text-center text-body-secondary py-4">@(string.IsNullOrWhiteSpace(search) ? "No accounts yet." : $"No accounts match \"{search}\".")</td></tr>
+                }
+                @foreach (var u in Model.Items)
                 {
                     <tr class="@(u.IsActive ? "" : "row-inactive")">
                         <td class="fw-semibold">@u.FullName</td>
@@ -89,6 +122,7 @@
                             {
                                 <form asp-action="Unlock" asp-route-id="@u.Id" method="post" class="d-inline">
                                     <input type="hidden" name="candidates" value="@showCandidates" />
+                                    <input type="hidden" name="returnUrl" value="@thisPage" />
                                     <button type="submit" class="btn btn-sm btn-outline-warning" title="Unlock"><i class="fa-solid fa-unlock"></i></button>
                                 </form>
                             }
@@ -97,6 +131,7 @@
                                 <form asp-action="SetActive" asp-route-id="@u.Id" method="post" class="d-inline">
                                     <input type="hidden" name="active" value="@(!u.IsActive)" />
                                     <input type="hidden" name="candidates" value="@showCandidates" />
+                                    <input type="hidden" name="returnUrl" value="@thisPage" />
                                     @if (u.IsActive)
                                     {
                                         <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate" data-confirm="Deactivate @u.FullName? They will not be able to sign in."><i class="fa-solid fa-user-slash"></i></button>
@@ -112,6 +147,16 @@
                 }
                 </tbody>
             </table>
+        </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+            <span class="small text-body-secondary">@Model.TotalCount @(showCandidates ? "candidate" : "staff") account@(Model.TotalCount == 1 ? "" : "s") · page @Model.Page of @Model.TotalPages</span>
+            @if (Model.TotalPages > 1)
+            {
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
+                    <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+                </div>
+            }
         </div>
     </div>
 </div>

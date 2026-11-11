@@ -23,7 +23,7 @@ namespace Grsms.Application.Employees;
 /// employee. Recruitment records keep their own department.
 /// </summary>
 public class EmployeeService(
-    IRepository<Employee> employees,
+    IEmployeeRepository employees,
     IRepository<EmployeeAssignment> assignments,
     IRepository<Department> departments,
     IRepository<Division> divisions,
@@ -54,38 +54,26 @@ public class EmployeeService(
         return e => v.SeeAll || v.HodDepartmentIds.Contains(e.DepartmentId) || e.UserId == v.UserId;
     }
 
-    public async Task<IReadOnlyList<EmployeeListItemDto>> SearchAsync(EmployeeFilter filter, CancellationToken ct = default)
+    /// <summary>docs/32: one page of the list, filtered, searched and paged in the database.</summary>
+    public async Task<PagedResult<EmployeeListItemDto>> SearchAsync(EmployeeFilter filter, CancellationToken ct = default)
     {
-        var visible = await VisibleAsync(ct);
-        IEnumerable<Employee> q = (await employees.ListAsync(ct: ct)).Where(visible);
-        if (filter.DepartmentId is { } dep) q = q.Where(e => e.DepartmentId == dep);
-        if (filter.Status is { } status) q = q.Where(e => e.Status == status);
-        else q = q.Where(e => e.Status != EmployeeStatus.Separated);
-        if (filter.GradeId is { } grade) q = q.Where(e => e.GradeId == grade);
-        var list = q.ToList();
-        var names = await users.GetDisplayNamesAsync(list.Select(e => e.UserId).Distinct(), ct);
-        if (!string.IsNullOrWhiteSpace(filter.Search))
-        {
-            var s = filter.Search.Trim();
-            list = list.Where(e => names.GetValueOrDefault(e.UserId, "").Contains(s, StringComparison.OrdinalIgnoreCase)
-                                   || e.EmployeeNumber.Contains(s, StringComparison.OrdinalIgnoreCase)
-                                   || e.PositionTitle.Contains(s, StringComparison.OrdinalIgnoreCase)).ToList();
-        }
+        if (!MayView) return new PagedResult<EmployeeListItemDto>([], 1, filter.PageSize, 0);
+        var page = await employees.SearchAsync(filter, await scope.VisibilityAsync(ct), ct);
         var (deptNames, siteNames, gradeNames) = await NamesAsync(ct);
-        return list.OrderBy(e => names.GetValueOrDefault(e.UserId, ""))
-            .Select(e => new EmployeeListItemDto(e.Id, e.EmployeeNumber, names.GetValueOrDefault(e.UserId, e.EmployeeNumber), e.PositionTitle,
+        return new PagedResult<EmployeeListItemDto>(page.Items.Select(e => new EmployeeListItemDto(e.Id, e.EmployeeNumber, e.Name, e.PositionTitle,
                 deptNames.GetValueOrDefault(e.DepartmentId, ""), siteNames.GetValueOrDefault(e.SiteId, ""),
-                e.GradeId is { } g ? gradeNames.GetValueOrDefault(g) : null, e.EmploymentType, e.Status, e.HireDate))
-            .ToList();
+                e.GradeId is { } g ? gradeNames.GetValueOrDefault(g) : null, e.EmploymentType, e.Status, e.HireDate)).ToList(),
+            page.Page, page.PageSize, page.TotalCount);
     }
 
     /// <summary>Counts for the list's tabs (what the person may see).</summary>
     public async Task<EmployeeCountsDto> CountsAsync(CancellationToken ct = default)
     {
-        var visible = await VisibleAsync(ct);
-        var list = (await employees.ListAsync(ct: ct)).Where(visible).ToList();
-        return new EmployeeCountsDto(list.Count(e => e.Status != EmployeeStatus.Separated), list.Count(e => e.Status == EmployeeStatus.OnProbation),
-            list.Count(e => e.Status == EmployeeStatus.Active), list.Count(e => e.Status == EmployeeStatus.Separated));
+        if (!MayView) return new EmployeeCountsDto(0, 0, 0, 0);
+        var by = await employees.CountByStatusAsync(await scope.VisibilityAsync(ct), ct);
+        int N(EmployeeStatus s) => by.GetValueOrDefault(s);
+        return new EmployeeCountsDto(N(EmployeeStatus.OnProbation) + N(EmployeeStatus.Active), N(EmployeeStatus.OnProbation), N(EmployeeStatus.Active),
+            N(EmployeeStatus.Separated));
     }
 
     public async Task<EmployeeDetailsDto?> GetAsync(int id, CancellationToken ct = default)

@@ -76,6 +76,7 @@ public static class DependencyInjection
 
         // Phase 3: vacancies. The same repository also answers "is there a vacancy for this request?".
         services.AddScoped<IVacancyRepository, VacancyRepository>();
+        services.AddScoped<Application.Employees.IEmployeeRepository, EmployeeRepository>(); // docs/32
         services.AddScoped<Application.Adverts.IAdvertRepository, AdvertRepository>();
         services.AddScoped<Application.Applications.IApplicationRepository, ApplicationRepository>();
         services.AddScoped<Application.Interviews.IInterviewRepository, InterviewRepository>();

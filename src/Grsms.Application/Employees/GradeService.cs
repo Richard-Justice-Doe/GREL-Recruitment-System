@@ -7,14 +7,13 @@ using Grsms.Domain.Security;
 namespace Grsms.Application.Employees;
 
 /// <summary>Phase 28 (docs/30): GREL's salary grades. Holders of "Maintain grades" (HR Manager, HR Administrator by default).</summary>
-public class GradeService(IRepository<Grade> grades, IRepository<Employee> employees, IUnitOfWork unitOfWork, ICurrentUserService me)
+public class GradeService(IRepository<Grade> grades, IEmployeeRepository employees, IUnitOfWork unitOfWork, ICurrentUserService me)
 {
     public bool MayManage => me.HasPermission(Permissions.ManageGrades);
 
     public async Task<IReadOnlyList<GradeListItemDto>> GetAllAsync(CancellationToken ct = default)
     {
-        var counts = (await employees.ListAsync(e => e.GradeId != null && e.Status != EmployeeStatus.Separated, ct))
-            .GroupBy(e => e.GradeId!.Value).ToDictionary(g => g.Key, g => g.Count());
+        var counts = await employees.CountByGradeAsync(ct); // docs/32: counted in the database
         return (await grades.ListAsync(ct: ct)).OrderBy(g => g.SortOrder).ThenBy(g => g.Code)
             .Select(g => new GradeListItemDto(g.Id, g.Code, g.Name, g.SortOrder, g.MinMonthlySalary, g.MaxMonthlySalary, g.IsActive, counts.GetValueOrDefault(g.Id)))
             .ToList();

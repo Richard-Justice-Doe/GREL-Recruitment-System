@@ -279,9 +279,38 @@ public class EmployeeServiceTests : OnboardingTestBase
         Assert.Equal("Kofi Owusu, Jr", await Db(db => db.Users.Where(u => u.Id == kofi.UserId).Select(u => u.FullName).SingleAsync()));
 
         // The list: HR sees both; the search finds by name.
-        Assert.Equal(2, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter()))).Count);
-        Assert.Equal("GREL-0302", Assert.Single(await RunEmployees(s => s.SearchAsync(new EmployeeFilter { Search = "owusu" }))).EmployeeNumber);
+        Assert.Equal(2, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter()))).TotalCount);
+        Assert.Equal("GREL-0302", Assert.Single((await RunEmployees(s => s.SearchAsync(new EmployeeFilter { Search = "owusu" }))).Items).EmployeeNumber);
         Assert.Equal(new EmployeeCountsDto(2, 1, 1, 0), await RunEmployees(s => s.CountsAsync()));
+    }
+
+    [Fact]
+    public async Task The_list_is_paged_and_searched_in_the_database()
+    {
+        AsHrManager();
+        var csv = new StringBuilder("StaffNumber,FullName,Email,Position,Department,Site,HireDate\n");
+        for (var i = 1; i <= 12; i++)
+            csv.Append($"GREL-1{i:000},Worker {i:00},w{i}@grel.test,{(i == 7 ? "Tapper_Lead" : "Tapper")},{(i <= 9 ? "APM" : "HR")},ABU,2020-01-01\n");
+        Assert.True((await RunEmployees(s => s.ImportAsync(Csv(csv.ToString())))).Succeeded);
+
+        var first = await RunEmployees(s => s.SearchAsync(new EmployeeFilter { PageSize = 10 }));
+        Assert.Equal((12, 2, 10), (first.TotalCount, first.TotalPages, first.Items.Count));
+        Assert.Equal("Worker 01", first.Items[0].Name); // sorted by name
+        var second = await RunEmployees(s => s.SearchAsync(new EmployeeFilter { PageSize = 10, Page = 2 }));
+        Assert.Equal(["Worker 11", "Worker 12"], second.Items.Select(e => e.Name));
+        Assert.Equal(2, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter { PageSize = 10, Page = 99 }))).Page); // past the end: the last page
+
+        // Search: name, staff number or position, case-insensitive; "_" is a plain character, not a wildcard.
+        Assert.Equal(1, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter { Search = "WORKER 03" }))).TotalCount);
+        Assert.Equal(1, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter { Search = "grel-1012" }))).TotalCount);
+        Assert.Equal("Worker 07", Assert.Single((await RunEmployees(s => s.SearchAsync(new EmployeeFilter { Search = "r_l" }))).Items).Name);
+
+        // The APM Head of Department sees the 9 APM employees only, in the list and in the counts.
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.Equal(9, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter()))).TotalCount);
+        Assert.Equal(new EmployeeCountsDto(9, 0, 9, 0), await RunEmployees(s => s.CountsAsync()));
+        As(_staff, Roles.Employee);
+        Assert.Equal(0, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter()))).TotalCount); // no permission
     }
 
     [Fact]

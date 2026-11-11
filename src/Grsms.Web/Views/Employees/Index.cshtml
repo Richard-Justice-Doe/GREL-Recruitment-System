@@ -1,10 +1,18 @@
 @* Phase 28 (docs/30): the employee list. A Head of Department sees their own departments; HR sees everyone. *@
-@model IReadOnlyList<EmployeeListItemDto>
+@model Grsms.Application.Common.PagedResult<EmployeeListItemDto>
 @{
     ViewData["Title"] = "Employees";
     string tab = ViewBag.Tab;
     var counts = (EmployeeCountsDto)ViewBag.Counts;
     bool canManage = ViewBag.CanManage;
+    Dictionary<string, string> Route(int page)
+    {
+        var d = new Dictionary<string, string> { ["tab"] = tab, ["page"] = page.ToString() };
+        if (!string.IsNullOrWhiteSpace((string?)ViewBag.Search)) d["search"] = (string)ViewBag.Search;
+        if (ViewBag.DepartmentId is int dep) d["departmentId"] = dep.ToString();
+        if (ViewBag.GradeId is int grade) d["gradeId"] = grade.ToString();
+        return d;
+    }
     var tabs = new[]
     {
         ("current", "Current staff", counts.All),
@@ -59,13 +67,13 @@
         <table class="table table-hover mb-0">
             <thead><tr><th>Staff no.</th><th>Name</th><th>Position</th><th>Department</th><th class="d-none d-md-table-cell">Site</th><th class="d-none d-lg-table-cell">Grade</th><th class="d-none d-md-table-cell">Joined</th><th>Status</th></tr></thead>
             <tbody>
-                @if (Model.Count == 0)
+                @if (Model.Items.Count == 0)
                 {
                     <tr><td colspan="8" class="text-center text-body-secondary py-4">
                         No employees here.@(canManage && counts.All == 0 ? " Register existing staff, or import them from a CSV file." : "")
                     </td></tr>
                 }
-                @foreach (var e in Model)
+                @foreach (var e in Model.Items)
                 {
                     <tr>
                         <td class="text-nowrap"><a asp-action="Details" asp-route-id="@e.Id" class="fw-semibold text-decoration-none">@e.EmployeeNumber</a></td>
@@ -80,5 +88,15 @@
                 }
             </tbody>
         </table>
+    </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3">
+        <span class="small text-body-secondary">@Model.TotalCount employee@(Model.TotalCount == 1 ? "" : "s") · page @Model.Page of @Model.TotalPages</span>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="d-flex gap-2">
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+            </div>
+        }
     </div>
 </div>

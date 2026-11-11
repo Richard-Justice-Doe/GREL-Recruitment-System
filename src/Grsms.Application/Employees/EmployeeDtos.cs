@@ -14,6 +14,27 @@ public class EmployeeFilter
     public int? DepartmentId { get; set; }
     public EmployeeStatus? Status { get; set; }
     public int? GradeId { get; set; }
+
+    /// <summary>docs/32: the list is paged in the database.</summary>
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 50;
+}
+
+/// <summary>One employee as the list reads it from the database (the name from Users; organisation names added by the service).</summary>
+public record EmployeeRow(int Id, string EmployeeNumber, string Name, string PositionTitle, int DepartmentId, int SiteId, int? GradeId,
+    EmploymentType EmploymentType, EmployeeStatus Status, DateOnly HireDate);
+
+/// <summary>docs/32: employee queries done in the database (filtering, counting and paging), so the list stays fast with thousands of staff.</summary>
+public interface IEmployeeRepository : Common.Interfaces.IRepository<Employee>
+{
+    /// <summary>One page of the list. <paramref name="visibility"/>: everyone, or these departments plus the user's own record.</summary>
+    Task<Common.PagedResult<EmployeeRow>> SearchAsync(EmployeeFilter filter, Recruitment.RequestVisibility visibility, CancellationToken ct = default);
+
+    /// <summary>How many employees per status, within <paramref name="visibility"/>.</summary>
+    Task<IReadOnlyDictionary<EmployeeStatus, int>> CountByStatusAsync(Recruitment.RequestVisibility visibility, CancellationToken ct = default);
+
+    /// <summary>Current (not separated) employees per grade.</summary>
+    Task<IReadOnlyDictionary<int, int>> CountByGradeAsync(CancellationToken ct = default);
 }
 
 public record EmployeeListItemDto(int Id, string EmployeeNumber, string Name, string PositionTitle, string DepartmentName, string SiteName,

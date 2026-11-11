@@ -24,12 +24,18 @@ public class UsersController(
     Application.Common.WorkflowMailer mailer) : AppController
 {
     /// <param name="candidates">True to show candidate (portal) accounts instead of staff.</param>
-    public async Task<IActionResult> Index(bool candidates, CancellationToken ct)
+    /// <remarks>docs/32: searched, sorted and paged in the database (candidates keep registering, so this list keeps growing).</remarks>
+    public async Task<IActionResult> Index(bool candidates, string? search, string? sort, int page = 1, CancellationToken ct = default)
     {
         ViewBag.ShowCandidates = candidates;
-        var all = await users.GetAllAsync(includeCandidates: true, ct);
-        return View(all.Where(u => u.IsCandidate == candidates).ToList());
+        ViewBag.Search = search;
+        ViewBag.Sort = sort == "recent" ? "recent" : "name";
+        return View(await users.SearchAsync(new UserSearch { Candidates = candidates, Search = search, Sort = sort, Page = page }, ct));
     }
+
+    /// <summary>Back to the list exactly as it was (page, search, sort), when the form sent it; otherwise the tab.</summary>
+    private IActionResult BackToList(string? returnUrl, bool candidates) =>
+        !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToAction(nameof(Index), new { candidates });
 
     public async Task<IActionResult> Create(CancellationToken ct)
     {
@@ -85,21 +91,21 @@ public class UsersController(
     }
 
     [HttpPost]
-    public async Task<IActionResult> SetActive(string id, bool active, bool candidates, CancellationToken ct)
+    public async Task<IActionResult> SetActive(string id, bool active, bool candidates, string? returnUrl, CancellationToken ct)
     {
         var result = await users.SetActiveAsync(id, active, CurrentUserId, ct);
         if (result.Succeeded) Success(active ? "Account activated." : "Account deactivated. The user will be signed out within 5 minutes.");
         else Fail(result);
-        return RedirectToAction(nameof(Index), new { candidates });
+        return BackToList(returnUrl, candidates);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Unlock(string id, bool candidates, CancellationToken ct)
+    public async Task<IActionResult> Unlock(string id, bool candidates, string? returnUrl, CancellationToken ct)
     {
         var result = await users.UnlockAsync(id, ct);
         if (result.Succeeded) Success("Account unlocked.");
         else Fail(result);
-        return RedirectToAction(nameof(Index), new { candidates });
+        return BackToList(returnUrl, candidates);
     }
 
     private string CurrentUserId => userManager.GetUserId(User)!;

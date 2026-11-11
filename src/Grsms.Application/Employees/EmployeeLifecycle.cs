@@ -68,7 +68,9 @@ public class EmployeeLifecycle(
         var activated = await onboardings.ListAsync(o => (o.Status == OnboardingStatus.AwaitingDepartmentalInduction || o.Status == OnboardingStatus.Completed)
                                                          && o.EmployeeNumber != null, ct);
         if (activated.Count == 0) return 0;
-        var users = (await employees.ListAsync(ct: ct)).Select(e => e.UserId).ToHashSet();
+        // docs/32: only the records of these people, not the whole Employees table.
+        var activatedUsers = activated.Select(o => o.EmployeeUserId).Distinct().ToList();
+        var users = (await employees.ListAsync(e => activatedUsers.Contains(e.UserId), ct)).Select(e => e.UserId).ToHashSet();
         var created = 0;
         foreach (var o in activated.Where(o => !users.Contains(o.EmployeeUserId)).OrderBy(o => o.CompletedAt ?? o.StatusChangedAt))
         {

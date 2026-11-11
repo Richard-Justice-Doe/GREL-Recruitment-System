@@ -35,8 +35,23 @@ public class AdminBreadcrumbWebTests(GrsmsWebFactory factory) : IClassFixture<Gr
         var add = await client.GetStringAsync("/Sites/Create");
         Assert.Contains("<a href=\"/Sites\">Sites</a>", add);
 
-        // Not on other pages, nor on the Administration page itself.
+        // Not on the home page, nor on the Administration page itself.
         Assert.DoesNotContain("aria-label=\"Breadcrumb\"", await client.GetStringAsync("/Administration"));
         Assert.DoesNotContain("aria-label=\"Breadcrumb\"", await client.GetStringAsync("/"));
+
+        // docs/32: the menu groups are named after what is in them.
+        var home = await client.GetStringAsync("/");
+        foreach (var group in new[] { "recruitment", "candidates", "employees" })
+            Assert.Contains($"data-nav-group=\"{group}\"", home);
+        Assert.DoesNotContain("data-nav-group=\"hire\"", home);
+
+        // Menu pages: "group › item" on a list, "group › item (link) › this page" inside it.
+        var requests = await client.GetStringAsync("/RecruitmentRequests");
+        Assert.Contains("<li class=\"breadcrumb-item text-body-secondary\">Recruitment</li>", requests);
+        Assert.Contains("aria-current=\"page\">Recruitment requests</li>", requests);
+        Assert.Contains("data-nav-current=\"yes\"", requests); // the Recruitment group is marked as the current one
+        var register = await client.GetStringAsync("/Employees/Register");
+        Assert.Contains("<a href=\"/Employees\">Employees</a>", register);
+        Assert.Contains("aria-current=\"page\" style=\"max-width: 40ch\">Register existing employee</li>", register);
     }
 }

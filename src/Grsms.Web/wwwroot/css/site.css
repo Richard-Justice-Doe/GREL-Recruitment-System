@@ -272,9 +272,10 @@ body {
 .nav-group > summary .group-count { margin-left: auto; }
 .nav-group > summary .group-count + .group-chevron { margin-left: 0.4rem; }
 .nav-group .nav-link { padding-left: 1rem; }
-.nav-group.group-hire      { --group-color: var(--tone-hire);      --group-soft: var(--tone-hire-soft);      --group-ink: var(--tone-hire-ink); }
-.nav-group.group-onboard   { --group-color: var(--tone-onboard);   --group-soft: var(--tone-onboard-soft);   --group-ink: var(--tone-onboard-ink); }
-.nav-group.group-people    { --group-color: var(--tone-probation); --group-soft: var(--tone-probation-soft); --group-ink: var(--tone-probation-ink); } /* Phase 28 */
+.nav-group.group-recruitment { --group-color: var(--tone-hire);      --group-soft: var(--tone-hire-soft);      --group-ink: var(--tone-hire-ink); }
+.nav-group.group-candidates  { --group-color: var(--tone-interview); --group-soft: var(--tone-interview-soft); --group-ink: var(--tone-interview-ink); }
+.nav-group.group-hiring      { --group-color: var(--tone-offer);     --group-soft: var(--tone-offer-soft);     --group-ink: var(--tone-offer-ink); }
+.nav-group.group-employees   { --group-color: var(--tone-onboard);   --group-soft: var(--tone-onboard-soft);   --group-ink: var(--tone-onboard-ink); } /* docs/32: menu groups */
 .nav-group.group-insights  { --group-color: var(--tone-insights);  --group-soft: var(--tone-insights-soft);  --group-ink: var(--tone-insights-ink); }
 .nav-group.group-me        { --group-color: var(--tone-interview); --group-soft: var(--tone-interview-soft); --group-ink: var(--tone-interview-ink); }
 .nav-group.group-admin     { --group-color: var(--tone-admin);     --group-soft: var(--tone-admin-soft);     --group-ink: var(--tone-admin-ink); }

@@ -512,8 +512,31 @@ dl.details-grid dt { color: var(--bs-secondary-color); font-weight: 500; }
 dl.details-grid dd { margin: 0; }
 
 /* ---------- 6. Sign-in pages ---------- */
-.auth-wrapper { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem 1rem; }
+/* Background: a GREL rubber plantation (wwwroot/images/login-background.jpg), under a soft shade so the card stays readable.
+   It covers the whole screen and stays still while the card scrolls on small phones. */
+.auth-wrapper {
+    min-height: 100vh; display: grid; place-items: center; padding: 1.5rem 1rem;
+    background:
+        linear-gradient(180deg, rgba(10, 40, 22, 0.25), rgba(10, 40, 22, 0.55)),
+        url("../images/login-background.jpg") center / cover no-repeat fixed;
+    background-color: #1f3d2a; /* while the photo loads */
+}
+[data-bs-theme="dark"] .auth-wrapper {
+    background:
+        linear-gradient(180deg, rgba(5, 15, 10, 0.55), rgba(5, 15, 10, 0.8)),
+        url("../images/login-background.jpg") center / cover no-repeat fixed;
+}
 .auth-card { width: 100%; max-width: 440px; padding: 2rem; }
+/* On the photo the card needs a solid, slightly blurred background to keep the text easy to read. */
+.auth-wrapper .auth-card {
+    background: color-mix(in srgb, var(--bs-body-bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.35);
+}
+@media (max-width: 991.98px) {
+    .auth-wrapper { background-attachment: scroll; } /* "fixed" backgrounds jump or zoom on phones */
+}
 .auth-brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
 .auth-brand .brand-mark {
     width: 2.75rem; height: 2.75rem; border-radius: 0.75rem;

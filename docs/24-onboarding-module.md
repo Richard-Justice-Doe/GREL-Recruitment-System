@@ -107,7 +107,7 @@ Documents arrive one by one; you are emailed once the new employee has provided 
 * **Open the personal record** to read the Personal Record Declaration (read-only, printable) and the signature history;
 * to have something else corrected (for example the personal record), use **Ask the new employee for a correction** in the *Next step* panel.
 
-The RO can also upload a document for the new employee (for example a scan of an original brought in on paper) until activation.
+**Only the new employee uploads documents** (since 11 November 2026). Staff open, review, verify and reject them, and can ask for a correction, but never upload, replace or remove a document on the new employee's behalf. If someone has trouble uploading, help them do it themselves in My onboarding (for example on an HR office computer).
 
 ### Activation and induction
 When the onboarding is **Ready for activation**, the *Next step* panel shows the **departmental induction areas** (the defaults already ticked) and the **staff number** box. Click **Activate the employee**: the account becomes a staff account (Employee role added, Candidate role removed, staff number, department and site set), the probation starts, the personnel file is filled, and each ticked area's tasks are added to the checklist, given to the area's owner and due a week later. The new employee (template *Onboarding: staff account active*), the task owners and the HOD are emailed.

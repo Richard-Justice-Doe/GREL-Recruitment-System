@@ -39,15 +39,16 @@ public class DocumentVerificationServiceTests : OnboardingTestBase
     }
 
     [Fact]
-    public async Task Uploads_open_at_start_only_for_the_new_employee_or_the_ro_and_files_are_checked()
+    public async Task Uploads_open_at_start_only_for_the_new_employee_and_files_are_checked()
     {
         var (id, app) = await StartedAsync();
         Assert.Equal(OnboardingStatus.Draft, (await RecordAsync(id)).Status);
         Assert.Contains(_db.SentEmails(), m => m.Contains("To: ama@mail.test") && m.Contains("onboarding has started"));
         var ghanaCard = await DocAsync(id, "GhanaCard");
 
-        // Another candidate, the HOD, an unrelated staff member and the HR Manager (view only) cannot upload.
-        foreach (var (user, role) in new[] { (_candidate2, Roles.Candidate), (_hod, Roles.HeadOfDepartment), (_staff, Roles.Employee), (_hrm, Roles.HrManager) })
+        // Another candidate, the HOD, an unrelated staff member, the HR Manager and the Recruitment Officer cannot upload: only the
+        // new employee does (11 Nov 2026, docs/29 change 3).
+        foreach (var (user, role) in new[] { (_candidate2, Roles.Candidate), (_hod, Roles.HeadOfDepartment), (_staff, Roles.Employee), (_hrm, Roles.HrManager), (_ro, Roles.RecruitmentOfficer) })
         {
             As(user, role);
             Assert.False((await RunDocs(s => s.UploadAsync(ghanaCard.Id, "card.pdf", FakePdf()))).Succeeded);

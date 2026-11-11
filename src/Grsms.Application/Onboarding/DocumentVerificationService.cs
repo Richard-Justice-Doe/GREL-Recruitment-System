@@ -16,8 +16,8 @@ namespace Grsms.Application.Onboarding;
 /// own. After every change the onboarding's stage is worked out again (<see cref="OnboardingProgressService.RefreshAsync"/>).
 ///
 /// WHO MAY DO WHAT (checked here, on the server):
-///   * Upload / replace / remove a file, declare "not applicable" : the new employee until activation, never on a verified document
-///                                                                 or one under review; the RO (onboarding.manage) on their behalf.
+///   * Upload / replace / remove a file, declare "not applicable" : ONLY the new employee, until activation, never on a verified document
+///                                                                 or one under review. Staff never upload on their behalf (11 Nov 2026).
 ///   * Start review / verify / reject                             : onboarding.verify-documents (Recruitment Officers by default),
 ///                                                                 until activation, never on their own onboarding.
 ///   * Change the requirements (expatriate, education certificates): onboarding.manage.
@@ -118,7 +118,7 @@ public class DocumentVerificationService(
             o.LetterAcknowledged, snap.PersonalRecordSigned, o.IsExpatriate, o.DocumentsDueDate, o.CorrectionMessage, snap.Readiness.ForEmployee, snap.Percent);
     }
 
-    // ===================================================================== The new employee (or the RO on their behalf)
+    // ===================================================================== The new employee only
 
     /// <summary>
     /// Adds a file to a document, or replaces one of its files (<paramref name="replacesAttachmentId"/>; the old file moves to the
@@ -371,12 +371,9 @@ public class DocumentVerificationService(
 
     // ===================================================================== Helpers
 
-    /// <summary>The new employee until activation; the RO (onboarding.manage, not on their own onboarding) on their behalf.</summary>
-    private bool CanEdit(OnboardingRecord o)
-    {
-        if (o.EmployeeUserId == me.UserId) return OnboardingWorkflow.EmployeeMayEditDocuments(o.Status);
-        return MayManage && OnboardingWorkflow.HrMayEditDocuments(o.Status);
-    }
+    /// <summary>Only the new employee, until activation (11 Nov 2026, docs/29 change 3: staff never upload on their behalf).</summary>
+    private bool CanEdit(OnboardingRecord o) =>
+        o.EmployeeUserId == me.UserId && OnboardingWorkflow.EmployeeMayEditDocuments(o.Status);
 
     private bool CanReview(OnboardingRecord o) =>
         MayVerify && o.EmployeeUserId != me.UserId && OnboardingWorkflow.DocumentsMayBeReviewed(o.Status);
@@ -385,7 +382,8 @@ public class DocumentVerificationService(
     {
         var d = await documents.GetByIdAsync(documentId, ct);
         var o = d is null ? null : await onboardings.GetByIdAsync(d.OnboardingRecordId, ct);
-        if (d is null || o is null || (o.EmployeeUserId != me.UserId && !MayManage)) return (null, null, null, "Document not found.");
+        if (d is null || o is null) return (null, null, null, "Document not found.");
+        if (o.EmployeeUserId != me.UserId) return (null, null, null, "Only the new employee uploads their onboarding documents; HR verifies or rejects them.");
         if (!CanEdit(o))
             return (null, null, null, o.EmployeeUserId == me.UserId
                 ? "Your onboarding is complete, so your documents can no longer be changed."

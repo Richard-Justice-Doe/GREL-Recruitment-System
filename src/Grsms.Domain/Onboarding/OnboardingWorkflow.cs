@@ -66,8 +66,6 @@ public static class OnboardingWorkflow
     /// <summary>The new employee may upload documents and change the personal record until activation.</summary>
     public static bool EmployeeMayEditDocuments(OnboardingStatus s) => BeforeActivation(s);
 
-    /// <summary>The RO may upload documents for the new employee (e.g. originals brought in) until activation.</summary>
-    public static bool HrMayEditDocuments(OnboardingStatus s) => BeforeActivation(s);
 
     /// <summary>Documents are reviewed as they arrive, until activation.</summary>
     public static bool DocumentsMayBeReviewed(OnboardingStatus s) => BeforeActivation(s);

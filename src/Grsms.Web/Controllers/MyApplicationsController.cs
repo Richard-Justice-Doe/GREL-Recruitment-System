@@ -28,11 +28,12 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         return View(model);
     }
 
-    /// <summary>The appointment letter (printable), with the signature box while it is unsigned.</summary>
+    /// <summary>The appointment letter (printable), with the signature box while it is unsigned. Before HR issues the letter
+    /// the page still opens and shows the first-day information, with a note that the letter is being prepared.</summary>
     public async Task<IActionResult> Appointment(int id, CancellationToken ct)
     {
         var model = await onboarding.GetMyAppointmentAsync(id, ct);
-        if (model is null || !model.LetterReady) return NotFound();
+        if (model is null) return NotFound();
         ViewBag.ApplicationId = id;
         return View(model);
     }

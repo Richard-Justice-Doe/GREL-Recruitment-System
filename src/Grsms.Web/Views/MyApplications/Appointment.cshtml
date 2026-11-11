@@ -1,23 +1,44 @@
-@* The new employee's appointment letter: printable, with a signature box until it is signed. *@
+@* The new employee's appointment letter and first day: printable, with a signature box until it is signed. Before HR
+   issues the letter the page shows the first-day information and says the letter is being prepared. *@
 @model MyAppointmentDto
 @{
-    ViewData["Title"] = $"Appointment letter {Model.LetterNumber}";
+    ViewData["Title"] = Model.LetterReady ? $"Appointment letter {Model.LetterNumber}" : "Appointment letter and first day";
+    int applicationId = ViewBag.ApplicationId;
 }
 
 <div class="page-header d-print-none">
     <div>
         <h1>Your appointment letter</h1>
-        <p>@Model.LetterNumber · <strong>@(Model.LetterSignedAt is null ? "Waiting for your signature" : "Signed")</strong></p>
+        <p>@if (Model.LetterReady) { @Model.LetterNumber <text> · </text> }<strong>@(!Model.LetterReady ? "Being prepared" : Model.LetterSignedAt is null ? "Waiting for your signature" : "Signed")</strong></p>
     </div>
     <div class="d-flex gap-2">
-        <button type="button" class="btn btn-outline-secondary" data-print><i class="fa-solid fa-print me-1"></i>Print</button>
-        <a asp-action="Details" asp-route-id="@ViewBag.ApplicationId" class="btn btn-outline-secondary">Back to my application</a>
+        @if (Model.LetterReady)
+        {
+            <button type="button" class="btn btn-outline-secondary" data-print><i class="fa-solid fa-print me-1"></i>Print</button>
+        }
+        <a asp-action="Documents" asp-route-id="@applicationId" class="btn btn-outline-secondary">My onboarding</a>
+        <a asp-action="Details" asp-route-id="@applicationId" class="btn btn-outline-secondary">Back to my application</a>
     </div>
 </div>
 
 <div class="row g-3">
     <div class="col-xl-8">
-        <partial name="_AppointmentLetter" model="Model" />
+        @if (Model.LetterReady)
+        {
+            <partial name="_AppointmentLetter" model="Model" />
+        }
+        else
+        {
+            <div class="card glass border border-info">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-regular fa-hourglass-half me-1"></i>Your letter is being prepared</h2>
+                    <p class="mb-2">HR is preparing your appointment letter for <strong>@Model.JobTitle</strong>. We will email you as soon as it is ready,
+                        and you will read and sign it on this page.</p>
+                    <p class="small text-body-secondary mb-0">Meanwhile you can upload your documents and fill in your personal record on
+                        <a asp-action="Documents" asp-route-id="@applicationId">My onboarding</a>.</p>
+                </div>
+            </div>
+        }
     </div>
 
     <div class="col-xl-4 d-print-none">
@@ -26,7 +47,7 @@
             <div class="card glass border border-primary mb-3">
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-3">Sign the letter</h2>
-                    <form asp-action="SignLetter" asp-route-id="@ViewBag.ApplicationId" method="post">
+                    <form asp-action="SignLetter" asp-route-id="@applicationId" method="post">
                         <label for="fullName" class="form-label small">Type your full name exactly as it appears on the letter: <strong>@Model.EmployeeName</strong></label>
                         <input id="fullName" name="fullName" class="form-control mb-2" maxlength="200" required autocomplete="name" />
                         <div class="form-check mb-3">
@@ -43,5 +64,38 @@
         {
             <div class="alert alert-success">You signed this letter on @Model.LetterSignedAt.Value.ToString("d MMMM yyyy"). Welcome to GREL!</div>
         }
+
+        <div class="card glass mb-3">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-solid fa-door-open me-1"></i>Your first day</h2>
+                <dl class="details-grid small mb-2">
+                    <dt>When</dt><dd class="fw-semibold">@Model.StartDate.ToString("dddd dd MMMM yyyy"), @Model.ReportTime.ToString("HH:mm")</dd>
+                    <dt>Where</dt><dd>@Model.ReportLocation</dd>
+                    <dt>Place of work</dt><dd>@Model.SiteName</dd>
+                    @if (Model.ReportingTo is not null)
+                    {
+                        <dt>Reporting to</dt><dd>@Model.ReportingTo</dd>
+                    }
+                    @if (Model.ContactPerson is not null)
+                    {
+                        <dt>Who meets you</dt><dd>@Model.ContactPerson@(Model.ContactEmail is null ? "" : $" ({Model.ContactEmail})")</dd>
+                    }
+                    @if (Model.FirstDayNotes is not null)
+                    {
+                        <dt>Please note</dt><dd style="white-space: pre-wrap">@Model.FirstDayNotes</dd>
+                    }
+                </dl>
+                @if (Model.ToBring.Count > 0)
+                {
+                    <h3 class="h6 small fw-semibold mb-1">Please bring</h3>
+                    <ul class="list-unstyled small mb-0">
+                        @foreach (var (item, received) in Model.ToBring)
+                        {
+                            <li>@if (received) { <i class="fa-solid fa-check text-success me-1"></i> } else { <i class="fa-regular fa-square me-1"></i> }@item@(received ? " (received)" : "")</li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
     </div>
 </div>

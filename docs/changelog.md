@@ -4,6 +4,14 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 11 November 2026: the appointment page opens before the letter is issued
+
+* **Fix:** *My onboarding* links to **Appointment letter and first day** (`/MyApplications/Appointment/{id}`) from the start, but the page answered *Not found* until HR issued the letter. It now always opens for the new employee: before the letter it shows **Your letter is being prepared** and the first-day information; once issued, the letter, the signature box and the first day as before.
+* **Files:** `MyApplicationsController.Appointment`, `Views/MyApplications/Appointment.cshtml`; `OnboardingWebTests` checks the page before the letter is issued.
+* **Checked:** full suite, 197/197.
+
+---
+
 ## 11 November 2026: the IT Manager approves job adverts (docs/29, change 2)
 
 * **New built-in role IT Manager** (given by the Super Admin). Adverts now go: Recruitment Officer **Send for review** → HR Manager **Approve and send to IT** → IT Manager **Approve and publish** (live now, or scheduled for the start date). The HR and IT Managers can **return** (with what to correct) or **reject** (final; it can still be cloned).

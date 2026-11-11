@@ -140,11 +140,17 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
     /// <summary>The recruiter issues the letter (Phase 27); the new employee signs it.</summary>
     private async Task LetterIssuedAndSignedAsync(Cast c, string url, int id, string fullName)
     {
+        // Before the letter is issued the page still opens (linked from "My onboarding"): first day, letter being prepared.
+        var employee = await SignedInAsync(c.Email("cand"));
+        var letterPage = $"/MyApplications/Appointment/{c.ApplicationId}";
+        var waiting = await employee.GetStringAsync(letterPage);
+        Assert.Contains("Your letter is being prepared", waiting);
+        Assert.Contains("Your first day", waiting);
+        Assert.DoesNotContain("Sign the letter", waiting);
+
         var recruiter = await SignedInAsync(c.Email("ro"));
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/IssueLetter/{id}",
             new() { ["terms"] = "Probation: 6 months. Hours: 7:30 to 16:30, Monday to Friday." })).StatusCode);
-        var employee = await SignedInAsync(c.Email("cand"));
-        var letterPage = $"/MyApplications/Appointment/{c.ApplicationId}";
         Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(letterPage, $"/MyApplications/SignLetter/{c.ApplicationId}",
             new() { ["fullName"] = fullName, ["confirm"] = "true" })).StatusCode);
     }

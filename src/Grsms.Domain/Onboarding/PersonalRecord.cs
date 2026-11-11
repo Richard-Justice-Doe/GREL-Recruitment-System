@@ -130,10 +130,11 @@ public class EmployeeBankAccount
     public int Id { get; set; }
     public int PersonalRecordId { get; set; }
     public string BankName { get; set; } = string.Empty;
-    public string Branch { get; set; } = string.Empty;
+    /// <summary>No longer captured since 11 Nov 2026 (docs/29): kept for accounts given before then.</summary>
+    public string? Branch { get; set; }
     public string AccountNumber { get; set; } = string.Empty;
 
-    /// <summary>The account salary is paid into. Exactly one account is primary.</summary>
+    /// <summary>The account salary is paid into. Since 11 Nov 2026 an employee has exactly one account, always primary.</summary>
     public bool IsPrimary { get; set; }
 }
 

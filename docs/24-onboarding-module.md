@@ -54,7 +54,7 @@ Your name, staff number, department, position and service date are filled in fro
 |---|---|
 | **Employee information** | Qualification, SSNIT number, date of birth (your age is worked out from it), residential address, home town, region, tribe, religion, email, mobile number, any disability (and support you need at work), visible marks |
 | **Languages spoken** | Each language and how well you speak it: *very fluent*, *fluent* or *passable* |
-| **Bank accounts** | Bank, branch and account number. Mark one as **primary**: your salary is paid into it |
+| **Bank account** | Exactly **one** account, the one your salary is paid into: **bank name** and **account number**. No bank letter is needed (11 Nov 2026, docs/29 change 4) |
 | **Family records** | Spouse (if any): name, occupation, date of birth, address, telephone. Children: name, gender, date of birth, place of birth, where they live now. Dependants: name, relationship, age. Add as many rows as you need |
 | **Next of kin** | Name, relationship, telephone, date of birth, address |
 | **Emergency contact** | Name, relationship and one or two telephone numbers (up to three contacts) |
@@ -73,7 +73,6 @@ The list is set by the HR Administrator on **Onboarding documents** (below). Out
 | Personal documents | Application letter · Updated CV · Passport-size photograph · Ghana Card / National ID (Ghanaians) · SSNIT card · Birth certificate |
 | Education documents | BECE · WASSCE / SSSCE · Diploma · HND · Degree · Master's · Professional certifications: **the RO ticks which you must provide**; the others are optional |
 | Employment and verification | Recommendation letters (two) · Police clearance report · Medical examination report |
-| Banking information | Bank confirmation letter |
 | Family documents (optional) | Marriage certificate · Children's birth certificates · Dependants' passport photographs |
 | Expatriate documents (only when the RO ticks *Expatriate*) | Passport biodata page · Non-citizen card · Work permit · Residence permit |
 
@@ -158,7 +157,7 @@ Each employee has one file, numbered e.g. **PF-2026-0001**, opened (empty) when 
 | Recruitment Documents | The application's files (CV, certificates, cover letter as sent); application letter, CV and recommendation letters |
 | Employee Records | The signed Personal Record Declaration; education certificates, marriage certificate, children's birth certificates, dependants' photographs |
 | Identification Records | Passport picture, birth certificate, Ghana Card, SSNIT card, passport biodata page, non-citizen card |
-| Compliance Records | Medical report, police clearance, bank confirmation letter, work and residence permits |
+| Compliance Records | Medical report, police clearance, work and residence permits (and a bank confirmation letter uploaded before 11 Nov 2026) |
 | Onboarding Records | The onboarding and induction record: every task, who did it and who verified it (when the induction closes) |
 | Probation Records | The signed initial meeting and each probation assessment ([probation](25-probation-management.md)) |
 | Generated Letters | The appointment letter, frozen exactly as it was signed |

@@ -258,6 +258,13 @@ public class OnboardingService(
         var manage = MayManage && !own && OnboardingWorkflow.IsActive(o.Status);
         var complete = MayComplete && !own;
         var snap = await progress.SnapshotAsync(o, ct);
+        // Self-healing: if the facts changed outside a document action (e.g. a document type retired by a data update, such as
+        // the bank letter on 11 Nov 2026), bring the stage up to date before showing the page.
+        if (OnboardingWorkflow.BeforeActivation(o.Status) && OnboardingWorkflow.StageFor(o, snap.Readiness) != o.Status)
+        {
+            await progress.RefreshAsync(o.Id, ct);
+            snap = await progress.SnapshotAsync(o, ct);
+        }
         var inductionBlocked = InductionProblem(o, list);
         var steps = (await history.ListAsync(a => a.OnboardingRecordId == o.Id, ct)).OrderBy(a => a.ActionAt).ThenBy(a => a.Id)
             .Select(a => new OnboardingHistoryDto(a.Action, a.FromStatus, a.ToStatus, a.ActorName, a.Comments, a.ActionAt)).ToList();

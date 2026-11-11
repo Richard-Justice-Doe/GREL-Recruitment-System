@@ -21,7 +21,7 @@ namespace Grsms.Application.Onboarding;
 ///   * Read                   : the new employee (their own) and HR (Recruitment Officer, HR Manager). Not the HOD: it
 ///                              holds family, bank and health details.
 /// Every rule of the form (required fields, at least one language, bank account, emergency contact and beneficiary, exactly
-/// one primary bank account, and beneficiaries adding up to exactly 100%) is checked here; nothing is saved otherwise.
+/// exactly one bank account (bank name and account number), and beneficiaries adding up to exactly 100%) is checked here; nothing is saved otherwise.
 /// Each signature is an immutable <see cref="EmployeeDeclaration"/> holding a frozen copy of what was signed.
 /// </summary>
 public class PersonalRecordService(
@@ -205,11 +205,11 @@ public class PersonalRecordService(
         if (f.Languages.Any(l => l.Language is null || l.Proficiency is null)) errors.Add("Give each language and how well you speak it.");
         if (f.Languages.Select(l => l.Language?.ToLowerInvariant()).Distinct().Count() != f.Languages.Count) errors.Add("List each language once.");
 
-        // Bank accounts
-        if (f.BankAccounts.Count == 0) errors.Add("Add the bank account your salary should be paid into.");
-        if (f.BankAccounts.Any(b => b.BankName is null || b.Branch is null || b.AccountNumber is null))
-            errors.Add("Give the bank, branch and account number of each bank account.");
-        if (f.BankAccounts.Count > 0 && f.BankAccounts.Count(b => b.IsPrimary) != 1) errors.Add("Mark exactly one bank account as primary.");
+        // Bank account (11 Nov 2026, docs/29 change 4): exactly one, bank name and account number.
+        if (f.BankAccounts.Count == 0) errors.Add("Give the bank account your salary should be paid into.");
+        if (f.BankAccounts.Count > 1) errors.Add("Give one bank account only.");
+        if (f.BankAccounts.Any(b => b.BankName is null || b.AccountNumber is null))
+            errors.Add("Give the bank name and the account number.");
 
         // Family
         if (f.Spouses.Count > MaxSpouses) errors.Add($"List at most {MaxSpouses} spouses.");
@@ -258,7 +258,7 @@ public class PersonalRecordService(
             : (null, "Your personal record is with HR now; you can change it only if HR sends your onboarding back to you.");
     }
 
-    /// <summary>Trims everything, drops completely empty rows, and makes a single bank account the primary one.</summary>
+    /// <summary>Trims everything, drops completely empty rows, and makes the bank account the primary one.</summary>
     private static void Normalize(PersonalRecordForm f)
     {
         f.Qualification = Clean(f.Qualification);
@@ -279,7 +279,7 @@ public class PersonalRecordService(
         f.Languages = f.Languages.Where(x => !x.IsEmpty).ToList();
         foreach (var x in f.Languages) x.Language = Clean(x.Language);
         f.BankAccounts = f.BankAccounts.Where(x => !x.IsEmpty).ToList();
-        foreach (var x in f.BankAccounts) { x.BankName = Clean(x.BankName); x.Branch = Clean(x.Branch); x.AccountNumber = Clean(x.AccountNumber); }
+        foreach (var x in f.BankAccounts) { x.BankName = Clean(x.BankName); x.AccountNumber = Clean(x.AccountNumber); x.IsPrimary = true; }
         if (f.BankAccounts.Count == 1) f.BankAccounts[0].IsPrimary = true;
         f.Spouses = f.Spouses.Where(x => !x.IsEmpty).ToList();
         foreach (var x in f.Spouses) { x.FullName = Clean(x.FullName); x.Occupation = Clean(x.Occupation); x.Address = Clean(x.Address); x.Telephone = Clean(x.Telephone); }
@@ -318,7 +318,7 @@ public class PersonalRecordService(
         r.Languages.Clear();
         foreach (var x in f.Languages) r.Languages.Add(new EmployeeLanguage { Language = x.Language!, Proficiency = x.Proficiency!.Value });
         r.BankAccounts.Clear();
-        foreach (var x in f.BankAccounts) r.BankAccounts.Add(new EmployeeBankAccount { BankName = x.BankName!, Branch = x.Branch!, AccountNumber = x.AccountNumber!, IsPrimary = x.IsPrimary });
+        foreach (var x in f.BankAccounts) r.BankAccounts.Add(new EmployeeBankAccount { BankName = x.BankName!, AccountNumber = x.AccountNumber!, IsPrimary = true });
         r.Spouses.Clear();
         foreach (var x in f.Spouses) r.Spouses.Add(new EmployeeSpouse { FullName = x.FullName!, Occupation = x.Occupation, DateOfBirth = x.DateOfBirth, Address = x.Address, Telephone = x.Telephone });
         r.Children.Clear();
@@ -339,7 +339,9 @@ public class PersonalRecordService(
         NextOfKinName = r.NextOfKinName, NextOfKinTelephone = r.NextOfKinTelephone, NextOfKinRelationship = r.NextOfKinRelationship,
         NextOfKinDateOfBirth = r.NextOfKinDateOfBirth, NextOfKinAddress = r.NextOfKinAddress,
         Languages = r.Languages.OrderBy(x => x.Id).Select(x => new LanguageRow { Language = x.Language, Proficiency = x.Proficiency }).ToList(),
-        BankAccounts = r.BankAccounts.OrderBy(x => x.Id).Select(x => new BankAccountRow { BankName = x.BankName, Branch = x.Branch, AccountNumber = x.AccountNumber, IsPrimary = x.IsPrimary }).ToList(),
+        // One account since 11 Nov 2026: an older record with several shows (and keeps, when saved again) its primary one.
+        BankAccounts = r.BankAccounts.OrderByDescending(x => x.IsPrimary).ThenBy(x => x.Id).Take(1)
+            .Select(x => new BankAccountRow { BankName = x.BankName, AccountNumber = x.AccountNumber, IsPrimary = true }).ToList(),
         Spouses = r.Spouses.OrderBy(x => x.Id).Select(x => new SpouseRow { FullName = x.FullName, Occupation = x.Occupation, DateOfBirth = x.DateOfBirth, Address = x.Address, Telephone = x.Telephone }).ToList(),
         Children = r.Children.OrderBy(x => x.Id).Select(x => new ChildRow { FullName = x.FullName, Gender = x.Gender, DateOfBirth = x.DateOfBirth, PlaceOfBirth = x.PlaceOfBirth, CurrentResidence = x.CurrentResidence }).ToList(),
         Dependants = r.Dependants.OrderBy(x => x.Id).Select(x => new DependantRow { FullName = x.FullName, Relationship = x.Relationship, Age = x.Age }).ToList(),

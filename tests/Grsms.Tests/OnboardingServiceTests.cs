@@ -54,7 +54,7 @@ public class OnboardingServiceTests : OnboardingTestBase
         Assert.DoesNotContain(list, t => t.Team == OnboardingTeam.NewEmployee); // Phase 18: the new-hire documents replace these items
         Assert.Equal((OnboardingStatus.Draft, Today.AddDays(50)), (record.Status, record.ExpectedCompletionDate));
         var docs = await DocumentsAsync(id);
-        Assert.Equal(24, docs.Count); // Phase 27: the 24 active default document types (not the old "School certificates")
+        Assert.Equal(23, docs.Count); // the 23 active default document types (not the old "School certificates")
         Assert.All(docs, d => Assert.Equal(EmployeeDocumentStatus.Pending, d.Status));
         Assert.Equal(14, docs.Count(d => !d.IsRequired)); // education (until ticked), family and expatriate documents
         Assert.Equal(Today.AddDays(18), list.First(t => t.Team == OnboardingTeam.InformationTechnology).DueDate); // start - 2
@@ -279,7 +279,7 @@ public class OnboardingServiceTests : OnboardingTestBase
         using (var counter = QueryCounter.Start())
         {
             var page = await Run(s => s.GetAsync(id));
-            Assert.Equal(24, page!.Documents!.Documents.Count);
+            Assert.Equal(23, page!.Documents!.Documents.Count);
             queries = counter.Count;
         }
         Assert.True(queries <= 20, $"The onboarding page ran {queries} queries.");
@@ -294,7 +294,7 @@ public class OnboardingServiceTests : OnboardingTestBase
         var work = await Run(s => s.MyWorkAsync());
         var verify = Assert.Single(work, w => w.OnboardingId == id);
         Assert.Equal(OnboardingWorkKind.VerifyDocuments, verify.Kind);
-        Assert.True(verify.Count >= 10);
+        Assert.True(verify.Count >= 9); // the 9 required documents (no bank letter since 11 Nov 2026)
         AsHrManager();
         Assert.Empty(await Run(s => s.MyWorkAsync())); // verifying is the RO's
         As(_hod, Roles.HeadOfDepartment);

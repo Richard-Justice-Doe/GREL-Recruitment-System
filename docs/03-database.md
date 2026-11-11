@@ -400,7 +400,7 @@ One row per document per onboarding, created (`Pending`) when onboarding starts.
 |---|---|---|
 | OnboardingRecordId | INT **FK → Onboardings** (RESTRICT) | unique together with DocumentType |
 | EmployeeUserId | VARCHAR(255) **FK → Users** | the new employee |
-| DocumentType | VARCHAR(40) | `ApplicationLetter`, `Cv`, `PassportPicture`, `RecommendationLetters`, `MedicalReport`, `PoliceClearance`, `SchoolCertificates`, `BirthCertificate`, `GhanaCard`, `SsnitCard`, `MarriageCertificate`, `ChildBirthCertificates`, `DependantPhotographs`, `BankConfirmationLetter`, `PassportBiodataPage`, `NonCitizenCard` |
+| DocumentType | VARCHAR(40) | `ApplicationLetter`, `Cv`, `PassportPicture`, `RecommendationLetters`, `MedicalReport`, `PoliceClearance`, `SchoolCertificates`, `BirthCertificate`, `GhanaCard`, `SsnitCard`, `MarriageCertificate`, `ChildBirthCertificates`, `DependantPhotographs`, `BankConfirmationLetter` (retired 11 Nov 2026: old files kept, never asked for or counted), `PassportBiodataPage`, `NonCitizenCard` |
 | IsRequired | TINYINT(1) | 0 for the five that may be "not applicable" |
 | Status | VARCHAR(20), indexed | `Pending`, `Submitted`, `Verified`, `Rejected`, `NotApplicable` |
 | SubmittedAt | DATETIME(6) | last upload (or "not applicable" declaration) |
@@ -462,7 +462,7 @@ One per onboarding (unique `OnboardingRecordId`, **FK → Onboardings**), `Emplo
 | Table | Columns | Rules |
 |---|---|---|
 | EmployeeLanguages | `Language` VARCHAR(60), `Proficiency` (`VeryFluent`, `Fluent`, `Passable`) | at least one; each language once |
-| EmployeeBankAccounts | `BankName`, `Branch` VARCHAR(100), `AccountNumber` VARCHAR(40), `IsPrimary` | at least one; **exactly one primary** |
+| EmployeeBankAccounts | `BankName` VARCHAR(100), `AccountNumber` VARCHAR(40), `IsPrimary`, `Branch` VARCHAR(100) NULL (no longer asked, script 26) | **exactly one** account (the salary account, always primary) |
 | EmployeeSpouses | `FullName`, `Occupation`, `DateOfBirth`, `Address`, `Telephone` | optional, up to 4 |
 | EmployeeChildren | `FullName`, `Gender` (`Male`, `Female`), `DateOfBirth`, `PlaceOfBirth`, `CurrentResidence` | any number |
 | EmployeeDependants | `FullName`, `Relationship`, `Age` (0-120) | any number |
@@ -626,6 +626,7 @@ One row: the four weights, the four band limits, the six automatic-rejection swi
 | `23_interview_score_validation.sql` | 9 Nov | Interview score validation columns. |
 | `24_phase27_onboarding_document_portal.sql` | 27 | OnboardingDocumentTypes (seeded, 25 rows), EmployeeDocumentEvents; new columns on EmployeeDocuments (existing rows get `IsApplicable` = 1) and Onboardings. **Moves onboardings waiting for HR approval, or in the old pre-activation induction, to `AwaitingActivation`** (their documents were verified). The four `onboarding.*` permissions are added by GRSMS at start-up. Not yet run on MySQL. |
 | `25_audit_drop_redundant_vacancy_status_index.sql` | audit | Drops `IX_Vacancies_Status` (the index on (Status, ClosingDate) starts with Status and serves the same queries). Codebase audit B7, 10 November 2026. Not yet run on MySQL. |
+| `26_bank_details_as_data.sql` | docs/29 change 4 | Makes `EmployeeBankAccounts.Branch` optional, retires the bank confirmation letter document type (Id 17), and on onboardings not yet activated makes existing bank-letter rows not required (kept as applicable only if a file was uploaded). 11 November 2026. Not yet run on MySQL. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

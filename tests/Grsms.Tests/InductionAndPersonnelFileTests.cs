@@ -119,7 +119,7 @@ public class InductionAndPersonnelFileTests : OnboardingTestBase
         Assert.Contains(In(PersonnelFileCategories.GeneratedLetters), t => t.StartsWith("Letter of appointment APT-"));
         Assert.Contains(In(PersonnelFileCategories.OnboardingRecords), t => t.StartsWith("Onboarding and induction record"));
         Assert.Empty(In(PersonnelFileCategories.ProbationRecords));
-        Assert.Equal(11, file.Folders.Sum(f => f.Documents.Count(d => d.Kind == PersonnelDocumentKind.File))); // the 11 verified uploads; "not applicable" ones have no file
+        Assert.Equal(10, file.Folders.Sum(f => f.Documents.Count(d => d.Kind == PersonnelDocumentKind.File))); // the 10 verified uploads (no bank letter since 11 Nov 2026); "not applicable" ones have no file
 
         // The appointment letter is frozen as signed, and shown cleaned.
         var letterId = file.Folders.Single(f => f.CategoryId == PersonnelFileCategories.GeneratedLetters).Documents.Single().Id;

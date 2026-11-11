@@ -1620,7 +1620,6 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.Property<string>("Branch")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
@@ -2769,7 +2768,7 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                             CreatedBy = "system",
                             Description = "A letter from your bank confirming your account name and number.",
                             Group = "Banking",
-                            IsActive = true,
+                            IsActive = false,
                             IsDeleted = false,
                             IsLegacy = false,
                             MinFiles = 1,

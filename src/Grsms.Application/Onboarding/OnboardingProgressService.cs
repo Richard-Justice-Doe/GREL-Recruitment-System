@@ -74,7 +74,7 @@ public class OnboardingProgressService(
             .ToList();
         var signed = (await personalRecords.ListAsync(r => r.OnboardingRecordId == o.Id, ct)).FirstOrDefault()?.DeclaredAt is not null;
         var readiness = OnboardingWorkflow.CheckReadiness(o,
-            list.Select(x => new OnboardingWorkflow.DocumentState(x.Document, x.Type.Name, x.Files, x.Type.MinFiles)).ToList(), signed);
+            list.Select(x => new OnboardingWorkflow.DocumentState(x.Document, x.Type.Name, x.Files, x.Type.MinFiles, x.Type.IsActive || x.Type.IsLegacy)).ToList(), signed);
         return new Snapshot(o, list, signed, readiness, current, replaced, byCode);
     }
 

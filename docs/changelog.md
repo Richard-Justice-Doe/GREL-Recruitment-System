@@ -4,6 +4,16 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 11 November 2026: workflow corrections (docs/29, changes 1, 3 and 4)
+
+* **Change 1, no budget tick:** the HR Manager approves a recruitment request without ticking "Budget confirmed" (the budget document was already optional). Older requests still show the tick if it was given.
+* **Change 3, candidate-only uploads:** only the new employee uploads onboarding documents or marks them "not applicable". Staff can no longer upload for them. The RO still verifies; HR still files documents in personnel files.
+* **Change 4, bank details as data:** the personal record asks for exactly **one** bank account, with bank name and account number (no branch). The bank confirmation letter is no longer asked for. Old uploads stay in the document history and the personnel file but never hold up an onboarding (`OnboardingWorkflow.DocumentState.Counts`). An onboarding page left at an old stage corrects itself when opened. Database script `26_bank_details_as_data.sql`.
+* **Checked:** 194/194 tests. Script 26 not yet run on MySQL; not checked in a browser.
+* **Open:** change 2 (the IT Manager approves and publishes adverts).
+
+---
+
 ## 10 November 2026: shorter forms, helpful empty lists (usability U4)
 
 * **Recruitment request** in 5 steps (one per section of QF-81-11), *Save draft* on every step, site pre-filled; **vacancy form** with *More options* for desirable skills, certifications and knockout questions.

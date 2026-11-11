@@ -37,9 +37,9 @@
 <div class="row g-3 mb-3">
     <div class="col-lg-6">
         <div class="card glass h-100"><div class="card-body p-4">
-            <h2 class="h6 text-uppercase text-body-secondary mb-3">Bank accounts</h2>
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Bank account</h2>
             <ul class="list-unstyled small mb-0">
-                @foreach (var b in f.BankAccounts) { <li>@b.BankName, @b.Branch · <code>@b.AccountNumber</code>@(b.IsPrimary ? " (primary)" : "")</li> }
+                @foreach (var b in f.BankAccounts) { <li>@b.BankName · <code>@b.AccountNumber</code></li> }
             </ul>
             <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-3">Next of kin</h2>
             <p class="small mb-0">@Or(f.NextOfKinName) (@Or(f.NextOfKinRelationship)) · @Or(f.NextOfKinTelephone) · born @D(f.NextOfKinDateOfBirth)<br />@Or(f.NextOfKinAddress)</p>

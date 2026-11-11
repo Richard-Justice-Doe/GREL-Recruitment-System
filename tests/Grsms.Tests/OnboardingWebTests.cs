@@ -203,7 +203,7 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
             ["HomeTown"] = "Elmina", ["Region"] = "Central", ["MobileNumber"] = "0244000111",
             ["NextOfKinName"] = "Yaw Mensah", ["NextOfKinRelationship"] = "Father", ["NextOfKinTelephone"] = "0208000222",
             ["Languages.Index"] = "0", ["Languages[0].Language"] = "English", ["Languages[0].Proficiency"] = "VeryFluent",
-            ["BankAccounts.Index"] = "0", ["BankAccounts[0].BankName"] = "Absa", ["BankAccounts[0].Branch"] = "Takoradi", ["BankAccounts[0].AccountNumber"] = "0331001",
+            ["BankAccounts.Index"] = "0", ["BankAccounts[0].BankName"] = "Absa", ["BankAccounts[0].AccountNumber"] = "0331001",
             ["EmergencyContacts.Index"] = "0", ["EmergencyContacts[0].Name"] = "Yaw Mensah", ["EmergencyContacts[0].Relationship"] = "Father",
             ["EmergencyContacts[0].Telephone1"] = "0208000222",
             ["Beneficiaries.Index"] = "k7", ["Beneficiaries[k7].Name"] = "Yaw Mensah", ["Beneficiaries[k7].Relationship"] = "Father",

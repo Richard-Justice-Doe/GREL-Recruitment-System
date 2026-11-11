@@ -284,6 +284,26 @@ public class DocumentVerificationServiceTests : OnboardingTestBase
     }
 
     [Fact]
+    public async Task A_bank_letter_uploaded_before_it_was_retired_no_longer_holds_up_the_onboarding()
+    {
+        // 11 Nov 2026 (docs/29, change 4): bank details are data; an older onboarding may still have an uploaded bank letter.
+        var id = await ReadyAsync();
+        await Db(async db =>
+        {
+            db.EmployeeDocuments.Add(new EmployeeDocument
+            {
+                OnboardingRecordId = id, EmployeeUserId = _candidate, DocumentTypeCode = DefaultDocumentTypes.BankConfirmationLetter,
+                IsRequired = false, IsApplicable = true, Status = EmployeeDocumentStatus.Submitted, SubmittedAt = DateTime.UtcNow
+            });
+            return await db.SaveChangesAsync();
+        });
+        AsRecruiter();
+        var page = (await Run(s => s.GetAsync(id)))!; // the page re-checks the stage; the unverified letter must not count
+        Assert.Equal(OnboardingStatus.AwaitingActivation, page.Status);
+        Assert.Equal(OnboardingStatus.AwaitingActivation, (await RecordAsync(id)).Status);
+    }
+
+    [Fact]
     public async Task A_file_refused_by_the_virus_scanner_is_never_stored()
     {
         using var db = new TestDatabase(configure: s =>

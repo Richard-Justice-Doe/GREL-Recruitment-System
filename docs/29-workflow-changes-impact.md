@@ -1,6 +1,6 @@
 # 29. Workflow changes: impact analysis (budget, IT advert approval, candidate-only uploads, bank details)
 
-**Status:** ANALYSIS ONLY: nothing has been changed. Questions in §6 must be answered first.
+**Status:** Decisions in §7. Implemented: change 1 (budget tick removed), change 3 (candidate-only uploads), change 4 (bank details as data). Change 2 (IT Manager approves adverts) in progress.
 **Date:** 11 November 2026 · **Branch:** `feature/ats-and-super-admin` (after commit df43086, pushed)
 
 Four approved business-rule changes were checked against the code as it is today. For each: what the code does now, what changes, and every place affected. §5 lists the conflicts with earlier decisions; §6 the questions.

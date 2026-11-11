@@ -64,7 +64,7 @@ internal class EmployeeBankAccountConfiguration : IEntityTypeConfiguration<Emplo
     {
         b.ToTable("EmployeeBankAccounts");
         b.Property(x => x.BankName).HasMaxLength(100).IsRequired();
-        b.Property(x => x.Branch).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Branch).HasMaxLength(100); // optional since 11 Nov 2026 (no longer captured)
         b.Property(x => x.AccountNumber).HasMaxLength(40).IsRequired();
     }
 }

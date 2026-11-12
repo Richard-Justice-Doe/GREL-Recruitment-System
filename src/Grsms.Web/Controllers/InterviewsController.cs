@@ -45,6 +45,8 @@ public class InterviewsController(InterviewService interviews) : AppController
                 return RedirectToAction(nameof(Details), new { id = result.Value });
             }
             AddErrors(result);
+            // 12 Nov 2026: someone is busy at that time; the page offers "Schedule anyway".
+            ViewBag.Clash = result.Errors.Any(e => e.StartsWith(Application.Interviews.InterviewService.ClashPrefix));
         }
         await interviews.FillScheduleFormAsync(form, ct);
         return View(form);
@@ -63,8 +65,8 @@ public class InterviewsController(InterviewService interviews) : AppController
         Act(id, () => interviews.SubmitScorecardAsync(id, ratings, recommendation, strengths, concerns, ct), "Scorecard saved. You can now see the other panel members' scorecards.");
 
     [HttpPost]
-    public Task<IActionResult> Reschedule(int id, DateTime? startsAt, string? location, CancellationToken ct) =>
-        Act(id, () => interviews.RescheduleAsync(id, startsAt, location, ct), "Rescheduled. The applicant and the panel have been emailed.");
+    public Task<IActionResult> Reschedule(int id, DateTime? startsAt, string? location, bool ignoreClashes, CancellationToken ct) =>
+        Act(id, () => interviews.RescheduleAsync(id, startsAt, location, ct, ignoreClashes), "Rescheduled. The applicant and the panel have been emailed.");
 
     // ---- Score validation (9 Nov 2026): a Recruitment Officer checks the scores.
 

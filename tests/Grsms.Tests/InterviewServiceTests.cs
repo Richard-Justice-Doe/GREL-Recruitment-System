@@ -419,4 +419,52 @@ public class InterviewServiceTests : IAsyncLifetime
         As(_hrm, Roles.HrManager);
         Assert.Equal(80.0m, (await Run(s => s.GetDetailsAsync(id)))!.AverageScore);
     }
+
+    // ------------------------------------------------------------------ clash check (12 November 2026, docs/34 quick win)
+
+    [Fact]
+    public async Task Scheduling_warns_when_a_panel_member_or_the_candidate_is_already_booked()
+    {
+        var first = await ApplicationAsync(_candidate, "Ama Mensah");
+        var second = await ApplicationAsync(_candidate2, "Kofi Boateng");
+        var tomorrow10 = DateTime.UtcNow.Date.AddDays(1).AddHours(10);
+        await ScheduledAsync(first, tomorrow10);
+
+        // Same panel, overlapping (10:30-11:30 against 10:00-11:00): refused with one line per busy person.
+        AsRecruiter();
+        var clash = await Run(s => s.ScheduleAsync(Form(second, tomorrow10.AddMinutes(30))));
+        Assert.False(clash.Succeeded);
+        Assert.All(clash.Errors, e => Assert.StartsWith(InterviewService.ClashPrefix, e));
+        Assert.Equal(3, clash.Errors.Count); // the HOD, the engineer and the recruiter
+        Assert.Contains(clash.Errors, e => e.Contains("10:00-11:00") && e.Contains("Ama Mensah"));
+
+        // Right after the first one: no clash.
+        Assert.True((await Run(s => s.ScheduleAsync(Form(second, tomorrow10.AddHours(1))))).Succeeded);
+
+        // The candidate's own second round at the same time as the first.
+        var round2 = Form(first, tomorrow10.AddMinutes(15), _otherHod, _hrm, _hod);
+        var own = await Run(s => s.ScheduleAsync(round2));
+        Assert.Contains(own.Errors, e => e.Contains("the candidate already has a session"));
+
+        // "Schedule anyway" goes through.
+        round2.IgnoreClashes = true;
+        Assert.True((await Run(s => s.ScheduleAsync(round2))).Succeeded);
+    }
+
+    [Fact]
+    public async Task Rescheduling_checks_clashes_too_but_not_against_itself()
+    {
+        var first = await ApplicationAsync(_candidate, "Ama Mensah");
+        var second = await ApplicationAsync(_candidate2, "Kofi Boateng");
+        var tomorrow10 = DateTime.UtcNow.Date.AddDays(1).AddHours(10);
+        var a = await ScheduledAsync(first, tomorrow10);
+        var b = await ScheduledAsync(second, tomorrow10.AddHours(2));
+
+        AsRecruiter();
+        Assert.True((await Run(s => s.RescheduleAsync(a, tomorrow10.AddMinutes(15), null))).Succeeded); // moving within its own slot
+        var onto = await Run(s => s.RescheduleAsync(b, tomorrow10, null));
+        Assert.False(onto.Succeeded);
+        Assert.StartsWith(InterviewService.ClashPrefix, onto.Errors[0]);
+        Assert.True((await Run(s => s.RescheduleAsync(b, tomorrow10, null, default, ignoreClashes: true))).Succeeded);
+    }
 }

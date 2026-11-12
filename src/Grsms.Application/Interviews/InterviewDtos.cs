@@ -44,6 +44,10 @@ public class ScheduleFormDto
     [Display(Name = "Chair")]
     public string? ChairUserId { get; set; }
 
+    /// <summary>12 November 2026: schedule even though a panel member or the candidate already has a session at that time.</summary>
+    [Display(Name = "Schedule anyway")]
+    public bool IgnoreClashes { get; set; }
+
     /// <summary>Criteria, one per line as "Name | weight". Weights must add up to 100.</summary>
     [Required, StringLength(2000)]
     [Display(Name = "Scorecard criteria (one per line: name | weight)")]
@@ -179,6 +183,9 @@ public interface IInterviewRepository : IRepository<Interview>
 
     /// <summary>All interviews of these applications, with panel and scorecards.</summary>
     Task<IReadOnlyList<Interview>> ListForApplicationsAsync(IReadOnlyCollection<int> applicationIds, CancellationToken ct = default);
+
+    /// <summary>12 November 2026: scheduled sessions starting between the two times, with their panel (for the clash check).</summary>
+    Task<IReadOnlyList<Interview>> ListScheduledBetweenAsync(DateTime from, DateTime to, CancellationToken ct = default);
 
     /// <summary>The Interviews list. <paramref name="panelUserId"/> limits it to sessions with that person on the panel.</summary>
     Task<PagedResult<InterviewListItemDto>> SearchAsync(InterviewFilter filter, RequestVisibility visibility, string? panelUserId,

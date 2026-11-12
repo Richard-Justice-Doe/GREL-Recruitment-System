@@ -107,6 +107,8 @@ public class InterviewService(
 
         var criteria = ParseCriteria(form.Criteria, errors);
         if (errors.Count > 0) return Result.Failure<int>([.. errors]);
+        if (!form.IgnoreClashes && await ClashesAsync(form.StartsAt!.Value, form.DurationMinutes, panel, app.ApplicantUserId, null, ct) is { Count: > 0 } clashes)
+            return Result.Failure<int>([.. clashes]);
 
         var round = (await interviews.ListAsync(i => i.JobApplicationId == app.Id, ct)).Count + 1;
         var interview = new Interview
@@ -159,7 +161,7 @@ public class InterviewService(
     }
 
     /// <summary>Moves a scheduled session to a new time or place. The applicant and panel are emailed.</summary>
-    public async Task<Result> RescheduleAsync(int id, DateTime? startsAt, string? location, CancellationToken ct = default)
+    public async Task<Result> RescheduleAsync(int id, DateTime? startsAt, string? location, CancellationToken ct = default, bool ignoreClashes = false)
     {
         var (i, error) = await LoadForManagerAsync(id, ct);
         if (i is null) return Result.Failure(error!);
@@ -167,6 +169,9 @@ public class InterviewService(
         if (startsAt is not { } when || when < DateTime.UtcNow) return Result.Failure("Choose a new date and time in the future.");
         location = Clean(location) ?? i.Location;
         if (location.Length > 500) return Result.Failure("The place must be 500 characters or fewer.");
+        if (!ignoreClashes && await applications.GetByIdAsync(i.JobApplicationId, ct) is { } applicant
+            && await ClashesAsync(when, i.DurationMinutes, i.Panel.Select(p => p.UserId).ToList(), applicant.ApplicantUserId, i.Id, ct) is { Count: > 0 } clashes)
+            return Result.Failure([.. clashes]);
 
         i.StartsAt = when;
         i.Location = location;
@@ -191,6 +196,40 @@ public class InterviewService(
                 await mailer.ToUserAsync(m.UserId, $"Rescheduled: {app?.FullName}", text, links.Interview(i.Id), "Open the interview", ct);
         }
         return saved;
+    }
+
+    /// <summary>Starts every clash message, so the page knows to offer "Schedule anyway".</summary>
+    public const string ClashPrefix = "Clash: ";
+
+    /// <summary>
+    /// 12 November 2026 (docs/34 quick win): the panel members and the candidate who already have a scheduled session overlapping
+    /// <paramref name="start"/> for <paramref name="minutes"/> minutes (other than <paramref name="exceptId"/>). One message each.
+    /// A warning only: the Recruitment Officer can still schedule (IgnoreClashes), e.g. when the other session is about to move.
+    /// </summary>
+    private async Task<List<string>> ClashesAsync(DateTime start, int minutes, IReadOnlyCollection<string> panel, string applicantUserId, int? exceptId,
+        CancellationToken ct)
+    {
+        if (start <= DateTime.UtcNow) return []; // recording a session that already took place: nobody can be double-booked any more
+        var end = start.AddMinutes(minutes);
+        // Sessions are at most 8 hours long, so anything that overlaps starts within 8 hours before this one ends.
+        var nearby = (await interviews.ListScheduledBetweenAsync(start.AddHours(-8), end, ct))
+            .Where(x => x.Id != exceptId && x.StartsAt < end && x.StartsAt.AddMinutes(x.DurationMinutes) > start).ToList();
+        if (nearby.Count == 0) return [];
+
+        var appIds = nearby.Select(x => x.JobApplicationId).Distinct().ToList();
+        var applicants = (await applications.ListAsync(a => appIds.Contains(a.Id), ct)).ToDictionary(a => a.Id);
+        var names = await users.GetDisplayNamesAsync(panel.Append(applicantUserId).Distinct(), ct);
+        var messages = new List<string>();
+        foreach (var other in nearby.OrderBy(x => x.StartsAt))
+        {
+            var otherApplicant = applicants.GetValueOrDefault(other.JobApplicationId);
+            var when = $"{other.StartsAt.ToString("HH:mm", Gb)}-{other.StartsAt.AddMinutes(other.DurationMinutes).ToString("HH:mm", Gb)}";
+            foreach (var person in panel.Where(p => other.Panel.Any(m => m.UserId == p)))
+                messages.Add($"{ClashPrefix}{names.GetValueOrDefault(person, "A panel member")} is already on a panel {when} (interview with {otherApplicant?.FullName ?? "another candidate"}).");
+            if (otherApplicant?.ApplicantUserId == applicantUserId)
+                messages.Add($"{ClashPrefix}the candidate already has a session {when} (round {other.Round}).");
+        }
+        return messages.Distinct().ToList();
     }
 
     // ===================================================================== Scorecards

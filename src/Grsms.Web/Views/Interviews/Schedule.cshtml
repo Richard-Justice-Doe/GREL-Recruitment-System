@@ -88,6 +88,16 @@
                     <div class="form-text">Tick to add to the panel; the round button on the right marks the chair.</div>
                 </div>
             </div>
+            @if (ViewBag.Clash == true)
+            {
+                @* 12 Nov 2026: someone on the panel (or the candidate) already has a session then (listed above). *@
+                <div class="alert alert-warning small">
+                    <div class="form-check mb-0">
+                        <input asp-for="IgnoreClashes" class="form-check-input" />
+                        <label asp-for="IgnoreClashes" class="form-check-label">Schedule anyway: I have checked that these people can attend.</label>
+                    </div>
+                </div>
+            }
             <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-calendar-check me-1"></i>Schedule and send invitations</button>
         </div>
     </div>

@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<Onboarding.OnboardingService>();
         services.AddScoped<Onboarding.DocumentVerificationService>(); // Phase 18
         services.AddScoped<Onboarding.OnboardingProgressService>(); // Phase 27
+        services.AddScoped<Onboarding.DocumentDeadlineService>(); // Phase 27 stage C: document deadline reminders and digest
         services.AddScoped<Onboarding.OnboardingDocumentTypeService>(); // Phase 27
         services.AddScoped<Onboarding.PersonalRecordService>(); // Phase 19
         services.AddScoped<Onboarding.InductionAreaService>(); // Phase 20

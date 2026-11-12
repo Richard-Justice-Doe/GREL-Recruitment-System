@@ -791,6 +791,36 @@ public class OnboardingService(
         return saved;
     }
 
+    /// <summary>
+    /// Phase 27 stage C: the Recruitment Officer gives the new employee more time for their documents, once, by at most
+    /// <see cref="OnboardingWorkflow.MaxDocumentExtensionDays"/> days, with a reason. The new employee is emailed.
+    /// </summary>
+    public async Task<Result> ExtendDocumentDeadlineAsync(int id, DateOnly? newDate, string? reason, CancellationToken ct = default)
+    {
+        var (o, error) = await LoadForHrAsync(id, ct);
+        if (o is null) return Result.Failure(error!);
+        if (!OnboardingWorkflow.BeforeActivation(o.Status) || o.Status == OnboardingStatus.Cancelled)
+            return Result.Failure("The document deadline only matters before the employee is activated.");
+        if (o.DocumentsDueDateExtended) return Result.Failure("The deadline has already been extended once.");
+        var current = o.DocumentsDueDate ?? Today;
+        var latest = current.AddDays(OnboardingWorkflow.MaxDocumentExtensionDays);
+        if (newDate is not { } until || until <= current || until > latest)
+            return Result.Failure($"Choose a new date after {current:d MMM yyyy} and no later than {latest:d MMM yyyy} (at most {OnboardingWorkflow.MaxDocumentExtensionDays} days more).");
+        reason = Clean(reason);
+        if (reason is null || reason.Length < 3) return Result.Failure("Give the reason for the extension.");
+        if (reason.Length > 500) return Result.Failure("Keep the reason under 500 characters.");
+
+        o.DocumentsDueDate = until;
+        o.DocumentsDueDateExtended = true;
+        o.RecordStep(OnboardingAction.DeadlineExtended, o.Status, MyId, scope.UserName, $"To {until:d MMM yyyy}: {reason}", DateTime.UtcNow);
+        var saved = await SaveAsync(ct);
+        if (saved.Succeeded)
+            await mailer.ToUserAsync(o.EmployeeUserId, "More time for your onboarding documents",
+                $"You now have until <b>{until.ToString("dddd d MMMM yyyy", Gb)}</b> to upload your onboarding documents for <b>{WorkflowMailer.Enc(o.JobTitle)}</b>.",
+                links.MyApplication(o.JobApplicationId), "Upload my documents", ct);
+        return saved;
+    }
+
     // ===================================================================== Lists and tasks
 
     public async Task<IReadOnlyList<OnboardingListItemDto>> SearchAsync(OnboardingFilter filter, CancellationToken ct = default)
@@ -833,7 +863,7 @@ public class OnboardingService(
                     counts.GetValueOrDefault(o.Id).Done, counts.GetValueOrDefault(o.Id).Total,
                     required.Count, required.Count(d => d.Status == EmployeeDocumentStatus.Verified),
                     required.Count(d => d.Status == EmployeeDocumentStatus.Pending),
-                    mine.Count(d => OnboardingWorkflow.AwaitsReview(d.Status)), mine.Count(d => d.Status == EmployeeDocumentStatus.Rejected));
+                    mine.Count(d => OnboardingWorkflow.AwaitsReview(d.Status)), mine.Count(d => d.Status == EmployeeDocumentStatus.Rejected), o.DocumentsDueDate);
             })
             .ToList();
     }

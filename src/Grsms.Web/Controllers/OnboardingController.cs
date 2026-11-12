@@ -190,6 +190,12 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
     }
 
+    /// <summary>Phase 27 stage C: more time for the documents, once.</summary>
+    [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
+    public Task<IActionResult> ExtendDeadline(int id, DateOnly? newDate, string? reason, CancellationToken ct) =>
+        Act(id, () => onboarding.ExtendDocumentDeadlineAsync(id, newDate, reason, ct), "Deadline extended. The new employee has been emailed.");
+
     [HttpPost]
     [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> Cancel(int id, string? reason, CancellationToken ct) =>

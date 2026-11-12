@@ -164,6 +164,21 @@ public static class OnboardingWorkflow
         : OnboardingStatus.AwaitingActivation;
 
     /// <summary><paramref name="days"/> working days (Monday to Friday) after <paramref name="from"/>.</summary>
+    /// <summary>Phase 27 stage C: working days (Monday to Friday) after <paramref name="from"/> up to and including <paramref name="to"/>.</summary>
+    public static int WorkingDaysBetween(DateOnly from, DateOnly to)
+    {
+        var count = 0;
+        for (var d = from.AddDays(1); d <= to; d = d.AddDays(1))
+            if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) count++;
+        return count;
+    }
+
+    /// <summary>Phase 27 stage C: the new employee is reminded of outstanding documents every this many working days.</summary>
+    public const int DocumentReminderEveryWorkingDays = 3;
+
+    /// <summary>Phase 27 stage C: the one extension of the document deadline is at most this many days.</summary>
+    public const int MaxDocumentExtensionDays = 14;
+
     public static DateOnly AddWorkingDays(DateOnly from, int days)
     {
         var d = from;

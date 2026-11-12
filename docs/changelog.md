@@ -4,6 +4,14 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 12 November 2026: onboarding document deadlines (Phase 27 stage C) and a site filter (docs/35 Waves 0-1)
+
+* **Document deadlines:** reminders to the new employee every 3 working days while something is outstanding; a last reminder on the due date, copied to the RO; an overdue notice once the day after, with an *Overdue* badge on the onboarding page and list; a daily digest for each RO of the documents to verify; the RO may extend the deadline once (≤ 14 days, with a reason). Phase 27 is now complete.
+* **Employees:** filter by site.
+* No workflow or permission changed; no database change. 235 tests pass.
+
+---
+
 ## 12 November 2026: six quick wins from the effectiveness audit (docs/34)
 
 * **Interview clash check:** a warning when a panel member or the candidate is already booked; *Schedule anyway* to override.

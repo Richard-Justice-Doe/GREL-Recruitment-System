@@ -86,9 +86,12 @@ public class ScheduledJobsWorker(IServiceScopeFactory scopes, IConfiguration con
                     var purged = await sp.GetRequiredService<Application.Notifications.INotificationCenter>().PurgeAsync(DateTime.UtcNow.AddMonths(-6), stoppingToken);
                     // docs/34: contracts ending in 90 / 60 / 30 / 7 days.
                     var contracts = await sp.GetRequiredService<Application.Employees.ContractAlertService>().RunAsync(DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
-                    if (reminders + invited + purged + contracts > 0)
-                        logger.LogInformation("Reminders sent: {Reminders}; survey invitations: {Invited}; old notifications removed: {Purged}; contract alerts: {Contracts}",
-                            reminders, invited, purged, contracts);
+                    // Phase 27 stage C: onboarding document reminders, overdue notices and the RO's daily digest.
+                    var documents = await sp.GetRequiredService<Application.Onboarding.DocumentDeadlineService>().RunAsync(DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
+                    if (reminders + invited + purged + contracts + documents.Reminders + documents.Overdue + documents.Digests > 0)
+                        logger.LogInformation("Reminders sent: {Reminders}; survey invitations: {Invited}; old notifications removed: {Purged}; contract alerts: {Contracts}; " +
+                                              "document reminders: {DocReminders}, overdue: {DocOverdue}, digests: {DocDigests}",
+                            reminders, invited, purged, contracts, documents.Reminders, documents.Overdue, documents.Digests);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

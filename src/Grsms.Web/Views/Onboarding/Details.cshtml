@@ -282,7 +282,27 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                         </div>
                         @if (Model.DocumentsDueDate is { } due)
                         {
-                            <p class="small mb-2">Documents due <strong>@due.ToString("ddd dd MMM yyyy")</strong>@(due < today && !Model.Documents.ReadyForActivation ? " (overdue)" : "")@(Model.DocumentsDueDateExtended ? " · extended once" : "").</p>
+                            var late = due < today && Model.Outstanding.Count > 0;
+                            <p class="small mb-2">
+                                Documents due <strong>@due.ToString("ddd dd MMM yyyy")</strong>
+                                @if (late) { <span class="badge rounded-pill text-bg-danger ms-1">Overdue</span> }
+                                @(Model.DocumentsDueDateExtended ? " · extended once" : "")
+                            </p>
+                            @* Phase 27 stage C: one extension, at most 14 days. *@
+                            @if (Model.CanManage && !Model.DocumentsDueDateExtended && OnboardingWorkflow.BeforeActivation(Model.Status) && Model.Status != OnboardingStatus.Cancelled)
+                            {
+                                <details class="small mb-2">
+                                    <summary>Give more time (once)</summary>
+                                    <form asp-action="ExtendDeadline" asp-route-id="@Model.Id" method="post" class="row g-2 mt-1">
+                                        <div class="col-sm-5">
+                                            <input type="date" name="newDate" class="form-control form-control-sm" required aria-label="New due date"
+                                                   min="@due.AddDays(1).ToString("yyyy-MM-dd")" max="@due.AddDays(OnboardingWorkflow.MaxDocumentExtensionDays).ToString("yyyy-MM-dd")" />
+                                        </div>
+                                        <div class="col-sm-7"><input name="reason" class="form-control form-control-sm" maxlength="500" required placeholder="Reason" aria-label="Reason" /></div>
+                                        <div class="col-12"><button type="submit" class="btn btn-sm btn-outline-primary">Extend the deadline and email them</button></div>
+                                    </form>
+                                </details>
+                            }
                         }
                         @if (Model.Outstanding.Count > 0)
                         {

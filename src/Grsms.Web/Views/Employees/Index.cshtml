@@ -27,13 +27,14 @@
         <h1>Employees</h1>
         <p>Every GREL employee: people hired through GRSMS get a record when their onboarding is activated; staff hired before GRSMS are registered by HR.</p>
     </div>
-    @if (canManage)
-    {
-        <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="OrgChart" class="btn btn-outline-secondary"><i class="fa-solid fa-sitemap me-1"></i>Organisation chart</a>
+        @if (canManage)
+        {
             <a asp-action="Import" class="btn btn-outline-primary"><i class="fa-solid fa-file-import me-1"></i>Import from CSV</a>
             <a asp-action="Register" class="btn btn-primary"><i class="fa-solid fa-user-plus me-1"></i>Register existing employee</a>
-        </div>
-    }
+        }
+    </div>
 </div>
 
 <ul class="nav nav-tabs mb-3">

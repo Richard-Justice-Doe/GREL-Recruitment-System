@@ -48,6 +48,13 @@ public class EmployeesController(EmployeeService employees, GradeService grades,
         return model is null ? NotFound() : View(model);
     }
 
+    /// <summary>docs/34: the organisation chart, optionally for one department.</summary>
+    public async Task<IActionResult> OrgChart(int? departmentId, CancellationToken ct)
+    {
+        await LoadFilterListsAsync(null, departmentId, ct);
+        return View(await employees.OrgChartAsync(departmentId, ct));
+    }
+
     // ------------------------------------------------------------------ registering existing staff
 
     [Authorize(Policy = Policies.ManageEmployees)]

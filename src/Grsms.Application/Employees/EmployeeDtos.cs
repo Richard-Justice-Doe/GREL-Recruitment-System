@@ -70,6 +70,13 @@ public record EmployeeDetailsDto(
 /// <param name="Stage">Recruitment, Onboarding, Probation or Job.</param>
 public record TimelineEntryDto(DateTime At, string Stage, string Title, string? Detail, string? By);
 
+/// <summary>12 November 2026 (docs/34): one box of the organisation chart and the people who report to it.</summary>
+/// <param name="EmployeeId">Null for a manager who has a GRSMS account but no employee record yet.</param>
+public record OrgNodeDto(int? EmployeeId, string Name, string? Position, string? DepartmentName, string? EmployeeNumber, IReadOnlyList<OrgNodeDto> Reports)
+{
+    public int TeamSize => Reports.Sum(r => 1 + r.TeamSize);
+}
+
 /// <summary>Registering an existing member of staff (hired before GRSMS).</summary>
 public class RegisterEmployeeForm
 {

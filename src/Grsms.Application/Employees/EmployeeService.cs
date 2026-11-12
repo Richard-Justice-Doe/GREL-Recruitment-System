@@ -161,6 +161,57 @@ public class EmployeeService(
         return entries.OrderBy(x => x.At).ToList();
     }
 
+    /// <summary>
+    /// 12 November 2026 (docs/34 quick win): the organisation chart, from the employees' line managers. With no line manager
+    /// set, the Head of Department is the manager (as on the employee page). A manager who has a GRSMS account but no employee
+    /// record still appears, by name. People whose manager is outside the chosen department (or the visible ones) start a
+    /// branch of their own. Separated employees are left out.
+    /// </summary>
+    public async Task<IReadOnlyList<OrgNodeDto>> OrgChartAsync(int? departmentId, CancellationToken ct = default)
+    {
+        var visible = await VisibleAsync(ct);
+        var people = (await employees.ListAsync(e => e.Status != EmployeeStatus.Separated && (departmentId == null || e.DepartmentId == departmentId), ct))
+            .Where(visible).ToList();
+        if (people.Count == 0) return [];
+        var depts = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id);
+        var byUser = people.ToDictionary(e => e.UserId);
+        string? ManagerOf(Employee e) =>
+            e.ReportsToUserId ?? (depts.GetValueOrDefault(e.DepartmentId)?.HeadOfDepartmentUserId is { } hod && hod != e.UserId ? hod : null);
+
+        // Managers without an employee record (e.g. a Head of Department not registered yet) become name-only boxes.
+        var outsideManagers = people.Select(ManagerOf).OfType<string>().Where(m => !byUser.ContainsKey(m)).Distinct().ToList();
+        var names = await users.GetDisplayNamesAsync(people.Select(e => e.UserId).Concat(outsideManagers).Distinct(), ct);
+        var reportsTo = people.ToLookup(e => ManagerOf(e) ?? "");
+
+        var placed = new HashSet<string>();
+        OrgNodeDto Node(Employee e)
+        {
+            placed.Add(e.UserId);
+            var team = new List<OrgNodeDto>();
+            foreach (var r in reportsTo[e.UserId].OrderBy(r => names.GetValueOrDefault(r.UserId, "")))
+                if (!placed.Contains(r.UserId)) team.Add(Node(r)); // checked as we go, so a reporting loop cannot repeat forever
+            return new OrgNodeDto(e.Id, names.GetValueOrDefault(e.UserId, e.EmployeeNumber), e.PositionTitle, depts.GetValueOrDefault(e.DepartmentId)?.Name,
+                e.EmployeeNumber, team);
+        }
+
+        var roots = new List<OrgNodeDto>();
+        // 1. People with no manager at all (e.g. the MD).
+        foreach (var e in people.Where(e => ManagerOf(e) is null).OrderBy(e => names.GetValueOrDefault(e.UserId, "")))
+            roots.Add(Node(e));
+        // 2. Managers known only by their account, with their teams.
+        foreach (var m in outsideManagers.OrderBy(m => names.GetValueOrDefault(m, "")))
+        {
+            var team = new List<OrgNodeDto>();
+            foreach (var r in reportsTo[m].OrderBy(r => names.GetValueOrDefault(r.UserId, "")))
+                if (!placed.Contains(r.UserId)) team.Add(Node(r));
+            if (team.Count > 0) roots.Add(new OrgNodeDto(null, names.GetValueOrDefault(m, "Unknown manager"), null, null, null, team));
+        }
+        // 3. Anyone left (a reporting loop, e.g. two people reporting to each other) starts a branch, so nobody is lost.
+        foreach (var e in people.Where(e => !placed.Contains(e.UserId)).OrderBy(e => names.GetValueOrDefault(e.UserId, "")))
+            if (!placed.Contains(e.UserId)) roots.Add(Node(e));
+        return roots;
+    }
+
     /// <summary>The employee record of a user account, if any (for links from other pages).</summary>
     public async Task<int?> IdForUserAsync(string userId, CancellationToken ct = default) =>
         (await employees.ListAsync(e => e.UserId == userId, ct)).FirstOrDefault() is { } e && (await VisibleAsync(ct))(e) ? e.Id : null;

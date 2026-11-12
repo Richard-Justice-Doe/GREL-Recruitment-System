@@ -887,3 +887,12 @@ dl.details-grid dd { margin: 0; }
 /* docs/32: home-page action cards. A card whose items wait for the user gets a red edge while its count is above 0. */
 .action-card .kpi-value { font-size: 2rem; }
 .action-card.is-waiting { box-shadow: inset 4px 0 0 var(--bs-danger); }
+
+/* docs/34: organisation chart, an indented tree with connecting lines (Views/Employees/OrgChart.cshtml). */
+.org-chart, .org-chart ul { list-style: none; margin: 0; padding-left: 1.6rem; }
+.org-chart { padding-left: 0; }
+.org-chart li { position: relative; padding: 0.35rem 0 0.35rem 0; }
+.org-chart ul li::before { content: ""; position: absolute; left: -1rem; top: 0; bottom: 0; border-left: 1px solid var(--bs-border-color); }
+.org-chart ul li:last-child::before { bottom: auto; height: 1.6rem; }
+.org-chart ul li::after { content: ""; position: absolute; left: -1rem; top: 1.6rem; width: 0.9rem; border-top: 1px solid var(--bs-border-color); }
+.org-box { display: inline-block; min-width: 14rem; padding: 0.5rem 0.75rem; border: 1px solid var(--bs-border-color); border-radius: 0.6rem; background: var(--bs-body-bg); }

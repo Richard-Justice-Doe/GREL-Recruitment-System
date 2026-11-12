@@ -344,6 +344,38 @@ public class EmployeeServiceTests : OnboardingTestBase
     }
 
     [Fact]
+    public async Task The_organisation_chart_follows_line_managers_and_the_head_of_department()
+    {
+        AsHrManager();
+        async Task<int> Reg(string name, string email, string number, string? reportsTo)
+        {
+            var f = Kwame();
+            (f.FullName, f.Email, f.EmployeeNumber, f.ReportsToUserId) = (name, email, number, reportsTo);
+            var r = await RunEmployees(s => s.RegisterAsync(f));
+            Assert.True(r.Succeeded, string.Join(" ", r.Errors));
+            return r.Value;
+        }
+        var manager = await Reg("Mary Manager", "m.manager@grel.test", "GREL-0201", null);
+        var managerUser = (await Db(db => db.Employees.SingleAsync(e => e.Id == manager))).UserId;
+        await Reg("Sam Supervisor", "s.super@grel.test", "GREL-0202", managerUser);
+        await Reg("Tina Tapper", "t.tapper@grel.test", "GREL-0203", managerUser);
+        await Reg("Nobody Set", "n.set@grel.test", "GREL-0204", null); // no line manager: the APM Head of Department
+
+        var chart = await RunEmployees(s => s.OrgChartAsync(Apm));
+        // The APM HOD ("hod") has an account but no employee record: a name-only box with Mary and Nobody below.
+        var hodBox = Assert.Single(chart);
+        Assert.Equal((null, "hod"), (hodBox.EmployeeId, hodBox.Name));
+        Assert.Equal(["Mary Manager", "Nobody Set"], hodBox.Reports.Select(r => r.Name));
+        var mary = hodBox.Reports[0];
+        Assert.Equal(["Sam Supervisor", "Tina Tapper"], mary.Reports.Select(r => r.Name));
+        Assert.Equal((2, 4), (mary.TeamSize, hodBox.TeamSize));
+
+        Assert.Empty(await RunEmployees(s => s.OrgChartAsync(It))); // nobody in IT
+        As(_staff, Roles.Employee);
+        Assert.Empty(await RunEmployees(s => s.OrgChartAsync(null))); // no permission
+    }
+
+    [Fact]
     public async Task Contract_expiry_alerts_go_out_once_per_stage()
     {
         AsHrManager();

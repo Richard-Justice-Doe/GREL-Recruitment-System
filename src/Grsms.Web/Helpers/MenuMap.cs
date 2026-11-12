@@ -22,6 +22,7 @@ public static class MenuMap
         "Applications" => new("Candidates", "Applications", controller),
         "Ats" when action != "Settings" => new("Candidates", "Screening", controller),
         "Shortlisting" => new("Candidates", "Candidates", "Applications"),
+        "TalentPool" => new("Candidates", "Talent pool", controller),
         "Interviews" => new("Candidates", "Interviews", controller),
         "Hiring" => new("Hiring", "Hiring & offers", controller),
         "Onboarding" => new("Onboarding", "Onboarding", controller),

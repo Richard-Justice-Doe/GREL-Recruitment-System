@@ -85,6 +85,44 @@ public class ApplicationRepository(ApplicationDbContext context) : Repository<Jo
         return new ApplicationCounts(Of(ApplicationStatus.Submitted), Of(ApplicationStatus.UnderReview), byStatus.Sum(x => x.Count), Of(ApplicationStatus.AutoRejected));
     }
 
+    private static readonly ApplicationStatus[] PoolStatuses =
+        [ApplicationStatus.NotSuccessful, ApplicationStatus.Withdrawn, ApplicationStatus.OfferDeclined, ApplicationStatus.AutoRejected];
+
+    public async Task<IReadOnlyList<TalentApplicationRow>> TalentPoolRowsAsync(TalentPoolFilter filter, RequestVisibility visibility, int max,
+        CancellationToken ct = default)
+    {
+        var q = Db.JobApplications.AsNoTracking().Where(a => PoolStatuses.Contains(a.Status));
+        if (!visibility.SeeAll)
+        {
+            var departments = visibility.HodDepartmentIds.ToList();
+            q = q.Where(a => departments.Contains(a.DepartmentId));
+        }
+        if (filter.MinEducation is { } min)
+        {
+            // Stored as text, so "at least" is the list of levels from min upwards.
+            var levels = Enum.GetValues<Grsms.Domain.Vacancies.EducationLevel>().Where(l => l >= min).ToList();
+            q = q.Where(a => levels.Contains(a.HighestEducation));
+        }
+        if (filter.MinYears is { } years) q = q.Where(a => a.YearsExperience >= years);
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var like = "%" + filter.Search.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            q = q.Where(a => EF.Functions.Like(a.FullName, like, "\\") || EF.Functions.Like(a.Skills!, like, "\\") || EF.Functions.Like(a.FieldOfStudy!, like, "\\")
+                             || EF.Functions.Like(a.CurrentPosition!, like, "\\") || EF.Functions.Like(a.Certifications!, like, "\\"));
+        }
+        return await q.OrderByDescending(a => a.SubmittedAt).Take(max)
+            .Select(a => new TalentApplicationRow(a.Id, a.ApplicantUserId, a.FullName, a.Email, a.Phone, a.HighestEducation, a.FieldOfStudy, a.YearsExperience,
+                a.Skills, a.CurrentPosition, a.VacancyId, a.Status, a.ScreeningScore, a.ShortlistedAt, a.SubmittedAt))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlySet<string>> HiredApplicantsAsync(IReadOnlyCollection<string> userIds, CancellationToken ct = default)
+    {
+        var ids = userIds.ToList();
+        return (await Db.JobApplications.AsNoTracking().Where(a => ids.Contains(a.ApplicantUserId) && a.Status == ApplicationStatus.Hired)
+            .Select(a => a.ApplicantUserId).Distinct().ToListAsync(ct)).ToHashSet();
+    }
+
     public async Task<IReadOnlyList<MyApplicationDto>> ListForApplicantAsync(string userId, CancellationToken ct = default) =>
         await (
                 from a in Db.JobApplications.AsNoTracking()

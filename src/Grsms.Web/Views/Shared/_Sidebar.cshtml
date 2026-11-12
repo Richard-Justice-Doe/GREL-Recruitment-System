@@ -140,7 +140,7 @@
             if (canApplications)
             {
                 @* Applications, screening (ATS) and shortlisting: one item, tabs switch between them (Views/Shared/_CandidatesTabs.cshtml). *@
-                <a class="nav-link @(Active("Applications", "Shortlisting") is "active" || (controller == "Ats" && action != "Settings") ? "active" : "")" asp-controller="Applications" asp-action="Index">
+                <a class="nav-link @(Active("Applications", "Shortlisting", "TalentPool") is "active" || (controller == "Ats" && action != "Settings") ? "active" : "")" asp-controller="Applications" asp-action="Index">
                     <i class="fa-solid fa-inbox"></i> Candidates
                     @if (showScreening && counts.AtsAwaitingHr is > 0)
                     {

@@ -45,6 +45,9 @@ public static class SettingCatalogue
     public const string AllowSelfRegistration = "Accounts:AllowSelfRegistration";
     public const string OnboardingDocumentDays = "Onboarding:DocumentDeadlineWorkingDays";
 
+    /// <summary>12 November 2026 (docs/35, approved 9 Nov in docs/26): interview quorum for newly scheduled sessions.</summary>
+    public const string InterviewQuorum = "Interviews:EnforceQuorum";
+
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
         new(OrganisationName, Organisation, "Organisation name", "Used in email signatures and pages, e.g. \"Ghana Rubber Estates Limited\".",
@@ -74,6 +77,9 @@ public static class SettingCatalogue
             "Offers can't be sent with a reply-by date later than this.", SettingKind.Number, "30", Min: 1, Max: 90),
         new(ApprovalWaitingDays, Workflow, "Remind approvers after (days)",
             "A request or vacancy waiting this long for a decision triggers a reminder, then one a week.", SettingKind.Number, "3", Min: 1, Max: 30),
+        new(InterviewQuorum, Workflow, "Enforce interview quorum",
+            "New sessions need at least 3 panel members including the Head of Department (or a delegate) and an HR Manager; scores can only be validated when that many took part (docs/35).",
+            SettingKind.Switch, "true"),
         new(OnboardingDocumentDays, Workflow, "Time a new employee has to provide the onboarding documents (working days)",
             "Counted from the day the Recruitment Officer starts the onboarding, Monday to Friday.", SettingKind.Number, "10", Min: 1, Max: 60),
         new(DefaultKnockoutQuestions, Workflow, "Knockout questions suggested for every new vacancy",

@@ -177,6 +177,12 @@ public class DashboardService(
         tasks.AddRange(toScore.Items.Select(i => new DashboardTaskDto(DashboardTaskTarget.Interview, i.Id, $"{EnumText.Label(i.Type)}: {i.ApplicantName}",
             i.VacancyNumber, "Submit your scorecard", "Recruitment", i.Status, i.StartsAt)));
 
+        // docs/35: panel invitations waiting for my reply.
+        var replies = await interviews.ListAwaitingMyReplyAsync(ct);
+        taskTotal += replies.Count;
+        tasks.AddRange(replies.Take(TaskRows).Select(i => new DashboardTaskDto(DashboardTaskTarget.Interview, i.Id,
+            $"Panel invitation: {EnumText.Label(i.Type)}", i.StartsAt.ToString("dd MMM HH:mm"), "Accept or decline", "Recruitment", i.Status, i.CreatedAt)));
+
         // Score validation (9 Nov 2026): every scorecard is in and the vacancy's Recruitment Officer checks them.
         var toValidate = await interviews.ListAwaitingMyValidationAsync(ct);
         taskTotal += toValidate.Count;

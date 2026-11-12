@@ -87,6 +87,12 @@ public class Interview : BaseEntity
     /// <summary>Concurrency stamp.</summary>
     public Guid Version { get; set; } = Guid.NewGuid();
 
+    /// <summary>
+    /// 12 November 2026 (docs/35): the session was scheduled with "Enforce interview quorum" on, so its scores can only be
+    /// validated when quorum is met (<see cref="InterviewWorkflow.QuorumProblems"/>). False for sessions scheduled before.
+    /// </summary>
+    public bool QuorumRequired { get; set; }
+
     public ICollection<InterviewPanelMember> Panel { get; set; } = new List<InterviewPanelMember>();
     public ICollection<InterviewCriterion> Criteria { get; set; } = new List<InterviewCriterion>();
     public ICollection<Scorecard> Scorecards { get; set; } = new List<Scorecard>();
@@ -110,6 +116,24 @@ public class InterviewPanelMember
     public string? AttendanceNote { get; set; }
     public string? AttendanceRecordedByUserId { get; set; }
     public DateTime? AttendanceRecordedAt { get; set; }
+
+    /// <summary>12 November 2026 (docs/35): the member's answer to the invitation.</summary>
+    public PanelResponse Response { get; set; } = PanelResponse.Pending;
+    public DateTime? RespondedAt { get; set; }
+
+    /// <summary>Why they declined (required to decline).</summary>
+    public string? DeclineReason { get; set; }
+
+    /// <summary>Stands in for the Head of Department (a same-department replacement the RO chose); counts as the HOD for quorum.</summary>
+    public bool IsHodDelegate { get; set; }
+}
+
+/// <summary>12 November 2026 (docs/35): a panel member's answer to the invitation.</summary>
+public enum PanelResponse
+{
+    [Display(Name = "Awaiting reply")] Pending,
+    [Display(Name = "Accepted")] Accepted,
+    [Display(Name = "Declined")] Declined
 }
 
 /// <summary>Whether a panel member took part in the session.</summary>

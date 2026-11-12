@@ -39,7 +39,8 @@ public class InterviewService(
     ICurrentUserService me,
     AccessScope scope,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    Settings.ISettingsStore settings)
 {
     private const string ConflictMessage = "Someone else updated this interview at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
@@ -104,6 +105,14 @@ public class InterviewService(
             if (!await users.IsActiveStaffAsync(id, ct)) { errors.Add("Every panel member must be an active GREL staff member."); break; }
         var chair = string.IsNullOrWhiteSpace(form.ChairUserId) ? panel.FirstOrDefault() : form.ChairUserId;
         if (chair is null || !panel.Contains(chair)) errors.Add("Choose a chair from the panel.");
+        // docs/35 (approved 9 Nov, docs/26): with quorum enforced, the panel must be able to reach it.
+        var quorum = settings.GetBool(Domain.Settings.SettingCatalogue.InterviewQuorum);
+        if (quorum)
+        {
+            if (panel.Count < InterviewWorkflow.QuorumSize) errors.Add($"The panel needs at least {InterviewWorkflow.QuorumSize} people for quorum.");
+            var hrManagers = await HrManagerIdsAsync(ct);
+            if (!panel.Any(hrManagers.Contains)) errors.Add("An HR Manager must be on the panel (interview quorum).");
+        }
 
         var criteria = ParseCriteria(form.Criteria, errors);
         if (errors.Count > 0) return Result.Failure<int>([.. errors]);
@@ -125,7 +134,8 @@ public class InterviewService(
             DurationMinutes = form.DurationMinutes,
             Location = form.Location.Trim(),
             CandidateInstructions = Clean(form.CandidateInstructions),
-            ScheduledByUserId = MyId
+            ScheduledByUserId = MyId,
+            QuorumRequired = quorum
         };
         foreach (var id in panel) interview.Panel.Add(new InterviewPanelMember { UserId = id, IsChair = id == chair });
         for (var i = 0; i < criteria.Count; i++)
@@ -155,7 +165,7 @@ public class InterviewService(
             await mailer.ToUserAsync(member.UserId, $"Panel: {what} with {app.FullName}, {interview.StartsAt:dd MMM HH:mm}",
                 $"You are {(member.IsChair ? "the <b>chair</b> of" : "on")} the panel for a {WorkflowMailer.Enc(what.ToLowerInvariant())} with " +
                 $"<b>{WorkflowMailer.Enc(app.FullName)}</b> for <b>{WorkflowMailer.Enc(v?.JobTitle)}</b> on {when} GMT at {WorkflowMailer.Enc(interview.Location)}." +
-                "<p>Please submit your scorecard in GRSMS after the session.</p>",
+                "<p><b>Please accept or decline</b> on the interview page in GRSMS (a reason is needed to decline), and submit your scorecard after the session.</p>",
                 links.Interview(interview.Id), "Open the interview", ct);
         return Result.Success(interview.Id);
     }
@@ -196,6 +206,105 @@ public class InterviewService(
                 await mailer.ToUserAsync(m.UserId, $"Rescheduled: {app?.FullName}", text, links.Interview(i.Id), "Open the interview", ct);
         }
         return saved;
+    }
+
+    // ===================================================================== Panel replies and quorum (12 November 2026, docs/35)
+
+    private async Task<IReadOnlySet<string>> HrManagerIdsAsync(CancellationToken ct) =>
+        (await users.GetActiveUsersInRoleAsync(Roles.HrManager, ct)).Select(u => u.Value).ToHashSet();
+
+    /// <summary>What is missing for quorum (empty = met), with this session's Head(s) of Department and the HR Managers.</summary>
+    private async Task<IReadOnlyList<string>> QuorumProblemsAsync(Interview i, bool onTheDay, CancellationToken ct)
+    {
+        var app = await applications.GetByIdAsync(i.JobApplicationId, ct);
+        var hods = app is null ? new HashSet<string>() : (await RequiredHodsAsync(app, ct)).ToHashSet();
+        return InterviewWorkflow.QuorumProblems(i, hods, await HrManagerIdsAsync(ct), onTheDay);
+    }
+
+    /// <summary>
+    /// A panel member accepts or declines the invitation (a reason is needed to decline), until the session starts. A decline
+    /// alerts the person who scheduled it, the vacancy's recruiter and the HR Managers, with what quorum now lacks.
+    /// </summary>
+    public async Task<Result> RespondAsync(int id, bool accept, string? reason, CancellationToken ct = default)
+    {
+        var i = await interviews.GetWithDetailsAsync(id, ct);
+        var member = i?.Panel.FirstOrDefault(p => p.UserId == me.UserId);
+        if (i is null || member is null) return Result.Failure("You are not on this panel.");
+        if (!InterviewWorkflow.CanRespond(i, DateTime.UtcNow)) return Result.Failure("The session has started or is closed; replies are no longer possible.");
+        reason = Clean(reason);
+        if (!accept && (reason is null || reason.Length < 3)) return Result.Failure("Say why you cannot take part.");
+        if (reason?.Length > 500) return Result.Failure("Keep the reason under 500 characters.");
+
+        member.Response = accept ? PanelResponse.Accepted : PanelResponse.Declined;
+        member.RespondedAt = DateTime.UtcNow;
+        member.DeclineReason = accept ? null : reason;
+        i.Version = Guid.NewGuid();
+        var saved = await SaveAsync(ct);
+        if (!saved.Succeeded || accept) return saved;
+
+        var app = await applications.GetByIdAsync(i.JobApplicationId, ct);
+        var v = await vacancies.GetByIdAsync(i.VacancyId, ct);
+        var missing = await QuorumProblemsAsync(i, onTheDay: false, ct);
+        var html = $"<b>{WorkflowMailer.Enc(scope.UserName)}</b> cannot take part in the {WorkflowMailer.Enc(EnumText.Label(i.Type).ToLowerInvariant())} with " +
+                   $"<b>{WorkflowMailer.Enc(app?.FullName)}</b> on {i.StartsAt.ToString("dddd d MMMM, HH:mm", Gb)}: {WorkflowMailer.Enc(reason)}." +
+                   (missing.Count == 0 ? "<p>Quorum is still met.</p>"
+                       : $"<p><b>Quorum at risk:</b> the panel now lacks {WorkflowMailer.Enc(string.Join(", ", missing))}. Please replace them on the interview page.</p>");
+        var subject = $"Panel member declined: {app?.FullName}, {i.StartsAt:dd MMM HH:mm}";
+        var told = new HashSet<string> { MyId };
+        foreach (var uid in new[] { i.ScheduledByUserId, v?.RecruiterUserId }.OfType<string>())
+            if (told.Add(uid)) await mailer.ToUserAsync(uid, subject, html, links.Interview(i.Id), "Open the interview", ct);
+        await mailer.ToRoleAsync(Roles.HrManager, told, subject, html, links.Interview(i.Id), "Open the interview", ct);
+        return saved;
+    }
+
+    /// <summary>
+    /// A Recruitment Officer or HR Manager replaces a panel member who declined, before the session. Replacing the Head of
+    /// Department needs someone from the same department, who then stands in for them (HOD delegate). The chair role moves
+    /// to the replacement. The newcomer is invited by email; the clash check applies.
+    /// </summary>
+    public async Task<Result> ReplacePanelMemberAsync(int id, string? oldUserId, string? newUserId, CancellationToken ct = default)
+    {
+        var (i, error) = await LoadForManagerAsync(id, ct);
+        if (i is null) return Result.Failure(error!);
+        if (i.Status != InterviewStatus.Scheduled || DateTime.UtcNow >= i.StartsAt) return Result.Failure("The panel can only change before the session starts.");
+        var old = i.Panel.FirstOrDefault(p => p.UserId == oldUserId);
+        if (old is null || old.Response != PanelResponse.Declined) return Result.Failure("Choose a panel member who declined.");
+        if (string.IsNullOrWhiteSpace(newUserId) || !await users.IsActiveStaffAsync(newUserId, ct)) return Result.Failure("Choose an active member of staff.");
+        if (i.Panel.Any(p => p.UserId == newUserId)) return Result.Failure("That person is already on the panel.");
+        var app = (await applications.GetByIdAsync(i.JobApplicationId, ct))!;
+        if (newUserId == app.ApplicantUserId) return Result.Failure("The applicant cannot sit on their own panel.");
+
+        var replacesHod = old.IsHodDelegate || (await RequiredHodsAsync(app, ct)).Contains(old.UserId);
+        if (replacesHod && await users.GetDepartmentIdAsync(newUserId, ct) != i.DepartmentId)
+            return Result.Failure("The Head of Department can only be replaced by someone from the same department (who stands in for them).");
+        if (await ClashesAsync(i.StartsAt, i.DurationMinutes, [newUserId], app.ApplicantUserId, i.Id, ct) is { Count: > 0 } clashes
+            && clashes.Any(c => !c.Contains("the candidate")))
+            return Result.Failure([.. clashes.Where(c => !c.Contains("the candidate"))]);
+
+        i.Panel.Remove(old);
+        i.Panel.Add(new InterviewPanelMember { UserId = newUserId, IsChair = old.IsChair, IsHodDelegate = replacesHod });
+        i.Version = Guid.NewGuid();
+        var saved = await SaveAsync(ct);
+        if (!saved.Succeeded) return saved;
+
+        var v = await vacancies.GetByIdAsync(i.VacancyId, ct);
+        var what = EnumText.Label(i.Type).ToLowerInvariant();
+        await mailer.ToUserAsync(newUserId, $"Panel: {EnumText.Label(i.Type)} with {app.FullName}, {i.StartsAt:dd MMM HH:mm}",
+            $"You are {(old.IsChair ? "the <b>chair</b> of" : "on")} the panel{(replacesHod ? ", standing in for the Head of Department," : "")} for a " +
+            $"{WorkflowMailer.Enc(what)} with <b>{WorkflowMailer.Enc(app.FullName)}</b> for <b>{WorkflowMailer.Enc(v?.JobTitle)}</b> on " +
+            $"{i.StartsAt.ToString("dddd d MMMM yyyy, HH:mm", Gb)} GMT at {WorkflowMailer.Enc(i.Location)}." +
+            "<p><b>Please accept or decline</b> on the interview page in GRSMS, and submit your scorecard after the session.</p>",
+            links.Interview(i.Id), "Open the interview", ct);
+        return saved;
+    }
+
+    /// <summary>Upcoming sessions where the current user has not answered the panel invitation (for "Your to-dos").</summary>
+    public async Task<IReadOnlyList<Interview>> ListAwaitingMyReplyAsync(CancellationToken ct = default)
+    {
+        if (me.UserId is not { } uid) return [];
+        var now = DateTime.UtcNow;
+        return (await interviews.ListScheduledBetweenAsync(now, now.AddDays(120), ct))
+            .Where(i => i.Panel.Any(p => p.UserId == uid && p.Response == PanelResponse.Pending)).OrderBy(i => i.StartsAt).ToList();
     }
 
     /// <summary>Starts every clash message, so the page knows to offer "Schedule anyway".</summary>
@@ -297,6 +406,9 @@ public class InterviewService(
         var now = DateTime.UtcNow;
         var names = await users.GetDisplayNamesAsync(i.Panel.Select(p => p.UserId), ct);
         if (ValidationProblem(i, now, names) is { } problem) return Result.Failure(problem);
+        // docs/35: a session scheduled with quorum enforced needs it among the members who took part.
+        if (i.QuorumRequired && await QuorumProblemsAsync(i, onTheDay: true, ct) is { Count: > 0 } missing)
+            return Result.Failure($"Quorum was not met: the session needs {string.Join(", ", missing)} taking part. Check the attendance, or reschedule.");
         note = Clean(note);
         if (note?.Length > 2000) return Result.Failure("The note must be 2,000 characters or fewer.");
 
@@ -562,6 +674,18 @@ public class InterviewService(
         var namedValidator = await VacancyValidatorAsync(i.VacancyId, ct);
         var validationProblem = isValidator ? ValidationProblem(i, now, names) : null;
 
+        // docs/35: replies and quorum (shown for sessions held to quorum, or once someone declined).
+        var anyDeclined = i.Panel.Any(p => p.Response == PanelResponse.Declined);
+        var quorumProblems = InterviewWorkflow.IsOpen(i.Status) && (i.QuorumRequired || anyDeclined)
+            ? await QuorumProblemsAsync(i, onTheDay: now >= i.StartsAt, ct) : [];
+        if (isValidator && validationProblem is null && i.QuorumRequired && now >= i.StartsAt && quorumProblems.Count > 0)
+            validationProblem = $"Quorum was not met: the session needs {string.Join(", ", quorumProblems)} taking part.";
+        var myMember = i.Panel.FirstOrDefault(p => p.UserId == me.UserId);
+        var canReplace = IsScheduler && i.Status == InterviewStatus.Scheduled && now < i.StartsAt && app.ApplicantUserId != me.UserId;
+        var replacements = canReplace && anyDeclined
+            ? (await users.GetActiveStaffAsync(null, ct)).Where(s => s.Value != app.ApplicantUserId && i.Panel.All(p => p.UserId != s.Value)).ToList()
+            : [];
+
         return new InterviewDetailsDto
         {
             Id = i.Id,
@@ -585,7 +709,7 @@ public class InterviewService(
                 .Select(p => new PanelMemberDto(p.UserId, names.GetValueOrDefault(p.UserId) ?? "?", p.IsChair,
                     i.Scorecards.Any(s => s.PanelUserId == p.UserId && s.IsValid),
                     i.Scorecards.Any(s => s.PanelUserId == p.UserId && !s.IsValid),
-                    p.Attendance, p.AttendanceNote)).ToList(),
+                    p.Attendance, p.AttendanceNote, p.Response, p.DeclineReason, p.IsHodDelegate)).ToList(),
             Criteria = i.Criteria.OrderBy(c => c.SortOrder).Select(c => new CriterionDto(c.Id, c.Name, c.Weight)).ToList(),
             MyScorecard = mine is null ? null : ToDto(mine),
             MyScorecardReturned = mine is not null && !mine.IsValid && InterviewWorkflow.IsOpen(i.Status),
@@ -605,7 +729,13 @@ public class InterviewService(
             ValidationBlockedReason = validationProblem,
             ValidatedByName = i.ValidatedByUserId is null ? null : names.GetValueOrDefault(i.ValidatedByUserId),
             ValidatedAt = i.ValidatedAt,
-            ValidationNote = i.ValidationNote
+            ValidationNote = i.ValidationNote,
+            QuorumRequired = i.QuorumRequired,
+            QuorumProblems = quorumProblems,
+            CanRespond = myMember is not null && InterviewWorkflow.CanRespond(i, now),
+            MyResponse = myMember?.Response,
+            CanReplace = canReplace,
+            ReplacementOptions = replacements
         };
     }
 

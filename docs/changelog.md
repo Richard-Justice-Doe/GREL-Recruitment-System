@@ -4,6 +4,16 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 12 November 2026: interview panel replies and quorum (docs/35 Wave 1)
+
+* **Panel replies:** each member accepts or declines the invitation (on the session page and in *My tasks*); a decline needs a reason.
+* **Quorum:** at least 3 members, including the HOD (or a same-department delegate) and an HR Manager. Scheduling checks it, and score validation waits until it is met on the day.
+* **Declines:** the scheduler, the recruiter and the HR Managers are alerted. The RO or HR Manager replaces the member, who is invited and checked for clashes.
+* Switch: *System settings → Workflow → Enforce interview quorum* (on). Sessions scheduled before this change are not held to quorum.
+* Database: `database/30_interview_panel_replies_and_quorum.sql`, which the Docker deployment applies automatically. 239 tests pass. Guide: [16 §2a](16-interviews.md).
+
+---
+
 ## 12 November 2026: onboarding document deadlines (Phase 27 stage C) and a site filter (docs/35 Waves 0-1)
 
 * **Document deadlines:** reminders to the new employee every 3 working days while something is outstanding; a last reminder on the due date, copied to the RO; an overdue notice once the day after, with an *Overdue* badge on the onboarding page and list; a daily digest for each RO of the documents to verify; the RO may extend the deadline once (≤ 14 days, with a reason). Phase 27 is now complete.

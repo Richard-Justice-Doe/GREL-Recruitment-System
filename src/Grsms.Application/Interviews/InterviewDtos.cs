@@ -98,7 +98,8 @@ public record InterviewListItemDto(
 
 /// <summary>A panel member. HasSubmitted = a valid scorecard; ScorecardReturned = theirs was sent back for correction.</summary>
 public record PanelMemberDto(string UserId, string Name, bool IsChair, bool HasSubmitted, bool ScorecardReturned = false,
-    PanelAttendance Attendance = PanelAttendance.NotRecorded, string? AttendanceNote = null);
+    PanelAttendance Attendance = PanelAttendance.NotRecorded, string? AttendanceNote = null,
+    PanelResponse Response = PanelResponse.Pending, string? DeclineReason = null, bool IsHodDelegate = false);
 
 public record CriterionDto(int Id, string Name, int Weight);
 
@@ -164,6 +165,23 @@ public record InterviewDetailsDto
     public string? ValidatedByName { get; init; }
     public DateTime? ValidatedAt { get; init; }
     public string? ValidationNote { get; init; }
+
+    // ---- 12 November 2026 (docs/35): panel replies and quorum
+    /// <summary>The session was scheduled with quorum enforced: scores can only be validated when quorum is met.</summary>
+    public bool QuorumRequired { get; init; }
+
+    /// <summary>What is missing for quorum (empty = met). Before the session: from the replies; from its start: also attendance.</summary>
+    public IReadOnlyList<string> QuorumProblems { get; init; } = [];
+
+    /// <summary>The current user is on the panel and can still accept or decline.</summary>
+    public bool CanRespond { get; init; }
+    public PanelResponse? MyResponse { get; init; }
+
+    /// <summary>A Recruitment Officer / HR Manager can replace a panel member who declined (before the session).</summary>
+    public bool CanReplace { get; init; }
+
+    /// <summary>Active staff who could replace a declined member (filled only when someone declined).</summary>
+    public IReadOnlyList<Grsms.Application.Organization.LookupItem> ReplacementOptions { get; init; } = [];
 }
 
 /// <summary>One applicant's interview results for a vacancy (the results board).</summary>

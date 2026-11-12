@@ -174,3 +174,15 @@ Decisions already taken are not asked again (they are recorded in docs/26 §12, 
 | I1 | **The HOD (or a same-department delegate) and an HR Manager stay required** on every panel; quorum = at least 3 present including them (as approved on 9 November). |
 | I2 | **When a panel member declines, the RO is alerted and adds a replacement; the session waits until quorum is met again.** |
 | R1 | **Default workflow targets, in working days, editable in System settings:** HOD review 2, HR approval 2, MD approval 3, vacancy approval 2, advert review 2, offer answer 5, document verification 3. |
+
+## 9. Progress
+
+| Step | Status |
+|---|---|
+| Wave 0: site filter on Employees | ✅ 12 Nov |
+| Wave 0: merge into `main` | Pushed; the pull request is to be merged on GitHub |
+| Wave 0: review the server's stashed edits | Waiting for `server-edits-12nov.patch` |
+| Wave 1.1: onboarding document deadlines (Phase 27 stage C) | ✅ 12 Nov |
+| Wave 1.2: interview panel replies and quorum (I1, I2) | ✅ 12 Nov, script 30 |
+| Wave 1.3: workflow targets report (R1) | Next |
+| Wave 1.4: offer drafts and PDF letters | To do |

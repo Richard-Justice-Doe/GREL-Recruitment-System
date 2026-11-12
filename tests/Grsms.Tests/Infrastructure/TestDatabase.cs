@@ -76,6 +76,7 @@ public sealed class TestDatabase : IDisposable
                 ["Sms:PickupDirectory"] = Path.Combine(TempFolder, "sms"),
                 ["Uploads:MaxFileSizeMb"] = maxUploadMb.ToString(),
                 ["Email:FromName"] = "GREL Recruitment (tests)", // Phase 16: a server-configuration value, to test the fallback
+                ["Interviews:EnforceQuorum"] = "false", // docs/35: tests that check quorum switch it on themselves
                 ["Backups:Folder"] = Path.Combine(TempFolder, "backups")
             })
             .Build();

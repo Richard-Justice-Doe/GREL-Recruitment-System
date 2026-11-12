@@ -1651,6 +1651,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<bool>("QuorumRequired")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("RequestingHodUserId")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -1775,11 +1778,28 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("DeclineReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<int>("InterviewId")
                         .HasColumnType("int");
 
                     b.Property<bool>("IsChair")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsHodDelegate")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Response")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Pending");
 
                     b.Property<string>("UserId")
                         .IsRequired()

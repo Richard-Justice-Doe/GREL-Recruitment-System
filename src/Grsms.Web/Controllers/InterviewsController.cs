@@ -64,6 +64,17 @@ public class InterviewsController(InterviewService interviews) : AppController
         string? concerns, CancellationToken ct) =>
         Act(id, () => interviews.SubmitScorecardAsync(id, ratings, recommendation, strengths, concerns, ct), "Scorecard saved. You can now see the other panel members' scorecards.");
 
+    /// <summary>docs/35: a panel member accepts or declines the invitation.</summary>
+    [HttpPost]
+    public Task<IActionResult> Respond(int id, bool accept, string? reason, CancellationToken ct) =>
+        Act(id, () => interviews.RespondAsync(id, accept, reason, ct),
+            accept ? "Thank you: you have accepted the panel invitation." : "You have declined. The Recruitment Officer has been told.");
+
+    /// <summary>docs/35: the RO or HR Manager replaces a panel member who declined.</summary>
+    [HttpPost]
+    public Task<IActionResult> ReplaceMember(int id, string? oldUserId, string? newUserId, CancellationToken ct) =>
+        Act(id, () => interviews.ReplacePanelMemberAsync(id, oldUserId, newUserId, ct), "Panel member replaced. The new member has been invited.");
+
     [HttpPost]
     public Task<IActionResult> Reschedule(int id, DateTime? startsAt, string? location, bool ignoreClashes, CancellationToken ct) =>
         Act(id, () => interviews.RescheduleAsync(id, startsAt, location, ct, ignoreClashes), "Rescheduled. The applicant and the panel have been emailed.");

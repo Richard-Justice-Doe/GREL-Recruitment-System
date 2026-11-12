@@ -46,6 +46,7 @@ public sealed class GrsmsWebFactory : WebApplicationFactory<Program>
         // The test database is one shared in-memory connection, which must not be used by a
         // background job at the same time as the test. Automatic closing is tested directly instead.
         builder.UseSetting("Vacancies:AutoClose", "false");
+        builder.UseSetting("Interviews:EnforceQuorum", "false"); // docs/35: tests that check quorum switch it on themselves
 
         builder.ConfigureTestServices(services =>
         {

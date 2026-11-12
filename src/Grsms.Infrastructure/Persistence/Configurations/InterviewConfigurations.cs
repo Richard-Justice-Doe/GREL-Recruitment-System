@@ -60,6 +60,8 @@ internal class InterviewPanelMemberConfiguration : IEntityTypeConfiguration<Inte
         b.Property(p => p.Attendance).HasConversion<string>().HasMaxLength(20);   // score validation (9 Nov 2026)
         b.Property(p => p.AttendanceNote).HasMaxLength(1000);
         b.Property(p => p.AttendanceRecordedByUserId).HasMaxLength(255);
+        b.Property(p => p.Response).HasConversion<string>().HasMaxLength(20).HasDefaultValue(PanelResponse.Pending);   // docs/35: RSVP
+        b.Property(p => p.DeclineReason).HasMaxLength(500);
         b.HasOne<ApplicationUser>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(p => new { p.InterviewId, p.UserId }).IsUnique();
         b.HasIndex(p => p.UserId); // "My interviews"

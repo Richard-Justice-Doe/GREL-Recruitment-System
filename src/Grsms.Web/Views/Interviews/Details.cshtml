@@ -292,6 +292,21 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                     {
                         <li class="d-flex justify-content-between align-items-start gap-2 py-2 border-bottom">
                             <span>@p.Name @if (p.IsChair) { <span class="badge badge-soft-primary ms-1">Chair</span> }
+                                @if (p.IsHodDelegate) { <span class="badge badge-soft-secondary ms-1" title="Stands in for the Head of Department">HOD delegate</span> }
+                                @* docs/35: the member's reply to the invitation. *@
+                                <br />
+                                @switch (p.Response)
+                                {
+                                    case PanelResponse.Accepted:
+                                        <small class="text-success"><i class="fa-solid fa-check me-1"></i>Accepted</small>
+                                        break;
+                                    case PanelResponse.Declined:
+                                        <small class="text-danger"><i class="fa-solid fa-xmark me-1"></i>Declined@(p.DeclineReason is null ? "" : $": {p.DeclineReason}")</small>
+                                        break;
+                                    default:
+                                        <small class="text-body-secondary">Awaiting reply</small>
+                                        break;
+                                }
                                 @if (p.AttendanceNote is not null) { <br /><small class="text-body-secondary">@p.AttendanceNote</small> }
                             </span>
                             @if (p.HasSubmitted)
@@ -313,6 +328,59 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                         </li>
                     }
                 </ul>
+
+                @* ---- docs/35: quorum, my reply, replacing a member who declined *@
+                @if (Model.QuorumProblems.Count > 0)
+                {
+                    <div class="alert alert-warning small mt-3 mb-0">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i><b>Quorum at risk:</b> the session needs @string.Join(", ", Model.QuorumProblems).
+                        @if (Model.QuorumRequired) { <span>Scores cannot be validated until quorum is met.</span> }
+                    </div>
+                }
+                else if (Model.QuorumRequired && Model.Status == InterviewStatus.Scheduled)
+                {
+                    <p class="small text-success mt-3 mb-0"><i class="fa-solid fa-circle-check me-1"></i>Quorum met (at least 3, including the Head of Department and an HR Manager).</p>
+                }
+
+                @if (Model.CanRespond)
+                {
+                    <div class="border-top mt-3 pt-3">
+                        <p class="small mb-2">Your reply: <b>@(Model.MyResponse?.DisplayName() ?? "Awaiting reply")</b></p>
+                        <div class="d-flex flex-wrap gap-2">
+                            @if (Model.MyResponse != PanelResponse.Accepted)
+                            {
+                                <form asp-action="Respond" asp-route-id="@Model.Id" method="post">
+                                    <input type="hidden" name="accept" value="true" />
+                                    <button type="submit" class="btn btn-sm btn-success"><i class="fa-solid fa-check me-1"></i>Accept</button>
+                                </form>
+                            }
+                            @if (Model.MyResponse != PanelResponse.Declined)
+                            {
+                                <form asp-action="Respond" asp-route-id="@Model.Id" method="post" class="d-flex gap-1 flex-grow-1">
+                                    <input type="hidden" name="accept" value="false" />
+                                    <input name="reason" class="form-control form-control-sm" maxlength="500" required placeholder="Why you can't take part" aria-label="Reason for declining" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">Decline</button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (Model.CanReplace && Model.Panel.Any(p => p.Response == PanelResponse.Declined))
+                {
+                    <form asp-action="ReplaceMember" asp-route-id="@Model.Id" method="post" class="border-top mt-3 pt-3">
+                        <p class="small fw-semibold mb-2">Replace a member who declined</p>
+                        <select name="oldUserId" class="form-select form-select-sm mb-2" aria-label="Member to replace" required>
+                            @foreach (var d in Model.Panel.Where(p => p.Response == PanelResponse.Declined)) { <option value="@d.UserId">@d.Name</option> }
+                        </select>
+                        <select name="newUserId" class="form-select form-select-sm mb-2" aria-label="Replacement" required>
+                            <option value="">Choose the replacement…</option>
+                            @foreach (var s in Model.ReplacementOptions) { <option value="@s.Value">@s.Text</option> }
+                        </select>
+                        <div class="form-text mb-2">To replace the Head of Department, choose someone from the same department: they stand in for them.</div>
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Replace and invite</button>
+                    </form>
+                }
             </div>
         </div>
 

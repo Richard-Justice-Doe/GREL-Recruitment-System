@@ -39,6 +39,14 @@ GRSMS works out the **weighted score out of 100**: each rating ÷ 5 × the crite
 
 **Independent scoring:** panel members see the other scorecards **only after submitting their own**, so nobody is swayed. You can update your scorecard until the Recruitment Officer validates the scores.
 
+## 2a. Panel replies and quorum (12 November 2026, docs/35)
+
+* Every panel member is asked to **accept or decline** the invitation: on the session page and in *My tasks* on Home (*Panel invitation: … Accept or decline*). A decline needs a reason.
+* **Quorum:** at least **3** panel members, including the department's **HOD** (or a delegate from the same department) and an **HR Manager**. Scheduling checks this, and scores **cannot be validated** until quorum is met on the day (members marked absent don't count).
+* **When someone declines,** the scheduler, the vacancy's recruiter and the HR Managers are emailed (*Quorum at risk* when it is). The RO or HR Manager clicks **Replace** next to that member and picks someone else; the new member is invited and checked for clashes. A replacement for the HOD must be from the same department and is shown as **HOD delegate**. If the chair is replaced, the new member becomes chair.
+* The session page shows each member's reply and either what quorum still needs or *Quorum met*.
+* The rule can be switched off in **System settings → Workflow → Enforce interview quorum** (on by default). Sessions scheduled before 12 November are not held to it.
+
 ## 3. Score validation (Recruitment Officer)
 
 *Added 9 November 2026.* Every set of scores is checked by a Recruitment Officer **before** anyone else relies on it.

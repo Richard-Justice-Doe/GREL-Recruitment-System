@@ -165,3 +165,12 @@ Decisions already taken are not asked again (they are recorded in docs/26 §12, 
 **Process**
 * **X1.** Who tests and accepts each phase before it goes to the server (an HR Manager sign-off)?
 * **X2.** Should every change go through a pull request into `main`, with the server always on `main`?
+
+## 8. Decisions (12 November 2026)
+
+| # | Decision |
+|---|---|
+| Plan | **Approved.** Start Wave 0, then Wave 1. |
+| I1 | **The HOD (or a same-department delegate) and an HR Manager stay required** on every panel; quorum = at least 3 present including them (as approved on 9 November). |
+| I2 | **When a panel member declines, the RO is alerted and adds a replacement; the session waits until quorum is met again.** |
+| R1 | **Default workflow targets, in working days, editable in System settings:** HOD review 2, HR approval 2, MD approval 3, vacancy approval 2, advert review 2, offer answer 5, document verification 3. |

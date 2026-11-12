@@ -87,6 +87,7 @@ public static class DependencyInjection
 
         // Phase 11: reports and the executive overview
         services.AddScoped<Reports.ReportService>();
+        services.AddScoped<Reports.WorkflowTargetsReportService>(); // docs/35 R1
 
         // Home-page dashboard
         services.AddScoped<Dashboard.DashboardService>();

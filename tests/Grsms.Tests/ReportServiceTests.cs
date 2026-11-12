@@ -265,4 +265,80 @@ public class ReportServiceTests : IAsyncLifetime
         Assert.Equal("2026-09-21", ReportsController.Cell(new DateOnly(2026, 9, 21)));
         Assert.Equal("7000.5", ReportsController.Cell(7000.50m));
     }
+
+    // ------------------------------------------------------------------ workflow targets (12 November 2026, docs/35 R1)
+
+    private Task RequestHistoryAsync(int vacancyId, params (DateTime At, RecruitmentRequestStatus From, RecruitmentRequestStatus To)[] steps) =>
+        Db(async db =>
+        {
+            var requestId = (await db.Vacancies.FindAsync(vacancyId))!.RecruitmentRequestId;
+            foreach (var s in steps)
+                db.RecruitmentRequestActions.Add(new RecruitmentRequestAction
+                {
+                    RecruitmentRequestId = requestId, Action = WorkflowAction.Approved, FromStatus = s.From, ToStatus = s.To,
+                    ActorUserId = _hod, ActorName = "Someone", ActionAt = s.At
+                });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+    [Fact]
+    public void A_step_is_measured_from_entering_to_leaving_it_and_each_return_counts_separately()
+    {
+        var d = Base; // Tuesday 1 September 2026
+        var history = new List<(DateTime, RecruitmentRequestStatus, RecruitmentRequestStatus)>
+        {
+            (d, RecruitmentRequestStatus.Draft, RecruitmentRequestStatus.DepartmentHeadReview),
+            (d.AddDays(1), RecruitmentRequestStatus.DepartmentHeadReview, RecruitmentRequestStatus.Returned),
+            (d.AddDays(6), RecruitmentRequestStatus.Returned, RecruitmentRequestStatus.DepartmentHeadReview),
+            (d.AddDays(7), RecruitmentRequestStatus.DepartmentHeadReview, RecruitmentRequestStatus.HrApproval)
+        };
+        var waits = WorkflowTargetsReportService.Waits(history, RecruitmentRequestStatus.DepartmentHeadReview, RecruitmentRequestStatus.HrApproval).ToList();
+        Assert.Equal([(d, (DateTime?)d.AddDays(1)), (d.AddDays(6), d.AddDays(7))], waits);
+
+        // Still at HR: one unfinished wait.
+        Assert.Equal((d.AddDays(7), (DateTime?)null),
+            Assert.Single(WorkflowTargetsReportService.Waits(history, RecruitmentRequestStatus.HrApproval, RecruitmentRequestStatus.HrApproval)));
+
+        // Working days skip weekends: Friday 4 → Monday 7 September is 1.
+        Assert.Equal(1, WorkflowTargetsReportService.WorkingDays(d.AddDays(3), d.AddDays(6), DateTime.UtcNow));
+    }
+
+    [Fact]
+    public async Task Workflow_targets_report_shows_each_step_on_time_or_late_against_the_editable_targets()
+    {
+        // APM request: submitted Tue 1 Sep; HOD decided Mon 7 Sep (4 working days, target 2: late);
+        // HR Tue 8 Sep (1: on time); MD Fri 11 Sep (3, target 3: on time).
+        await RequestHistoryAsync(_apmVacancy,
+            (Base, RecruitmentRequestStatus.Draft, RecruitmentRequestStatus.DepartmentHeadReview),
+            (Base.AddDays(6), RecruitmentRequestStatus.DepartmentHeadReview, RecruitmentRequestStatus.HrApproval),
+            (Base.AddDays(7), RecruitmentRequestStatus.HrApproval, RecruitmentRequestStatus.MdApproval),
+            (Base.AddDays(10), RecruitmentRequestStatus.MdApproval, RecruitmentRequestStatus.Approved));
+
+        var r = await RunAs(_md, Roles.ManagingDirector, new ReportFilter { Report = ReportKeys.WorkflowTargets });
+        string ResultOf(string step) => (string)r.Table.Rows.Single(x => (string?)x.Cells[0] == step).Cells[7]!;
+        Assert.Equal("Finished late", ResultOf("Request: HOD review"));
+        Assert.Equal(4, r.Table.Rows.Single(x => (string?)x.Cells[0] == "Request: HOD review").Cells[5]);
+        Assert.Equal("Finished on time", ResultOf("Request: HR Manager review"));
+        Assert.Equal("Finished on time", ResultOf("Request: MD approval"));
+        // Both offers were answered within 5 working days.
+        Assert.Equal(2, r.Table.Rows.Count(x => (string?)x.Cells[0] == "Offer answer" && (string?)x.Cells[7] == "Finished on time"));
+        Assert.Equal("80 %", Kpi(r, "Steps finished on time"));
+        Assert.Equal("1", Kpi(r, "Finished late"));
+        Assert.Equal(new ReportLink("RecruitmentRequests", "Details", r.Table.Rows[0].Link!.Id), r.Table.Rows.First(x => (string?)x.Cells[0] == "Request: HOD review").Link);
+
+        // Result filter, and a HOD sees only their departments (Yaw's offer is in Finance).
+        var late = await RunAs(_md, Roles.ManagingDirector, new ReportFilter { Report = ReportKeys.WorkflowTargets, Status = WorkflowTargetsReportService.Late });
+        Assert.Equal("Request: HOD review", Assert.Single(late.Table.Rows).Cells[0]);
+        var hod = await RunAs(_hod, Roles.HeadOfDepartment, new ReportFilter { Report = ReportKeys.WorkflowTargets });
+        Assert.Single(hod.Table.Rows, x => (string?)x.Cells[0] == "Offer answer");
+
+        // The Super Admin gives HODs 5 working days: now on time.
+        using (var scope = _db.NewScope())
+            await scope.ServiceProvider.GetRequiredService<Grsms.Application.Settings.ISettingsStore>()
+                .SaveAsync(new Dictionary<string, string?> { [Grsms.Domain.Settings.SettingCatalogue.TargetHodReview] = "5" });
+        r = await RunAs(_md, Roles.ManagingDirector, new ReportFilter { Report = ReportKeys.WorkflowTargets });
+        Assert.Equal("Finished on time", ResultOf("Request: HOD review"));
+        Assert.Equal(5, r.Table.Rows.Single(x => (string?)x.Cells[0] == "Request: HOD review").Cells[6]);
+    }
 }

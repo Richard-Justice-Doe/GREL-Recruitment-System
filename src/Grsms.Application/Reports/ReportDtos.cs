@@ -9,7 +9,9 @@ public static class ReportKeys
         Sources = "sources", Offers = "offers", TimeToHire = "timetohire", Onboarding = "onboarding",
         // Phase 21: onboarding and probation reports (see Application/Workforce/WorkforceReportService.cs)
         MissingDocuments = "missingdocs", DocumentVerification = "docverification", Beneficiaries = "beneficiaries",
-        Probation = "probation", ProbationExtensions = "extensions", Confirmations = "confirmations";
+        Probation = "probation", ProbationExtensions = "extensions", Confirmations = "confirmations",
+        // docs/35 R1 (see WorkflowTargetsReportService.cs)
+        WorkflowTargets = "targets";
 
     public static readonly IReadOnlyList<(string Key, string Title, string Description)> All =
     [
@@ -20,6 +22,7 @@ public static class ReportKeys
         (Sources, "Application sources", "Which channels bring applications, shortlists and hires."),
         (Offers, "Offers", "Offers sent, accepted, declined and expired, with salaries and reply times."),
         (TimeToHire, "Time to hire", "Days from request to approval, publication and accepted offer, per hire."),
+        (WorkflowTargets, "Workflow targets", "Working days each approval, offer answer and document check took, against the targets in System settings: on time, late or still waiting."),
         (Onboarding, "Onboarding status", "Each new employee's onboarding stage, letter, checklist and overdue items."),
         (MissingDocuments, "Missing documents", "New employees whose new-hire documents are still missing or rejected (HR only: personal data)."),
         (DocumentVerification, "Document verification", "Every new-hire document submitted, with its verification (HR only: personal data)."),

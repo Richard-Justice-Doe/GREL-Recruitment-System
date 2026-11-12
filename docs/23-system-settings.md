@@ -55,6 +55,10 @@ So IT can keep configuring the server as before ([06 Configuration](06-configura
 
 Changes apply to what happens next; existing vacancies and offers are not changed.
 
+### Workflow targets (working days)
+
+Targets for each step, counted Monday to Friday, used by the **Workflow targets** report ([20 Reports](20-reports.md)). Defaults (decided 12 November 2026): HOD review of a request **2**, HR Manager review **2**, MD approval **3**, vacancy approval **2**, advert review **2** (each of HR review and IT approval), the candidate's answer to an offer **5**, verification of a new-hire document **3**. A change applies at once to the whole report, including past steps.
+
 ---
 
 ## 2. Email templates

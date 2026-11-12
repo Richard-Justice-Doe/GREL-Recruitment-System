@@ -35,6 +35,7 @@ Switching between reports keeps the division, department, vacancy and period.
 | **Application sources** | per source (careers page, LinkedIn, Jobberman, newspapers, referrals...): applications, shortlisted, interviewed, hired, and hires per application | the date received |
 | **Offers** | each offer: candidate, salary, sent, reply-by, status, days to answer; acceptance rate and average salary | the date sent |
 | **Time to hire** | each hire: requested → approved → published → offer accepted, in days; averages and a chart by department | the date the offer was accepted |
+| **Workflow targets** (12 Nov 2026) | each wait at each step (request HOD / HR / MD review, vacancy approval, advert HR review and IT approval, offer answer, document verification) in working days against the target in System settings: *finished on time*, *finished late*, *waiting* or *waiting, past target* (shown first); % on time per step. A request returned and resubmitted counts each wait; an offer that expired unanswered is late. Status filter = the result | the date the step started |
 | **Onboarding status** | each new employee: start date, status, appointment letter, checklist progress, overdue items | the start date |
 | **Missing documents** (Phase 21) 🔒 | each onboarding still missing new-hire documents: stage, how many are missing or rejected, and which | the start date |
 | **Document verification** (Phase 21) 🔒 | each new-hire document: status, submitted, verified by and on, the rejection reason | the date the document was submitted |

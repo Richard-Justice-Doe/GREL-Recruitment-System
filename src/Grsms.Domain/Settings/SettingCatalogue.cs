@@ -48,6 +48,16 @@ public static class SettingCatalogue
     /// <summary>12 November 2026 (docs/35, approved 9 Nov in docs/26): interview quorum for newly scheduled sessions.</summary>
     public const string InterviewQuorum = "Interviews:EnforceQuorum";
 
+    /// <summary>12 November 2026 (docs/35 R1): targets for each workflow step, in working days (Monday to Friday), for the Workflow targets report.</summary>
+    public const string Targets = "Workflow targets (working days)";
+    public const string TargetHodReview = "Targets:HodReviewDays";
+    public const string TargetHrApproval = "Targets:HrApprovalDays";
+    public const string TargetMdApproval = "Targets:MdApprovalDays";
+    public const string TargetVacancyApproval = "Targets:VacancyApprovalDays";
+    public const string TargetAdvertReview = "Targets:AdvertReviewDays";
+    public const string TargetOfferAnswer = "Targets:OfferAnswerDays";
+    public const string TargetDocumentVerification = "Targets:DocumentVerificationDays";
+
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
         new(OrganisationName, Organisation, "Organisation name", "Used in email signatures and pages, e.g. \"Ghana Rubber Estates Limited\".",
@@ -88,6 +98,14 @@ public static class SettingCatalogue
         new(AllowSelfRegistration, Workflow, "Job seekers can create their own candidate account",
             "Off = the \"Create a candidate account\" page is closed and only accounts created on Users & roles exist (e.g. while a trial link is shared).",
             SettingKind.Switch, "true"),
+
+        new(TargetHodReview, Targets, "Head of Department review of a request", "Working days from submission to the HOD's decision.", SettingKind.Number, "2", Min: 1, Max: 60),
+        new(TargetHrApproval, Targets, "HR Manager review of a request", "Working days the request waits for the HR Manager.", SettingKind.Number, "2", Min: 1, Max: 60),
+        new(TargetMdApproval, Targets, "MD approval of a request", "Working days the request waits for the Managing Director.", SettingKind.Number, "3", Min: 1, Max: 60),
+        new(TargetVacancyApproval, Targets, "Vacancy approval", "Working days a vacancy waits for the HR Manager's approval.", SettingKind.Number, "2", Min: 1, Max: 60),
+        new(TargetAdvertReview, Targets, "Advert review", "Working days an advert waits at each review (HR review, then IT approval).", SettingKind.Number, "2", Min: 1, Max: 60),
+        new(TargetOfferAnswer, Targets, "Candidate's answer to an offer", "Working days from sending the offer to the candidate's answer.", SettingKind.Number, "5", Min: 1, Max: 60),
+        new(TargetDocumentVerification, Targets, "Verification of a new-hire document", "Working days from upload to the Recruitment Officer's decision.", SettingKind.Number, "3", Min: 1, Max: 60),
     ];
 
     public static SettingDefinition? Find(string key) => All.FirstOrDefault(s => s.Key == key);

@@ -184,5 +184,5 @@ Decisions already taken are not asked again (they are recorded in docs/26 §12, 
 | Wave 0: review the server's stashed edits | Waiting for `server-edits-12nov.patch` |
 | Wave 1.1: onboarding document deadlines (Phase 27 stage C) | ✅ 12 Nov |
 | Wave 1.2: interview panel replies and quorum (I1, I2) | ✅ 12 Nov, script 30 |
-| Wave 1.3: workflow targets report (R1) | Next |
-| Wave 1.4: offer drafts and PDF letters | To do |
+| Wave 1.3: workflow targets report (R1) | ✅ 12 Nov: Reports → Workflow targets; targets in System settings |
+| Wave 1.4: offer drafts and PDF letters | Next (needs O1: letterhead and signatory) |

@@ -31,7 +31,8 @@ public class ReportService(
     IRepository<Department> departments,
     IRepository<Division> divisions,
     AccessScope scope,
-    Workforce.WorkforceReportService workforce)
+    Workforce.WorkforceReportService workforce,
+    WorkflowTargetsReportService targets)
 {
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
 
@@ -47,6 +48,19 @@ public class ReportService(
             var w = await workforce.RunAsync(filter, ct);
             var winfo = ReportKeys.All.FirstOrDefault(r => r.Key == w.Key);
             return w with { Title = winfo.Title ?? "", Description = winfo.Description ?? "", LimitedToMyDepartments = !scope.SeesAllDepartments };
+        }
+        if (filter.Report == ReportKeys.WorkflowTargets)
+        {
+            var t = await targets.RunAsync(filter, ct);
+            var tinfo = ReportKeys.All.First(r => r.Key == t.Key);
+            var vis = await scope.VisibilityAsync(ct);
+            var mine = vis.HodDepartmentIds.ToList();
+            var visible = await vacancies.ListAsync(x => vis.SeeAll || mine.Contains(x.DepartmentId), ct);
+            return t with
+            {
+                Title = tinfo.Title, Description = tinfo.Description, LimitedToMyDepartments = !vis.SeeAll,
+                VacancyOptions = visible.OrderByDescending(v => v.Id).Select(v => new LookupItem(v.Id.ToString(), $"{v.VacancyNumber} {v.JobTitle}")).ToList()
+            };
         }
         var data = await LoadAsync(filter, ct);
         var result = filter.Report switch

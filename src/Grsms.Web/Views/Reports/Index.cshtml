@@ -139,7 +139,7 @@
                                     <div class="report-bar-row" title="@b.Label: @b.Value.ToString("0", gb) @chart.Unit@(b.Note is null ? "" : $" ({b.Note})")">
                                         <span class="report-bar-label">@b.Label</span>
                                         <span class="report-bar-track"><span class="report-bar" style="width: @((b.Value * 100 / max).ToString("0.#", inv))%"></span></span>
-                                        <span class="report-bar-value">@b.Value.ToString("0", gb)@(chart.Unit == "days" ? " days" : "")<small class="text-body-secondary">@(b.Note is null ? "" : $" · {b.Note}")</small></span>
+                                        <span class="report-bar-value">@b.Value.ToString("0", gb)@(chart.Unit == "days" ? " days" : chart.Unit == "%" ? " %" : "")<small class="text-body-secondary">@(b.Note is null ? "" : $" · {b.Note}")</small></span>
                                     </div>
                                 }
                             </div>

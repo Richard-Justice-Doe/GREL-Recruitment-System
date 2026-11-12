@@ -4,6 +4,14 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 12 November 2026: workflow targets report (docs/35 Wave 1)
+
+* **Reports → Workflow targets:** every wait at every approval step, the candidate's offer answer and each document check, in working days against its target: on time, late, waiting, or waiting past target (listed first so they can be chased). Percentage on time per step, with averages.
+* **System settings → Workflow targets (working days):** HOD 2, HR 2, MD 3, vacancy 2, advert 2, offer answer 5, documents 3 (the decision of 12 November), editable by the Super Admin.
+* Worked out from the existing history: no database change. 241 tests pass. Guides: [20](20-reports.md), [23](23-system-settings.md).
+
+---
+
 ## 12 November 2026: interview panel replies and quorum (docs/35 Wave 1)
 
 * **Panel replies:** each member accepts or declines the invitation (on the session page and in *My tasks*); a decline needs a reason.

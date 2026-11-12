@@ -115,6 +115,8 @@ public class HiringWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFac
         Assert.Contains("Auto Electrician", letter);
         Assert.Contains("4,200.00", letter);
         Assert.Contains("Abura", letter);
+        Assert.Contains("/images/grel-logo.png", letter); // GREL letterhead (12 Nov 2026)
+        Assert.Equal(HttpStatusCode.OK, (await cand.GetAsync("/images/grel-logo.png")).StatusCode);
         await cand.PostFormAsync($"/MyApplications/Offer/{applicationId}", $"/MyApplications/RespondOffer/{applicationId}", new() { ["accept"] = "true" });
         using (var scope = factory.Services.CreateScope())
             Assert.Equal(OfferStatus.Sent, (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Offers.SingleAsync(o => o.JobApplicationId == applicationId)).Status);

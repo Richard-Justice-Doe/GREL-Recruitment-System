@@ -4,6 +4,14 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 12 November 2026: GREL logo
+
+* The GREL mark replaces the "G" tile in the sidebar, on the sign-in pages and on the careers site, and is the browser-tab icon (`wwwroot/images/grel-mark.png`, `grel-icon-32.png`).
+* **Letterhead** (`Views/Shared/_LetterHead.cshtml`): the full logo with "Ghana Rubber Estates Limited · Human Resources" and a green rule, at the top of the **offer letter** and the **appointment letter**, on screen and when printed (`grel-logo.png`).
+* No database change. 241 tests pass.
+
+---
+
 ## 12 November 2026: workflow targets report (docs/35 Wave 1)
 
 * **Reports → Workflow targets:** every wait at every approval step, the candidate's offer answer and each document check, in working days against its target: on time, late, waiting, or waiting past target (listed first so they can be chased). Percentage on time per step, with averages.

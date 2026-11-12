@@ -20,6 +20,7 @@
     <div class="col-xl-8">
         <article class="card glass offer-letter">
             <div class="card-body p-4 p-md-5">
+                <partial name="_LetterHead" />
                 <p class="text-end small mb-4">Ref: @Model.Number<br />@Model.SentAt.ToString("d MMMM yyyy", gb)</p>
                 <p>Dear @Model.CandidateName,</p>
                 <h2 class="h5 my-3">Offer of employment: @Model.JobTitle</h2>

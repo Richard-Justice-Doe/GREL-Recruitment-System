@@ -4,6 +4,18 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 12 November 2026: six quick wins from the effectiveness audit (docs/34)
+
+* **Interview clash check:** a warning when a panel member or the candidate is already booked; *Schedule anyway* to override.
+* **Contract expiry alerts** at 90 / 60 / 30 / 7 days to HR, the HOD, the line manager and the employee.
+* **Employee timeline** on the employee page: the whole story from application to the latest job change.
+* **Talent pool** (Candidates tab): past applicants not hired, searchable; invite one to an open vacancy.
+* **Organisation chart** (Employees): from line managers, by department.
+* **Job alerts** (My profile, opt-in): an email when a matching vacancy is published. New table: run `database/29_job_alert_subscriptions.sql` (after 26-28) before deploying.
+* No workflow, approval chain or permission changed. 232 tests pass. Details: [34 §10](34-effectiveness-audit.md#10-progress-quick-wins-12-november-2026).
+
+---
+
 ## 11 November 2026: emails no longer slow pages down
 
 * **Found** in the log of 10 November: each email through GREL's server (smtp.hostinger.com) took 4-5 seconds and the person who clicked waited for every one: applying for a job 18.5 s, approving a request 17.2 s, submitting a vacancy 7.0 s, publishing an advert 5.6 s. The server answers in about 0.5 s; the rest is encryption, sign-in and Hostinger's processing.

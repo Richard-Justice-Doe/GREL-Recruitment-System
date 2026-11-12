@@ -10,7 +10,7 @@ namespace Grsms.Web.Controllers;
 /// here, ready to apply. People only ever reach their own profile. Rules live in <see cref="CandidateProfileService"/>.
 /// </summary>
 [Authorize]
-public class ProfileController(CandidateProfileService profiles) : AppController
+public class ProfileController(CandidateProfileService profiles, JobAlertService jobAlerts) : AppController
 {
     private const long UploadRequestLimitBytes = 25 * 1024 * 1024;
 
@@ -18,6 +18,7 @@ public class ProfileController(CandidateProfileService profiles) : AppController
     public async Task<IActionResult> Index(string? returnUrl, CancellationToken ct)
     {
         ViewBag.ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null;
+        ViewBag.JobAlert = await jobAlerts.GetMineAsync(ct); // docs/34
         return View(await profiles.GetMineAsync(ct));
     }
 
@@ -35,6 +36,7 @@ public class ProfileController(CandidateProfileService profiles) : AppController
             AddErrors(result);
         }
         ViewBag.ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null;
+        ViewBag.JobAlert = await jobAlerts.GetMineAsync(ct); // docs/34
         await profiles.FillReadOnlyAsync(form, ct);
         return View(form);
     }
@@ -65,6 +67,16 @@ public class ProfileController(CandidateProfileService profiles) : AppController
     }
 
     /// <summary>Downloads one of my own files (always as a download, never opened inside the site).</summary>
+    /// <summary>docs/34: switches my job alert on or off, with optional keywords.</summary>
+    [HttpPost]
+    public async Task<IActionResult> JobAlerts(bool active, string? keywords, CancellationToken ct)
+    {
+        var result = await jobAlerts.SaveMineAsync(active, keywords, ct);
+        if (result.Succeeded) Success(active ? "Job alerts are on: you will be emailed when a matching vacancy is published." : "Job alerts are off.");
+        else Fail(result);
+        return RedirectToAction(nameof(Index));
+    }
+
     public async Task<IActionResult> Download(int attachmentId, CancellationToken ct)
     {
         var file = await profiles.OpenDocumentAsync(attachmentId, ct);

@@ -156,6 +156,28 @@ else
                 </form>
             </div>
         </div>
+
+        @* docs/34 (12 November 2026): opt-in job alerts. *@
+        @if (ViewBag.JobAlert is JobAlertDto alert)
+        {
+            <div class="card glass mt-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-regular fa-bell me-1"></i>Job alerts</h2>
+                    <p class="small mb-3">Get an email when GREL publishes a vacancy that matches what you are looking for. You can switch it off at any time.</p>
+                    <form asp-action="JobAlerts" method="post">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" role="switch" name="active" value="true" id="alertActive" checked="@alert.IsActive" />
+                            <label class="form-check-label" for="alertActive">Email me new vacancies</label>
+                        </div>
+                        <label for="alertKeywords" class="form-label small">Only vacancies mentioning <span class="text-body-secondary">(optional)</span></label>
+                        <input id="alertKeywords" name="keywords" value="@alert.Keywords" class="form-control form-control-sm mb-1" maxlength="@JobAlertService.MaxKeywordsLength"
+                               placeholder="e.g. engineer, accounting, driver" />
+                        <div class="form-text mb-2">Separate words with commas. Leave empty for every vacancy.</div>
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Save job alert</button>
+                    </form>
+                </div>
+            </div>
+        }
     </div>
 </div>
 

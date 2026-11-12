@@ -87,6 +87,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Employees.EmployeeAssignment> EmployeeAssignments => Set<Domain.Employees.EmployeeAssignment>();
     public DbSet<Domain.Employees.Grade> Grades => Set<Domain.Employees.Grade>();
 
+    // docs/34: opt-in job alerts
+    public DbSet<Domain.Applications.JobAlertSubscription> JobAlertSubscriptions => Set<Domain.Applications.JobAlertSubscription>();
+
     // Phase 10: notifications, reminders and surveys
     public DbSet<Domain.Notifications.Notification> Notifications => Set<Domain.Notifications.Notification>();
     public DbSet<Domain.Notifications.SentReminder> SentReminders => Set<Domain.Notifications.SentReminder>();

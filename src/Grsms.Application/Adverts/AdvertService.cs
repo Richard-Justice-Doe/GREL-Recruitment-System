@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Grsms.Application.Common;
 using Grsms.Application.Common.Interfaces;
 using Grsms.Application.Users;
@@ -41,7 +42,9 @@ public class AdvertService(
     IUnitOfWork unitOfWork,
     AccessScope scope,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    Applications.JobAlertService jobAlerts,
+    ILogger<AdvertService> logger)
 {
     private const string ConflictMessage = "Someone else updated this advert at the same moment. Please reload the page and try again.";
 
@@ -728,6 +731,18 @@ public class AdvertService(
         await mailer.ToUserAsync(a.RequestingHodUserId, $"{a.AdvertNumber} is live",
             $"The advert <b>{WorkflowMailer.Enc(a.Title)}</b> for your department is now live until {a.EndDate:dd MMM yyyy}.",
             link, $"Open advert {a.AdvertNumber}", ct);
+
+        // docs/34: candidates who switched on job alerts. The advert is already live; a problem here never undoes that.
+        if (v is null) return;
+        try
+        {
+            var alerted = await jobAlerts.SendForAdvertAsync(a, v, ct);
+            if (alerted > 0) logger.LogInformation("Job alerts for {Advert}: {Count} candidate(s) emailed", a.AdvertNumber, alerted);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Job alerts for {Advert} could not be sent.", a.AdvertNumber);
+        }
     }
 
     private static void FillVacancyFields(AdvertFormDto form, Vacancy v)

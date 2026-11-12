@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<Applications.MyNextStepService>(); // usability U2
         services.AddScoped<Applications.ApplicationService>();
         services.AddScoped<Applications.TalentPoolService>(); // docs/34: talent pool
+        services.AddScoped<Applications.JobAlertService>(); // docs/34: opt-in job alerts
 
         // Phase 6: CV screening and shortlisting
         services.AddScoped<Shortlisting.ShortlistingService>();

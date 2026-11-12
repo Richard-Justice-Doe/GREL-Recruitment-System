@@ -109,3 +109,18 @@
 | **Overall maturity (recruitment to confirmation)** | **72 / 100** |
 | Overall maturity as a full HRMS | 45 / 100 |
 | **Presentation readiness** | **80 / 100** (software ready; operational items in §7) |
+
+## 10. Progress: quick wins (12 November 2026)
+
+All six quick wins of section 5 were built on 12 November 2026, one commit each, with tests (232 pass). No workflow, approval chain or permission changed.
+
+| Commit | Quick win | What users see |
+|---|---|---|
+| `4938648` | **Interview clash check** | Scheduling or rescheduling a future session lists any panel member or candidate already booked at an overlapping time; the RO can tick *Schedule anyway*. |
+| `b7378bf` | **Contract expiry alerts** | 90, 60, 30 and 7 days before a contract ends: email and bell to the HR Managers, the HOD, the line manager and the employee (daily job, once per stage). |
+| `7a2b22c` | **Employee timeline** | A *Timeline* card on the employee page: applications, interviews, offer, onboarding and probation steps, job changes, oldest first. |
+| `6b23e4c` | **Talent pool** | *Candidates → Talent pool*: past applicants not hired, searched by skills, education, experience and how far they got; RO / HR Manager can invite one to an open vacancy (email, once per vacancy). |
+| `5d173d5` | **Organisation chart** | *Employees → Organisation chart*: who reports to whom (line manager, else the HOD), by department, with team sizes. |
+| (this commit) | **Job alerts** | *My profile → Job alerts* (opt-in, optional keywords): an email when a matching advert goes live on the public careers page. New table, script `29_job_alert_subscriptions.sql`. |
+
+**Score changes (section 3):** Interviews 65 → 70, Candidate portal 75 → 85, Employee records 50 → 60, Notifications 75 → 80. **Overall maturity (recruitment to confirmation): 72 → 76.**

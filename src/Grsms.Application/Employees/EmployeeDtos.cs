@@ -66,6 +66,10 @@ public record EmployeeDetailsDto(
     }
 }
 
+/// <summary>12 November 2026 (docs/34): one step of an employee's story, from their application to their latest job change.</summary>
+/// <param name="Stage">Recruitment, Onboarding, Probation or Job.</param>
+public record TimelineEntryDto(DateTime At, string Stage, string Title, string? Detail, string? By);
+
 /// <summary>Registering an existing member of staff (hired before GRSMS).</summary>
 public class RegisterEmployeeForm
 {

@@ -36,7 +36,12 @@ public class EmployeeService(
     IUserDirectory users,
     IUnitOfWork unitOfWork,
     ICurrentUserService me,
-    AccessScope scope)
+    AccessScope scope,
+    Applications.IApplicationRepository applications,
+    IRepository<Domain.Applications.ApplicationActionEntry> applicationSteps,
+    IRepository<Domain.Vacancies.Vacancy> vacancies,
+    IRepository<OnboardingActionEntry> onboardingSteps,
+    IRepository<ProbationActionEntry> probationSteps)
 {
     private const string ConflictMessage = "Someone else updated this employee at the same moment. Please reload the page and try again.";
     public const int MaxImportRows = 2000;
@@ -104,6 +109,56 @@ public class EmployeeService(
                 siteNames.GetValueOrDefault(a.SiteId, ""), a.GradeId is { } ag ? gradeNames.GetValueOrDefault(ag) : null, Name(a.ReportsToUserId),
                 a.EmploymentType, a.ContractEndDate, a.Source, a.Note, Name(a.RecordedByUserId))).ToList(),
             MayManage && e.UserId != me.UserId && e.Status != EmployeeStatus.Separated, e.Version);
+    }
+
+    /// <summary>
+    /// 12 November 2026 (docs/34 quick win): the employee's whole story, oldest first, from what GRSMS already records: every
+    /// application they made (submitted, shortlisted, interviews, offer), each onboarding's steps, each probation's steps and
+    /// every job history line. Same visibility as the employee record. Comments are staff notes, shown to HR and HODs only.
+    /// </summary>
+    public async Task<IReadOnlyList<TimelineEntryDto>> TimelineAsync(int id, CancellationToken ct = default)
+    {
+        if (await employees.GetByIdAsync(id, ct) is not { } e || !(await VisibleAsync(ct))(e)) return [];
+        var entries = new List<TimelineEntryDto>();
+        static string? Short(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Length > 160 ? s[..157] + "..." : s;
+
+        // Recruitment: every application by this person (onboarding steps come from the onboarding itself, below).
+        var apps = await applications.ListAsync(a => a.ApplicantUserId == e.UserId, ct);
+        if (apps.Count > 0)
+        {
+            var appIds = apps.Select(a => a.Id).ToList();
+            var vacancyIds = apps.Select(a => a.VacancyId).Distinct().ToList();
+            var titles = (await vacancies.ListAsync(v => vacancyIds.Contains(v.Id), ct)).ToDictionary(v => v.Id, v => $"{v.JobTitle} ({v.VacancyNumber})");
+            var byApp = apps.ToDictionary(a => a.Id);
+            foreach (var s in await applicationSteps.ListAsync(s => appIds.Contains(s.JobApplicationId), ct))
+            {
+                if (s.Action.ToString().StartsWith("Onboarding", StringComparison.Ordinal)) continue;
+                var app = byApp[s.JobApplicationId];
+                entries.Add(new TimelineEntryDto(s.ActionAt, "Recruitment", EnumText.Label(s.Action),
+                    Short($"{titles.GetValueOrDefault(app.VacancyId, app.ApplicationNumber)}{(s.Comments is null ? "" : ". " + s.Comments)}"), s.ActorName));
+            }
+        }
+
+        var onboardingIds = (await onboardings.ListAsync(o => o.EmployeeUserId == e.UserId, ct)).Select(o => o.Id).ToList();
+        foreach (var s in await onboardingSteps.ListAsync(s => onboardingIds.Contains(s.OnboardingRecordId), ct))
+            entries.Add(new TimelineEntryDto(s.ActionAt, "Onboarding", EnumText.Label(s.Action), Short(s.Comments), s.ActorName));
+
+        var probationIds = (await probations.ListAsync(p => p.EmployeeUserId == e.UserId, ct)).Select(p => p.Id).ToList();
+        foreach (var s in await probationSteps.ListAsync(s => probationIds.Contains(s.ProbationRecordId), ct))
+            entries.Add(new TimelineEntryDto(s.ActionAt, "Probation", EnumText.Label(s.Action), Short(s.Comments), s.ActorName));
+
+        // Job history: what the job became at each line.
+        var (deptNames, _, gradeNames) = await NamesAsync(ct);
+        var lines = await assignments.ListAsync(a => a.EmployeeId == e.Id, ct);
+        var people = await users.GetDisplayNamesAsync(lines.Select(a => a.RecordedByUserId).OfType<string>().Distinct(), ct);
+        foreach (var a in lines)
+            entries.Add(new TimelineEntryDto(a.CreatedAt == default ? a.EffectiveFrom.ToDateTime(TimeOnly.MinValue) : a.CreatedAt, "Job",
+                $"{EnumText.Label(a.Source)}: {a.PositionTitle}",
+                Short($"{deptNames.GetValueOrDefault(a.DepartmentId, "")}{(a.GradeId is { } g ? $", {gradeNames.GetValueOrDefault(g)}" : "")}, " +
+                      $"from {a.EffectiveFrom:d MMM yyyy}{(a.Source == AssignmentSource.Update && a.Note is not null ? ". " + a.Note : "")}"),
+                a.RecordedByUserId is { } r ? people.GetValueOrDefault(r) : null));
+
+        return entries.OrderBy(x => x.At).ToList();
     }
 
     /// <summary>The employee record of a user account, if any (for links from other pages).</summary>

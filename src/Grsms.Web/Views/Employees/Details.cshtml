@@ -76,6 +76,37 @@
                 </div>
             </div>
         </div>
+
+        @* docs/34 (12 November 2026): the whole story on one page, oldest first. *@
+        @if (ViewBag.Timeline is IReadOnlyList<TimelineEntryDto> timeline && timeline.Count > 0)
+        {
+            string StageCss(string stage) => stage switch
+            {
+                "Recruitment" => "badge-soft-primary",
+                "Onboarding" => "badge-soft-success",
+                "Probation" => "badge-soft-warning",
+                _ => "badge-soft-secondary"
+            };
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-solid fa-timeline me-1"></i>Timeline <span class="fw-normal">(@timeline.Count)</span></h2>
+                    <ul class="timeline list-unstyled mb-0">
+                        @foreach (var t in timeline)
+                        {
+                            <li class="d-flex gap-3 py-2 border-bottom small">
+                                <div class="text-nowrap text-body-secondary" style="min-width: 6.5rem">@t.At.ToString("d MMM yyyy")</div>
+                                <div class="flex-grow-1">
+                                    <span class="badge rounded-pill @StageCss(t.Stage) me-1">@t.Stage</span>
+                                    <span class="fw-semibold">@t.Title</span>
+                                    @if (t.Detail is not null) { <div class="text-body-secondary">@t.Detail</div> }
+                                    @if (!string.IsNullOrWhiteSpace(t.By)) { <div class="text-body-secondary fst-italic">by @t.By</div> }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
     </div>
 
     <div class="col-xl-4">

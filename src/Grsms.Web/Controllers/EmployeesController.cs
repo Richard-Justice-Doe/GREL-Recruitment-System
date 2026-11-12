@@ -44,6 +44,7 @@ public class EmployeesController(EmployeeService employees, GradeService grades,
     public async Task<IActionResult> Details(int id, CancellationToken ct)
     {
         var model = await employees.GetAsync(id, ct);
+        ViewBag.Timeline = model is null ? null : await employees.TimelineAsync(id, ct); // docs/34
         return model is null ? NotFound() : View(model);
     }
 

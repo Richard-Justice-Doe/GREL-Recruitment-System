@@ -314,6 +314,36 @@ public class EmployeeServiceTests : OnboardingTestBase
     }
 
     [Fact]
+    public async Task The_timeline_tells_the_whole_story_in_order()
+    {
+        var onboardingId = await ActivatedAsync();
+        var appId = (await RecordAsync(onboardingId)).JobApplicationId;
+        await Db(async db =>
+        {
+            db.Set<Grsms.Domain.Applications.ApplicationActionEntry>().Add(new Grsms.Domain.Applications.ApplicationActionEntry
+            {
+                JobApplicationId = appId, Action = Grsms.Domain.Applications.ApplicationAction.Submitted,
+                ToStatus = Grsms.Domain.Applications.ApplicationStatus.Submitted, ActorName = "Ama Mensah", ActionAt = DateTime.UtcNow.AddDays(-40)
+            });
+            return await db.SaveChangesAsync();
+        });
+        var e = await EmployeeAsync(_candidate);
+
+        AsHrManager();
+        var timeline = await RunEmployees(s => s.TimelineAsync(e.Id));
+        Assert.Equal(timeline.OrderBy(t => t.At).Select(t => t.Title), timeline.Select(t => t.Title)); // oldest first
+        Assert.Equal(("Recruitment", "Application submitted"), (timeline[0].Stage, timeline[0].Title));
+        Assert.Contains("Process Engineer", timeline[0].Detail);
+        Assert.Contains(timeline, t => t.Stage == "Onboarding" && t.Title.Contains("ctivated"));
+        Assert.Contains(timeline, t => t.Stage == "Probation");
+        Assert.Contains(timeline, t => t.Stage == "Job" && t.Title == "Hired: Process Engineer");
+        Assert.DoesNotContain(timeline, t => t.Stage == "Recruitment" && t.Title.StartsWith("Onboarding")); // not twice
+
+        As(_staff, Roles.Employee); // no permission: nothing
+        Assert.Empty(await RunEmployees(s => s.TimelineAsync(e.Id)));
+    }
+
+    [Fact]
     public async Task Contract_expiry_alerts_go_out_once_per_stage()
     {
         AsHrManager();

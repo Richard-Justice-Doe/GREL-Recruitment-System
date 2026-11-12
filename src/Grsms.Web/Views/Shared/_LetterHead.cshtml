@@ -1,8 +1,20 @@
-@* 12 November 2026: the GREL letterhead at the top of the offer and appointment letters (on screen and printed). *@
+@* 12 November 2026: the GREL letterhead at the top of the offer and appointment letters (on screen and printed).
+   The name, address and contacts come from Administration → Letterhead & signature. *@
+@inject Grsms.Application.Settings.LetterSettingsService Letters
+@{ var l = Letters.Get(); }
 <header class="letterhead">
     <img src="~/images/grel-logo.png" alt="GREL logo" class="letterhead-logo" width="80" height="78" />
-    <div>
-        <div class="letterhead-name">Ghana Rubber Estates Limited</div>
-        <div class="letterhead-sub">Human Resources</div>
+    <div class="flex-grow-1">
+        <div class="letterhead-name">@l.CompanyName</div>
+        @if (l.Department is not null) { <div class="letterhead-sub">@l.Department</div> }
     </div>
+    @if (l.AddressLines.Count > 0 || l.ContactLine.Length > 0)
+    {
+        <address class="letterhead-contact">
+            @foreach (var line in l.AddressLines) { @line<br /> }
+            @if (l.Phone is not null) { <span>Tel @l.Phone</span><br /> }
+            @if (l.Email is not null) { <span>@l.Email</span><br /> }
+            @if (l.Website is not null) { <span>@l.Website</span> }
+        </address>
+    }
 </header>

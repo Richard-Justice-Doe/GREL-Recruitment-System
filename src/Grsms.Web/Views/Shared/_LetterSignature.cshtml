@@ -1,0 +1,26 @@
+@* 12 November 2026: the signature block of the offer and appointment letters, from Administration → Letterhead & signature. *@
+@inject Grsms.Application.Settings.LetterSettingsService Letters
+@{ var l = Letters.Get(); }
+<div class="letter-signoff">
+    <p class="mb-1">Yours sincerely,</p>
+    @if (l.HasSignature)
+    {
+        <img src="@Url.Action("Signature", "LetterImages")" alt="Signature" class="letter-signature" />
+    }
+    else
+    {
+        <div class="letter-signature-space" aria-hidden="true"></div>
+    }
+    <p class="mb-0">
+        @if (l.SignatoryName is not null)
+        {
+            <strong>@l.SignatoryName</strong><br />
+            @if (l.SignatoryTitle is not null) { @l.SignatoryTitle<br /> }
+        }
+        else
+        {
+            @(l.SignatoryTitle ?? "Human Resources")<br />
+        }
+        @l.CompanyName
+    </p>
+</div>

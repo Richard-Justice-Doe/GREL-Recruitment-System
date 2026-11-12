@@ -31,6 +31,7 @@ public class AdministrationController(IAuthorizationService auth) : AppControlle
         (Policies.SystemSettings, new("System", "Screening (ATS) settings", "Score weights, bands and automatic-rejection rules.", "fa-sliders", "Ats", "Settings")),
         (Policies.SystemSettings, new("System", "System settings", "Email server, Microsoft 365 sign-in, workflow settings.", "fa-gear", "SystemSettings", "Index")),
         (Policies.SystemSettings, new("System", "Email templates", "The wording of the emails candidates receive.", "fa-envelope", "EmailTemplates", "Index")),
+        (Policies.SystemSettings, new("System", "Letterhead & signature", "Address, contacts and signatory on the offer and appointment letters.", "fa-file-signature", "LetterSettings", "Index")),
         (Policies.Backups, new("System", "Backups", "See, start and download backups.", "fa-box-archive", "Backups", "Index")),
         (Policies.AuditTrail, new("Audit", "Audit monitor", "Sign-in problems and configuration changes at a glance.", "fa-shield-heart", "AuditMonitor", "Index")),
         (Policies.AuditTrail, new("Audit", "Audit trail", "Every change and sign-in recorded by the system.", "fa-clock-rotate-left", "AuditLogs", "Index"))

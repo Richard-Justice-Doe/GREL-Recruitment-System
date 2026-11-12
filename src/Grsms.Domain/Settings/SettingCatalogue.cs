@@ -58,6 +58,26 @@ public static class SettingCatalogue
     public const string TargetOfferAnswer = "Targets:OfferAnswerDays";
     public const string TargetDocumentVerification = "Targets:DocumentVerificationDays";
 
+    /// <summary>
+    /// 12 November 2026: the letterhead and signatory of the offer and appointment letters, edited on Administration →
+    /// Letterhead &amp; signature (not on the System settings screen). The signature image is in <see cref="LetterSignatureGroup"/>,
+    /// a group of its own so saving the text fields never clears it.
+    /// </summary>
+    public const string Letters = "Letterhead and signature";
+    public const string LetterSignatureGroup = "Letter signature image";
+    public const string LetterCompany = "Letters:CompanyName";
+    public const string LetterDepartment = "Letters:Department";
+    public const string LetterAddress = "Letters:Address";
+    public const string LetterPhone = "Letters:Phone";
+    public const string LetterEmail = "Letters:Email";
+    public const string LetterWebsite = "Letters:Website";
+    public const string LetterSignatoryName = "Letters:SignatoryName";
+    public const string LetterSignatoryTitle = "Letters:SignatoryTitle";
+    public const string LetterSignatureFile = "Letters:SignatureFile";
+
+    /// <summary>Groups shown on their own page rather than on the System settings screen.</summary>
+    public static readonly IReadOnlySet<string> OwnPageGroups = new HashSet<string> { Letters, LetterSignatureGroup };
+
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
         new(OrganisationName, Organisation, "Organisation name", "Used in email signatures and pages, e.g. \"Ghana Rubber Estates Limited\".",
@@ -106,6 +126,16 @@ public static class SettingCatalogue
         new(TargetAdvertReview, Targets, "Advert review", "Working days an advert waits at each review (HR review, then IT approval).", SettingKind.Number, "2", Min: 1, Max: 60),
         new(TargetOfferAnswer, Targets, "Candidate's answer to an offer", "Working days from sending the offer to the candidate's answer.", SettingKind.Number, "5", Min: 1, Max: 60),
         new(TargetDocumentVerification, Targets, "Verification of a new-hire document", "Working days from upload to the Recruitment Officer's decision.", SettingKind.Number, "3", Min: 1, Max: 60),
+
+        new(LetterCompany, Letters, "Company name", "Printed next to the logo.", SettingKind.Text, "Ghana Rubber Estates Limited", MaxLength: 150),
+        new(LetterDepartment, Letters, "Line under the name", "e.g. Human Resources Department.", SettingKind.Text, "Human Resources", MaxLength: 150),
+        new(LetterAddress, Letters, "Postal address", "One line per line, e.g. P.O. Box 228, Takoradi, Ghana.", SettingKind.MultiLine, MaxLength: 400),
+        new(LetterPhone, Letters, "Telephone", "e.g. +233 31 202 2700.", SettingKind.Text, MaxLength: 100),
+        new(LetterEmail, Letters, "Email", "e.g. hr@grel.example.", SettingKind.Email, MaxLength: 256),
+        new(LetterWebsite, Letters, "Website", "e.g. www.grel.example.", SettingKind.Text, MaxLength: 150),
+        new(LetterSignatoryName, Letters, "Signatory's name", "Who signs the letters, e.g. Ama Mensah. Empty = the letters are signed \"Human Resources\".", SettingKind.Text, MaxLength: 150),
+        new(LetterSignatoryTitle, Letters, "Signatory's title", "e.g. Human Resources Manager.", SettingKind.Text, MaxLength: 150),
+        new(LetterSignatureFile, LetterSignatureGroup, "Signature image", "Stored file name of the uploaded signature.", SettingKind.Text, MaxLength: 300),
     ];
 
     public static SettingDefinition? Find(string key) => All.FirstOrDefault(s => s.Key == key);

@@ -4,6 +4,16 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 12 November 2026: Letterhead & signature page
+
+* **Administration → Letterhead & signature:**
+  * address, telephone, email, website, signatory name and title, plus an optional scanned signature (PNG or JPEG, ≤ 1 MB, never public);
+  * a preview of the letter's top and signature.
+* The offer and appointment letters read them (`_LetterHead`, `_LetterSignature`); with nothing set they look as before.
+* The settings are kept in the System settings table, but not shown on that screen. No database change. 242 tests pass. Guide: [23](23-system-settings.md).
+
+---
+
 ## 12 November 2026: GREL logo
 
 * The GREL mark replaces the "G" tile in the sidebar, on the sign-in pages and on the careers site, and is the browser-tab icon (`wwwroot/images/grel-mark.png`, `grel-icon-32.png`).

@@ -28,7 +28,7 @@
         }
         <p>On your first day, please report at <strong>@Model.ReportTime.ToString("HH:mm")</strong> to <strong>@Model.ReportLocation</strong>@(Model.ContactPerson is null ? "" : $", where {Model.ContactPerson} will meet you").</p>
         <p>Please confirm your acceptance of this appointment by signing this letter.</p>
-        <p>Yours sincerely,<br /><br />Human Resources<br />Ghana Rubber Estates Limited</p>
+        <div class="mb-3"><partial name="_LetterSignature" /></div>
         @if (Model.LetterSignedAt is not null)
         {
             <div class="border-top pt-3 small">

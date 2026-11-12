@@ -55,6 +55,15 @@ So IT can keep configuring the server as before ([06 Configuration](06-configura
 
 Changes apply to what happens next; existing vacancies and offers are not changed.
 
+### Letterhead & signature (its own page, 12 November 2026)
+
+**Administration → Letterhead & signature** sets what the **offer letter** and the **appointment letter** print:
+* company name, the line under it (e.g. *Human Resources*), postal address, telephone, email and website, beside the GREL logo at the top;
+* the signatory's name and title at the bottom. If no name is set, the letters are signed *Human Resources*.
+* Optional **scanned signature** (PNG or JPEG, ≤ 1 MB, checked from the file's content and virus-scanned). It is kept in the file store, not in the web folder, and is shown only to signed-in users. Without one, the printed letter leaves space to sign by hand.
+
+A preview on the page shows the result. The Super Admin edits; the Admin sees it read-only. Changes are in the audit trail and apply straight away, including to letters already sent when they are reopened.
+
 ### Workflow targets (working days)
 
 Targets for each step, counted Monday to Friday, used by the **Workflow targets** report ([20 Reports](20-reports.md)). Defaults (decided 12 November 2026): HOD review of a request **2**, HR Manager review **2**, MD approval **3**, vacancy approval **2**, advert review **2** (each of HR review and IT approval), the candidate's answer to an offer **5**, verification of a new-hire document **3**. A change applies at once to the whole report, including past steps.

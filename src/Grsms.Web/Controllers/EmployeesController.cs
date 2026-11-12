@@ -22,18 +22,20 @@ public class EmployeesController(EmployeeService employees, GradeService grades,
     private const long ImportLimitBytes = 2 * 1024 * 1024;
 
     /// <summary>Tabs: current (default), probation, active, left.</summary>
-    public async Task<IActionResult> Index(string? tab, string? search, int? departmentId, int? gradeId, int page = 1, CancellationToken ct = default)
+    public async Task<IActionResult> Index(string? tab, string? search, int? departmentId, int? siteId, int? gradeId, int page = 1, CancellationToken ct = default)
     {
         tab = tab is "probation" or "active" or "left" ? tab : "current";
         var filter = new EmployeeFilter
         {
-            Search = search, DepartmentId = departmentId, GradeId = gradeId, Page = page,
+            Search = search, DepartmentId = departmentId, SiteId = siteId, GradeId = gradeId, Page = page,
             Status = tab switch { "probation" => EmployeeStatus.OnProbation, "active" => EmployeeStatus.Active, "left" => EmployeeStatus.Separated, _ => null }
         };
         ViewBag.Tab = tab;
         ViewBag.Search = search;
         ViewBag.DepartmentId = departmentId;
         ViewBag.GradeId = gradeId;
+        ViewBag.SiteId = siteId;
+        ViewBag.SiteFilterList = new SelectList(await sites.GetActiveLookupAsync(ct), nameof(LookupItem.Value), nameof(LookupItem.Text), siteId?.ToString());
         ViewBag.Counts = await employees.CountsAsync(ct);
         ViewBag.CanManage = employees.MayManage;
         ViewBag.GradeList = new SelectList(await grades.GetActiveLookupAsync(ct), nameof(LookupItem.Value), nameof(LookupItem.Text), gradeId?.ToString());

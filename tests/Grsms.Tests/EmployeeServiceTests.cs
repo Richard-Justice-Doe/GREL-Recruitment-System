@@ -290,9 +290,12 @@ public class EmployeeServiceTests : OnboardingTestBase
         AsHrManager();
         var csv = new StringBuilder("StaffNumber,FullName,Email,Position,Department,Site,HireDate\n");
         for (var i = 1; i <= 12; i++)
-            csv.Append($"GREL-1{i:000},Worker {i:00},w{i}@grel.test,{(i == 7 ? "Tapper_Lead" : "Tapper")},{(i <= 9 ? "APM" : "HR")},ABU,2020-01-01\n");
+            csv.Append($"GREL-1{i:000},Worker {i:00},w{i}@grel.test,{(i == 7 ? "Tapper_Lead" : "Tapper")},{(i <= 9 ? "APM" : "HR")},{(i == 12 ? "HQ" : "ABU")},2020-01-01\n");
         Assert.True((await RunEmployees(s => s.ImportAsync(Csv(csv.ToString())))).Succeeded);
 
+        // 12 Nov 2026 (docs/35): by site (Worker 12 is at Head Office, the rest at Abura).
+        Assert.Equal("Worker 12", Assert.Single((await RunEmployees(s => s.SearchAsync(new EmployeeFilter { SiteId = 1 }))).Items).Name);
+        Assert.Equal(11, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter { SiteId = 2 }))).TotalCount);
         var first = await RunEmployees(s => s.SearchAsync(new EmployeeFilter { PageSize = 10 }));
         Assert.Equal((12, 2, 10), (first.TotalCount, first.TotalPages, first.Items.Count));
         Assert.Equal("Worker 01", first.Items[0].Name); // sorted by name

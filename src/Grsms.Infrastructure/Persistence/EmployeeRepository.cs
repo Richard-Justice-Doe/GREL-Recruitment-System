@@ -22,6 +22,7 @@ public class EmployeeRepository(ApplicationDbContext context) : Repository<Emplo
         var q = Visible(visibility);
         q = filter.Status is { } status ? q.Where(e => e.Status == status) : q.Where(e => e.Status != EmployeeStatus.Separated);
         if (filter.DepartmentId is { } dep) q = q.Where(e => e.DepartmentId == dep);
+        if (filter.SiteId is { } site) q = q.Where(e => e.SiteId == site);
         if (filter.GradeId is { } grade) q = q.Where(e => e.GradeId == grade);
 
         var rows = from e in q

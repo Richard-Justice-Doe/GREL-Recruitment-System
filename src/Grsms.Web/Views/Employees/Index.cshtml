@@ -11,6 +11,7 @@
         if (!string.IsNullOrWhiteSpace((string?)ViewBag.Search)) d["search"] = (string)ViewBag.Search;
         if (ViewBag.DepartmentId is int dep) d["departmentId"] = dep.ToString();
         if (ViewBag.GradeId is int grade) d["gradeId"] = grade.ToString();
+        if (ViewBag.SiteId is int site) d["siteId"] = site.ToString();
         return d;
     }
     var tabs = new[]
@@ -42,20 +43,25 @@
     {
         <li class="nav-item">
             <a class="nav-link @(tab == key ? "active" : "")" asp-action="Index" asp-route-tab="@key" asp-route-departmentId="@ViewBag.DepartmentId"
-               asp-route-gradeId="@ViewBag.GradeId" asp-route-search="@ViewBag.Search">@label <span class="badge text-bg-light">@count</span></a>
+               asp-route-gradeId="@ViewBag.GradeId" asp-route-siteId="@ViewBag.SiteId" asp-route-search="@ViewBag.Search">@label <span class="badge text-bg-light">@count</span></a>
         </li>
     }
 </ul>
 
 <form method="get" class="row g-2 mb-3">
     <input type="hidden" name="tab" value="@tab" />
-    <div class="col-md-4"><input name="search" value="@ViewBag.Search" class="form-control" placeholder="Name, staff number or position" aria-label="Search" /></div>
+    <div class="col-md-3"><input name="search" value="@ViewBag.Search" class="form-control" placeholder="Name, staff number or position" aria-label="Search" /></div>
     <div class="col-md-3">
         <select name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select" aria-label="Department">
             <option value="">All departments</option>
         </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
+        <select name="siteId" asp-items="ViewBag.SiteFilterList" class="form-select" aria-label="Site">
+            <option value="">All sites</option>
+        </select>
+    </div>
+    <div class="col-md-2">
         <select name="gradeId" asp-items="ViewBag.GradeList" class="form-select" aria-label="Grade">
             <option value="">All grades</option>
         </select>

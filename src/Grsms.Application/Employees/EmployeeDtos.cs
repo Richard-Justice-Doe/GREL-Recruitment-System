@@ -12,6 +12,8 @@ public class EmployeeFilter
 {
     public string? Search { get; set; }
     public int? DepartmentId { get; set; }
+    /// <summary>12 Nov 2026 (docs/35): the place of work.</summary>
+    public int? SiteId { get; set; }
     public EmployeeStatus? Status { get; set; }
     public int? GradeId { get; set; }
 

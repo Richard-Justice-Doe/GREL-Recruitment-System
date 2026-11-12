@@ -77,6 +77,12 @@ public interface IAppLinks
     /// <summary>Phase 21: the employee's own probation page.</summary>
     string MyProbation();
 
+    /// <summary>12 November 2026: an employee record (staff page).</summary>
+    string Employee(int id);
+
+    /// <summary>12 November 2026: the home page (for people with no page of their own to open).</summary>
+    string Home();
+
     /// <summary>A survey invitation, for the person invited to answer it.</summary>
     string Survey(int invitationId);
 

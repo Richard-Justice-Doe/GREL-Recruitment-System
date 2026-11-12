@@ -169,6 +169,8 @@ public class TestAppLinks : IAppLinks
     public string Onboarding(int id) => $"https://grsms.test/Onboarding/Details/{id}";
     public string Probation(int id) => $"https://grsms.test/Probation/Details/{id}";
     public string MyProbation() => "https://grsms.test/MyProbation";
+    public string Employee(int id) => $"https://grsms.test/Employees/Details/{id}";
+    public string Home() => "https://grsms.test/";
     public string Survey(int invitationId) => $"https://grsms.test/Surveys/Take/{invitationId}";
     public string CareersJob(string advertNumber) => $"https://grsms.test/Careers/Details/{advertNumber}";
 }

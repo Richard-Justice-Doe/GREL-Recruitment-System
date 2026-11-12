@@ -76,6 +76,7 @@ public static class DependencyInjection
         services.AddScoped<Employees.EmployeeLifecycle>();
         services.AddScoped<Employees.EmployeeService>();
         services.AddScoped<Employees.GradeService>();
+        services.AddScoped<Employees.ContractAlertService>(); // docs/34: contract expiry alerts (daily job)
 
         // Phase 10: reminders and surveys (notifications themselves are stored by Infrastructure)
         services.AddScoped<Notifications.ReminderService>();

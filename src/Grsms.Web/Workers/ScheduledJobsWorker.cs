@@ -84,8 +84,11 @@ public class ScheduledJobsWorker(IServiceScopeFactory scopes, IConfiguration con
                         .RunAsync(DateTime.UtcNow, sp.GetRequiredService<Application.Settings.ISettingsStore>().GetInt(Domain.Settings.SettingCatalogue.ApprovalWaitingDays), stoppingToken); // Phase 16: System settings (falls back to Reminders:ApprovalWaitingDays)
                     var invited = await sp.GetRequiredService<Application.Surveys.SurveyService>().InviteDueAsync(DateTime.UtcNow, stoppingToken);
                     var purged = await sp.GetRequiredService<Application.Notifications.INotificationCenter>().PurgeAsync(DateTime.UtcNow.AddMonths(-6), stoppingToken);
-                    if (reminders + invited + purged > 0)
-                        logger.LogInformation("Reminders sent: {Reminders}; survey invitations: {Invited}; old notifications removed: {Purged}", reminders, invited, purged);
+                    // docs/34: contracts ending in 90 / 60 / 30 / 7 days.
+                    var contracts = await sp.GetRequiredService<Application.Employees.ContractAlertService>().RunAsync(DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
+                    if (reminders + invited + purged + contracts > 0)
+                        logger.LogInformation("Reminders sent: {Reminders}; survey invitations: {Invited}; old notifications removed: {Purged}; contract alerts: {Contracts}",
+                            reminders, invited, purged, contracts);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

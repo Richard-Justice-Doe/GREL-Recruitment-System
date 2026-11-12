@@ -314,6 +314,37 @@ public class EmployeeServiceTests : OnboardingTestBase
     }
 
     [Fact]
+    public async Task Contract_expiry_alerts_go_out_once_per_stage()
+    {
+        AsHrManager();
+        var form = Kwame();
+        (form.EmploymentType, form.ContractEndDate) = (EmploymentType.FixedTermContract, Today.AddDays(45));
+        Assert.True((await RunEmployees(s => s.RegisterAsync(form))).Succeeded);
+        var permanent = Kwame();
+        (permanent.Email, permanent.EmployeeNumber) = ("p.permanent@grel.test", "GREL-0102"); // no contract end: never alerted
+        Assert.True((await RunEmployees(s => s.RegisterAsync(permanent))).Succeeded);
+
+        As(_staff, Roles.Employee); // the daily job acts as nobody in particular (the mailer never emails the person acting)
+        async Task<int> AlertsOn(DateOnly day)
+        {
+            using var scope = _db.NewScope();
+            return await scope.ServiceProvider.GetRequiredService<ContractAlertService>().RunAsync(day);
+        }
+
+        Assert.Equal(1, await AlertsOn(Today));         // 45 days left: the 60-day alert
+        Assert.Equal(0, await AlertsOn(Today));         // not twice
+        Assert.Equal(0, await AlertsOn(Today.AddDays(10))); // 35 days left: still the 60-day stage
+        Assert.Equal(1, await AlertsOn(Today.AddDays(15))); // 30 days left
+        Assert.Equal(1, await AlertsOn(Today.AddDays(40))); // 5 days left (a missed day): the 7-day alert
+        Assert.Equal(0, await AlertsOn(Today.AddDays(46))); // ended
+
+        var mails = _db.SentEmails();
+        Assert.Contains(mails, m => m.Contains("To: hrm@grel.test") && m.Contains("Contract ending in 45 days"));
+        Assert.Contains(mails, m => m.Contains("To: hod@grel.test") && m.Contains("Contract ending in 45 days")); // Head of APM
+        Assert.Contains(mails, m => m.Contains("To: k.boateng@grel.test") && m.Contains("Your contract ends"));
+    }
+
+    [Fact]
     public void The_csv_reader_handles_quotes_commas_and_line_ends()
     {
         var rows = EmployeeService.ParseCsv("a,\"b, c\",\"say \"\"hi\"\"\"\r\n\"multi\nline\",x\n");

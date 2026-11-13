@@ -106,7 +106,8 @@ public record InterviewRoundScoresDto(int InterviewId, int Round, InterviewType 
     IReadOnlyList<PanelScoreDto> Scores);
 
 /// <summary>One panel member's validated score on the hiring case.</summary>
-public record PanelScoreDto(string PanelName, bool IsChair, decimal Score, PanelRecommendation Recommendation, string? Strengths, string? Concerns);
+public record PanelScoreDto(string PanelName, bool IsChair, decimal Score, PanelRecommendation Recommendation, string? Strengths, string? Concerns,
+    IReadOnlyList<string>? CriterionComments = null); // docs/37 CR2: "Criterion (4/5): reason"
 
 /// <summary>A candidate whose interview scores are validated and who is ready for a hiring recommendation (9 Nov 2026).</summary>
 public record ReadyToRecommendDto(int ApplicationId, string ApplicationNumber, string ApplicantName, int VacancyId, string VacancyNumber,

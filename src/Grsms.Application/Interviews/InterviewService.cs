@@ -40,7 +40,8 @@ public class InterviewService(
     AccessScope scope,
     WorkflowMailer mailer,
     IAppLinks links,
-    Settings.ISettingsStore settings)
+    Settings.ISettingsStore settings,
+    IRepository<InterviewPanelChange> panelChanges)
 {
     private const string ConflictMessage = "Someone else updated this interview at the same moment. Please reload the page and try again.";
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
@@ -258,44 +259,111 @@ public class InterviewService(
     }
 
     /// <summary>
-    /// A Recruitment Officer or HR Manager replaces a panel member who declined, before the session. Replacing the Head of
-    /// Department needs someone from the same department, who then stands in for them (HOD delegate). The chair role moves
-    /// to the replacement. The newcomer is invited by email; the clash check applies.
+    /// A Recruitment Officer or HR Manager replaces a panel member before the session: one who declined, or (docs/37 CR3) any member
+    /// who can't attend, with the reason. Replacing the Head of Department needs someone from the same department, who then stands
+    /// in for them (HOD delegate). The chair role moves to the replacement. The newcomer is invited by email (clash check applies);
+    /// a member replaced without having declined is told they are no longer needed. Every change is kept in the panel history.
     /// </summary>
-    public async Task<Result> ReplacePanelMemberAsync(int id, string? oldUserId, string? newUserId, CancellationToken ct = default)
+    public async Task<Result> ReplacePanelMemberAsync(int id, string? oldUserId, string? newUserId, CancellationToken ct = default, string? reason = null)
     {
         var (i, error) = await LoadForManagerAsync(id, ct);
         if (i is null) return Result.Failure(error!);
         if (i.Status != InterviewStatus.Scheduled || DateTime.UtcNow >= i.StartsAt) return Result.Failure("The panel can only change before the session starts.");
         var old = i.Panel.FirstOrDefault(p => p.UserId == oldUserId);
-        if (old is null || old.Response != PanelResponse.Declined) return Result.Failure("Choose a panel member who declined.");
-        if (string.IsNullOrWhiteSpace(newUserId) || !await users.IsActiveStaffAsync(newUserId, ct)) return Result.Failure("Choose an active member of staff.");
-        if (i.Panel.Any(p => p.UserId == newUserId)) return Result.Failure("That person is already on the panel.");
-        var app = (await applications.GetByIdAsync(i.JobApplicationId, ct))!;
-        if (newUserId == app.ApplicantUserId) return Result.Failure("The applicant cannot sit on their own panel.");
+        if (old is null) return Result.Failure("Choose the panel member to replace.");
+        reason = Clean(reason);
+        if (old.Response != PanelResponse.Declined && (reason is null || reason.Length < 3))
+            return Result.Failure("Give the reason for replacing this member (e.g. \"On leave that day\").");
+        if (reason?.Length > 500) return Result.Failure("Keep the reason under 500 characters.");
+        reason ??= old.DeclineReason is null ? "Declined the invitation." : $"Declined: {old.DeclineReason}";
+        var (app, problem) = await NewMemberProblemAsync(i, newUserId, ct);
+        if (problem is not null) return Result.Failure(problem);
 
-        var replacesHod = old.IsHodDelegate || (await RequiredHodsAsync(app, ct)).Contains(old.UserId);
-        if (replacesHod && await users.GetDepartmentIdAsync(newUserId, ct) != i.DepartmentId)
+        var replacesHod = old.IsHodDelegate || (await RequiredHodsAsync(app!, ct)).Contains(old.UserId);
+        if (replacesHod && await users.GetDepartmentIdAsync(newUserId!, ct) != i.DepartmentId)
             return Result.Failure("The Head of Department can only be replaced by someone from the same department (who stands in for them).");
-        if (await ClashesAsync(i.StartsAt, i.DurationMinutes, [newUserId], app.ApplicantUserId, i.Id, ct) is { Count: > 0 } clashes
-            && clashes.Any(c => !c.Contains("the candidate")))
-            return Result.Failure([.. clashes.Where(c => !c.Contains("the candidate"))]);
 
         i.Panel.Remove(old);
-        i.Panel.Add(new InterviewPanelMember { UserId = newUserId, IsChair = old.IsChair, IsHodDelegate = replacesHod });
+        i.Panel.Add(new InterviewPanelMember { UserId = newUserId!, IsChair = old.IsChair, IsHodDelegate = replacesHod });
         i.Version = Guid.NewGuid();
+        LogPanelChange(i.Id, PanelChangeAction.Replaced, old.UserId, newUserId, reason);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return saved;
 
+        await InviteAsync(i, app!, newUserId!, old.IsChair, replacesHod, ct);
+        if (old.Response != PanelResponse.Declined)
+            await mailer.ToUserAsync(old.UserId, $"Panel change: {EnumText.Label(i.Type)} with {app!.FullName}, {i.StartsAt:dd MMM HH:mm}",
+                $"You are <b>no longer needed</b> on the panel for this {WorkflowMailer.Enc(EnumText.Label(i.Type).ToLowerInvariant())}: " +
+                $"someone else takes your place. Reason: {WorkflowMailer.Enc(reason)}.", links.Interview(i.Id), "Open the interview", ct);
+        return saved;
+    }
+
+    /// <summary>docs/37 CR3: adds a substitute (an extra member) before the session, with the reason; they are invited at once.</summary>
+    public async Task<Result> AddPanelMemberAsync(int id, string? newUserId, string? reason, CancellationToken ct = default)
+    {
+        var (i, error) = await LoadForManagerAsync(id, ct);
+        if (i is null) return Result.Failure(error!);
+        if (i.Status != InterviewStatus.Scheduled || DateTime.UtcNow >= i.StartsAt) return Result.Failure("The panel can only change before the session starts.");
+        if (i.Panel.Count >= InterviewWorkflow.MaxPanelSize) return Result.Failure($"A panel has at most {InterviewWorkflow.MaxPanelSize} members.");
+        reason = Clean(reason);
+        if (reason?.Length > 500) return Result.Failure("Keep the reason under 500 characters.");
+        var (app, problem) = await NewMemberProblemAsync(i, newUserId, ct);
+        if (problem is not null) return Result.Failure(problem);
+
+        i.Panel.Add(new InterviewPanelMember { UserId = newUserId! });
+        i.Version = Guid.NewGuid();
+        LogPanelChange(i.Id, PanelChangeAction.Added, null, newUserId, reason ?? "Substitute added.");
+        var saved = await SaveAsync(ct);
+        if (saved.Succeeded) await InviteAsync(i, app!, newUserId!, false, false, ct);
+        return saved;
+    }
+
+    /// <summary>docs/37 CR3: sends the invitation again to a member who has not replied.</summary>
+    public async Task<Result> ResendInvitationAsync(int id, string? userId, CancellationToken ct = default)
+    {
+        var (i, error) = await LoadForManagerAsync(id, ct);
+        if (i is null) return Result.Failure(error!);
+        if (i.Status != InterviewStatus.Scheduled || DateTime.UtcNow >= i.StartsAt) return Result.Failure("The session has already started.");
+        var member = i.Panel.FirstOrDefault(p => p.UserId == userId);
+        if (member is null) return Result.Failure("Choose a panel member.");
+        if (member.Response != PanelResponse.Pending) return Result.Failure("This member has already replied.");
+        var app = (await applications.GetByIdAsync(i.JobApplicationId, ct))!;
+        LogPanelChange(i.Id, PanelChangeAction.Reinvited, member.UserId, null, "No reply yet.");
+        var saved = await SaveAsync(ct);
+        if (saved.Succeeded) await InviteAsync(i, app, member.UserId, member.IsChair, member.IsHodDelegate, ct);
+        return saved;
+    }
+
+    /// <summary>The newcomer must be active staff, not on the panel yet, not the applicant, and free at that time.</summary>
+    private async Task<(JobApplication? App, string? Problem)> NewMemberProblemAsync(Interview i, string? newUserId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(newUserId) || !await users.IsActiveStaffAsync(newUserId, ct)) return (null, "Choose an active member of staff.");
+        if (i.Panel.Any(p => p.UserId == newUserId)) return (null, "That person is already on the panel.");
+        var app = (await applications.GetByIdAsync(i.JobApplicationId, ct))!;
+        if (newUserId == app.ApplicantUserId) return (null, "The applicant cannot sit on their own panel.");
+        if (await ClashesAsync(i.StartsAt, i.DurationMinutes, [newUserId], app.ApplicantUserId, i.Id, ct) is { Count: > 0 } clashes
+            && clashes.Any(c => !c.Contains("the candidate")))
+            return (null, string.Join(" ", clashes.Where(c => !c.Contains("the candidate"))));
+        return (app, null);
+    }
+
+    private void LogPanelChange(int interviewId, PanelChangeAction action, string? original, string? replacement, string? reason) =>
+        panelChanges.Add(new InterviewPanelChange
+        {
+            InterviewId = interviewId, Action = action, OriginalUserId = original, ReplacementUserId = replacement, Reason = reason,
+            ActorUserId = MyId, ActorName = scope.UserName
+        });
+
+    private async Task InviteAsync(Interview i, JobApplication app, string userId, bool chair, bool hodDelegate, CancellationToken ct)
+    {
         var v = await vacancies.GetByIdAsync(i.VacancyId, ct);
         var what = EnumText.Label(i.Type).ToLowerInvariant();
-        await mailer.ToUserAsync(newUserId, $"Panel: {EnumText.Label(i.Type)} with {app.FullName}, {i.StartsAt:dd MMM HH:mm}",
-            $"You are {(old.IsChair ? "the <b>chair</b> of" : "on")} the panel{(replacesHod ? ", standing in for the Head of Department," : "")} for a " +
+        await mailer.ToUserAsync(userId, $"Panel: {EnumText.Label(i.Type)} with {app.FullName}, {i.StartsAt:dd MMM HH:mm}",
+            $"You are {(chair ? "the <b>chair</b> of" : "on")} the panel{(hodDelegate ? ", standing in for the Head of Department," : "")} for a " +
             $"{WorkflowMailer.Enc(what)} with <b>{WorkflowMailer.Enc(app.FullName)}</b> for <b>{WorkflowMailer.Enc(v?.JobTitle)}</b> on " +
             $"{i.StartsAt.ToString("dddd d MMMM yyyy, HH:mm", Gb)} GMT at {WorkflowMailer.Enc(i.Location)}." +
             "<p><b>Please accept or decline</b> on the interview page in GRSMS, and submit your scorecard after the session.</p>",
             links.Interview(i.Id), "Open the interview", ct);
-        return saved;
     }
 
     /// <summary>Upcoming sessions where the current user has not answered the panel invitation (for "Your to-dos").</summary>
@@ -345,10 +413,13 @@ public class InterviewService(
 
     /// <summary>Submits (or, until the session is completed, updates) the current user's scorecard.</summary>
     public async Task<Result> SubmitScorecardAsync(int id, IReadOnlyDictionary<int, int> ratings, PanelRecommendation? recommendation,
-        string? strengths, string? concerns, CancellationToken ct = default)
+        string? strengths, string? concerns, CancellationToken ct = default, IReadOnlyDictionary<int, string?>? comments = null)
     {
         var i = await interviews.GetWithDetailsAsync(id, ct);
         if (i is null || i.Panel.All(p => p.UserId != MyId)) return Result.Failure("Only members of this panel can submit a scorecard.");
+        // docs/37 CR2: an optional reason per criterion (never required).
+        string? Comment(int criterionId) => comments?.GetValueOrDefault(criterionId) is { } c ? Clean(c) : null;
+        if (i.Criteria.Any(c => Comment(c.Id)?.Length > 1000)) return Result.Failure("Each criterion's comment must be 1,000 characters or fewer.");
         if (!InterviewWorkflow.CanScore(i, DateTime.UtcNow))
             return Result.Failure(i.Status == InterviewStatus.Scheduled
                 ? "Scorecards open when the session starts."
@@ -374,7 +445,7 @@ public class InterviewService(
         card.Concerns = concerns;
         card.SubmittedAt = now;
         card.Ratings.Clear();
-        foreach (var c in i.Criteria) card.Ratings.Add(new ScorecardRating { CriterionId = c.Id, Score = ratings[c.Id] });
+        foreach (var c in i.Criteria) card.Ratings.Add(new ScorecardRating { CriterionId = c.Id, Score = ratings[c.Id], Comment = Comment(c.Id) });
         card.WeightedScore = InterviewWorkflow.WeightedScore(i.Criteria.Select(c => (ratings[c.Id], c.Weight)));
 
         // Score validation: submitting again clears a "returned for correction" mark, and scoring counts as taking part.
@@ -667,7 +738,8 @@ public class InterviewService(
         var visibleCards = validated ? i.Scorecards.Where(s => s.IsValid).ToList() : i.Scorecards.ToList();
         ScorecardDto ToDto(Scorecard s) => new(s.PanelUserId, names.GetValueOrDefault(s.PanelUserId) ?? "?", s.Recommendation, s.WeightedScore,
             s.Ratings.ToDictionary(r => r.CriterionId, r => r.Score), s.Strengths, s.Concerns, s.SubmittedAt,
-            s.ReturnedAt, s.ReturnReason, s.ReturnedByUserId is null ? null : names.GetValueOrDefault(s.ReturnedByUserId));
+            s.ReturnedAt, s.ReturnReason, s.ReturnedByUserId is null ? null : names.GetValueOrDefault(s.ReturnedByUserId),
+            s.Ratings.Where(r => !string.IsNullOrWhiteSpace(r.Comment)).ToDictionary(r => r.CriterionId, r => r.Comment!));
         var validCards = visibleCards.Where(s => s.IsValid).ToList();
 
         var isValidator = isRecruitmentOfficer && app.ApplicantUserId != me.UserId && InterviewWorkflow.IsOpen(i.Status);
@@ -682,7 +754,7 @@ public class InterviewService(
             validationProblem = $"Quorum was not met: the session needs {string.Join(", ", quorumProblems)} taking part.";
         var myMember = i.Panel.FirstOrDefault(p => p.UserId == me.UserId);
         var canReplace = IsScheduler && i.Status == InterviewStatus.Scheduled && now < i.StartsAt && app.ApplicantUserId != me.UserId;
-        var replacements = canReplace && anyDeclined
+        var replacements = canReplace // docs/37 CR3: any member can be replaced, and substitutes added
             ? (await users.GetActiveStaffAsync(null, ct)).Where(s => s.Value != app.ApplicantUserId && i.Panel.All(p => p.UserId != s.Value)).ToList()
             : [];
 
@@ -735,8 +807,18 @@ public class InterviewService(
             CanRespond = myMember is not null && InterviewWorkflow.CanRespond(i, now),
             MyResponse = myMember?.Response,
             CanReplace = canReplace,
-            ReplacementOptions = replacements
+            ReplacementOptions = replacements,
+            PanelChanges = await PanelChangesAsync(i.Id, ct)
         };
+    }
+
+    private async Task<IReadOnlyList<PanelChangeDto>> PanelChangesAsync(int interviewId, CancellationToken ct)
+    {
+        var rows = (await panelChanges.ListAsync(c => c.InterviewId == interviewId, ct)).OrderByDescending(c => c.Id).ToList();
+        if (rows.Count == 0) return [];
+        var names = await users.GetDisplayNamesAsync(rows.SelectMany(r => new[] { r.OriginalUserId, r.ReplacementUserId }).OfType<string>().Distinct(), ct);
+        string? N(string? id) => id is null ? null : names.GetValueOrDefault(id) ?? "?";
+        return rows.Select(r => new PanelChangeDto(r.Action, N(r.OriginalUserId), N(r.ReplacementUserId), r.Reason, r.ActorName, r.CreatedAt)).ToList();
     }
 
     /// <summary>

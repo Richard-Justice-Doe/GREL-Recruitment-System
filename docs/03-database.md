@@ -669,6 +669,7 @@ New tables only; no existing table changed. Script `28_phase28_employee_master_r
 | `33_vacancy_interview_questions.sql` | docs/36 AI-2 | Creates **VacancyInterviewQuestions** (a vacancy's interview guide: `VacancyId` → Vacancies, `Category`, `Question` and `Guidance` up to 1,000 characters, `SortOrder`). No existing table changes. 13 November 2026. Not yet run on MySQL. |
 | `34_document_checks.sql` | docs/36 AI-4 | Adds `ExpiresOn` (date) to **EmployeeDocuments** and `ImageWidth`, `ImageHeight` (int) to **Attachments**, all nullable: the valid-until date of ID-type documents and the pixel size of photos and scans, for the automatic document checks. 13 November 2026. Not yet run on MySQL. |
 | `35_ai_insights.sql` | docs/36 AI-5 | Creates **AiInsights** (AI summaries kept with their record: `Feature`, `RecordType` + `RecordId`, `Content` JSON, `PromptVersion`, `GeneratedByUserId`; index on record and feature). No existing table changes. 13 November 2026. Not yet run on MySQL. |
+| `36_scorecard_comments_panel_changes.sql` | docs/37 C1 | Adds `Comment` (up to 1,000, optional) to **ScorecardRatings**; creates **InterviewPanelChanges** (replacements, substitutes and re-invitations: original and replacement member, reason, who and when). 13 November 2026. Not yet run on MySQL. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

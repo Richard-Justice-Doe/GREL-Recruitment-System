@@ -195,6 +195,8 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                                             <td>
                                                 @if (s.Strengths is not null) { <div><span class="text-success fw-semibold">+</span> @s.Strengths</div> }
                                                 @if (s.Concerns is not null) { <div><span class="text-danger fw-semibold">−</span> @s.Concerns</div> }
+                                                @* docs/37 CR2: the reason given for each score. *@
+                                                @foreach (var cc in s.CriterionComments ?? []) { <div class="text-body-secondary">@cc</div> }
                                             </td>
                                         </tr>
                                     }

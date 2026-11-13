@@ -128,7 +128,9 @@ public class AiSummaryService(
             {
                 n++;
                 var ratings = string.Join(", ", s.Criteria.OrderBy(c => c.SortOrder)
-                    .Select(c => $"{c.Name} {card.Ratings.FirstOrDefault(r => r.CriterionId == c.Id)?.Score.ToString(Gb) ?? "-"}/5"));
+                    .Select(c => card.Ratings.FirstOrDefault(r => r.CriterionId == c.Id) is { } rating
+                        ? $"{c.Name} {rating.Score.ToString(Gb)}/5{(string.IsNullOrWhiteSpace(rating.Comment) ? "" : $" (reason: {rating.Comment.Trim()})")}" // docs/37 CR2
+                        : $"{c.Name} -/5"));
                 sb.Append($"Panel member {n}: total {card.WeightedScore.ToString("0.0", Gb)}/100; {ratings}; recommendation: {EnumText.Label(card.Recommendation)}");
                 if (!string.IsNullOrWhiteSpace(card.Strengths)) sb.Append($"; strengths: {card.Strengths.Trim()}");
                 if (!string.IsNullOrWhiteSpace(card.Concerns)) sb.Append($"; concerns: {card.Concerns.Trim()}");

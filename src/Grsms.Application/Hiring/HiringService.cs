@@ -147,6 +147,16 @@ public class HiringService(
         var ownerValidates = !string.IsNullOrEmpty(recruiterUserId) && await users.IsActiveUserInRoleAsync(recruiterUserId, Roles.RecruitmentOfficer, ct);
         var validator = ownerValidates ? N(recruiterUserId) : "a Recruitment Officer";
 
+        // docs/37 CR2: the reason given for each score, from validated sessions only (they carry the criteria and ratings).
+        var comments = new Dictionary<(int Session, string Panel), IReadOnlyList<string>>();
+        foreach (var done in sessions.Where(s => s.Status == InterviewStatus.Completed))
+            if (await interviews.GetWithDetailsAsync(done.Id, ct) is { } full)
+                foreach (var card in InterviewWorkflow.ValidatedScorecards(full))
+                    comments[(full.Id, card.PanelUserId)] = full.Criteria.OrderBy(c => c.SortOrder)
+                        .Select(c => (c, r: card.Ratings.FirstOrDefault(r => r.CriterionId == c.Id)))
+                        .Where(x => !string.IsNullOrWhiteSpace(x.r?.Comment))
+                        .Select(x => $"{x.c.Name} ({x.r!.Score}/5): {x.r.Comment}").ToList();
+
         return sessions.OrderBy(s => s.Round).Select(s =>
         {
             var validCards = s.Scorecards.Where(c => c.IsValid).ToList();
@@ -162,7 +172,7 @@ public class HiringService(
             };
             var scores = validated
                 .Select(c => new PanelScoreDto(N(c.PanelUserId), s.Panel.Any(p => p.UserId == c.PanelUserId && p.IsChair), c.WeightedScore,
-                    c.Recommendation, c.Strengths, c.Concerns))
+                    c.Recommendation, c.Strengths, c.Concerns, comments.GetValueOrDefault((s.Id, c.PanelUserId))))
                 .OrderByDescending(x => x.IsChair).ThenByDescending(x => x.Score).ToList();
             return new InterviewRoundScoresDto(s.Id, s.Round, s.Type, s.StartsAt, s.Status, validCards.Count, s.Panel.Count,
                 validated.Count == 0 ? null : Math.Round(validated.Average(c => c.WeightedScore), 1),
@@ -242,7 +252,7 @@ public class HiringService(
                 RequestingHodUserId = app.RequestingHodUserId,
                 ProposedSalary = v?.SalaryMin ?? 0,
                 ProposedStartDate = Today.AddDays(HiringWorkflow.DraftStartInDays),
-                Justification = ScoreJustification(sessions),
+                Justification = ScoreJustification(await WithRatingsAsync(sessions, ct)),
                 CreatedByUserId = MyId,
                 Status = HiringStatus.Draft
             };
@@ -276,6 +286,15 @@ public class HiringService(
     }
 
     /// <summary>The start of a draft's justification: the validated interview scores, round by round.</summary>
+    /// <summary>The validated sessions again with their criteria and ratings (for the score reasons, docs/37 CR2).</summary>
+    private async Task<IReadOnlyList<Interview>> WithRatingsAsync(IReadOnlyList<Interview> sessions, CancellationToken ct)
+    {
+        var list = new List<Interview>();
+        foreach (var s in sessions)
+            list.Add(s.Status == InterviewStatus.Completed && await interviews.GetWithDetailsAsync(s.Id, ct) is { } full ? full : s);
+        return list;
+    }
+
     private static string ScoreJustification(IReadOnlyList<Interview> sessions)
     {
         var lines = sessions.Where(s => s.Status == InterviewStatus.Completed).OrderBy(s => s.Round).Select(s =>
@@ -283,11 +302,19 @@ public class HiringService(
             var cards = InterviewWorkflow.ValidatedScorecards(s).ToList();
             var votes = string.Join(", ", cards.GroupBy(c => c.Recommendation).OrderBy(g => g.Key)
                 .Select(g => $"{g.Count()} {EnumText.Label(g.Key).ToLowerInvariant()}"));
+            // docs/37 CR2: the panel's reasons for their scores, criterion by criterion.
+            var reasons = s.Criteria.OrderBy(c => c.SortOrder).SelectMany(c => cards
+                .Select(card => card.Ratings.FirstOrDefault(r => r.CriterionId == c.Id))
+                .Where(r => !string.IsNullOrWhiteSpace(r?.Comment))
+                .Select(r => $"  • {c.Name} ({r!.Score}/5): {r.Comment!.Trim()}"));
             return $"Round {s.Round} ({EnumText.Label(s.Type).ToLowerInvariant()}): " +
                    $"{(cards.Count == 0 ? 0 : Math.Round(cards.Average(c => c.WeightedScore), 1)).ToString("0.0", Gb)}/100 " +
-                   $"from {cards.Count} validated scorecard{(cards.Count == 1 ? "" : "s")}; {votes}.";
+                   $"from {cards.Count} validated scorecard{(cards.Count == 1 ? "" : "s")}; {votes}." +
+                   string.Concat(reasons.Select(r => "\n" + r));
         });
-        return $"Interview results:\n{string.Join("\n", lines)}\n\nReferences and fit: ";
+        var text = $"Interview results:\n{string.Join("\n", lines)}\n\nReferences and fit: ";
+        // The justification is limited to 4,000 characters; keep room for the recruiter's own words.
+        return text.Length > 3500 ? text[..3480] + "…\n\nReferences and fit: " : text;
     }
 
     /// <summary>

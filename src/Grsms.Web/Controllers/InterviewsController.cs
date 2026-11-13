@@ -62,9 +62,9 @@ public class InterviewsController(InterviewService interviews, Application.Vacan
 
     /// <summary>The scorecard form posts "ratings[criterionId]=1..5" for every criterion.</summary>
     [HttpPost]
-    public Task<IActionResult> Scorecard(int id, Dictionary<int, int> ratings, PanelRecommendation? recommendation, string? strengths,
+    public Task<IActionResult> Scorecard(int id, Dictionary<int, int> ratings, Dictionary<int, string?>? comments, PanelRecommendation? recommendation, string? strengths,
         string? concerns, CancellationToken ct) =>
-        Act(id, () => interviews.SubmitScorecardAsync(id, ratings, recommendation, strengths, concerns, ct), "Scorecard saved. You can now see the other panel members' scorecards.");
+        Act(id, () => interviews.SubmitScorecardAsync(id, ratings, recommendation, strengths, concerns, ct, comments), "Scorecard saved. You can now see the other panel members' scorecards.");
 
     /// <summary>docs/35: a panel member accepts or declines the invitation.</summary>
     [HttpPost]
@@ -74,8 +74,18 @@ public class InterviewsController(InterviewService interviews, Application.Vacan
 
     /// <summary>docs/35: the RO or HR Manager replaces a panel member who declined.</summary>
     [HttpPost]
-    public Task<IActionResult> ReplaceMember(int id, string? oldUserId, string? newUserId, CancellationToken ct) =>
-        Act(id, () => interviews.ReplacePanelMemberAsync(id, oldUserId, newUserId, ct), "Panel member replaced. The new member has been invited.");
+    public Task<IActionResult> ReplaceMember(int id, string? oldUserId, string? newUserId, string? reason, CancellationToken ct) =>
+        Act(id, () => interviews.ReplacePanelMemberAsync(id, oldUserId, newUserId, ct, reason), "Panel member replaced. The new member has been invited.");
+
+    /// <summary>docs/37 CR3: add a substitute panel member.</summary>
+    [HttpPost]
+    public Task<IActionResult> AddMember(int id, string? newUserId, string? reason, CancellationToken ct) =>
+        Act(id, () => interviews.AddPanelMemberAsync(id, newUserId, reason, ct), "Substitute added and invited.");
+
+    /// <summary>docs/37 CR3: send the invitation again to a member who has not replied.</summary>
+    [HttpPost]
+    public Task<IActionResult> ResendInvitation(int id, string? userId, CancellationToken ct) =>
+        Act(id, () => interviews.ResendInvitationAsync(id, userId, ct), "Invitation sent again.");
 
     [HttpPost]
     public Task<IActionResult> Reschedule(int id, DateTime? startsAt, string? location, bool ignoreClashes, CancellationToken ct) =>

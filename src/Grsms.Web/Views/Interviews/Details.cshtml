@@ -195,6 +195,9 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                                                         <option value="@r" selected="@(current == r)">@ratingLabels[r]</option>
                                                     }
                                                 </select>
+                                                @* docs/37 CR2: optional reason for this score. *@
+                                                <textarea name="comments[@c.Id]" class="form-control form-control-sm mt-1" rows="1" maxlength="1000"
+                                                          placeholder="Reason (optional)" aria-label="Reason for the rating of @c.Name">@(mine?.Comments?.GetValueOrDefault(c.Id))</textarea>
                                             </td>
                                         </tr>
                                     }
@@ -290,10 +293,15 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                             </tbody>
                         </table>
                     </div>
-                    @foreach (var s in Model.Scorecards.Where(s => s.Strengths is not null || s.Concerns is not null || s.ReturnReason is not null))
+                    @foreach (var s in Model.Scorecards.Where(s => s.Strengths is not null || s.Concerns is not null || s.ReturnReason is not null || s.Comments is { Count: > 0 }))
                     {
                         <div class="border-top pt-2 mt-2 small">
                             <strong>@s.PanelName</strong>
+                            @* docs/37 CR2: the reason given for each score. *@
+                            @foreach (var c in Model.Criteria.Where(c => s.Comments?.ContainsKey(c.Id) == true))
+                            {
+                                <div><span class="fw-semibold">@c.Name (@s.Ratings.GetValueOrDefault(c.Id)/5):</span> @s.Comments![c.Id]</div>
+                            }
                             @if (s.Strengths is not null) { <div><span class="text-success fw-semibold">Strengths:</span> @s.Strengths</div> }
                             @if (s.Concerns is not null) { <div><span class="text-danger fw-semibold">Concerns:</span> @s.Concerns</div> }
                             @if (s.ReturnReason is not null) { <div class="text-body-secondary"><i class="fa-solid fa-rotate-left me-1"></i>Returned by @s.ReturnedByName: @s.ReturnReason</div> }
@@ -387,20 +395,72 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                     </div>
                 }
 
-                @if (Model.CanReplace && Model.Panel.Any(p => p.Response == PanelResponse.Declined))
+                @* docs/37 CR3: manage the panel before the session: replace anyone (with a reason), add a substitute, resend an invitation. *@
+                @if (Model.CanReplace)
                 {
-                    <form asp-action="ReplaceMember" asp-route-id="@Model.Id" method="post" class="border-top mt-3 pt-3">
-                        <p class="small fw-semibold mb-2">Replace a member who declined</p>
-                        <select name="oldUserId" class="form-select form-select-sm mb-2" aria-label="Member to replace" required>
-                            @foreach (var d in Model.Panel.Where(p => p.Response == PanelResponse.Declined)) { <option value="@d.UserId">@d.Name</option> }
-                        </select>
-                        <select name="newUserId" class="form-select form-select-sm mb-2" aria-label="Replacement" required>
-                            <option value="">Choose the replacement…</option>
-                            @foreach (var s in Model.ReplacementOptions) { <option value="@s.Value">@s.Text</option> }
-                        </select>
-                        <div class="form-text mb-2">To replace the Head of Department, choose someone from the same department: they stand in for them.</div>
-                        <button type="submit" class="btn btn-sm btn-outline-primary">Replace and invite</button>
-                    </form>
+                    var declined = Model.Panel.Where(p => p.Response == PanelResponse.Declined).ToList();
+                    var pending = Model.Panel.Where(p => p.Response == PanelResponse.Pending).ToList();
+                    <details class="border-top mt-3 pt-3" open="@(declined.Count > 0)">
+                        <summary class="small fw-semibold">Manage the panel@(declined.Count > 0 ? $" ({declined.Count} declined)" : "")</summary>
+                        <form asp-action="ReplaceMember" asp-route-id="@Model.Id" method="post" class="mt-2">
+                            <p class="small mb-1">Replace a member</p>
+                            <select name="oldUserId" class="form-select form-select-sm mb-2" aria-label="Member to replace" required>
+                                @foreach (var d in declined.Concat(Model.Panel.Except(declined)))
+                                {
+                                    <option value="@d.UserId">@d.Name@(d.Response == PanelResponse.Declined ? " (declined)" : "")</option>
+                                }
+                            </select>
+                            <select name="newUserId" class="form-select form-select-sm mb-2" aria-label="Replacement" required>
+                                <option value="">Choose the replacement…</option>
+                                @foreach (var s in Model.ReplacementOptions) { <option value="@s.Value">@s.Text</option> }
+                            </select>
+                            <input name="reason" class="form-control form-control-sm mb-2" maxlength="500" placeholder="Reason (needed unless they declined), e.g. on leave that day" aria-label="Reason for the replacement" />
+                            <div class="form-text mb-2">To replace the Head of Department, choose someone from the same department: they stand in for them. The member replaced is told.</div>
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Replace and invite</button>
+                        </form>
+                        <form asp-action="AddMember" asp-route-id="@Model.Id" method="post" class="mt-3">
+                            <p class="small mb-1">Add a substitute</p>
+                            <select name="newUserId" class="form-select form-select-sm mb-2" aria-label="Substitute" required>
+                                <option value="">Choose a member of staff…</option>
+                                @foreach (var s in Model.ReplacementOptions) { <option value="@s.Value">@s.Text</option> }
+                            </select>
+                            <input name="reason" class="form-control form-control-sm mb-2" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for adding" />
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Add and invite</button>
+                        </form>
+                        @if (pending.Count > 0)
+                        {
+                            <p class="small mb-1 mt-3">No reply yet</p>
+                            @foreach (var p in pending)
+                            {
+                                <form asp-action="ResendInvitation" asp-route-id="@Model.Id" method="post" class="d-flex align-items-center gap-2 mb-1">
+                                    <input type="hidden" name="userId" value="@p.UserId" />
+                                    <span class="small">@p.Name</span>
+                                    <button type="submit" class="btn btn-sm btn-link p-0 ms-auto">Send the invitation again</button>
+                                </form>
+                            }
+                        }
+                    </details>
+                }
+                @if (Model.PanelChanges.Count > 0)
+                {
+                    <div class="border-top mt-3 pt-2 small">
+                        <p class="fw-semibold mb-1">Panel changes</p>
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var c in Model.PanelChanges)
+                            {
+                                <li class="mb-1">
+                                    <span class="text-body-secondary">@c.At.ToString("dd MMM yyyy HH:mm")</span> ·
+                                    @switch (c.Action)
+                                    {
+                                        case PanelChangeAction.Replaced: <span><strong>@c.Original</strong> replaced by <strong>@c.Replacement</strong></span> break;
+                                        case PanelChangeAction.Added: <span><strong>@c.Replacement</strong> added as a substitute</span> break;
+                                        default: <span>Invitation sent again to <strong>@c.Original</strong></span> break;
+                                    }
+                                    · by @c.Actor@(c.Reason is null ? "" : $" · {c.Reason}")
+                                </li>
+                            }
+                        </ul>
+                    </div>
                 }
             </div>
         </div>

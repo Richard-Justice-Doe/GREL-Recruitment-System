@@ -4,6 +4,30 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: change requests C1, scorecard reasons and panel replacement (docs/37)
+
+* **Docs/37:** impact analysis and plan for the five change requests of 13 November:
+  1. remove anything about money;
+  2. scorecard reasons;
+  3. panel replacement;
+  4. document preview;
+  5. guided workflow and Action Center.
+  Decisions in §8.
+* **A reason for every score** (optional, up to 1,000 characters): a box under each criterion on the scorecard. Submitting without reasons still works. The reasons show:
+  * on the session page with each panel member's scorecard;
+  * on the hiring case with the validated scores;
+  * in the justification drafted when the RO proceeds with a candidate;
+  * in the AI interview summary's input.
+  The scale stays 1–5.
+* **Panel management** (interview page → *Manage the panel*, RO or HR Manager, before the session):
+  * replace **any** member, not only one who declined. A reason is required unless they declined; the replacement is invited, and the member replaced is told they are no longer needed;
+  * **add a substitute**;
+  * **send the invitation again** to someone who hasn't replied;
+  * every change is kept in **Panel changes** (original, replacement, reason, who, when).
+* Database: `database/36_scorecard_comments_panel_changes.sql`. 269 tests pass.
+
+---
+
 ## 13 November 2026: AI-5, interview and CV summaries; CV reading through the AI settings (docs/36)
 
 These features send **personal data** to the AI provider. Each has its own switch in *AI settings & usage*, off by default.

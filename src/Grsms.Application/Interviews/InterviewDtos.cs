@@ -105,7 +105,8 @@ public record CriterionDto(int Id, string Name, int Weight);
 
 public record ScorecardDto(string PanelUserId, string PanelName, PanelRecommendation Recommendation, decimal WeightedScore,
     IReadOnlyDictionary<int, int> Ratings, string? Strengths, string? Concerns, DateTime SubmittedAt,
-    DateTime? ReturnedAt = null, string? ReturnReason = null, string? ReturnedByName = null);
+    DateTime? ReturnedAt = null, string? ReturnReason = null, string? ReturnedByName = null,
+    IReadOnlyDictionary<int, string>? Comments = null); // docs/37 CR2: criterion id → the optional reason
 
 /// <summary>The interview page: details, panel, criteria, my scorecard, the scorecards I may see, and actions.</summary>
 public record InterviewDetailsDto
@@ -182,6 +183,9 @@ public record InterviewDetailsDto
 
     /// <summary>Active staff who could replace a declined member (filled only when someone declined).</summary>
     public IReadOnlyList<Grsms.Application.Organization.LookupItem> ReplacementOptions { get; init; } = [];
+
+    /// <summary>docs/37 CR3: the panel's change history (replacements, substitutes, re-invitations), newest first.</summary>
+    public IReadOnlyList<PanelChangeDto> PanelChanges { get; init; } = [];
 }
 
 /// <summary>One applicant's interview results for a vacancy (the results board).</summary>
@@ -209,3 +213,6 @@ public interface IInterviewRepository : IRepository<Interview>
     Task<PagedResult<InterviewListItemDto>> SearchAsync(InterviewFilter filter, RequestVisibility visibility, string? panelUserId,
         bool onlyAwaitingMyScorecard, DateTime now, CancellationToken ct = default);
 }
+
+/// <summary>docs/37 CR3: one change to a panel.</summary>
+public record PanelChangeDto(PanelChangeAction Action, string? Original, string? Replacement, string? Reason, string Actor, DateTime At);

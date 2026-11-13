@@ -1,11 +1,15 @@
 @* 12 November 2026: the signature block of the offer and appointment letters, from Administration → Letterhead & signature. *@
 @inject Grsms.Application.Settings.LetterSettingsService Letters
-@{ var l = Letters.Get(); }
+@{
+    var l = Letters.Get();
+    // The PDF passes the signature as a data: URI ("" when the file is missing); on screen it comes from LetterImages/Signature.
+    var signature = ViewData.ContainsKey("SignatureSrc") ? ViewData["SignatureSrc"] as string : Url.Action("Signature", "LetterImages");
+}
 <div class="letter-signoff">
     <p class="mb-1">Yours sincerely,</p>
-    @if (l.HasSignature)
+    @if (l.HasSignature && !string.IsNullOrEmpty(signature))
     {
-        <img src="@Url.Action("Signature", "LetterImages")" alt="Signature" class="letter-signature" />
+        <img src="@signature" alt="Signature" class="letter-signature" />
     }
     else
     {

@@ -67,13 +67,20 @@ The recommendation is the **hiring report**. It records the division, department
 
 ## 3. The offer (Recruitment Officer or HR Manager)
 
-Once the MD has approved, the checks are complete and the vacancy still has a free position, the hiring case shows **Send offer**:
+**The offer is drafted for you (13 November 2026).** When the hire is approved, GRSMS drafts the offer at once: its reference number, the approved salary and start date, a reply-by date (7 days by default, never after the start date) and the default terms. Both defaults are set in *System settings → Recruitment workflow*. The candidate does not see a draft.
+
+On the hiring case, under **Offer**:
 * **Salary**: up to the approved amount.
 * **Start date**.
-* **Reply by**: within 30 days, and no later than the start date. The default is 7 days.
+* **Reply by**: within 30 days, and no later than the start date.
 * **Other terms** for the letter, such as probation or benefits.
 
-The candidate is emailed, and the application moves to **Offer**.
+Then:
+* **Save draft** to keep changes. This works even while background checks are still pending.
+* **Preview letter** to see the letter exactly as the candidate will, with a **Download PDF** button. A draft PDF is marked *DRAFT*.
+* **Send offer** to send it: one click, the same reference number. This is available once the checks are complete and the vacancy still has a free position.
+
+The candidate is emailed, and the application moves to **Offer**. Hires approved before 13 November have no draft: the form is pre-filled the same way, and *Save draft* creates one.
 
 **Positions:** a vacancy with *N* positions can have at most *N* offers that are sent or accepted at the same time.
 
@@ -85,7 +92,7 @@ On *My applications*, the candidate sees **Your offer → Read and reply to my o
 * position, department, place of work, reporting manager;
 * monthly salary, start date, terms, and the reply-by date.
 
-The letter can be printed. Then the candidate either:
+The letter can be printed or downloaded as a **PDF** (GREL letterhead and signatory from *Administration → Letterhead & signature*). Then the candidate either:
 * ticks *I accept on these terms* and clicks **Accept the offer**. The application becomes **Hired**, and the recruiter and HOD are emailed. The candidate gets a welcome email.
 * or clicks **Decline the offer** (reason optional). The application becomes **Offer declined**, and the recruiter is emailed.
 

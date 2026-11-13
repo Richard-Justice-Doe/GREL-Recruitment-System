@@ -38,6 +38,34 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         return View(model);
     }
 
+    /// <summary>13 Nov 2026: my appointment letter as a PDF (once issued).</summary>
+    public async Task<IActionResult> AppointmentPdf(int id, [FromServices] Helpers.LetterPdfBuilder pdf, CancellationToken ct)
+    {
+        var model = await onboarding.GetMyAppointmentAsync(id, ct);
+        if (model is null || !model.LetterReady) return NotFound();
+        var bytes = await pdf.BuildAsync(ControllerContext, $"Appointment letter {model.LetterNumber}", "_AppointmentLetter", model, false, ct);
+        if (bytes is null)
+        {
+            Error("The PDF could not be made right now. Use Print instead (choose \"Save as PDF\").");
+            return RedirectToAction(nameof(Appointment), new { id });
+        }
+        return File(bytes, "application/pdf", $"{model.LetterNumber ?? "appointment-letter"}.pdf");
+    }
+
+    /// <summary>13 Nov 2026: my offer letter as a PDF.</summary>
+    public async Task<IActionResult> OfferPdf(int id, [FromServices] Helpers.LetterPdfBuilder pdf, CancellationToken ct)
+    {
+        var offer = await hiring.GetMyOfferAsync(id, ct);
+        if (offer is null) return NotFound();
+        var bytes = await pdf.BuildAsync(ControllerContext, $"Offer {offer.Number}", "_OfferLetter", offer, false, ct);
+        if (bytes is null)
+        {
+            Error("The PDF could not be made right now. Use Print instead (choose \"Save as PDF\").");
+            return RedirectToAction(nameof(Offer), new { id });
+        }
+        return File(bytes, "application/pdf", $"{offer.Number}.pdf");
+    }
+
     /// <summary>Sign the appointment letter by typing my full name.</summary>
     [HttpPost]
     public async Task<IActionResult> SignLetter(int id, string? fullName, bool confirm, CancellationToken ct)

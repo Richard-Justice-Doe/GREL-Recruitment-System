@@ -50,6 +50,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 builder.Services.AddScoped<IAppLinks, AppLinks>();
 builder.Services.AddScoped<Grsms.Web.Helpers.NavCounts>(); // sidebar badges + notification bell
+builder.Services.AddScoped<Grsms.Web.Helpers.LetterPdfBuilder>(); // 13 Nov 2026: offer and appointment letters as PDF
 builder.Services.AddMemoryCache(); // docs/32: the badges are kept per user for a few seconds (Navigation:CountsCacheSeconds)
 
 // Background job: every hourly date-driven job (vacancy closing, adverts, offer expiry, reminders, surveys; Workers/ScheduledJobsWorker.cs).

@@ -110,7 +110,10 @@ public enum OfferStatus
     [Display(Name = "Accepted")] Accepted,
     [Display(Name = "Declined")] Declined,
     [Display(Name = "Withdrawn")] Withdrawn,
-    [Display(Name = "Expired")] Expired
+    [Display(Name = "Expired")] Expired,
+
+    /// <summary>13 November 2026: prepared automatically when the hire is approved; the RO checks it and sends it. Never shown to the candidate.</summary>
+    [Display(Name = "Draft, not yet sent")] Draft
 }
 
 /// <summary>An offer of employment to one applicant, issued after the hiring recommendation is fully approved.</summary>
@@ -137,6 +140,8 @@ public class Offer : BaseEntity
     public string? Terms { get; set; }
 
     public OfferStatus Status { get; set; } = OfferStatus.Sent;
+
+    /// <summary>When it was sent (for a <see cref="OfferStatus.Draft"/>: when it was last saved).</summary>
     public DateTime SentAt { get; set; }
     public string SentByUserId { get; set; } = string.Empty;
     public DateTime? RespondedAt { get; set; }

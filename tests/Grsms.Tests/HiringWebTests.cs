@@ -102,6 +102,26 @@ public class HiringWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFac
         // ---- Recruiter: send the offer
         var recruiter = await SignedInAsync("h.ro@grel.test");
         Assert.Contains("Send offer", await recruiter.GetStringAsync(casePage));
+        // 13 Nov 2026: the MD's approval drafted the offer; save a change and preview the letter before sending.
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(casePage, $"/Hiring/SendOffer/{applicationId}", new()
+        {
+            ["save"] = "true", ["salary"] = "4100", ["startDate"] = today.AddDays(21).ToString("yyyy-MM-dd"),
+            ["expiresOn"] = today.AddDays(7).ToString("yyyy-MM-dd"), ["terms"] = "Probation: 6 months."
+        })).StatusCode);
+        var preview = await recruiter.GetStringAsync($"/Hiring/OfferLetter/{applicationId}");
+        Assert.Contains("Draft, not sent", preview);
+        Assert.Contains("4,100.00", preview);
+        Assert.Contains("Preview letter", await recruiter.GetStringAsync(casePage));
+        // The draft as a PDF: self-contained page (logo embedded), marked DRAFT.
+        var draftPdf = await recruiter.GetAsync($"/Hiring/OfferPdf/{applicationId}");
+        Assert.Equal("application/pdf", draftPdf.Content.Headers.ContentType!.MediaType);
+        Assert.EndsWith("-DRAFT.pdf", draftPdf.Content.Headers.ContentDisposition!.FileName!.Trim('"'));
+        Assert.Contains("class=\"draft-mark\"", factory.Pdf.LastHtml);
+        Assert.Contains("src=\"data:image/png;base64,", factory.Pdf.LastHtml);
+        Assert.Contains("4,100.00", factory.Pdf.LastHtml);
+        // The candidate can't reach a draft.
+        var early = await SignedInAsync("h.cand@mail.test");
+        Assert.Equal(HttpStatusCode.NotFound, (await early.GetAsync($"/MyApplications/OfferPdf/{applicationId}")).StatusCode);
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(casePage, $"/Hiring/SendOffer/{applicationId}", new()
         {
             ["salary"] = "4200", ["startDate"] = today.AddDays(21).ToString("yyyy-MM-dd"), ["expiresOn"] = today.AddDays(7).ToString("yyyy-MM-dd"),
@@ -117,6 +137,11 @@ public class HiringWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFac
         Assert.Contains("Abura", letter);
         Assert.Contains("/images/grel-logo.png", letter); // GREL letterhead (12 Nov 2026)
         Assert.Equal(HttpStatusCode.OK, (await cand.GetAsync("/images/grel-logo.png")).StatusCode);
+        Assert.Contains("Download PDF", letter);
+        var pdf = await cand.GetAsync($"/MyApplications/OfferPdf/{applicationId}");
+        Assert.Equal("application/pdf", pdf.Content.Headers.ContentType!.MediaType);
+        Assert.DoesNotContain("class=\"draft-mark\"", factory.Pdf.LastHtml);
+        Assert.Contains("Auto Electrician", factory.Pdf.LastHtml);
         await cand.PostFormAsync($"/MyApplications/Offer/{applicationId}", $"/MyApplications/RespondOffer/{applicationId}", new() { ["accept"] = "true" });
         using (var scope = factory.Services.CreateScope())
             Assert.Equal(OfferStatus.Sent, (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Offers.SingleAsync(o => o.JobApplicationId == applicationId)).Status);

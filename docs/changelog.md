@@ -4,6 +4,21 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: offer drafts and PDF letters (docs/35 Wave 1, docs/26 Phase 24)
+
+* **Offer drafts:**
+  * Approving a hire drafts the offer: reference number, approved salary and start date, reply-by date (System settings, 7 days, never after the start) and default terms (System settings).
+  * The RO can **Save draft** while checks are pending, **Preview letter**, then **Send offer** with one click (same number).
+  * Candidates, reports and the position count ignore drafts. Hires approved earlier: *Save draft* creates one.
+* **PDF letters:** **Download PDF** on the offer letter (candidate and staff) and the appointment letter (new employee and staff). The PDF has the same layout and letterhead as on screen; drafts are marked *DRAFT*; the signed appointment letter includes the electronic signature line.
+  * Printed by headless Chromium (`Infrastructure/Documents/ChromiumPdfRenderer.cs`) from a self-contained page (`Helpers/LetterPdfBuilder.cs`, `Views/Shared/_LetterPdf.cshtml`).
+  * The **Docker image now installs `chromium` and fonts** (about 150 MB larger), so the next server rebuild takes a few minutes longer.
+  * Without a browser the buttons are hidden and printing from the browser still works.
+* Not done, as decided later or left for later: letters are still not frozen as HTML at sending (the offer's fields can't change after sending anyway); PDFs are not attached to emails (the email links to the letter).
+* No database change. Tests: draft lifecycle, preview, PDF downloads and access, and a real Chromium render where a browser is installed.
+
+---
+
 ## 12 November 2026: Letterhead & signature page
 
 * **Administration → Letterhead & signature:**

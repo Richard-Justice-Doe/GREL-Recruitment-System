@@ -71,6 +71,7 @@ public class HiringService(
 
         var current = recs.FirstOrDefault(r => r.Status != HiringStatus.Withdrawn && r.Status != HiringStatus.Rejected);
         var offer = appOffers.FirstOrDefault(o => o.Status is OfferStatus.Sent or OfferStatus.Accepted);
+        var draft = offer is null ? appOffers.FirstOrDefault(o => o.Status == OfferStatus.Draft) : null;
         var names = await users.GetDisplayNamesAsync(
             recs.SelectMany(r => new[] { r.CreatedByUserId, r.HodUserId, r.HrUserId, r.MdUserId }).Concat(appChecks.Select(c => c.RecordedByUserId))
                 .OfType<string>().Distinct(), ct);
@@ -108,7 +109,13 @@ public class HiringService(
             Recommendation = current is null ? null : ToDto(current),
             PastRecommendations = recs.Where(r => r != current).Select(ToDto).ToList(),
             Offer = offer is null ? null : ToOffer(offer),
-            PastOffers = appOffers.Where(o => o != offer).Select(ToOffer).ToList(),
+            PastOffers = appOffers.Where(o => o != offer && o.Status != OfferStatus.Draft).Select(ToOffer).ToList(),
+            OfferDraft = draft is null ? null : ToOffer(draft),
+            CanEditOffer = IsRecruiter && !own && current?.Status == HiringStatus.Approved && offer is null && app.Status == ApplicationStatus.Interview,
+            FormSalary = draft?.MonthlySalary ?? current?.ProposedSalary ?? 0,
+            FormStartDate = draft?.StartDate ?? current?.ProposedStartDate ?? Today,
+            FormExpiresOn = draft?.ExpiresOn ?? DefaultReplyBy(current?.ProposedStartDate ?? Today),
+            FormTerms = draft is null ? DefaultTerms : draft.Terms,
             CanRecordChecks = IsRecruiter && !own && HiringWorkflow.CanCheck(app.Status),
             CanRecommend = IsRecruiter && !own && recommendBlocked is null,
             RecommendBlockedReason = IsRecruiter && !own && current is null ? recommendBlocked : null,
@@ -322,7 +329,9 @@ public class HiringService(
             app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName,
                 $"{draft.Number}: hire approved by the Recruitment Officer, GHS {pay:N2} per month from {start:dd MMM yyyy}", now);
             var approved = await SaveAsync(ct);
-            return approved.Succeeded ? Result.Success(draft.Id) : Result.Failure<int>([.. approved.Errors]);
+            if (!approved.Succeeded) return Result.Failure<int>([.. approved.Errors]);
+            await DraftOfferAndSaveAsync(app, draft, ct);
+            return Result.Success(draft.Id);
         }
 
         var n = await numbers.NextAsync($"HIR-{DateTime.UtcNow.Year}", ct);
@@ -344,7 +353,16 @@ public class HiringService(
         app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName,
             $"{rec.Number}: hire approved by the Recruitment Officer, GHS {pay:N2} per month from {start:dd MMM yyyy}", now);
         var saved = await SaveAsync(ct);
-        return saved.Succeeded ? Result.Success(rec.Id) : Result.Failure<int>([.. saved.Errors]);
+        if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
+        await DraftOfferAndSaveAsync(app, rec, ct);
+        return Result.Success(rec.Id);
+    }
+
+    /// <summary>After the approval is saved: the offer draft (13 Nov 2026). If it can't be saved, the RO creates it from the case page.</summary>
+    private async Task DraftOfferAndSaveAsync(JobApplication app, HiringRecommendation rec, CancellationToken ct)
+    {
+        await DraftOfferAsync(app, rec, ct);
+        await SaveAsync(ct);
     }
 
     /// <summary>
@@ -419,6 +437,7 @@ public class HiringService(
             $"{stage}: {EnumText.Label(decision)}{(comment is null ? "" : $" ({comment})")}", now);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return saved;
+        if (rec.Status == HiringStatus.Approved) await DraftOfferAndSaveAsync(app, rec, ct); // older chain: final approval drafts the offer too
 
         // Tell whoever acts next, and the recruiter about the outcome.
         var link = links.HiringCase(app.Id);
@@ -453,32 +472,33 @@ public class HiringService(
 
     // ===================================================================== Offers
 
-    public async Task<Result<int>> SendOfferAsync(int applicationId, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, CancellationToken ct = default)
+    // ---- 13 November 2026 (docs/26 Phase 24): offer drafts. When the hire is approved, the offer is drafted with the approved
+    // salary and start date, the default reply-by date and terms (System settings) and its reference number. The RO checks it,
+    // previews the letter, and sends it with one click. The candidate never sees a draft.
+
+    private string? DefaultTerms => Clean(settings.Get(Domain.Settings.SettingCatalogue.OfferDefaultTerms)?.Replace("\\n", "\n"));
+
+    private DateOnly DefaultReplyBy(DateOnly start)
     {
-        var (app, error) = await LoadForRecruiterAsync(applicationId, ct);
-        if (app is null) return Result.Failure<int>(error!);
-        var rec = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id && r.Status == HiringStatus.Approved, ct)).OrderByDescending(r => r.Id).FirstOrDefault();
-        if (rec is null) return Result.Failure<int>("The hiring recommendation must be approved by the Managing Director first.");
+        var replyBy = Today.AddDays(Math.Max(1, settings.GetInt(Domain.Settings.SettingCatalogue.OfferDefaultReplyDays)));
+        return replyBy > start ? (start < Today ? Today : start) : replyBy;
+    }
+
+    /// <summary>Adds a draft offer for an approved hire (nothing if the application already has a draft, sent or accepted offer).</summary>
+    private async Task DraftOfferAsync(JobApplication app, HiringRecommendation rec, CancellationToken ct)
+    {
+        if ((await offers.ListAsync(o => o.JobApplicationId == app.Id, ct)).Any(o => o.Status is OfferStatus.Draft or OfferStatus.Sent or OfferStatus.Accepted))
+            return;
         var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
-        var appChecks = await checks.ListAsync(c => c.JobApplicationId == app.Id, ct);
-        var open = (await offers.ListAsync(o => o.JobApplicationId == app.Id, ct)).FirstOrDefault(o => o.Status is OfferStatus.Sent or OfferStatus.Accepted);
-        if (OfferProblem(app, rec, appChecks, open, await PositionsTakenAsync(v.Id, ct), v.NumberOfPositions) is { } problem)
-            return Result.Failure<int>(problem);
+        offers.Add(await NewOfferAsync(app, rec, v, rec.ProposedSalary, rec.ProposedStartDate, DefaultReplyBy(rec.ProposedStartDate), DefaultTerms, OfferStatus.Draft, ct));
+    }
 
-        var pay = salary ?? rec.ProposedSalary;
-        var start = startDate ?? rec.ProposedStartDate;
-        var expiry = expiresOn ?? Today.AddDays(7);
-        terms = Clean(terms);
-        if (pay <= 0 || pay > rec.ProposedSalary) return Result.Failure<int>($"The salary must be more than 0 and no more than the approved GHS {rec.ProposedSalary:N2}.");
-        if (start < Today) return Result.Failure<int>("The start date cannot be in the past.");
-        var maxDays = settings.GetInt(Domain.Settings.SettingCatalogue.OfferReplyMaxDays); // Phase 16: System settings
-        if (expiry < Today || expiry > Today.AddDays(maxDays) || expiry > start)
-            return Result.Failure<int>($"The reply-by date must be within the next {maxDays} days and no later than the start date.");
-        if (terms?.Length > 8000) return Result.Failure<int>("The terms must be 8,000 characters or fewer.");
-
+    private async Task<Offer> NewOfferAsync(JobApplication app, HiringRecommendation rec, Domain.Vacancies.Vacancy v, decimal pay, DateOnly start, DateOnly expiry,
+        string? terms, OfferStatus status, CancellationToken ct)
+    {
         var n = await numbers.NextAsync($"OFF-{DateTime.UtcNow.Year}", ct);
         var now = DateTime.UtcNow;
-        var offer = new Offer
+        return new Offer
         {
             Number = $"OFF-{now.Year}-{n:0000}",
             JobApplicationId = app.Id,
@@ -492,10 +512,104 @@ public class HiringService(
             StartDate = start,
             ExpiresOn = expiry,
             Terms = terms,
+            Status = status,
             SentAt = now,
             SentByUserId = MyId
         };
-        offers.Add(offer);
+    }
+
+    /// <summary>The checks shared by saving a draft and sending: salary within the approved amount, dates, terms length.</summary>
+    private string? OfferTermsProblem(HiringRecommendation rec, decimal pay, DateOnly start, DateOnly expiry, string? terms)
+    {
+        if (pay <= 0 || pay > rec.ProposedSalary) return $"The salary must be more than 0 and no more than the approved GHS {rec.ProposedSalary:N2}.";
+        if (start < Today) return "The start date cannot be in the past.";
+        var maxDays = settings.GetInt(Domain.Settings.SettingCatalogue.OfferReplyMaxDays); // Phase 16: System settings
+        if (expiry < Today || expiry > Today.AddDays(maxDays) || expiry > start)
+            return $"The reply-by date must be within the next {maxDays} days and no later than the start date.";
+        if (terms?.Length > 8000) return "The terms must be 8,000 characters or fewer.";
+        return null;
+    }
+
+    /// <summary>Saves the offer draft (creating it for a hire approved before drafts existed). Sending is a separate click.</summary>
+    public async Task<Result<int>> SaveOfferDraftAsync(int applicationId, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, CancellationToken ct = default)
+    {
+        var (app, error) = await LoadForRecruiterAsync(applicationId, ct);
+        if (app is null) return Result.Failure<int>(error!);
+        var rec = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id && r.Status == HiringStatus.Approved, ct)).OrderByDescending(r => r.Id).FirstOrDefault();
+        if (rec is null) return Result.Failure<int>("The hire must be approved by the Recruitment Officer first.");
+        var appOffers = await offers.ListAsync(o => o.JobApplicationId == app.Id, ct);
+        if (appOffers.Any(o => o.Status is OfferStatus.Sent or OfferStatus.Accepted)) return Result.Failure<int>("The offer has already been sent.");
+        if (app.Status != ApplicationStatus.Interview) return Result.Failure<int>("Offers can only be made to applicants at the interview stage.");
+
+        var draft = appOffers.FirstOrDefault(o => o.Status == OfferStatus.Draft);
+        var pay = salary ?? draft?.MonthlySalary ?? rec.ProposedSalary;
+        var start = startDate ?? draft?.StartDate ?? rec.ProposedStartDate;
+        var expiry = expiresOn ?? draft?.ExpiresOn ?? DefaultReplyBy(start);
+        terms = Clean(terms);
+        if (OfferTermsProblem(rec, pay, start, expiry, terms) is { } problem) return Result.Failure<int>(problem);
+
+        if (draft is null)
+        {
+            var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
+            draft = await NewOfferAsync(app, rec, v, pay, start, expiry, terms, OfferStatus.Draft, ct);
+            offers.Add(draft);
+        }
+        else
+        {
+            (draft.MonthlySalary, draft.StartDate, draft.ExpiresOn, draft.Terms) = (pay, start, expiry, terms);
+            (draft.SentAt, draft.SentByUserId) = (DateTime.UtcNow, MyId);
+            draft.Version = Guid.NewGuid();
+        }
+        var saved = await SaveAsync(ct);
+        return saved.Succeeded ? Result.Success(draft.Id) : Result.Failure<int>([.. saved.Errors]);
+    }
+
+    /// <summary>The offer letter for staff: the draft (preview) or the offer sent. Visible to whoever may open the hiring case.</summary>
+    public async Task<MyOfferDto?> GetOfferLetterAsync(int applicationId, CancellationToken ct = default)
+    {
+        var app = await applications.GetByIdAsync(applicationId, ct);
+        if (app is null || app.ApplicantUserId == me.UserId) return null;
+        if (!me.HasPermission(Permissions.SeeAllDepartments) && !await IsHodOfAsync(app.DepartmentId, ct)) return null;
+        var offer = (await offers.ListAsync(o => o.JobApplicationId == app.Id, ct))
+            .Where(o => o.Status is OfferStatus.Draft or OfferStatus.Sent or OfferStatus.Accepted).OrderByDescending(o => o.Id).FirstOrDefault();
+        return offer is null ? null : await LetterAsync(app, offer, ct);
+    }
+
+    public async Task<Result<int>> SendOfferAsync(int applicationId, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, CancellationToken ct = default)
+    {
+        var (app, error) = await LoadForRecruiterAsync(applicationId, ct);
+        if (app is null) return Result.Failure<int>(error!);
+        var rec = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id && r.Status == HiringStatus.Approved, ct)).OrderByDescending(r => r.Id).FirstOrDefault();
+        if (rec is null) return Result.Failure<int>("The hire must be approved by the Recruitment Officer first.");
+        var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
+        var appChecks = await checks.ListAsync(c => c.JobApplicationId == app.Id, ct);
+        var appOffers = await offers.ListAsync(o => o.JobApplicationId == app.Id, ct);
+        var open = appOffers.FirstOrDefault(o => o.Status is OfferStatus.Sent or OfferStatus.Accepted);
+        if (OfferProblem(app, rec, appChecks, open, await PositionsTakenAsync(v.Id, ct), v.NumberOfPositions) is { } problem)
+            return Result.Failure<int>(problem);
+
+        var draft = appOffers.FirstOrDefault(o => o.Status == OfferStatus.Draft);
+        var pay = salary ?? draft?.MonthlySalary ?? rec.ProposedSalary;
+        var start = startDate ?? draft?.StartDate ?? rec.ProposedStartDate;
+        var expiry = expiresOn ?? draft?.ExpiresOn ?? DefaultReplyBy(start);
+        terms = terms is null && draft is not null ? draft.Terms : Clean(terms); // not posted = keep the draft's
+        if (OfferTermsProblem(rec, pay, start, expiry, terms) is { } termsProblem) return Result.Failure<int>(termsProblem);
+
+        var now = DateTime.UtcNow;
+        Offer offer;
+        if (draft is not null)
+        {
+            // Sending the draft: same record and reference number.
+            offer = draft;
+            (offer.MonthlySalary, offer.StartDate, offer.ExpiresOn, offer.Terms) = (pay, start, expiry, terms);
+            (offer.Status, offer.SentAt, offer.SentByUserId) = (OfferStatus.Sent, now, MyId);
+            offer.Version = Guid.NewGuid();
+        }
+        else
+        {
+            offer = await NewOfferAsync(app, rec, v, pay, start, expiry, terms, OfferStatus.Sent, ct);
+            offers.Add(offer);
+        }
         app.RecordStep(ApplicationAction.OfferSent, ApplicationStatus.Offer, MyId, scope.UserName, $"{offer.Number}, reply by {expiry:dd MMM yyyy}", now);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
@@ -539,8 +653,12 @@ public class HiringService(
         var app = await applications.GetByIdAsync(applicationId, ct);
         if (app is null || app.ApplicantUserId != me.UserId) return null;
         var offer = (await offers.ListAsync(o => o.JobApplicationId == app.Id, ct))
-            .Where(o => o.Status != OfferStatus.Withdrawn).OrderByDescending(o => o.Id).FirstOrDefault();
-        if (offer is null) return null;
+            .Where(o => o.Status is not (OfferStatus.Withdrawn or OfferStatus.Draft)).OrderByDescending(o => o.Id).FirstOrDefault();
+        return offer is null ? null : await LetterAsync(app, offer, ct);
+    }
+
+    private async Task<MyOfferDto> LetterAsync(JobApplication app, Offer offer, CancellationToken ct)
+    {
         var v = (await vacancies.GetByIdAsync(offer.VacancyId, ct))!;
         var manager = v.ReportingManagerUserId is null ? null : (await users.GetDisplayNamesAsync([v.ReportingManagerUserId], ct)).GetValueOrDefault(v.ReportingManagerUserId);
         return new MyOfferDto(offer.Id, offer.Number, app.FullName, offer.JobTitle,

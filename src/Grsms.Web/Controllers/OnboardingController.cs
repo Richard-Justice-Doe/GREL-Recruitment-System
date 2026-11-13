@@ -69,6 +69,21 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         return View(model);
     }
 
+    /// <summary>13 Nov 2026: the appointment letter as a PDF (marked DRAFT until it is issued).</summary>
+    public async Task<IActionResult> LetterPdf(int id, [FromServices] Helpers.LetterPdfBuilder pdf, CancellationToken ct)
+    {
+        var model = await onboarding.GetLetterPreviewAsync(id, ct);
+        if (model is null) return NotFound();
+        var draft = model.LetterNumber is null;
+        var bytes = await pdf.BuildAsync(ControllerContext, $"Appointment letter {model.LetterNumber ?? "(draft)"}", "_AppointmentLetter", model, draft, ct);
+        if (bytes is null)
+        {
+            Error("The PDF could not be made on this server. Use Print instead (choose \"Save as PDF\").");
+            return RedirectToAction(nameof(Letter), new { id });
+        }
+        return File(bytes, "application/pdf", $"{model.LetterNumber ?? "appointment-letter-DRAFT"}.pdf");
+    }
+
     [HttpPost]
     [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> UpdateFirstDay(int id, DateOnly? startDate, TimeOnly? reportTime, string? reportLocation, string? contactPersonUserId,

@@ -40,6 +40,10 @@ public static class SettingCatalogue
     public const string AzureSecret = "AzureAd:ClientSecret";
     public const string VacancyClosingDays = "Workflow:VacancyClosingDays";
     public const string OfferReplyMaxDays = "Workflow:OfferReplyMaxDays";
+
+    /// <summary>13 November 2026 (docs/26 Phase 24, docs/35 Wave 1): the offer drafted automatically when a hire is approved.</summary>
+    public const string OfferDefaultReplyDays = "Offers:DefaultReplyDays";
+    public const string OfferDefaultTerms = "Offers:DefaultTerms";
     public const string ApprovalWaitingDays = "Reminders:ApprovalWaitingDays";
     public const string DefaultKnockoutQuestions = "Workflow:DefaultKnockoutQuestions";
     public const string AllowSelfRegistration = "Accounts:AllowSelfRegistration";
@@ -105,6 +109,11 @@ public static class SettingCatalogue
             "The closing date suggested when a Recruitment Officer creates a vacancy.", SettingKind.Number, "14", Min: 1, Max: 120),
         new(OfferReplyMaxDays, Workflow, "Longest time a candidate may take to answer an offer (days)",
             "Offers can't be sent with a reply-by date later than this.", SettingKind.Number, "30", Min: 1, Max: 90),
+        new(OfferDefaultReplyDays, Workflow, "Reply-by date suggested on an offer draft (days)",
+            "Days from today; never later than the start date.", SettingKind.Number, "7", Min: 1, Max: 90),
+        new(OfferDefaultTerms, Workflow, "Terms pre-filled on every offer draft",
+            "Probation, benefits and other conditions printed in the offer letter. The Recruitment Officer can change them per offer.",
+            SettingKind.MultiLine, "Probation: 6 months.\nBenefits: in line with GREL's conditions of service for this grade.", MaxLength: 8000),
         new(ApprovalWaitingDays, Workflow, "Remind approvers after (days)",
             "A request or vacancy waiting this long for a decision triggers a reminder, then one a week.", SettingKind.Number, "3", Min: 1, Max: 30),
         new(InterviewQuorum, Workflow, "Enforce interview quorum",

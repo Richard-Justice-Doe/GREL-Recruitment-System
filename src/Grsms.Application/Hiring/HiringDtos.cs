@@ -62,6 +62,18 @@ public record HiringCaseDto
     public bool CanOffer { get; init; }
     public string? OfferBlockedReason { get; init; }
     public bool CanWithdrawOffer { get; init; }
+
+    /// <summary>13 November 2026: the offer drafted when the hire was approved (null when none, or once sent).</summary>
+    public OfferDto? OfferDraft { get; init; }
+
+    /// <summary>The Recruitment Officer may edit the draft (or create one) now, even while checks still block sending.</summary>
+    public bool CanEditOffer { get; init; }
+
+    /// <summary>The values the offer form starts with: the draft's, or the approved hire's with the default reply-by date and terms.</summary>
+    public decimal FormSalary { get; init; }
+    public DateOnly FormStartDate { get; init; }
+    public DateOnly FormExpiresOn { get; init; }
+    public string? FormTerms { get; init; }
 }
 
 /// <summary>Filters on the Hiring list.</summary>

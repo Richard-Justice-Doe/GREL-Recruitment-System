@@ -133,7 +133,7 @@ public class ReportService(
             d.Reached[a.Id] = seen.Select(StageIndex).Max();
         }
 
-        d.Offers = (await offers.ListAsync(x => (all || mine.Contains(x.DepartmentId)) && (div == null || x.DivisionId == div) &&
+        d.Offers = (await offers.ListAsync(x => x.Status != OfferStatus.Draft && (all || mine.Contains(x.DepartmentId)) && (div == null || x.DivisionId == div) &&
                                                 (dep == null || x.DepartmentId == dep) && (vac == null || x.VacancyId == vac), ct)).ToList();
         d.Onboardings = (await onboardings.ListAsync(x => (all || mine.Contains(x.DepartmentId)) && (div == null || x.DivisionId == div) &&
                                                           (dep == null || x.DepartmentId == dep) && (vac == null || x.VacancyId == vac), ct)).ToList();

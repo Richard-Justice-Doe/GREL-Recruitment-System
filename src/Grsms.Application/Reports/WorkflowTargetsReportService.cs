@@ -185,7 +185,7 @@ public class WorkflowTargetsReportService(
         }
 
         // ---- Offers
-        foreach (var o in await offers.ListAsync(x => vac == null || x.VacancyId == vac, ct))
+        foreach (var o in await offers.ListAsync(x => x.Status != OfferStatus.Draft && (vac == null || x.VacancyId == vac), ct))
         {
             DateTime? end = o.Status switch
             {

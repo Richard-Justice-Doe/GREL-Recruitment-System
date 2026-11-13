@@ -81,9 +81,16 @@ else if (Model.CanOffer)
         <div class="next-step-text">
             <span class="next-step-label">Your next step</span>
             <h2>Send the offer</h2>
-            <p>The hire is approved and the background checks are complete. Send the offer letter to @Model.ApplicantName.</p>
+            <p>@(Model.OfferDraft is null ? "The hire is approved and the background checks are complete." : "The offer is drafted and the background checks are complete.")
+                Check it, preview the letter and send it to @Model.ApplicantName.</p>
         </div>
-        <div class="next-step-actions"><a href="#send-offer" class="btn btn-primary">Send the offer</a></div>
+        <div class="next-step-actions">
+            @if (Model.OfferDraft is not null)
+            {
+                <a asp-action="OfferLetter" asp-route-id="@Model.ApplicationId" class="btn btn-outline-primary"><i class="fa-solid fa-eye me-1"></i>Preview letter</a>
+            }
+            <a href="#send-offer" class="btn btn-primary">Check and send</a>
+        </div>
     </section>
 }
 else if (Model.Recommendation?.Status == HiringStatus.Approved && Model.Offer is null && Model.OfferBlockedReason is not null)
@@ -343,27 +350,45 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                         </form>
                     }
                 }
-                else if (Model.CanOffer)
+                else if (Model.CanEditOffer)
                 {
+                    @* 13 Nov 2026: the offer is drafted when the hire is approved; the RO checks it, previews the letter and sends it. *@
+                    @if (Model.OfferDraft is { } draft)
+                    {
+                        <p class="small mb-2"><span class="badge rounded-pill badge-soft-warning">Draft</span> @draft.Number, last saved @draft.SentAt.ToString("dd MMM yyyy HH:mm"). The candidate can't see it until you send it.</p>
+                    }
                     <form id="send-offer" asp-action="SendOffer" asp-route-id="@Model.ApplicationId" method="post">
                         <div class="row g-2 mb-2">
                             <div class="col-md-4">
                                 <label for="offerSalary" class="form-label small">Monthly salary (GHS)</label>
-                                <input id="offerSalary" name="salary" type="number" step="0.01" class="form-control" value="@r!.ProposedSalary" max="@r.ProposedSalary" required />
+                                <input id="offerSalary" name="salary" type="number" step="0.01" class="form-control" value="@Model.FormSalary" max="@r!.ProposedSalary" required />
                             </div>
                             <div class="col-md-4">
                                 <label for="offerStart" class="form-label small">Start date</label>
-                                <input id="offerStart" name="startDate" type="date" class="form-control" value="@r.ProposedStartDate.ToString("yyyy-MM-dd")" required />
+                                <input id="offerStart" name="startDate" type="date" class="form-control" value="@Model.FormStartDate.ToString("yyyy-MM-dd")" required />
                             </div>
                             <div class="col-md-4">
                                 <label for="expiresOn" class="form-label small">Reply by</label>
-                                <input id="expiresOn" name="expiresOn" type="date" class="form-control" value="@today.AddDays(7).ToString("yyyy-MM-dd")" required />
+                                <input id="expiresOn" name="expiresOn" type="date" class="form-control" value="@Model.FormExpiresOn.ToString("yyyy-MM-dd")" required />
                             </div>
                         </div>
                         <label for="terms" class="form-label small">Other terms for the letter (probation, benefits, ...)</label>
-                        <textarea id="terms" name="terms" class="form-control mb-2" rows="4" maxlength="8000">Probation: 6 months.
-Benefits: in line with GREL's conditions of service for this grade.</textarea>
-                        <button type="submit" class="btn btn-primary" data-confirm="Send the offer to the candidate?"><i class="fa-solid fa-envelope-open-text me-1"></i>Send offer</button>
+                        <textarea id="terms" name="terms" class="form-control mb-2" rows="4" maxlength="8000">@Model.FormTerms</textarea>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <button type="submit" name="save" value="true" class="btn btn-outline-primary" formnovalidate><i class="fa-solid fa-floppy-disk me-1"></i>Save draft</button>
+                            @if (Model.OfferDraft is not null)
+                            {
+                                <a asp-action="OfferLetter" asp-route-id="@Model.ApplicationId" class="btn btn-outline-secondary"><i class="fa-solid fa-eye me-1"></i>Preview letter</a>
+                            }
+                            @if (Model.CanOffer)
+                            {
+                                <button type="submit" class="btn btn-primary" data-confirm="Send the offer to the candidate?"><i class="fa-solid fa-envelope-open-text me-1"></i>Send offer</button>
+                            }
+                        </div>
+                        @if (!Model.CanOffer && Model.OfferBlockedReason is not null)
+                        {
+                            <p class="small text-body-secondary mt-2 mb-0"><i class="fa-solid fa-circle-info me-1"></i>Before sending: @Model.OfferBlockedReason</p>
+                        }
                     </form>
                 }
                 else

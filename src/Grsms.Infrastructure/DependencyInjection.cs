@@ -78,6 +78,7 @@ public static class DependencyInjection
         services.Configure<UploadOptions>(config.GetSection("Uploads"));
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>(); // Phase 27: placeholder, every file passes
+        services.AddSingleton<IPdfRenderer, Documents.ChromiumPdfRenderer>(); // 13 Nov 2026: PDF letters through headless Chromium
 
         // Phase 3: vacancies. The same repository also answers "is there a vacancy for this request?".
         services.AddScoped<IVacancyRepository, VacancyRepository>();

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Grsms.Tests.Infrastructure;
 
@@ -51,8 +52,14 @@ public sealed class GrsmsWebFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             TestDatabase.UseSqlite(services, _connection);
+            // 13 Nov 2026: no browser in the tests; the real renderer is tested on its own (ChromiumPdfRendererTests).
+            services.RemoveAll<Grsms.Application.Common.Interfaces.IPdfRenderer>();
+            services.AddSingleton<Grsms.Application.Common.Interfaces.IPdfRenderer>(Pdf);
         });
     }
+
+    /// <summary>The PDF renderer the site uses in tests (records the last letter page).</summary>
+    public FakePdfRenderer Pdf { get; } = new();
 
     /// <summary>An HTTPS client that keeps cookies but does NOT follow redirects, so tests can check where they point.</summary>
     public HttpClient NewClient() => CreateClient(new WebApplicationFactoryClientOptions

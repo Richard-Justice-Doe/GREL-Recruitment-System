@@ -423,4 +423,44 @@ public class HiringServiceTests : IAsyncLifetime
         Assert.Equal("Kofi", Assert.Single(await Run(s => s.ListReadyToRecommendAsync())).ApplicantName);
         Assert.Equal(5, await Db(db => db.BackgroundChecks.CountAsync(c => c.JobApplicationId == kofi)));
     }
+
+    [Fact]
+    public async Task Approving_the_hire_drafts_the_offer_which_the_recruiter_edits_previews_and_sends_with_one_click()
+    {
+        var app = await InterviewedAsync(_candidate, "Ama");
+        await RecommendAsync(app);
+
+        // Drafted with the approved salary and start date, the default reply-by date and terms, and its number.
+        var draft = await Db(db => db.Offers.SingleAsync());
+        Assert.Equal((OfferStatus.Draft, 8500m, Today.AddDays(30), Today.AddDays(7)), (draft.Status, draft.MonthlySalary, draft.StartDate, draft.ExpiresOn));
+        Assert.Contains("Probation: 6 months.", draft.Terms);
+        Assert.StartsWith("OFF-", draft.Number);
+        Assert.DoesNotContain(_db.SentEmails(), m => m.Contains("To: ama@mail.test") && m.Contains("Offer of employment"));
+
+        // The candidate can't see a draft; the recruiter and the HOD can preview it.
+        As(_candidate, Roles.Candidate);
+        Assert.Null(await Run(s => s.GetMyOfferAsync(app)));
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.Equal(OfferStatus.Draft, (await Run(s => s.GetOfferLetterAsync(app)))!.Status);
+
+        // The recruiter edits it while the checks are still to do (sending waits for them), within the approved salary.
+        AsRecruiter();
+        var caseBefore = (await Run(s => s.GetCaseAsync(app)))!;
+        Assert.True(caseBefore.CanEditOffer);
+        Assert.False(caseBefore.CanOffer);
+        Assert.Equal(draft.Number, caseBefore.OfferDraft!.Number);
+        Assert.False((await Run(s => s.SaveOfferDraftAsync(app, 9999, null, null, null))).Succeeded);
+        Assert.True((await Run(s => s.SaveOfferDraftAsync(app, 8000, null, null, "Probation: 3 months."))).Succeeded);
+        Assert.Contains("background check", (await Run(s => s.SendOfferAsync(app, null, null, null, null))).Errors[0]);
+
+        // One click: the draft is sent as saved, same record and number.
+        await ClearedCheckAsync(app);
+        Assert.True((await Run(s => s.SendOfferAsync(app, null, null, null, null))).Succeeded);
+        var sent = await Db(db => db.Offers.SingleAsync());
+        Assert.Equal((draft.Id, draft.Number, OfferStatus.Sent, 8000m, "Probation: 3 months."), (sent.Id, sent.Number, sent.Status, sent.MonthlySalary, sent.Terms));
+        As(_candidate, Roles.Candidate);
+        Assert.Equal(8000m, (await Run(s => s.GetMyOfferAsync(app)))!.MonthlySalary);
+        AsRecruiter();
+        Assert.False((await Run(s => s.SaveOfferDraftAsync(app, 8000, null, null, null))).Succeeded); // already sent
+    }
 }

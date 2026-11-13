@@ -147,12 +147,21 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Contains("Your letter is being prepared", waiting);
         Assert.Contains("Your first day", waiting);
         Assert.DoesNotContain("Sign the letter", waiting);
+        Assert.Equal(HttpStatusCode.NotFound, (await employee.GetAsync($"/MyApplications/AppointmentPdf/{c.ApplicationId}")).StatusCode); // not issued
 
         var recruiter = await SignedInAsync(c.Email("ro"));
+        // 13 Nov 2026: staff can download the draft as a PDF, marked DRAFT.
+        Assert.Equal("application/pdf", (await recruiter.GetAsync($"/Onboarding/LetterPdf/{id}")).Content.Headers.ContentType!.MediaType);
+        Assert.Contains("class=\"draft-mark\"", factory.Pdf.LastHtml);
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/IssueLetter/{id}",
             new() { ["terms"] = "Probation: 6 months. Hours: 7:30 to 16:30, Monday to Friday." })).StatusCode);
         Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(letterPage, $"/MyApplications/SignLetter/{c.ApplicationId}",
             new() { ["fullName"] = fullName, ["confirm"] = "true" })).StatusCode);
+
+        // The signed letter as a PDF, with the electronic signature line.
+        Assert.Equal("application/pdf", (await employee.GetAsync($"/MyApplications/AppointmentPdf/{c.ApplicationId}")).Content.Headers.ContentType!.MediaType);
+        Assert.Contains("Accepted and signed electronically", factory.Pdf.LastHtml);
+        Assert.DoesNotContain("class=\"draft-mark\"", factory.Pdf.LastHtml);
     }
 
     private Task<List<EmployeeDocument>> DocumentsAsync(int onboardingId) =>

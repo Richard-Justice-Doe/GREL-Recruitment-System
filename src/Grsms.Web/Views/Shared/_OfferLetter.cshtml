@@ -1,0 +1,33 @@
+@* The offer letter, shared by the candidate's page, the staff preview (13 Nov 2026) and the PDF. *@
+@model Grsms.Application.Hiring.MyOfferDto
+@{
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+}
+<article class="card glass offer-letter">
+    <div class="card-body p-4 p-md-5">
+        <partial name="_LetterHead" />
+        <p class="text-end small mb-4">Ref: @Model.Number<br />@Model.SentAt.ToString("d MMMM yyyy", gb)</p>
+        <p>Dear @Model.CandidateName,</p>
+        <h2 class="h5 my-3">Offer of employment: @Model.JobTitle</h2>
+        <p>Following your recent application and interview, Ghana Rubber Estates Limited (GREL) is pleased to offer you the position of
+            <strong>@Model.JobTitle</strong> in the <strong>@Model.DepartmentName</strong> department, on the following terms:</p>
+        <table class="table table-sm w-auto">
+            <tbody>
+            <tr><th scope="row">Position</th><td>@Model.JobTitle</td></tr>
+            <tr><th scope="row">Department</th><td>@Model.DepartmentName</td></tr>
+            <tr><th scope="row">Place of work</th><td>@Model.SiteName</td></tr>
+            @if (Model.ReportingTo is not null) { <tr><th scope="row">Reporting to</th><td>@Model.ReportingTo</td></tr> }
+            <tr><th scope="row">Monthly salary</th><td>GHS @Model.MonthlySalary.ToString("N2", gb) (gross)</td></tr>
+            <tr><th scope="row">Start date</th><td>@Model.StartDate.ToString("dddd d MMMM yyyy", gb)</td></tr>
+            </tbody>
+        </table>
+        @if (Model.Terms is not null)
+        {
+            <div class="mb-3" style="white-space: pre-wrap">@Model.Terms</div>
+        }
+        <p>This offer is subject to the satisfactory completion of background checks already carried out and to GREL's conditions of service.
+            Your appointment letter will follow your acceptance.</p>
+        <p>Please accept or decline this offer by <strong>@Model.ExpiresOn.ToString("d MMMM yyyy", gb)</strong>.</p>
+        <partial name="_LetterSignature" />
+    </div>
+</article>

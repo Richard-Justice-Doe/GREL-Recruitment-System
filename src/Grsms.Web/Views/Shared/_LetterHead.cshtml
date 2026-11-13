@@ -1,9 +1,13 @@
 @* 12 November 2026: the GREL letterhead at the top of the offer and appointment letters (on screen and printed).
    The name, address and contacts come from Administration → Letterhead & signature. *@
 @inject Grsms.Application.Settings.LetterSettingsService Letters
-@{ var l = Letters.Get(); }
+@{
+    var l = Letters.Get();
+    // The PDF (Helpers/LetterPdfBuilder) passes the logo as a data: URI, because the browser that prints it can't fetch from GRSMS.
+    var logo = ViewData["LogoSrc"] as string ?? Url.Content("~/images/grel-logo.png");
+}
 <header class="letterhead">
-    <img src="~/images/grel-logo.png" alt="GREL logo" class="letterhead-logo" width="80" height="78" />
+    <img src="@logo" alt="GREL logo" class="letterhead-logo" width="80" height="78" />
     <div class="flex-grow-1">
         <div class="letterhead-name">@l.CompanyName</div>
         @if (l.Department is not null) { <div class="letterhead-sub">@l.Department</div> }

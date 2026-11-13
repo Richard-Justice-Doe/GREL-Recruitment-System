@@ -1,6 +1,7 @@
 @* The new employee's appointment letter and first day: printable, with a signature box until it is signed. Before HR
    issues the letter the page shows the first-day information and says the letter is being prepared. *@
 @model MyAppointmentDto
+@inject Grsms.Application.Common.Interfaces.IPdfRenderer Pdf
 @{
     ViewData["Title"] = Model.LetterReady ? $"Appointment letter {Model.LetterNumber}" : "Appointment letter and first day";
     int applicationId = ViewBag.ApplicationId;
@@ -15,6 +16,7 @@
         @if (Model.LetterReady)
         {
             <button type="button" class="btn btn-outline-secondary" data-print><i class="fa-solid fa-print me-1"></i>Print</button>
+            if (Pdf.IsAvailable) { <a asp-action="AppointmentPdf" asp-route-id="@applicationId" class="btn btn-outline-primary"><i class="fa-solid fa-file-pdf me-1"></i>Download PDF</a> }
         }
         <a asp-action="Documents" asp-route-id="@applicationId" class="btn btn-outline-secondary">My onboarding</a>
         <a asp-action="Details" asp-route-id="@applicationId" class="btn btn-outline-secondary">Back to my application</a>

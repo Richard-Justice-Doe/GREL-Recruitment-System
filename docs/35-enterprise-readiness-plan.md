@@ -185,4 +185,4 @@ Decisions already taken are not asked again (they are recorded in docs/26 §12, 
 | Wave 1.1: onboarding document deadlines (Phase 27 stage C) | ✅ 12 Nov |
 | Wave 1.2: interview panel replies and quorum (I1, I2) | ✅ 12 Nov, script 30 |
 | Wave 1.3: workflow targets report (R1) | ✅ 12 Nov: Reports → Workflow targets; targets in System settings |
-| Wave 1.4: offer drafts and PDF letters | Next (needs O1: letterhead and signatory) |
+| Wave 1.4: offer drafts and PDF letters | ✅ 13 Nov: draft on approval, one-click send; offer and appointment letters as PDF (headless Chromium); O1 answered by the Letterhead & signature page |

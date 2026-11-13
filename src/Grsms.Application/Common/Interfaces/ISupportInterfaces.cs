@@ -97,3 +97,17 @@ public interface IAppLinks
 /// </summary>
 public class ConcurrencyConflictException(Exception inner)
     : Exception("The record was changed by someone else while you were working on it.", inner);
+
+/// <summary>
+/// 13 November 2026 (docs/26 Phase 24, docs/35 Wave 1): turns a complete HTML page into a PDF. The built-in implementation
+/// (Infrastructure/Documents/ChromiumPdfRenderer) runs headless Chromium (Chrome or Edge on Windows, the "chromium" package in
+/// the Docker image), so the PDF looks exactly like the HTML letter.
+/// </summary>
+public interface IPdfRenderer
+{
+    /// <summary>False when no Chromium browser is found on this server: the PDF buttons are hidden and the HTML letters still work.</summary>
+    bool IsAvailable { get; }
+
+    /// <summary>The PDF bytes, or null if rendering failed (logged).</summary>
+    Task<byte[]?> RenderAsync(string html, CancellationToken ct = default);
+}

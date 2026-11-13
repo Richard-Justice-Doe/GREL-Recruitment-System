@@ -88,6 +88,8 @@ public class ScheduledJobsWorker(IServiceScopeFactory scopes, IConfiguration con
                     var contracts = await sp.GetRequiredService<Application.Employees.ContractAlertService>().RunAsync(DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
                     // Phase 27 stage C: onboarding document reminders, overdue notices and the RO's daily digest.
                     var documents = await sp.GetRequiredService<Application.Onboarding.DocumentDeadlineService>().RunAsync(DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
+                    // docs/36: prompts kept for troubleshooting are cleared after 30 days; expired AI cache entries removed.
+                    await sp.GetRequiredService<Application.Ai.IAiLogStore>().PurgeAsync(DateTime.UtcNow.AddDays(-30), DateTime.UtcNow, stoppingToken);
                     if (reminders + invited + purged + contracts + documents.Reminders + documents.Overdue + documents.Digests > 0)
                         logger.LogInformation("Reminders sent: {Reminders}; survey invitations: {Invited}; old notifications removed: {Purged}; contract alerts: {Contracts}; " +
                                               "document reminders: {DocReminders}, overdue: {DocOverdue}, digests: {DocDigests}",

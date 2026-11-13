@@ -1,0 +1,237 @@
+@* 13 November 2026 (docs/36): Administration → AI settings & usage. *@
+@using Grsms.Application.Ai
+@using Grsms.Application.Settings
+@using Grsms.Domain.Ai
+@using Grsms.Domain.Settings
+@model AiSettingsPageDto
+@{
+    ViewData["Title"] = "AI settings & usage";
+    var canManage = ViewBag.CanManage == true;
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+    string Value(string key) => Model.Service.First(r => r.Definition.Key == key).Value ?? Model.Service.First(r => r.Definition.Key == key).Definition.Default ?? "";
+    var provider = Value(SettingCatalogue.AiProviderKey);
+    var keySet = Model.Service.First(r => r.Definition.Key == SettingCatalogue.AiApiKey).HasValue;
+    var spent = Model.Usage.TotalCostUsd;
+    var budgetPct = Model.BudgetUsd > 0 && Model.PricesSet ? (int)Math.Min(100, Math.Round(spent / Model.BudgetUsd * 100)) : (int?)null;
+    string StepOf(AiFeature f) => f switch
+    {
+        AiFeature.JobDescription or AiFeature.Advert => "AI-1",
+        AiFeature.InterviewQuestions => "AI-2",
+        AiFeature.ExecutiveSummary => "AI-3",
+        AiFeature.InterviewSummary or AiFeature.CvSummary or AiFeature.CvReading => "AI-5",
+        AiFeature.OnboardingAssistant => "AI-6",
+        AiFeature.KnowledgeAnswer => "AI-7",
+        _ => "AI-8"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>AI settings &amp; usage</h1>
+        <p>AI drafts and summarises; people decide. Everything here is off until a Super Admin switches it on. Changes apply straight away and are in the audit trail.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="SystemSetting" class="btn btn-outline-secondary"><i class="fa-solid fa-clock-rotate-left me-1"></i>Change history</a>
+    </div>
+</div>
+
+@if (!canManage)
+{
+    <div class="alert alert-secondary small"><i class="fa-solid fa-eye me-1"></i><strong>Read-only.</strong> Only a Super Admin can change AI settings.</div>
+}
+
+@* ---- Status strip *@
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card glass h-100"><div class="card-body p-3">
+            <div class="small text-body-secondary text-uppercase">Status</div>
+            @if (Model.Configured)
+            {
+                <div class="fs-5 fw-bold text-success"><i class="fa-solid fa-circle-check me-1"></i>On</div>
+                <div class="small">@(Enum.TryParse<AiProvider>(provider, out var p) ? p.DisplayName() : provider) · @Value(SettingCatalogue.AiModel)</div>
+            }
+            else
+            {
+                <div class="fs-5 fw-bold text-body-secondary"><i class="fa-solid fa-power-off me-1"></i>Off</div>
+                <div class="small">@(keySet ? "Switch \"Use AI\" on, check the model, then test." : "Choose a provider and enter an API key.")</div>
+            }
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card glass h-100"><div class="card-body p-3">
+            <div class="small text-body-secondary text-uppercase">This month</div>
+            <div class="fs-5 fw-bold">@Model.Usage.TotalCalls request@(Model.Usage.TotalCalls == 1 ? "" : "s")</div>
+            <div class="small">@(Model.PricesSet ? $"USD {spent.ToString("N2", gb)} spent" : "Cost not worked out: enter the prices")</div>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card glass h-100"><div class="card-body p-3">
+            <div class="small text-body-secondary text-uppercase">Budget</div>
+            @if (budgetPct is int pct)
+            {
+                <div class="fs-5 fw-bold">@pct % of USD @Model.BudgetUsd</div>
+                <div class="progress mt-1" role="progressbar" aria-label="Budget used" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100" style="height:.5rem">
+                    <div class="progress-bar @(pct >= 80 ? "bg-danger" : "")" style="width:@pct%"></div>
+                </div>
+            }
+            else
+            {
+                <div class="fs-5 fw-bold">@(Model.BudgetUsd > 0 ? $"USD {Model.BudgetUsd}" : "No limit")</div>
+                <div class="small">@(Model.PricesSet ? "per month" : "Applies once prices are entered")</div>
+            }
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-3">
+    @* ---- Service *@
+    <div class="col-xl-6">
+        <form asp-action="SaveService" method="post" class="card glass h-100">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">AI service</h2>
+                <fieldset disabled="@(!canManage)">
+                    @foreach (var r in Model.Service)
+                    {
+                        var d = r.Definition;
+                        var id = "f-" + d.Key.Replace(':', '-');
+                        var azureOnly = d.Key is SettingCatalogue.AiAzureEndpoint or SettingCatalogue.AiAzureApiVersion;
+                        <div class="mb-3 @(azureOnly ? "ai-azure-only" : "")" @(azureOnly && provider != nameof(AiProvider.AzureOpenAI) ? "hidden" : null)>
+                            @if (d.Kind == SettingKind.Switch)
+                            {
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="@id" name="@d.Key" value="true" checked="@((r.Value ?? d.Default) == "true")" />
+                                    <label class="form-check-label" for="@id">@d.Label</label>
+                                </div>
+                            }
+                            else
+                            {
+                                <label class="form-label" for="@id">@d.Label</label>
+                                @if (d.Key == SettingCatalogue.AiProviderKey)
+                                {
+                                    <select id="@id" name="@d.Key" class="form-select" data-ai-provider>
+                                        @foreach (var option in Enum.GetValues<AiProvider>())
+                                        {
+                                            <option value="@option" selected="@(provider == option.ToString())">@option.DisplayName()</option>
+                                        }
+                                    </select>
+                                }
+                                else if (d.Kind == SettingKind.Secret)
+                                {
+                                    <div class="input-group">
+                                        <input id="@id" name="@d.Key" type="password" class="form-control" autocomplete="new-password" maxlength="@d.MaxLength"
+                                               placeholder="@(r.HasValue ? "•••••••• (set; type to replace)" : "Not set")" />
+                                        <span class="input-group-text">@(r.HasValue ? "set" : "empty")</span>
+                                    </div>
+                                }
+                                else if (d.Kind == SettingKind.Number)
+                                {
+                                    <input id="@id" name="@d.Key" type="number" min="@d.Min" max="@d.Max" class="form-control" value="@(r.Value ?? d.Default)" />
+                                }
+                                else
+                                {
+                                    <input id="@id" name="@d.Key" type="text" class="form-control" maxlength="@d.MaxLength" value="@r.Value" placeholder="@d.Default" />
+                                }
+                            }
+                            <div class="form-text">@d.Help</div>
+                        </div>
+                    }
+                </fieldset>
+                @if (canManage)
+                {
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+                        <button type="submit" formaction="@Url.Action("Test")" class="btn btn-outline-primary" @(keySet ? null : "disabled")><i class="fa-solid fa-plug-circle-check me-1"></i>Test the connection</button>
+                        @if (keySet)
+                        {
+                            <button type="submit" formaction="@Url.Action("ClearKey")" class="btn btn-outline-danger" data-confirm="Remove the saved API key? AI stops until a new one is entered."><i class="fa-solid fa-key me-1"></i>Remove key</button>
+                        }
+                    </div>
+                    <p class="small text-body-secondary mt-2 mb-0">Test uses the saved settings: save first. The key is encrypted and never shown again.</p>
+                }
+            </div>
+        </form>
+    </div>
+
+    @* ---- Features *@
+    <div class="col-xl-6" id="features">
+        <form asp-action="SaveFeatures" method="post" class="card glass h-100">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-1">AI features</h2>
+                <p class="small text-body-secondary">Each is off until switched on here. <span class="badge rounded-pill badge-soft-warning">Personal data</span> features send information about a person to the provider: switch them on only once GREL's data-protection sign-off is in place.</p>
+                <fieldset disabled="@(!canManage)">
+                    @foreach (var (r, feature, built, personal) in Model.Features)
+                    {
+                        var id = "f-" + r.Definition.Key.Replace(':', '-');
+                        <div class="border-bottom py-2">
+                            <div class="d-flex align-items-start gap-2">
+                                <div class="form-check form-switch mb-0 flex-grow-1">
+                                    @if (built)
+                                    {
+                                        <input class="form-check-input" type="checkbox" role="switch" id="@id" name="@r.Definition.Key" value="true" checked="@(r.Value == "true")" />
+                                    }
+                                    else
+                                    {
+                                        <input class="form-check-input" type="checkbox" role="switch" id="@id" disabled />
+                                    }
+                                    <label class="form-check-label fw-semibold" for="@id">@r.Definition.Label</label>
+                                </div>
+                                @if (personal) { <span class="badge rounded-pill badge-soft-warning">Personal data</span> }
+                                @if (!built) { <span class="badge rounded-pill badge-soft-secondary" title="Planned in docs/36">Coming: @StepOf(feature)</span> }
+                            </div>
+                            <div class="form-text ms-5">Sends: @r.Definition.Help</div>
+                        </div>
+                    }
+                </fieldset>
+                @if (canManage && Model.Features.Any(f => f.Built))
+                {
+                    <button type="submit" class="btn btn-primary mt-3"><i class="fa-solid fa-floppy-disk me-1"></i>Save features</button>
+                }
+            </div>
+        </form>
+    </div>
+</div>
+
+@* ---- Usage *@
+<div class="card glass mt-3">
+    <div class="card-body p-4">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Usage this month</h2>
+        @if (Model.Usage.Features.Count == 0)
+        {
+            <p class="small text-body-secondary mb-0">No AI requests yet this month.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Feature</th><th class="text-end">Answered</th><th class="text-end">Failed</th><th class="text-end">Tokens in / out</th><th class="text-end">Cost (USD)</th></tr></thead>
+                    <tbody>
+                    @foreach (var f in Model.Usage.Features)
+                    {
+                        <tr><td>@f.Feature.DisplayName()</td><td class="text-end">@f.Calls</td><td class="text-end">@f.Failed</td>
+                            <td class="text-end">@f.InputTokens.ToString("N0", gb) / @f.OutputTokens.ToString("N0", gb)</td><td class="text-end">@f.CostUsd.ToString("N4", gb)</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+        @if (Model.Usage.Latest.Count > 0)
+        {
+            <h3 class="h6 mt-3">Latest requests</h3>
+            <div class="table-responsive">
+                <table class="table table-sm small align-middle">
+                    <thead><tr><th>When (GMT)</th><th>Feature</th><th>Model</th><th>Outcome</th><th class="text-end">Tokens</th><th class="text-end">ms</th><th>Note</th></tr></thead>
+                    <tbody>
+                    @foreach (var c in Model.Usage.Latest)
+                    {
+                        <tr>
+                            <td>@c.At.ToString("dd MMM HH:mm:ss", gb)</td><td>@c.Feature.DisplayName()</td><td>@c.Model</td>
+                            <td><span class="badge rounded-pill @(c.Outcome is AiOutcome.Success or AiOutcome.CacheHit ? "badge-soft-success" : "badge-soft-warning")">@c.Outcome.DisplayName()</span></td>
+                            <td class="text-end">@(c.InputTokens + c.OutputTokens)</td><td class="text-end">@c.DurationMs</td><td>@c.Error</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

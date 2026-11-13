@@ -79,8 +79,34 @@ public static class SettingCatalogue
     public const string LetterSignatoryTitle = "Letters:SignatoryTitle";
     public const string LetterSignatureFile = "Letters:SignatureFile";
 
+    /// <summary>
+    /// 13 November 2026 (docs/36): the AI service, edited on Administration → AI settings &amp; usage. Everything is off until the
+    /// Super Admin switches AI on, chooses the provider and enters a key; each feature then has its own switch
+    /// (<see cref="AiFeatureKey"/>, group <see cref="AiFeaturesGroup"/>).
+    /// </summary>
+    public const string AiService = "AI service";
+    public const string AiFeaturesGroup = "AI features";
+    public const string AiEnabled = "Ai:Enabled";
+    public const string AiProviderKey = "Ai:Provider";
+    public const string AiApiKey = "Ai:ApiKey";
+    public const string AiModel = "Ai:Model";
+    public const string AiAzureEndpoint = "Ai:AzureEndpoint";
+    public const string AiAzureApiVersion = "Ai:AzureApiVersion";
+    public const string AiTimeoutSeconds = "Ai:TimeoutSeconds";
+    public const string AiMonthlyBudgetUsd = "Ai:MonthlyBudgetUsd";
+    public const string AiInputPrice = "Ai:InputPricePerMillionTokens";
+    public const string AiOutputPrice = "Ai:OutputPricePerMillionTokens";
+    public const string AiCallsPerMinute = "Ai:CallsPerUserPerMinute";
+    public const string AiKeepPrompts = "Ai:KeepPrompts";
+
+    /// <summary>The on/off switch of one AI feature, e.g. "Ai:Feature:JobDescription".</summary>
+    public static string AiFeatureKey(Ai.AiFeature feature) => $"Ai:Feature:{feature}";
+
+    /// <summary>The features that are built (and so have a switch); more are added as docs/36 §8 progresses.</summary>
+    public static readonly IReadOnlyList<Ai.AiFeature> AiFeaturesBuilt = [];
+
     /// <summary>Groups shown on their own page rather than on the System settings screen.</summary>
-    public static readonly IReadOnlySet<string> OwnPageGroups = new HashSet<string> { Letters, LetterSignatureGroup };
+    public static readonly IReadOnlySet<string> OwnPageGroups = new HashSet<string> { Letters, LetterSignatureGroup, AiService, AiFeaturesGroup };
 
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
@@ -145,6 +171,24 @@ public static class SettingCatalogue
         new(LetterSignatoryName, Letters, "Signatory's name", "Who signs the letters, e.g. Ama Mensah. Empty = the letters are signed \"Human Resources\".", SettingKind.Text, MaxLength: 150),
         new(LetterSignatoryTitle, Letters, "Signatory's title", "e.g. Human Resources Manager.", SettingKind.Text, MaxLength: 150),
         new(LetterSignatureFile, LetterSignatureGroup, "Signature image", "Stored file name of the uploaded signature.", SettingKind.Text, MaxLength: 300),
+
+        new(AiEnabled, AiService, "Use AI", "The main switch. Off = no AI anywhere, whatever the feature switches say.", SettingKind.Switch, "false"),
+        new(AiProviderKey, AiService, "Provider", "Anthropic (Claude), OpenAI or Azure OpenAI.", SettingKind.Text, "Anthropic", MaxLength: 30),
+        new(AiApiKey, AiService, "API key", "The provider's key. Stored encrypted; never shown again.", SettingKind.Secret, MaxLength: 500),
+        new(AiModel, AiService, "Model (or Azure deployment name)",
+            "Anthropic: e.g. claude-sonnet-5-5. OpenAI: the model name from your account. Azure OpenAI: the deployment name.", SettingKind.Text, MaxLength: 100),
+        new(AiAzureEndpoint, AiService, "Azure OpenAI endpoint", "Only for Azure OpenAI, e.g. https://grel-ai.openai.azure.com.", SettingKind.Text, MaxLength: 300),
+        new(AiAzureApiVersion, AiService, "Azure OpenAI API version", "Only for Azure OpenAI.", SettingKind.Text, "2024-10-21", MaxLength: 30),
+        new(AiTimeoutSeconds, AiService, "Wait at most (seconds)", "After this, the request is abandoned and the page says AI is unavailable.", SettingKind.Number, "60", Min: 5, Max: 300),
+        new(AiMonthlyBudgetUsd, AiService, "Monthly budget (USD)", "AI stops for the rest of the month when the month's cost reaches this (needs the prices below). 0 = no limit.",
+            SettingKind.Number, "50", Min: 0, Max: 100000),
+        new(AiInputPrice, AiService, "Price per million input tokens (USD)", "From the provider's price list for the chosen model, e.g. 3. Empty = cost not worked out.", SettingKind.Text, MaxLength: 20),
+        new(AiOutputPrice, AiService, "Price per million output tokens (USD)", "From the provider's price list, e.g. 15.", SettingKind.Text, MaxLength: 20),
+        new(AiCallsPerMinute, AiService, "AI requests per person per minute", "Protects the budget from a stuck button or misuse.", SettingKind.Number, "20", Min: 1, Max: 600),
+        new(AiKeepPrompts, AiService, "Keep prompts for troubleshooting",
+            "Off (recommended) = the log records only counts and cost. On = what was sent is kept for 30 days (may include personal data).", SettingKind.Switch, "false"),
+        .. Enum.GetValues<Ai.AiFeature>().Where(f => f != Ai.AiFeature.ConnectionTest).Select(f =>
+            new SettingDefinition(AiFeatureKey(f), AiFeaturesGroup, Ai.AiFeatures.Label(f), Ai.AiFeatures.WhatIsSent(f), SettingKind.Switch, "false")),
     ];
 
     public static SettingDefinition? Find(string key) => All.FirstOrDefault(s => s.Key == key);

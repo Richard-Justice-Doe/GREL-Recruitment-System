@@ -79,6 +79,8 @@ public static class DependencyInjection
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>(); // Phase 27: placeholder, every file passes
         services.AddSingleton<IPdfRenderer, Documents.ChromiumPdfRenderer>(); // 13 Nov 2026: PDF letters through headless Chromium
+        services.AddSingleton<Application.Ai.IAiClient>(_ => new Ai.AiClient()); // docs/36: AI providers (Anthropic, OpenAI, Azure OpenAI)
+        services.AddSingleton<Application.Ai.IAiLogStore, Ai.AiLogStore>();
 
         // Phase 3: vacancies. The same repository also answers "is there a vacancy for this request?".
         services.AddScoped<IVacancyRepository, VacancyRepository>();

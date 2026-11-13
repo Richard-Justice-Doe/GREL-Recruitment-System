@@ -152,7 +152,8 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         foreach (var entry in db.ChangeTracker.Entries().ToList())
         {
             // Audit rows themselves, and the technical reference-number counters, are not audited.
-            if (entry.Entity is AuditLog or NumberSequence or Domain.Security.KnownPermission) continue;
+            // 13 Nov 2026: the AI log and cache are logs themselves (docs/36).
+            if (entry.Entity is AuditLog or NumberSequence or Domain.Security.KnownPermission or Domain.Ai.AiRequestLog or Domain.Ai.AiCacheEntry) continue;
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
 
             // Phase 19: a signed Personal Record Declaration is immutable. Nothing may change or remove it, not even soft-delete.

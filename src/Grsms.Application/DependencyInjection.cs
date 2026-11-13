@@ -56,6 +56,8 @@ public static class DependencyInjection
         // Phase 16: System settings and email templates
         services.AddScoped<Settings.SystemSettingsService>();
         services.AddScoped<Settings.LetterSettingsService>(); // letterhead and signature (12 Nov 2026)
+        services.AddScoped<Ai.AiGateway>(); // docs/36: every AI call goes through it
+        services.AddScoped<Ai.AiAdminService>();
 
         // Phase 7: interviews, assessments and scorecards
         services.AddScoped<Interviews.InterviewService>();

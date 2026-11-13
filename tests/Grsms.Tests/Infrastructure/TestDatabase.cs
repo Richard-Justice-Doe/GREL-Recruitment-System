@@ -55,6 +55,9 @@ public sealed class TestDatabase : IDisposable
     public ServiceProvider Services { get; }
     public TestCurrentUser CurrentUser { get; } = new();
 
+    /// <summary>docs/36: the AI provider in tests.</summary>
+    public FakeAiClient Ai { get; } = new();
+
     /// <summary>Temporary folder for this test's uploaded files and saved emails; deleted afterwards.</summary>
     public string TempFolder { get; } = Path.Combine(Path.GetTempPath(), "grsms-test-" + Guid.NewGuid().ToString("N"));
 
@@ -89,6 +92,8 @@ public sealed class TestDatabase : IDisposable
         UseSqlite(services, _connection);
         services.AddSingleton<ICurrentUserService>(CurrentUser);
         services.AddSingleton<IAppLinks, TestAppLinks>();
+        services.RemoveAll<Grsms.Application.Ai.IAiClient>(); // docs/36: never a real AI provider in tests
+        services.AddSingleton<Grsms.Application.Ai.IAiClient>(Ai);
         services.AddIdentityCore<ApplicationUser>(o => o.User.RequireUniqueEmail = true)
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()

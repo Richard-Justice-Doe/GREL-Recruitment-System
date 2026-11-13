@@ -107,6 +107,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     // Phase 16: system settings and email templates
     public DbSet<Domain.Settings.SystemSetting> SystemSettings => Set<Domain.Settings.SystemSetting>();
     public DbSet<Domain.Settings.EmailTemplate> EmailTemplates => Set<Domain.Settings.EmailTemplate>();
+    public DbSet<Domain.Ai.AiRequestLog> AiRequestLogs => Set<Domain.Ai.AiRequestLog>(); // docs/36
+    public DbSet<Domain.Ai.AiCacheEntry> AiCacheEntries => Set<Domain.Ai.AiCacheEntry>();
 
     /// <summary>
     /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and

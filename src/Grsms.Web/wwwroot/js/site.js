@@ -322,3 +322,12 @@
         }
     });
 })();
+
+// docs/36: AI settings page: show the Azure OpenAI fields only when Azure OpenAI is chosen.
+(function () {
+    var select = document.querySelector("[data-ai-provider]");
+    if (!select) return;
+    select.addEventListener("change", function () {
+        document.querySelectorAll(".ai-azure-only").forEach(function (el) { el.hidden = select.value !== "AzureOpenAI"; });
+    });
+})();

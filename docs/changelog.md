@@ -4,6 +4,33 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: AI platform plan (docs/36) and step AI-0, the AI foundation
+
+* **docs/36:**
+  * Analysis of the eight-phase AI brief against GRSMS. Phase 1 (CV screening) is largely built already; phases 2-8 build on existing data.
+  * Proposed architecture, database changes, security rules (AI advises, people decide), and a plan in steps AI-0 to AI-8.
+  * Decisions: provider chosen in settings; personal data allowed per feature switch; the plan's order; knowledge-base library now, documents later.
+* **AI-0:**
+  * **Administration → AI settings & usage** (Super Admin edits, Admin views):
+    * main switch;
+    * provider: Anthropic (Claude), OpenAI or Azure OpenAI;
+    * encrypted API key, model or deployment, Azure endpoint;
+    * time-out, monthly budget and prices, requests per person per minute, "keep prompts" (off);
+    * one switch per AI feature, saying what it sends and marked when it sends personal data;
+    * **Test the connection**;
+    * this month's usage and cost, plus the latest requests.
+  * **One gateway for every AI call** (`Application/Ai/AiGateway.cs`):
+    * checks the switches, rate limit and budget;
+    * caches answers of features that send no personal data (7 days); never caches personal data;
+    * asks for a strict JSON shape and checks the answer;
+    * logs counts, cost, time and outcome (not the prompt, unless switched on for troubleshooting; cleared after 30 days);
+    * turns every failure into a message, so pages keep working without AI.
+  * Provider client: `Infrastructure/Ai/AiClient.cs`, using the Anthropic SDK already in GRSMS, and the REST API for OpenAI and Azure OpenAI.
+  * New tables `AiRequestLogs`, `AiCacheEntries`: run `database/31_ai_foundation.sql` (the Docker deployment applies it automatically). They are not in the audit trail; changes to AI settings are.
+* No existing feature changed; the existing optional Claude CV reader is untouched until AI-5. Tests: gateway (switches, cache, budget, rate limit, failures, logging), OpenAI and Azure requests (offline), the settings page.
+
+---
+
 ## 13 November 2026: offer drafts and PDF letters (docs/35 Wave 1, docs/26 Phase 24)
 
 * **Offer drafts:**

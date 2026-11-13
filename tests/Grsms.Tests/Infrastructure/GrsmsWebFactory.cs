@@ -55,8 +55,13 @@ public sealed class GrsmsWebFactory : WebApplicationFactory<Program>
             // 13 Nov 2026: no browser in the tests; the real renderer is tested on its own (ChromiumPdfRendererTests).
             services.RemoveAll<Grsms.Application.Common.Interfaces.IPdfRenderer>();
             services.AddSingleton<Grsms.Application.Common.Interfaces.IPdfRenderer>(Pdf);
+            services.RemoveAll<Grsms.Application.Ai.IAiClient>(); // docs/36: never a real AI provider in tests
+            services.AddSingleton<Grsms.Application.Ai.IAiClient>(Ai);
         });
     }
+
+    /// <summary>The AI provider the site uses in tests.</summary>
+    public FakeAiClient Ai { get; } = new();
 
     /// <summary>The PDF renderer the site uses in tests (records the last letter page).</summary>
     public FakePdfRenderer Pdf { get; } = new();

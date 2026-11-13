@@ -14,7 +14,7 @@ namespace Grsms.Web.Controllers;
 /// </summary>
 [Authorize(Policy = Policies.Vacancies)]
 public class VacanciesController(VacancyService service, Application.Adverts.AdvertService adverts,
-    Application.Applications.ApplicationService applications) : AppController
+    Application.Applications.ApplicationService applications, InterviewQuestionService questions) : AppController
 {
     // ================================================================= List
 
@@ -117,6 +117,7 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
 
         // Phase 5: how many applications it has received.
         ViewBag.ApplicationCount = (await applications.SearchAsync(new Application.Applications.ApplicationFilter { Tab = "all", VacancyId = id, PageSize = 1 }, ct)).TotalCount;
+        ViewBag.QuestionCount = (await questions.ForInterviewAsync(id, ct)).Count; // docs/36 AI-2
         return View(model);
     }
 
@@ -156,6 +157,37 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
     // ================================================================= Helpers
 
     /// <summary>Runs a workflow action and returns to the details page with a success or error banner.</summary>
+    // ================================================================= Interview guide (docs/36 AI-2)
+
+    public async Task<IActionResult> Questions(int id, CancellationToken ct)
+    {
+        var model = await questions.GetAsync(id, ct);
+        return model is null ? NotFound() : View(model);
+    }
+
+    /// <summary>The form posts "Questions.Index" plus Questions[key].Category / .Question / .Guidance for each row.</summary>
+    [HttpPost]
+    public async Task<IActionResult> SaveQuestions(int id, [Bind(Prefix = "Questions")] List<InterviewQuestionRow>? rows, CancellationToken ct)
+    {
+        var result = await questions.SaveAsync(id, rows ?? [], ct);
+        if (result.Succeeded) Success("Interview guide saved. Panel members see it on the interview page.");
+        else Fail(result);
+        return RedirectToAction(nameof(Questions), new { id });
+    }
+
+    /// <summary>Drafts the guide with AI and shows it in the form, not saved.</summary>
+    [HttpPost]
+    public async Task<IActionResult> GenerateQuestions(int id, bool regenerate, CancellationToken ct)
+    {
+        var (guide, problem) = await questions.GenerateAsync(id, regenerate, ct);
+        if (guide is null)
+        {
+            Error(problem ?? "AI is not available right now.");
+            return RedirectToAction(nameof(Questions), new { id });
+        }
+        return View(nameof(Questions), guide);
+    }
+
     private Task<IActionResult> Act(int id, Func<Task<Application.Common.Result>> action, string successMessage) =>
         RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
 

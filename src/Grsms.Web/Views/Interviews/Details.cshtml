@@ -138,6 +138,27 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
             </div>
         </div>
 
+        @* ---- Interview guide (docs/36 AI-2): the vacancy's questions, for the panel. Never shown to the applicant. *@
+        @if (ViewBag.Guide is IReadOnlyList<Grsms.Application.Vacancies.InterviewQuestionRow> { Count: > 0 } guide)
+        {
+            <details class="card glass mb-3">
+                <summary class="card-body p-4 py-3 fw-semibold"><i class="fa-solid fa-clipboard-question me-1 text-primary"></i>Interview guide: @guide.Count questions for this vacancy</summary>
+                <div class="card-body pt-0 px-4 pb-4">
+                    @foreach (var g in guide.GroupBy(q => q.Category))
+                    {
+                        <h3 class="h6 text-uppercase text-body-secondary mt-2">@g.Key.DisplayName()</h3>
+                        <ol class="mb-2">
+                            @foreach (var q in g)
+                            {
+                                <li class="mb-1">@q.Question @if (q.Guidance is not null) { <div class="small text-body-secondary">Look for: @q.Guidance</div> }</li>
+                            }
+                        </ol>
+                    }
+                    <a asp-controller="Vacancies" asp-action="Questions" asp-route-id="@Model.VacancyId" class="small">Open the guide</a>
+                </div>
+            </details>
+        }
+
         @* ---- My scorecard *@
         @if (Model.IsPanelMember)
         {

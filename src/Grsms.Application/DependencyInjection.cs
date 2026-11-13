@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<Ai.AiAdminService>();
         services.AddScoped<Ai.JobDescriptionDrafter>(); // docs/36 AI-1
         services.AddScoped<Ai.AdvertWriter>();
+        services.AddScoped<Vacancies.InterviewQuestionService>(); // docs/36 AI-2
 
         // Phase 7: interviews, assessments and scorecards
         services.AddScoped<Interviews.InterviewService>();

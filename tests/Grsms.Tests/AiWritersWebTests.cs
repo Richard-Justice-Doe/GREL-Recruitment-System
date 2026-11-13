@@ -175,6 +175,22 @@ public class AiWritersWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWeb
             Assert.Contains(logs, l => l.Feature == AiFeature.Advert && l.RecordType == "Vacancy" && l.RecordId == vacancyId);
         }
 
+        // ---- AI-2: the interview guide page: AI draft shown in the form (not saved), then saved by the recruiter.
+        await SettingsAsync(new() { [SettingCatalogue.AiFeatureKey(AiFeature.InterviewQuestions)] = "true" });
+        var guidePage = $"/Vacancies/Questions/{vacancyId}";
+        Assert.Contains("Draft questions", await recruiter.GetStringAsync(guidePage));
+        factory.Ai.Reply = _ => new AiReply("""{"questions":[{"category":"Technical","question":"How do you reduce line downtime?","guidance":"Data-led."}]}""", 200, 100, "m");
+        var drafted = await (await recruiter.PostFormAsync(guidePage, $"/Vacancies/GenerateQuestions/{vacancyId}", new())).Content.ReadAsStringAsync();
+        Assert.Contains("AI draft", drafted);
+        Assert.Contains("How do you reduce line downtime?", drafted);
+        Assert.Contains("No questions yet", await recruiter.GetStringAsync($"/Vacancies/Details/{vacancyId}"));
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(guidePage, $"/Vacancies/SaveQuestions/{vacancyId}", new()
+        {
+            ["Questions.Index"] = "a", ["Questions[a].Category"] = "Technical", ["Questions[a].Question"] = "How do you reduce line downtime?",
+            ["Questions[a].Guidance"] = "Data-led."
+        })).StatusCode);
+        Assert.Contains("1 question for the panel", await recruiter.GetStringAsync($"/Vacancies/Details/{vacancyId}"));
+
         // Someone without the vacancy permission can't call the endpoints.
         await UserAsync("ai.emp@grel.test", Roles.Employee);
         var employee = await SignedInAsync("ai.emp@grel.test");

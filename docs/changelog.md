@@ -4,6 +4,16 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: AI-2, interview guides (docs/36)
+
+* **Vacancy page → Interview guide**: the questions the panel should ask, in five categories (technical, behavioural, situational, competency, practical assessment), each with *what a strong answer shows*.
+  * The RO or HR Manager writes them, or clicks **Draft questions** (AI, from the vacancy's description and requirements; no personal data). The draft appears in the form, not saved; edit, add or remove, then **Save the guide** (replaces the previous one).
+  * HODs and others who can see the vacancy read it. **Panel members see it on the interview page** (folded); applicants never do.
+  * The prompt forbids questions about age, family, religion, ethnicity, health or politics.
+* Database: `database/33_vacancy_interview_questions.sql` (new table; the Docker deployment applies it). Switch on in *AI settings & usage → Interview question sets*; writing by hand works without AI.
+
+---
+
 ## 13 November 2026: AI-1, job descriptions and adverts drafted with AI (docs/36)
 
 * **Vacancy form → "Draft the job description with AI"**:

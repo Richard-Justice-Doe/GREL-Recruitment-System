@@ -109,6 +109,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Settings.EmailTemplate> EmailTemplates => Set<Domain.Settings.EmailTemplate>();
     public DbSet<Domain.Ai.AiRequestLog> AiRequestLogs => Set<Domain.Ai.AiRequestLog>(); // docs/36
     public DbSet<Domain.Ai.AiCacheEntry> AiCacheEntries => Set<Domain.Ai.AiCacheEntry>();
+    public DbSet<VacancyInterviewQuestion> VacancyInterviewQuestions => Set<VacancyInterviewQuestion>(); // docs/36 AI-2
 
     /// <summary>
     /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and

@@ -262,6 +262,17 @@
             </div>
         </div>
 
+        @* ---- Interview guide (docs/36 AI-2) *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Interview guide</h2>
+                    <div class="small text-body-secondary">@(ViewBag.QuestionCount is int qc && qc > 0 ? $"{qc} question{(qc == 1 ? "" : "s")} for the panel" : "No questions yet")</div>
+                </div>
+                <a asp-action="Questions" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-clipboard-question me-1"></i>Open</a>
+            </div>
+        </div>
+
         @* ---- Job adverts (Phase 4) *@
         @{
             var adverts = (IReadOnlyList<AdvertListItemDto>?)ViewBag.Adverts ?? [];

@@ -103,3 +103,19 @@
         });
     });
 })();
+
+// docs/36: forms that ask AI on the server (e.g. the interview guide) show that they are working and cannot be sent twice.
+(function () {
+    document.querySelectorAll("form[data-ai-busy]").forEach(function (form) {
+        form.addEventListener("submit", function () {
+            setTimeout(function () {
+                form.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+                var note = document.createElement("div");
+                note.className = "small text-body-secondary w-100 mt-1";
+                note.innerHTML = "<span class=\"spinner-border spinner-border-sm me-2\"></span>";
+                note.appendChild(document.createTextNode("Drafting\u2026 this can take up to a minute."));
+                form.appendChild(note);
+            }, 0);
+        });
+    });
+})();

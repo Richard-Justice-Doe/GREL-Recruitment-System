@@ -13,7 +13,7 @@ namespace Grsms.Web.Controllers;
 /// can sit on a panel; what each person may see and do is decided by <see cref="InterviewService"/>.
 /// </summary>
 [Authorize(Policy = Policies.Staff)]
-public class InterviewsController(InterviewService interviews) : AppController
+public class InterviewsController(InterviewService interviews, Application.Vacancies.InterviewQuestionService questions) : AppController
 {
     /// <param name="filter">Tab "mine", "scorecards", "validate", "upcoming" or "all", plus the report filters.</param>
     public async Task<IActionResult> Index([FromQuery] InterviewFilter filter, CancellationToken ct)
@@ -55,7 +55,9 @@ public class InterviewsController(InterviewService interviews) : AppController
     public async Task<IActionResult> Details(int id, CancellationToken ct)
     {
         var model = await interviews.GetDetailsAsync(id, ct);
-        return model is null ? NotFound() : View(model);
+        if (model is null) return NotFound();
+        ViewBag.Guide = await questions.ForInterviewAsync(model.VacancyId, ct); // docs/36 AI-2
+        return View(model);
     }
 
     /// <summary>The scorecard form posts "ratings[criterionId]=1..5" for every criterion.</summary>

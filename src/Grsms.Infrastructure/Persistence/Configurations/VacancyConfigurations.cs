@@ -108,3 +108,18 @@ internal class VacancyActionConfiguration : IEntityTypeConfiguration<VacancyActi
         b.HasIndex(a => new { a.VacancyId, a.ActionAt });
     }
 }
+
+/// <summary>Table "VacancyInterviewQuestions" (docs/36 AI-2): a vacancy's interview guide.</summary>
+internal class VacancyInterviewQuestionConfiguration : IEntityTypeConfiguration<VacancyInterviewQuestion>
+{
+    public void Configure(EntityTypeBuilder<VacancyInterviewQuestion> b)
+    {
+        b.ToTable("VacancyInterviewQuestions");
+        b.ConfigureBase();
+        b.Property(q => q.Category).HasConversion<string>().HasMaxLength(20);
+        b.Property(q => q.Question).HasMaxLength(VacancyInterviewQuestion.MaxQuestionLength).IsRequired();
+        b.Property(q => q.Guidance).HasMaxLength(VacancyInterviewQuestion.MaxGuidanceLength);
+        b.HasOne<Vacancy>().WithMany().HasForeignKey(q => q.VacancyId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(q => q.VacancyId);
+    }
+}

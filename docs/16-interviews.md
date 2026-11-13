@@ -23,6 +23,10 @@ Click **Schedule and send invitations**. Then:
 
 An applicant can have several **rounds**, for example a written test followed by an interview.
 
+## 1a. Interview guide (13 November 2026, docs/36)
+
+On the vacancy page, **Interview guide → Open**. The Recruitment Officer or HR Manager lists the questions the panel should ask, by category (technical, behavioural, situational, competency, practical assessment), each with *what a strong answer shows*, then clicks **Save the guide**. With AI switched on (*AI settings & usage*), **Draft questions** fills the form with suggestions from the vacancy's description and requirements, to edit before saving. Panel members see the guide, folded, at the top of the interview page. Applicants never see it.
+
 ## 2. Score (panel members)
 
 Any GREL staff member can sit on a panel. Open **Menu → Interviews**:

@@ -152,6 +152,8 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                         @(Model.VacancySalaryMin is null && Model.VacancySalaryMax is null ? "not set" : $"GHS {Model.VacancySalaryMin:N0} – {Model.VacancySalaryMax:N0}")</strong></div>
                 </div>
 
+                @* docs/36 AI-5: advisory AI summary of the validated scores. *@
+                @if (ViewBag.AiSummary is Grsms.Web.Helpers.AiInsightCard aiCard) { <partial name="_AiInsightCard" model="aiCard" /> }
                 <h2 class="h5 mb-2">Interview scores</h2>
                 @if (Model.InterviewRounds.Count == 0)
                 {

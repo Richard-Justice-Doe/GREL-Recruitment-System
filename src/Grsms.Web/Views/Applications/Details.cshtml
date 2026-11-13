@@ -106,10 +106,12 @@
         }
         @if (Model.Cv is { } cv)
         {
+            @* docs/36 AI-5: advisory AI summary of the CV against the vacancy. *@
+            if (ViewBag.AiSummary is Grsms.Web.Helpers.AiInsightCard aiCard) { <partial name="_AiInsightCard" model="aiCard" /> }
             <div class="card glass mb-3">
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-1">Read from the CV</h2>
-                    <p class="small text-body-secondary">By @(cv.Reader == "ai" ? "the Claude AI reader" : "GRSMS's own reader"). CVs have no fixed layout, so check anything important against the file itself.</p>
+                    <p class="small text-body-secondary">By @(cv.Reader == "ai" ? "the AI reader" : "GRSMS's own reader"). CVs have no fixed layout, so check anything important against the file itself.</p>
                     @foreach (var w in cv.Warnings)
                     {
                         <div class="alert alert-warning small py-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>@w</div>
@@ -131,7 +133,7 @@
                             }
                         </ul>
                     }
-                    @foreach (var (title, list) in new[] { ("Education", cv.Education), ("Skills", cv.Skills), ("Certifications", cv.Certifications) })
+                    @foreach (var (title, list) in new[] { ("Education", cv.Education), ("Skills", cv.Skills), ("Soft skills", cv.SoftSkills), ("Certifications", cv.Certifications) })
                     {
                         @if (list.Count > 0)
                         {

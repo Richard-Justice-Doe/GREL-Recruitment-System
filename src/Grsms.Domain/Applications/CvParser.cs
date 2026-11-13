@@ -43,6 +43,9 @@ public record ParsedCv
     public IReadOnlyList<string> Skills { get; init; } = [];
     public IReadOnlyList<string> Certifications { get; init; } = [];
 
+    /// <summary>docs/36 AI-5: soft skills the CV states (teamwork, leadership, ...); only the AI reader fills them.</summary>
+    public IReadOnlyList<string> SoftSkills { get; init; } = [];
+
     /// <summary>Things staff should know, e.g. "No text could be read: the CV may be a scanned image."</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }

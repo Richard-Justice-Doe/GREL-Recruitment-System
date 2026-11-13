@@ -203,7 +203,7 @@ public class AtsService(
                     : null;
 
         ParsedCv? parsed = null;
-        if (settings.UseAiReader && ai.IsConfigured && a.CvText is not null)
+        if (((settings.UseAiReader && ai.IsConfigured) || ai.IsSwitchedOn) && a.CvText is not null)
             parsed = await ai.ReadAsync(a.CvText, Today, ct);
         parsed ??= CvParser.Parse(a.CvText, Today);
         a.CvParsed = System.Text.Json.JsonSerializer.Serialize(parsed);

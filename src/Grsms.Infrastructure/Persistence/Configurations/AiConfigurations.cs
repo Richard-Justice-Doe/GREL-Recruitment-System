@@ -42,3 +42,19 @@ internal class AiCacheEntryConfiguration : IEntityTypeConfiguration<AiCacheEntry
         b.HasIndex(c => c.ExpiresAt);
     }
 }
+
+/// <summary>Table "AiInsights" (docs/36 AI-5): AI summaries kept with their record. Audited like any record.</summary>
+internal class AiInsightConfiguration : IEntityTypeConfiguration<AiInsight>
+{
+    public void Configure(EntityTypeBuilder<AiInsight> b)
+    {
+        b.ToTable("AiInsights");
+        b.ConfigureBase();
+        b.Property(i => i.Feature).HasConversion<string>().HasMaxLength(40);
+        b.Property(i => i.RecordType).HasMaxLength(50).IsRequired();
+        b.Property(i => i.Content).HasColumnType("text").IsRequired();
+        b.Property(i => i.PromptVersion).HasMaxLength(20);
+        b.Property(i => i.GeneratedByUserId).HasMaxLength(450);
+        b.HasIndex(i => new { i.RecordType, i.RecordId, i.Feature });
+    }
+}

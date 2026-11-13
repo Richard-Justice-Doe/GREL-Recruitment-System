@@ -107,3 +107,21 @@ public class AiCacheEntry : BaseEntity
     public string Output { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
 }
+
+/// <summary>
+/// docs/36 AI-5: an AI summary kept with its record (an interview summary on a hiring case, a CV match summary on an application),
+/// so it is not paid for again on every page view. The latest one per record and feature is shown; older ones stay as history.
+/// Advisory only: nothing in GRSMS reads it to decide anything.
+/// </summary>
+public class AiInsight : BaseEntity
+{
+    public AiFeature Feature { get; set; }
+    public string RecordType { get; set; } = string.Empty;
+    public int RecordId { get; set; }
+
+    /// <summary>The answer (JSON of the feature's answer type).</summary>
+    public string Content { get; set; } = string.Empty;
+
+    public string PromptVersion { get; set; } = string.Empty;
+    public string? GeneratedByUserId { get; set; }
+}

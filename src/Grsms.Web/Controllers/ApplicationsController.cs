@@ -12,7 +12,7 @@ namespace Grsms.Web.Controllers;
 /// </summary>
 [Authorize(Policy = Policies.Applications)]
 public class ApplicationsController(ApplicationService applications, Application.Shortlisting.ShortlistingService shortlisting,
-    Application.Interviews.InterviewService interviews) : AppController
+    Application.Interviews.InterviewService interviews, Application.Ai.AiSummaryService summaries) : AppController
 {
     /// <param name="filter">Tab "new", "review" or "all", plus the report filters.</param>
     public async Task<IActionResult> Index([FromQuery] ApplicationFilter filter, CancellationToken ct)
@@ -32,6 +32,7 @@ public class ApplicationsController(ApplicationService applications, Application
         ViewBag.ShortlistRow = (await shortlisting.GetBoardAsync(model.VacancyId, ct))?.Rows.FirstOrDefault(r => r.ApplicationId == id);
         // Phase 7: can an interview / assessment be scheduled now?
         ViewBag.CanSchedule = await interviews.CanScheduleForAsync(id, ct);
+        ViewBag.AiSummary = Helpers.AiInsightCard.Cv(await summaries.GetCvPanelAsync(id, ct), id); // docs/36 AI-5
         return View(model);
     }
 
@@ -49,6 +50,11 @@ public class ApplicationsController(ApplicationService applications, Application
         var file = await applications.OpenDocumentAsync(id, attachmentId, ct);
         return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
     }
+
+    /// <summary>docs/36 AI-5: the AI CV summary (advisory; the ATS score is unchanged).</summary>
+    [HttpPost]
+    public Task<IActionResult> GenerateCvSummary(int id, CancellationToken ct) =>
+        Act(id, () => summaries.GenerateCvSummaryAsync(id, ct), "CV summary written. It is advice only.");
 
     private Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage) =>
         RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));

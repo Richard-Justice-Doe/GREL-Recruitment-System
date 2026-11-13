@@ -4,6 +4,24 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: AI-5, interview and CV summaries; CV reading through the AI settings (docs/36)
+
+These features send **personal data** to the AI provider. Each has its own switch in *AI settings & usage*, off by default.
+
+* **Hiring case → AI interview summary** (*Interview summaries*):
+  * contents: overview, strengths, weaknesses, a recommendation (hire / with reservations / do not hire / needs more evidence) with its reason, and what to check before an offer;
+  * built only from **validated** scorecards (scores per criterion, recommendations, comments); panel members are called "Panel member 1, 2…"; protected characteristics are excluded in the instructions.
+* **Application → AI CV summary** (*CV match summaries*): fit (strong / possible / weak), strengths, weaknesses, requirements the CV doesn't show, and soft skills, from the CV text and GRSMS's own screening results. The ATS score and rules are unchanged.
+* Both summaries:
+  * a Recruitment Officer or HR Manager clicks **Write the summary** (**Write again** later);
+  * kept with the record; readable by whoever may open the case or application, including the HOD of the department;
+  * never shown to the candidate;
+  * advice only: nothing in GRSMS acts on them.
+* **CV reading** (*CV reading* switch): when on, every CV is read by the provider chosen in AI settings, and now also lists **soft skills**; each read is logged and counted in the budget. When off, the earlier optional Claude reader (ATS settings) works as before, and GRSMS's own reader is still used when AI fails.
+* Database: `database/35_ai_insights.sql` (new table `AiInsights`).
+
+---
+
 ## 13 November 2026: AI-4, automatic document checks (docs/36; rules only, no AI)
 
 * **Valid-until dates** for the Ghana Card, passport biodata page, non-citizen card, work permit and residence permit:

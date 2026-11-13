@@ -23,4 +23,7 @@ public interface IAiCvReader
     bool IsConfigured { get; }
 
     Task<ParsedCv?> ReadAsync(string cvText, DateOnly today, CancellationToken ct = default);
+
+    /// <summary>docs/36 AI-5: "CV reading" is switched on in AI settings (then it is used whatever the older ATS switch says).</summary>
+    bool IsSwitchedOn => false;
 }

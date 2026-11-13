@@ -12,7 +12,7 @@ namespace Grsms.Web.Controllers;
 /// Rules live in <see cref="HiringService"/>.
 /// </summary>
 [Authorize(Policy = Policies.Applications)]
-public class HiringController(HiringService hiring, Application.Onboarding.OnboardingService onboarding) : AppController
+public class HiringController(HiringService hiring, Application.Onboarding.OnboardingService onboarding, Application.Ai.AiSummaryService summaries) : AppController
 {
     /// <param name="filter">Tab "ready" (validated, to recommend), "awaiting" (my decision), "approved", "offers" or "all", plus the report filters.</param>
     public async Task<IActionResult> Index([FromQuery] HiringFilter filter, CancellationToken ct)
@@ -29,8 +29,14 @@ public class HiringController(HiringService hiring, Application.Onboarding.Onboa
         var model = await hiring.GetCaseAsync(id, ct);
         if (model is null) return NotFound();
         ViewBag.OnboardingId = await onboarding.IdForApplicationAsync(id, ct); // Phase 9
+        ViewBag.AiSummary = Helpers.AiInsightCard.Interview(await summaries.GetInterviewPanelAsync(id, ct), id); // docs/36 AI-5
         return View(model);
     }
+
+    /// <summary>docs/36 AI-5: the AI interview summary (validated scores only, advisory).</summary>
+    [HttpPost]
+    public Task<IActionResult> GenerateInterviewSummary(int id, CancellationToken ct) =>
+        Act(id, () => summaries.GenerateInterviewSummaryAsync(id, ct), "Interview summary written. It is advice only.");
 
     [HttpPost]
     public Task<IActionResult> AddCheck(int id, CheckType type, string? subject, CancellationToken ct) =>

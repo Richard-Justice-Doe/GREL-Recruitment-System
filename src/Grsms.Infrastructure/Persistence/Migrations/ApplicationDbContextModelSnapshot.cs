@@ -1102,6 +1102,12 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<int?>("ImageHeight")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ImageWidth")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
@@ -2383,6 +2389,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("ExpiresOn")
+                        .HasColumnType("date");
 
                     b.Property<bool>("IsApplicable")
                         .HasColumnType("tinyint(1)");

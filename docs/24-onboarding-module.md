@@ -108,6 +108,13 @@ Documents arrive one by one; you are emailed once the new employee has provided 
 
 **Only the new employee uploads documents** (since 11 November 2026). Staff open, review, verify and reject them, and can ask for a correction, but never upload, replace or remove a document on the new employee's behalf. If someone has trouble uploading, help them do it themselves in My onboarding (for example on an HR office computer).
 
+**Automatic checks (13 November 2026, docs/36):** under each document GRSMS notes, without AI:
+* an expired Ghana Card, passport or permit, one expiring within 90 days, or one with no *valid until* date (the new employee gives it when uploading; you can correct it);
+* the same file used for two documents, or uploaded by another new employee (*Act now*);
+* a photo or scan of low resolution.
+
+These remarks don't decide anything: you still verify or reject. **Reports → Document checks** lists them for all onboardings in progress.
+
 ### Activation and induction
 When the onboarding is **Ready for activation**, the *Next step* panel shows the **departmental induction areas** (the defaults already ticked) and the **staff number** box. Click **Activate the employee**: the account becomes a staff account (Employee role added, Candidate role removed, staff number, department and site set), the probation starts, the personnel file is filled, and each ticked area's tasks are added to the checklist, given to the area's owner and due a week later. The new employee (template *Onboarding: staff account active*), the task owners and the HOD are emailed.
 

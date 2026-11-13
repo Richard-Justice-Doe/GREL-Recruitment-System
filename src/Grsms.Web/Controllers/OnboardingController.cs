@@ -185,6 +185,11 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> VerifyDocument(int id, int documentId, CancellationToken ct) =>
         ActAt(id, documentId, () => documents.VerifyAsync(documentId, ct), "Document verified.");
+    /// <summary>docs/36 AI-4: the RO sets or corrects the "valid until" date of an ID-type document.</summary>
+    [HttpPost]
+    [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
+    public Task<IActionResult> SetDocumentExpiry(int id, int documentId, DateOnly? expiresOn, CancellationToken ct) =>
+        ActAt(id, documentId, () => documents.SetExpiryAsync(documentId, expiresOn, ct), "Valid-until date saved.");
 
     [HttpPost]
     [Authorize(Policy = Policies.VerifyOnboardingDocuments)]

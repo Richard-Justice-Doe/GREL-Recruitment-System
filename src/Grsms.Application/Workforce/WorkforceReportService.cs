@@ -32,19 +32,20 @@ public class WorkforceReportService(
     IRepository<Department> departments,
     IUserDirectory users,
     ICurrentUserService me,
-    AccessScope scope)
+    AccessScope scope,
+    Onboarding.DocumentCheckService checks)
 {
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
     public static readonly IReadOnlySet<string> Keys = new HashSet<string>
     {
-        ReportKeys.MissingDocuments, ReportKeys.DocumentVerification, ReportKeys.Beneficiaries,
+        ReportKeys.MissingDocuments, ReportKeys.DocumentVerification, ReportKeys.DocumentChecks, ReportKeys.Beneficiaries,
         ReportKeys.Probation, ReportKeys.ProbationExtensions, ReportKeys.Confirmations
     };
 
     private static readonly IReadOnlySet<string> PersonalDataKeys = new HashSet<string>
-        { ReportKeys.MissingDocuments, ReportKeys.DocumentVerification, ReportKeys.Beneficiaries };
+        { ReportKeys.MissingDocuments, ReportKeys.DocumentVerification, ReportKeys.DocumentChecks, ReportKeys.Beneficiaries };
 
     public async Task<ReportResult> RunAsync(ReportFilter f, CancellationToken ct = default)
     {
@@ -67,6 +68,7 @@ public class WorkforceReportService(
         {
             ReportKeys.MissingDocuments => await MissingDocumentsAsync(f, Visible, Dept, ct),
             ReportKeys.DocumentVerification => await DocumentVerificationAsync(f, Visible, Dept, ct),
+            ReportKeys.DocumentChecks => await DocumentChecksAsync(f, Visible, Dept, ct),
             ReportKeys.Beneficiaries => await BeneficiariesAsync(f, Visible, Dept, ct),
             ReportKeys.Probation => await ProbationAsync(f, Visible, Dept, ct),
             ReportKeys.ProbationExtensions => await ExtensionsAsync(f, Visible, Dept, ct),
@@ -138,6 +140,41 @@ public class WorkforceReportService(
             ],
             Table = new ReportTable([new("Onboarding"), new("New employee"), new("Department"), new("Document"), new("Status"), new("Submitted"),
                 new("Verified by"), new("Verified on"), new("Reason")], rows)
+        };
+    }
+
+    /// <summary>docs/36 AI-4: the automatic document checks of onboardings in progress (period = the onboarding's start date).</summary>
+    private async Task<ReportResult> DocumentChecksAsync(ReportFilter f, Func<int, bool> visible, Func<int, string> dept, CancellationToken ct)
+    {
+        var obs = (await onboardings.ListAsync(o => o.Status != OnboardingStatus.Completed && o.Status != OnboardingStatus.Cancelled &&
+                                                   (f.DepartmentId == null || o.DepartmentId == f.DepartmentId), ct))
+            .Where(o => visible(o.DepartmentId) && InPeriod(f, o.StartDate)).ToDictionary(o => o.Id);
+        var flags = await checks.ForOnboardingsAsync(obs.Keys.ToList(), Today, ct);
+        var docIds = flags.Keys.ToList();
+        var docs = (await documents.ListAsync(d => docIds.Contains(d.Id), ct)).ToDictionary(d => d.Id);
+        var types = await TypesAsync(ct);
+        static string Level(string s) => s switch { "danger" => "Act now", "warning" => "Check", _ => "Note" };
+        var rows = flags.SelectMany(x => x.Value.Select(flag => (Doc: docs[x.Key], Flag: flag)))
+            .Where(x => f.Status is null || Level(x.Flag.Severity) == f.Status)
+            .OrderBy(x => x.Flag.Severity switch { "danger" => 0, "warning" => 1, _ => 2 }).ThenBy(x => obs[x.Doc.OnboardingRecordId].Number)
+            .Select(x =>
+            {
+                var o = obs[x.Doc.OnboardingRecordId];
+                return new ReportRow([o.Number, o.EmployeeName, dept(o.DepartmentId), TypeName(types, x.Doc), Level(x.Flag.Severity), x.Flag.Message, EnumText.Label(x.Doc.Status)],
+                    new ReportLink("Onboarding", "Details", o.Id));
+            }).ToList();
+        return new ReportResult
+        {
+            Key = ReportKeys.DocumentChecks,
+            PeriodAppliesTo = "the new employee's start date",
+            StatusOptions = [new("Act now", "Act now (expired, same file as someone else)"), new("Check", "Check (expiring, duplicate, low resolution)"), new("Note", "Note (no valid-until date)")],
+            Kpis =
+            [
+                new("Remarks", rows.Count.ToString(Gb)),
+                new("Act now", rows.Count(r => (string?)r.Cells[4] == "Act now").ToString(Gb), "Expired IDs, or a file also uploaded by another new employee."),
+                new("Onboardings concerned", rows.Select(r => r.Link!.Id).Distinct().Count().ToString(Gb))
+            ],
+            Table = new ReportTable([new("Onboarding"), new("New employee"), new("Department"), new("Document"), new("Level"), new("Remark"), new("Document status")], rows)
         };
     }
 

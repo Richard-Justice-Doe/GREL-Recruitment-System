@@ -8,7 +8,7 @@ public static class ReportKeys
     public const string Overview = "overview", Requests = "requests", Vacancies = "vacancies", Applications = "applications",
         Sources = "sources", Offers = "offers", TimeToHire = "timetohire", Onboarding = "onboarding",
         // Phase 21: onboarding and probation reports (see Application/Workforce/WorkforceReportService.cs)
-        MissingDocuments = "missingdocs", DocumentVerification = "docverification", Beneficiaries = "beneficiaries",
+        MissingDocuments = "missingdocs", DocumentVerification = "docverification", DocumentChecks = "docchecks", Beneficiaries = "beneficiaries",
         Probation = "probation", ProbationExtensions = "extensions", Confirmations = "confirmations",
         // docs/35 R1 (see WorkflowTargetsReportService.cs)
         WorkflowTargets = "targets";
@@ -26,6 +26,7 @@ public static class ReportKeys
         (Onboarding, "Onboarding status", "Each new employee's onboarding stage, letter, checklist and overdue items."),
         (MissingDocuments, "Missing documents", "New employees whose new-hire documents are still missing or rejected (HR only: personal data)."),
         (DocumentVerification, "Document verification", "Every new-hire document submitted, with its verification (HR only: personal data)."),
+        (DocumentChecks, "Document checks", "Automatic remarks on new-hire documents in progress: expired or expiring IDs, the same file used twice, low-resolution scans (HR only: personal data)."),
         (Beneficiaries, "Beneficiaries", "Each employee's declared beneficiaries and shares (HR only: personal data)."),
         (Probation, "Probation", "Every probation with its stage, assessments and what is due next."),
         (ProbationExtensions, "Probation extensions", "Extended probations: original and new end dates, reasons and improvement plans."),

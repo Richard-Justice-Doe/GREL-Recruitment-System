@@ -103,13 +103,13 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     [RequestSizeLimit(DocumentUploadLimitBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = DocumentUploadLimitBytes)]
     /// <param name="replacesAttachmentId">Phase 27: the file this one replaces (the old one stays in the history).</param>
-    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, int? replacesAttachmentId, CancellationToken ct)
+    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, int? replacesAttachmentId, DateOnly? expiresOn, CancellationToken ct)
     {
         if (file is null || file.Length == 0) Error("Choose a file to upload.");
         else
         {
             await using var stream = file.OpenReadStream();
-            var result = await documents.UploadAsync(documentId, file.FileName, stream, ct, replacesAttachmentId);
+            var result = await documents.UploadAsync(documentId, file.FileName, stream, ct, replacesAttachmentId, expiresOn);
             if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded. HR will check it and email you if anything needs attention.");
             else Fail(result);
         }
@@ -119,6 +119,12 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     [HttpPost]
     public Task<IActionResult> RemoveDocumentFile(int id, int documentId, int attachmentId, CancellationToken ct) =>
         DocumentAct(id, () => documents.RemoveFileAsync(documentId, attachmentId, ct), "File removed.");
+
+    [HttpPost]
+    /// <summary>docs/36 AI-4: the "valid until" date of my Ghana Card, passport or permit.</summary>
+    [HttpPost]
+    public Task<IActionResult> SetDocumentExpiry(int id, int documentId, DateOnly? expiresOn, CancellationToken ct) =>
+        DocumentAct(id, () => documents.SetExpiryAsync(documentId, expiresOn, ct), "Valid-until date saved.");
 
     [HttpPost]
     public Task<IActionResult> MarkNotApplicable(int id, int documentId, string? reason, CancellationToken ct) =>

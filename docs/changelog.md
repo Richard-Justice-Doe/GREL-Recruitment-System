@@ -4,6 +4,20 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: AI-4, automatic document checks (docs/36; rules only, no AI)
+
+* **Valid-until dates** for the Ghana Card, passport biodata page, non-citizen card, work permit and residence permit:
+  * the new employee can enter the date when uploading, or later; the RO can set or correct it;
+  * flagged *expired*, *expires soon* (within 90 days) or *not given*.
+* **Same file twice:**
+  * a file with the same fingerprint (SHA-256) uploaded for two documents is flagged;
+  * a file also uploaded by **another new employee** is flagged *Act now* (staff only; the new employee never sees remarks about other people).
+* **Low resolution:** photos and scans under 1,000 pixels on the longer side are flagged as possibly unreadable. The size is read from the file header; no image library and nothing sent out. True blur detection is not done.
+* Remarks appear under each document (new employee and RO) and in the new **Reports → Document checks** (HR with *Open personnel files*). The RO still verifies or rejects every document.
+* Database: `database/34_document_checks.sql` (`EmployeeDocuments.ExpiresOn`, `Attachments.ImageWidth` and `ImageHeight`; all nullable; files uploaded earlier have no size and are not checked for resolution).
+
+---
+
 ## 13 November 2026: AI-3, executive dashboard (docs/36)
 
 * **Menu → Executive dashboard** (permission *Open the executive dashboard*, `executive.view`: MD and HR Managers by default, added automatically at start-up; the Super Admin can give it to others in *Roles & permissions*).

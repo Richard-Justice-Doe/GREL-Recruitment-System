@@ -70,6 +70,31 @@
                     {
                         <div class="text-body-secondary">Rejected @d.RejectionCount time(s) before</div>
                     }
+                    @* docs/36 AI-4: "valid until" of ID-type documents, and the automatic checks (rules, no AI). *@
+                    @if (d.HasExpiry && d.IsApplicable)
+                    {
+                        <div class="text-body-secondary">Valid until: @(d.ExpiresOn?.ToString("d MMM yyyy") ?? "not given")
+                            @if (d.CanEdit || d.CanReview || d.CanStartReview)
+                            {
+                                <details class="d-inline-block ms-1">
+                                    <summary class="d-inline">@(d.ExpiresOn is null ? "add" : "change")</summary>
+                                    <form asp-controller="@controller" asp-action="SetDocumentExpiry" asp-route-id="@routeId" method="post" class="mt-1">
+                                        <input type="hidden" name="documentId" value="@d.Id" />
+                                        <div class="input-group input-group-sm">
+                                            <input type="date" name="expiresOn" class="form-control" value="@d.ExpiresOn?.ToString("yyyy-MM-dd")" aria-label="Valid until for @d.Name" />
+                                            <button type="submit" class="btn btn-outline-secondary">Save</button>
+                                        </div>
+                                    </form>
+                                </details>
+                            }
+                        </div>
+                    }
+                    @foreach (var flag in d.Flags ?? [])
+                    {
+                        <div class="text-@(flag.Severity == "info" ? "body-secondary" : flag.Severity)" data-doc-flag="@flag.Code">
+                            <i class="fa-solid @(flag.Severity == "danger" ? "fa-triangle-exclamation" : flag.Severity == "warning" ? "fa-circle-exclamation" : "fa-circle-info") me-1"></i>@flag.Message
+                        </div>
+                    }
                 </div>
                 <span class="badge rounded-pill @Css(d) align-self-start text-wrap">@(d.NotApplicableAccepted ? "Not applicable (accepted)" : d.Status.DisplayName())</span>
             </div>
@@ -116,6 +141,11 @@
                         <input type="file" name="file" class="form-control" accept="@d.Accept" required aria-label="File for @d.Name" data-upload-preview />
                         <button type="submit" class="btn btn-outline-primary"><i class="fa-solid fa-upload me-1"></i>@(d.Files.Count == 0 ? "Upload" : "Add a file")</button>
                     </div>
+                    @if (d.HasExpiry && d.ExpiresOn is null)
+                    {
+                        <label class="form-label small mt-1 mb-0" for="exp-@d.Id">Valid until (as printed on the document)</label>
+                        <input id="exp-@d.Id" type="date" name="expiresOn" class="form-control form-control-sm w-auto" />
+                    }
                     <div class="form-text">@(forEmployee ? "Take a photo or choose a file · " : "")@Types(d), up to 10 MB</div>
                 </form>
             }

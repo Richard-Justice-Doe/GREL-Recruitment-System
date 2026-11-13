@@ -89,6 +89,20 @@ public static class OnboardingWorkflow
     /// <summary>Most files one document may hold (e.g. several professional certificates).</summary>
     public const int MaxFilesPerDocument = 10;
 
+    // ---- docs/36 AI-4: document checks (rules, no AI)
+
+    /// <summary>ID-type documents that expire: a "valid until" date is asked for and checked.</summary>
+    public static readonly IReadOnlySet<string> ExpiringDocumentCodes =
+        new HashSet<string> { "GhanaCard", "PassportBiodataPage", "NonCitizenCard", "WorkPermit", "ResidencePermit" };
+
+    public static bool HasExpiry(string code) => ExpiringDocumentCodes.Contains(code);
+
+    /// <summary>An expiry this close (days) is flagged "expires soon".</summary>
+    public const int ExpiresSoonDays = 90;
+
+    /// <summary>A photo or scan whose longer side has fewer pixels than this is flagged as possibly unreadable.</summary>
+    public const int LowResolutionPixels = 1000;
+
     /// <summary>The new employee may change the files of a document unless it is verified or the RO is reviewing it.</summary>
     public static bool EmployeeMayChange(EmployeeDocumentStatus s) => s is not (EmployeeDocumentStatus.Verified or EmployeeDocumentStatus.UnderReview);
 

@@ -34,6 +34,10 @@ public class Attachment : BaseEntity
 
     /// <summary>SHA-256 fingerprint of the file, to prove later that it has not been altered.</summary>
     public string Sha256 { get; set; } = string.Empty;
+
+    /// <summary>docs/36 AI-4: width and height in pixels of a JPEG or PNG (read from the file header at upload); null for other files or older uploads.</summary>
+    public int? ImageWidth { get; set; }
+    public int? ImageHeight { get; set; }
 }
 
 /// <summary>What a file is. New modules add their own categories here.</summary>

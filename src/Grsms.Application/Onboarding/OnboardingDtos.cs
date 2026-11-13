@@ -204,7 +204,8 @@ public record EmployeeDocumentDto(
     DateTime? SubmittedAt, string? NotApplicableReason, DateTime? ReviewStartedAt, string? ReviewStartedBy, DateTime? VerifiedAt, string? VerifiedBy,
     DocumentRejectionReason? RejectionReasonCode, string? RejectionReason, int RejectionCount, int MinFiles, IReadOnlyList<string> FileTypes,
     IReadOnlyList<EmployeeDocumentFileDto> Files, IReadOnlyList<EmployeeDocumentFileDto> ReplacedFiles, IReadOnlyList<DocumentEventDto> History,
-    bool CanEdit, bool CanReview, bool CanStartReview)
+    bool CanEdit, bool CanReview, bool CanStartReview,
+    DateOnly? ExpiresOn = null, bool HasExpiry = false, IReadOnlyList<DocumentFlag>? Flags = null) // docs/36 AI-4
 {
     /// <summary>"Not applicable" that the RO has accepted.</summary>
     public bool NotApplicableAccepted => Status == EmployeeDocumentStatus.NotApplicable && VerifiedAt is not null;

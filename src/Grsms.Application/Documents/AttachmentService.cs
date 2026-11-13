@@ -124,6 +124,8 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
         var sha = Convert.ToHexString(await SHA256.HashDataAsync(buffer, ct)).ToLowerInvariant();
         buffer.Position = 0;
         var storedName = await storage.SaveAsync(buffer, extension.ToLowerInvariant(), ct);
+        // docs/36 AI-4: pixel size of photos and scans, read from the header (for the low-resolution check).
+        var pixels = ImageSize.TryRead(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
 
         var entity = new Attachment
         {
@@ -134,7 +136,9 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
             StoredFileName = storedName,
             ContentType = type.Mime,
             SizeBytes = buffer.Length,
-            Sha256 = sha
+            Sha256 = sha,
+            ImageWidth = pixels?.Width,
+            ImageHeight = pixels?.Height
         };
         attachments.Add(entity);
         await unitOfWork.SaveChangesAsync(ct);

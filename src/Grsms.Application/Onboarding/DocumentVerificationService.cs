@@ -39,7 +39,8 @@ public class DocumentVerificationService(
     AccessScope scope,
     OnboardingProgressService progress,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    DocumentCheckService checks)
 {
     private const string ConflictMessage = "Someone else changed this document at the same moment. Please reload the page and try again.";
 
@@ -98,6 +99,9 @@ public class DocumentVerificationService(
         string? Name(string? uid) => uid is null ? null : names.GetValueOrDefault(uid);
         var canEdit = CanEdit(o);
         var canReview = CanReview(o);
+        // docs/36 AI-4: automatic checks (expiry, duplicates, low resolution); the new employee never sees remarks about other people.
+        var own0 = o.EmployeeUserId == me.UserId;
+        var flags = await checks.ForOnboardingsAsync([o.Id], DateOnly.FromDateTime(DateTime.UtcNow), ct);
         var own = o.EmployeeUserId == me.UserId;
 
         var dtos = new List<EmployeeDocumentDto>();
@@ -112,7 +116,9 @@ public class DocumentVerificationService(
                 (history.GetValueOrDefault(d.Id) ?? []).Select(e => new DocumentEventDto(e.Action, e.FromStatus, e.ToStatus, e.FileName, e.RejectionReason,
                     e.Comments, own && e.ActorUserId != o.EmployeeUserId ? "HR" : e.ActorName, e.ActionAt)).ToList(),
                 canEdit && OnboardingWorkflow.EmployeeMayChange(d.Status),
-                reviewable, canReview && d.Status is EmployeeDocumentStatus.Submitted or EmployeeDocumentStatus.Resubmitted));
+                reviewable, canReview && d.Status is EmployeeDocumentStatus.Submitted or EmployeeDocumentStatus.Resubmitted,
+                d.ExpiresOn, OnboardingWorkflow.HasExpiry(d.DocumentTypeCode),
+                (flags.GetValueOrDefault(d.Id) ?? []).Where(x => !own0 || !x.StaffOnly).ToList()));
         }
         return new DocumentChecklistDto(o.Id, o.Number, o.JobApplicationId, o.EmployeeName, o.JobTitle, o.Status, dtos, o.LetterIssued,
             o.LetterAcknowledged, snap.PersonalRecordSigned, o.IsExpatriate, o.DocumentsDueDate, o.CorrectionMessage, snap.Readiness.ForEmployee, snap.Percent);
@@ -124,7 +130,8 @@ public class DocumentVerificationService(
     /// Adds a file to a document, or replaces one of its files (<paramref name="replacesAttachmentId"/>; the old file moves to the
     /// history). The document goes to the RO at once: "Submitted", or "Resubmitted, awaiting verification" after a rejection.
     /// </summary>
-    public async Task<Result<int>> UploadAsync(int documentId, string fileName, Stream content, CancellationToken ct = default, int? replacesAttachmentId = null)
+    public async Task<Result<int>> UploadAsync(int documentId, string fileName, Stream content, CancellationToken ct = default, int? replacesAttachmentId = null,
+        DateOnly? expiresOn = null)
     {
         var (d, o, t, error) = await LoadForEditAsync(documentId, ct);
         if (d is null) return Result.Failure<int>(error!);
@@ -133,6 +140,7 @@ public class DocumentVerificationService(
         if (replacesAttachmentId is null && existing.Count >= OnboardingWorkflow.MaxFilesPerDocument)
             return Result.Failure<int>($"A document can have at most {OnboardingWorkflow.MaxFilesPerDocument} files. Replace or remove one first.");
 
+        if (expiresOn is { } valid && ExpiryProblem(valid) is { } expiryProblem) return Result.Failure<int>(expiryProblem);
         var added = await files.AddAsync(AttachmentOwners.EmployeeDocument, d.Id, AttachmentCategory.NewHireDocument, fileName, content, ct,
             OnboardingWorkflow.FileTypesFor(t!));
         if (!added.Succeeded) return added;
@@ -147,6 +155,7 @@ public class DocumentVerificationService(
         d.Status = from is EmployeeDocumentStatus.Rejected or EmployeeDocumentStatus.Resubmitted ? EmployeeDocumentStatus.Resubmitted : EmployeeDocumentStatus.Submitted;
         d.SubmittedAt = DateTime.UtcNow;
         d.NotApplicableReason = null;
+        if (expiresOn is not null && OnboardingWorkflow.HasExpiry(d.DocumentTypeCode)) d.ExpiresOn = expiresOn; // docs/36 AI-4
         d.VerifiedAt = null;
         d.VerifiedByUserId = null;
         d.ReviewStartedAt = null;
@@ -158,6 +167,29 @@ public class DocumentVerificationService(
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
         await progress.RefreshAsync(o!.Id, ct);
         return added;
+    }
+
+    // ---- docs/36 AI-4: "valid until" of ID-type documents
+
+    private static string? ExpiryProblem(DateOnly date) =>
+        date.Year < 2000 || date > DateOnly.FromDateTime(DateTime.UtcNow).AddYears(30) ? "Enter the date the document is valid until, as printed on it." : null;
+
+    /// <summary>
+    /// Sets (or clears) the "valid until" date of a Ghana Card, passport or permit: the new employee while they may still change the
+    /// document, or the Recruitment Officer reviewing it (e.g. to correct it from the original).
+    /// </summary>
+    public async Task<Result> SetExpiryAsync(int documentId, DateOnly? expiresOn, CancellationToken ct = default)
+    {
+        var d = await documents.GetByIdAsync(documentId, ct);
+        if (d is null) return Result.Failure("Document not found.");
+        var o = await onboardings.GetByIdAsync(d.OnboardingRecordId, ct);
+        if (o is null) return Result.Failure("Document not found.");
+        var allowed = o.EmployeeUserId == me.UserId ? CanEdit(o) && OnboardingWorkflow.EmployeeMayChange(d.Status) : CanReview(o);
+        if (!allowed) return Result.Failure("You can't change this document now.");
+        if (!OnboardingWorkflow.HasExpiry(d.DocumentTypeCode)) return Result.Failure("This document has no expiry date.");
+        if (expiresOn is { } date && ExpiryProblem(date) is { } problem) return Result.Failure(problem);
+        d.ExpiresOn = expiresOn;
+        return await SaveAsync(ct);
     }
 
     /// <summary>Removes a file (it moves to the history). A document left without files goes back to "Not submitted".</summary>

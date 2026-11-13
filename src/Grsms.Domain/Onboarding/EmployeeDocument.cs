@@ -153,6 +153,9 @@ public class EmployeeDocument : BaseEntity
     public DateTime? VerifiedAt { get; set; }
     public string? VerifiedByUserId { get; set; }
 
+    /// <summary>docs/36 AI-4: "valid until" of an ID-type document (Ghana Card, passport, permits), given by the new employee or the RO.</summary>
+    public DateOnly? ExpiresOn { get; set; }
+
     public DocumentRejectionReason? RejectionReasonCode { get; set; }
 
     /// <summary>The rejection reason shown to the new employee (the reason's name, plus the RO's note).</summary>

@@ -1,6 +1,7 @@
 @* Add/edit form for a job advert. The text starts from the vacancy and can be edited freely.
    Channels: the internal portal and company website are published automatically; the others get copy-ready text. *@
 @model AdvertFormDto
+@inject Grsms.Application.Ai.AdvertWriter Adverts
 @{
     var isNew = Model.Id == 0;
     ViewData["Title"] = isNew ? "Create advert" : "Edit advert";
@@ -42,6 +43,24 @@
                         <input asp-for="Title" class="form-control" />
                         <span asp-validation-for="Title" class="text-danger small"></span>
                     </div>
+                    @if (Adverts.IsOn)
+                    {
+                        @* docs/36 AI-1b: four versions from the vacancy; the person edits them; the advert still goes through HR review and IT approval. *@
+                        <div class="ai-panel mb-3" data-ai-endpoint="@Url.Action("AdvertVersions", "Ai")" data-ai-collect="VacancyId,Title">
+                            <div class="ai-panel-title"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i>Write the advert with AI</div>
+                            <p class="small text-body-secondary mb-2">Writes the careers-portal text, a job-board and newspaper version, an internal notice for staff and a LinkedIn post from the vacancy's description and requirements. The requirements are kept exactly as approved.</p>
+                            <label for="ai-benefits" class="form-label small mb-1">Benefits to mention (optional)</label>
+                            <textarea id="ai-benefits" class="form-control form-control-sm mb-2" rows="2" maxlength="2000" data-ai-field="benefits"
+                                      placeholder="e.g. Medical cover, transport, staff housing on the estate"></textarea>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-ai-run><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Write versions</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-ai-run data-ai-regenerate><i class="fa-solid fa-rotate me-1"></i>Another version</button>
+                                <button type="button" class="btn btn-sm btn-success" data-ai-accept hidden><i class="fa-solid fa-check me-1"></i>Use these versions</button>
+                            </div>
+                            <div class="small mt-2" data-ai-status aria-live="polite"></div>
+                            <div class="mt-2" data-ai-result></div>
+                        </div>
+                    }
                     <div class="mb-3">
                         <label asp-for="Body" class="form-label"></label>
                         <textarea asp-for="Body" class="form-control font-monospace small" rows="18" maxlength="10000"></textarea>
@@ -53,6 +72,25 @@
                         <textarea asp-for="HowToApply" class="form-control" rows="3" maxlength="2000"></textarea>
                         <span asp-validation-for="HowToApply" class="text-danger small"></span>
                     </div>
+                    @* docs/36 AI-1: optional versions for other channels (by hand or with AI). Empty = built from the advert text. *@
+                    <details class="more-options mt-3" open="@(Model.ExternalText is not null || Model.LinkedInText is not null || Model.InternalNotice is not null)">
+                        <summary class="fw-semibold">Versions for other channels (optional)</summary>
+                        <p class="small text-body-secondary mt-2">Leave empty to use the advert text above. The apply link, closing date and reference are added automatically.</p>
+                        <div class="mb-3">
+                            <label asp-for="ExternalText" class="form-label"></label>
+                            <textarea asp-for="ExternalText" class="form-control small" rows="8" maxlength="10000"></textarea>
+                            <div class="form-text">Used for Indeed, Jobberman and newspapers.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="LinkedInText" class="form-label"></label>
+                            <textarea asp-for="LinkedInText" class="form-control small" rows="6" maxlength="3000"></textarea>
+                        </div>
+                        <div>
+                            <label asp-for="InternalNotice" class="form-label"></label>
+                            <textarea asp-for="InternalNotice" class="form-control small" rows="6" maxlength="10000"></textarea>
+                            <div class="form-text">Shown copy-ready on the advert page, for staff noticeboards or a staff email.</div>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>

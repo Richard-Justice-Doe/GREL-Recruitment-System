@@ -4,6 +4,21 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: AI-1, job descriptions and adverts drafted with AI (docs/36)
+
+* **Vacancy form → "Draft the job description with AI"**:
+  * Inputs: job title and department from the form, plus optional grade, level and main responsibilities.
+  * The preview shows the job purpose, duties, competencies, KPIs and skills matrix, plus the requirements, with a confidence level based on how much was given.
+  * **Use this draft** fills the job description, minimum education, field of study, years of experience, skills and certifications. The RO edits and saves as usual.
+* **Advert form → "Write the advert with AI"**:
+  * Four versions from the vacancy (requirements kept exactly as approved; benefits only if typed): careers portal (the advert text), job boards and newspapers, an internal notice for staff, and a LinkedIn post.
+  * New optional advert fields hold the three extra versions (also editable by hand). Jobberman, Indeed and newspapers copy the job-board version; LinkedIn its post; the internal notice is copy-ready on the advert page.
+  * HR review and IT approval unchanged.
+* Prompts include GREL's context and fair-hiring rules (no age, gender, religion, ethnicity… requirements; nothing invented). No personal data is sent. Switch both on in *AI settings & usage → AI features*.
+* Database: `database/32_advert_channel_versions.sql`, three nullable columns on JobAdverts; the Docker deployment applies it automatically.
+
+---
+
 ## 13 November 2026: AI platform plan (docs/36) and step AI-0, the AI foundation
 
 * **docs/36:**

@@ -914,3 +914,11 @@ dl.details-grid dd { margin: 0; }
 .letter-signature-space { height: 3rem; }
 .letter-signature-preview { padding: 0.5rem; border: 1px dashed var(--bs-border-color); border-radius: 0.5rem; display: inline-block; background: #fff; }
 .letter-preview { padding: 1rem; border: 1px solid var(--bs-border-color); border-radius: 0.5rem; }
+
+/* docs/36: "Draft with AI" panels (js/ai-panel.js). */
+.ai-panel { border: 1px dashed color-mix(in srgb, var(--grsms-brand) 45%, transparent); border-radius: 0.75rem; padding: 1rem; background: color-mix(in srgb, var(--grsms-brand) 4%, transparent); }
+.ai-panel-title { font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+.ai-panel .ai-section { border-top: 1px solid var(--bs-border-color); padding: 0.5rem 0; }
+.ai-panel .ai-text { white-space: pre-wrap; font-family: inherit; font-size: 0.85rem; margin: 0.4rem 0 0; max-height: 22rem; overflow: auto; }
+.ai-panel.is-busy { opacity: 0.85; }
+.ai-filled { box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--grsms-brand) 30%, transparent); }

@@ -89,6 +89,15 @@
                 <div style="white-space: pre-wrap">@Model.Body</div>
                 <h4 class="h6 mt-4">How to apply</h4>
                 <div style="white-space: pre-wrap">@Model.HowToApply</div>
+                @if (Model.InternalNotice is not null)
+                {
+                    @* docs/36 AI-1: the internal notice for staff, copy-ready. *@
+                    <details class="mt-3">
+                        <summary class="small fw-semibold">Internal notice for staff (copy-ready)</summary>
+                        <textarea id="copy-internal" class="form-control small mt-2" rows="8" readonly>@Model.InternalNotice</textarea>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-copy-target="copy-internal"><i class="fa-regular fa-copy me-1"></i>Copy</button>
+                    </details>
+                }
             </div>
         </div>
 

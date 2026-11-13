@@ -184,6 +184,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("ExternalText")
+                        .HasColumnType("text");
+
                     b.Property<string>("HowToApply")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -196,6 +199,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("InternalNotice")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
@@ -205,6 +211,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<string>("ItApprovedByUserId")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<string>("LinkedInText")
+                        .HasMaxLength(3000)
+                        .HasColumnType("varchar(3000)");
 
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("datetime(6)");

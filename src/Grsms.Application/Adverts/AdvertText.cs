@@ -77,7 +77,7 @@ public static class AdvertText
             sb.AppendLine(a.Title.ToUpperInvariant());
             sb.AppendLine(Employer);
             sb.AppendLine();
-            sb.AppendLine(a.Body);
+            sb.AppendLine(a.ExternalText ?? a.Body); // docs/36 AI-1: the job-board/newspaper version when written
             sb.AppendLine();
             sb.AppendLine("HOW TO APPLY");
             sb.AppendLine(a.HowToApply);
@@ -91,7 +91,8 @@ public static class AdvertText
         // so the text starts with a short intro line and ends with the apply link.
         sb.AppendLine($"{Employer} is recruiting: {a.Title}");
         sb.AppendLine();
-        sb.AppendLine(a.Body);
+        // docs/36 AI-1: LinkedIn uses its own post when written; Indeed and Jobberman the job-board version.
+        sb.AppendLine((channel == AdvertChannel.LinkedIn ? a.LinkedInText : a.ExternalText) ?? a.Body);
         sb.AppendLine();
         sb.AppendLine("How to apply");
         sb.AppendLine(a.HowToApply);

@@ -145,6 +145,7 @@ public class AdvertService(
             Title = a.Title,
             Body = a.Body,
             HowToApply = a.HowToApply,
+            InternalNotice = a.InternalNotice,
             StartDate = a.StartDate,
             EndDate = a.EndDate,
             PublishedAt = a.PublishedAt,
@@ -227,6 +228,7 @@ public class AdvertService(
         var form = new AdvertFormDto
         {
             Id = a.Id, VacancyId = a.VacancyId, Title = a.Title, Body = a.Body, HowToApply = a.HowToApply,
+            ExternalText = a.ExternalText, LinkedInText = a.LinkedInText, InternalNotice = a.InternalNotice,
             StartDate = a.StartDate, EndDate = a.EndDate, Channels = [.. a.Channels.Select(c => c.Channel).Order()],
             TakesOffline = AdvertWorkflow.IsPublished(a.Status), ReviewComment = a.ReviewComment
         };
@@ -488,6 +490,7 @@ public class AdvertService(
         a.Title = source.Title;
         a.Body = source.Body;
         a.HowToApply = source.HowToApply;
+        (a.ExternalText, a.LinkedInText, a.InternalNotice) = (source.ExternalText, source.LinkedInText, source.InternalNotice);
         a.StartDate = Today;
         a.EndDate = v.ClosingDate;
         a.ClonedFromAdvertId = source.Id;
@@ -759,6 +762,8 @@ public class AdvertService(
         form.Title = form.Title.Trim();
         form.Body = form.Body.Trim().Replace("\r\n", "\n");
         form.HowToApply = form.HowToApply.Trim();
+        static string? Opt(string? t) => string.IsNullOrWhiteSpace(t) ? null : t.Trim().Replace("\r\n", "\n");
+        (form.ExternalText, form.LinkedInText, form.InternalNotice) = (Opt(form.ExternalText), Opt(form.LinkedInText), Opt(form.InternalNotice));
         form.Channels = form.Channels.Distinct().Order().ToList();
     }
 
@@ -788,6 +793,7 @@ public class AdvertService(
         a.Title = form.Title;
         a.Body = form.Body;
         a.HowToApply = form.HowToApply;
+        (a.ExternalText, a.LinkedInText, a.InternalNotice) = (form.ExternalText, form.LinkedInText, form.InternalNotice);
         a.StartDate = form.StartDate!.Value;
         a.EndDate = form.EndDate!.Value;
         foreach (var gone in a.Channels.Where(c => !form.Channels.Contains(c.Channel)).ToList()) a.Channels.Remove(gone);

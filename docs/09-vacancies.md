@@ -37,6 +37,7 @@ Recruitment may only begin once the request has the Managing Director's final ap
    * select **Internal or external recruitment**: internal (GREL staff only), external (public), or both.
 4. Check and complete the rest:
    * **Job description**: what the applicant will read. Tidy the text copied from the request if needed;
+   * **Draft the job description with AI** (if switched on in *AI settings & usage*): add the grade, level and main responsibilities if you like, click **Draft with AI**, check the preview, then **Use this draft**. It fills the job description and the requirements (education, experience, skills, certifications) for you to edit; nothing is saved until you save the form, and the usual approval follows.
    * **Requirements**: the **skills** and **certifications**, **one per line**, separating *essential* (must have) from *desirable* (nice to have). These lists are used later to rank applicants automatically, so keep each item short and specific ("NEBOSH IGC", not "a safety certificate of some kind");
    * **Salary range** (monthly, GHS) and whether to **show it on adverts**.
 5. Click **Save draft**. The vacancy gets its number, e.g. **VAC-2026-0001**, and its Job Requisition Number.

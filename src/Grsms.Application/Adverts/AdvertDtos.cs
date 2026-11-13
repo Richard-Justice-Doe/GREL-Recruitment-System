@@ -29,6 +29,19 @@ public class AdvertFormDto
     [Display(Name = "How to apply")]
     public string HowToApply { get; set; } = string.Empty;
 
+    // 13 Nov 2026 (docs/36 AI-1): optional texts for other channels; empty = built from the advert text.
+    [StringLength(10000)]
+    [Display(Name = "Job boards and newspapers (optional)")]
+    public string? ExternalText { get; set; }
+
+    [StringLength(3000)]
+    [Display(Name = "LinkedIn post (optional)")]
+    public string? LinkedInText { get; set; }
+
+    [StringLength(10000)]
+    [Display(Name = "Internal notice for staff (optional)")]
+    public string? InternalNotice { get; set; }
+
     [Required]
     [DataType(DataType.Date)]
     [Display(Name = "Start date")]
@@ -121,6 +134,7 @@ public record AdvertDetailsDto
     public string Title { get; init; } = "";
     public string Body { get; init; } = "";
     public string HowToApply { get; init; } = "";
+    public string? InternalNotice { get; init; } // docs/36 AI-1
     public DateOnly StartDate { get; init; }
     public DateOnly EndDate { get; init; }
     public DateTime? PublishedAt { get; init; }

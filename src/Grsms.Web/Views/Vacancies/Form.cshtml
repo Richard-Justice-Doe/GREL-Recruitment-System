@@ -2,6 +2,7 @@
    pre-filled from the request; a Job Requisition Number is given on saving. Department, number of positions and employment type
    come from the approved request and cannot be changed here. *@
 @model VacancyFormDto
+@inject Grsms.Application.Ai.JobDescriptionDrafter JobDescriptions
 @{
     var isNew = Model.Id == 0;
     ViewData["Title"] = isNew ? "Convert into a job vacancy" : $"Edit vacancy";
@@ -94,6 +95,46 @@
                                 <option value="">— Not set —</option>
                             </select>
                         </div>
+                        @if (JobDescriptions.IsOn)
+                        {
+                            @* docs/36 AI-1a: draft the description and requirements; the person checks and edits before saving. *@
+                            <div class="col-12">
+                                <div class="ai-panel" data-ai-endpoint="@Url.Action("JobDescription", "Ai")" data-ai-collect="JobTitle,RecruitmentRequestId"
+                                     data-ai-param-department="@Model.DepartmentName" data-ai-param-employment-type="@Model.EmploymentType.DisplayName()">
+                                    <div class="ai-panel-title"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i>Draft the job description with AI</div>
+                                    <p class="small text-body-secondary mb-2">Uses the job title and department above, plus anything you add here. It fills the job description and the requirements below; nothing is saved until you save.</p>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-md-4">
+                                            <label for="ai-grade" class="form-label small mb-1">Grade (optional)</label>
+                                            <input id="ai-grade" class="form-control form-control-sm" data-ai-field="grade" maxlength="100" placeholder="e.g. Grade 7 / Senior staff" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="ai-level" class="form-label small mb-1">Level</label>
+                                            <select id="ai-level" class="form-select form-select-sm" data-ai-field="level">
+                                                <option value="">— Not specified —</option>
+                                                <option>Entry level</option>
+                                                <option>Experienced</option>
+                                                <option>Senior</option>
+                                                <option>Supervisor</option>
+                                                <option>Manager</option>
+                                                <option>Senior manager</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="ai-resp" class="form-label small mb-1">Main responsibilities (optional, one per line)</label>
+                                            <textarea id="ai-resp" class="form-control form-control-sm" rows="3" maxlength="4000" data-ai-field="responsibilities"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-sm btn-primary" data-ai-run><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Draft with AI</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" data-ai-run data-ai-regenerate><i class="fa-solid fa-rotate me-1"></i>Another version</button>
+                                        <button type="button" class="btn btn-sm btn-success" data-ai-accept hidden><i class="fa-solid fa-check me-1"></i>Use this draft</button>
+                                    </div>
+                                    <div class="small mt-2" data-ai-status aria-live="polite"></div>
+                                    <div class="mt-2" data-ai-result></div>
+                                </div>
+                            </div>
+                        }
                         <div class="col-12">
                             <label asp-for="JobDescription" class="form-label"></label>
                             <textarea asp-for="JobDescription" class="form-control" rows="10"

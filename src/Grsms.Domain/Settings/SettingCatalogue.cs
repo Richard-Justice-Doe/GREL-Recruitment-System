@@ -103,7 +103,7 @@ public static class SettingCatalogue
     public static string AiFeatureKey(Ai.AiFeature feature) => $"Ai:Feature:{feature}";
 
     /// <summary>The features that are built (and so have a switch); more are added as docs/36 §8 progresses.</summary>
-    public static readonly IReadOnlyList<Ai.AiFeature> AiFeaturesBuilt = [];
+    public static readonly IReadOnlyList<Ai.AiFeature> AiFeaturesBuilt = [Ai.AiFeature.JobDescription, Ai.AiFeature.Advert];
 
     /// <summary>Groups shown on their own page rather than on the System settings screen.</summary>
     public static readonly IReadOnlySet<string> OwnPageGroups = new HashSet<string> { Letters, LetterSignatureGroup, AiService, AiFeaturesGroup };

@@ -32,7 +32,7 @@
             result.replaceChildren();
             if (!answer.ok) {
                 status.replaceChildren(el("span", "text-danger", answer.problem || "AI is not available right now."));
-                accept.hidden = true;
+                if (accept) accept.hidden = true;
                 return;
             }
             var badges = el("div", "d-flex flex-wrap gap-2 align-items-center mb-2");
@@ -53,8 +53,8 @@
                 box.appendChild(el("pre", "ai-text", s.text));
                 result.appendChild(box);
             });
-            status.replaceChildren(el("span", "text-body-secondary", "Check the draft, then use it. Nothing is saved until you save the form."));
-            accept.hidden = false;
+            status.replaceChildren(el("span", "text-body-secondary", accept ? "Check the draft, then use it. Nothing is saved until you save the form." : (panel.dataset.aiDoneNote || "")));
+            if (accept) accept.hidden = false;
         }
 
         function run(regenerate) {
@@ -83,7 +83,10 @@
             b.addEventListener("click", function () { run(b.hasAttribute("data-ai-regenerate")); });
         });
 
-        accept.addEventListener("click", function () {
+        // data-ai-auto: run once when the page opens (e.g. the executive summary, usually answered from the cache).
+        if (panel.hasAttribute("data-ai-auto")) run(false);
+
+        if (accept) accept.addEventListener("click", function () {
             if (!last || !last.ok || !form) return;
             var names = Object.keys(last.fields || {});
             var filled = names.filter(function (n) { var f = form.elements[n]; return f && f.value && f.value.trim() !== "" && f.value !== last.fields[n]; });

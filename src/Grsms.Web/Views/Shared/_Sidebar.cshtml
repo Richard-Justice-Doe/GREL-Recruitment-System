@@ -28,6 +28,7 @@
     var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
     var canPersonnelFiles = (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded;
     var canEmployees = (await Auth.AuthorizeAsync(User, Policies.Employees)).Succeeded; // Phase 28
+    var canExecutive = (await Auth.AuthorizeAsync(User, Policies.ExecutiveDashboard)).Succeeded; // docs/36 AI-3
     var adminLinks = await Grsms.Web.Controllers.AdministrationController.VisibleAsync(Auth, User);
     var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
     var hodOnly = MenuRules.IsHodOnly(User);
@@ -80,6 +81,12 @@
         <a class="nav-link @Active("Home")" asp-controller="Home" asp-action="Index">
             <i class="fa-solid fa-house"></i> Home
         </a>
+        @if (canExecutive)
+        {
+            <a class="nav-link @Active("Executive")" asp-controller="Executive" asp-action="Index">
+                <i class="fa-solid fa-chart-pie"></i> Executive dashboard
+            </a>
+        }
 
         @if (!isStaff)
         {

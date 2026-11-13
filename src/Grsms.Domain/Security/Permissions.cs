@@ -95,6 +95,10 @@ public static class Permissions
     /// <summary>Keep GREL's list of salary grades.</summary>
     public const string ManageGrades = "grades.manage";
 
+    // ---------------------------------------------------------------- docs/36 AI-3
+    /// <summary>The executive dashboard: recruitment, onboarding and workforce figures with trends and the AI summary.</summary>
+    public const string ViewExecutiveDashboard = "executive.view";
+
     // ---------------------------------------------------------------- Data visibility
     /// <summary>See the records of every department (otherwise a HOD sees only their own departments).</summary>
     public const string SeeAllDepartments = "data.all-departments";
@@ -167,6 +171,8 @@ public static class Permissions
         new(ManageEmployees, "Employees", "Manage employees",
             "Register existing staff (one by one or by CSV import) and update employees' job details: position, grade, reporting line, contract, place of work."),
         new(ManageGrades, "Employees", "Maintain grades", "Add and edit GREL's salary grades."),
+        new(ViewExecutiveDashboard, "Reports", "Open the executive dashboard",
+            "Recruitment, onboarding and workforce figures for all departments, with trends and the written summary (docs/36)."),
 
         new(SeeAllDepartments, "Data visibility", "See all departments",
             "See the records of every department. Without it, a Head of Department sees only their own departments."),
@@ -203,12 +209,12 @@ public static class Permissions
         [
             ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports,
             ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding, ViewProbation, DecideProbation,
-            ReviewAdvertsHr, ReturnAdverts, ViewEmployees, ManageEmployees, ManageGrades
+            ReviewAdvertsHr, ReturnAdverts, ViewEmployees, ManageEmployees, ManageGrades, ViewExecutiveDashboard
         ],
         // 11 Nov 2026 (docs/29 change 2): approves, publishes and takes down job adverts after the HR Manager's review.
         [Roles.ItManager] = [ViewAdverts, SeeAllDepartments, ReviewAdvertsIt, PublishAdverts, ReturnAdverts, UnpublishAdverts],
         [Roles.ManagingDirector] =
-            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewEmployees],
+            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewEmployees, ViewExecutiveDashboard],
         [Roles.RecruitmentOfficer] =
         [
             ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles,

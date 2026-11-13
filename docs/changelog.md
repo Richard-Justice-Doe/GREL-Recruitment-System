@@ -4,6 +4,21 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: AI-3, executive dashboard (docs/36)
+
+* **Menu → Executive dashboard** (permission *Open the executive dashboard*, `executive.view`: MD and HR Managers by default, added automatically at start-up; the Super Admin can give it to others in *Roles & permissions*).
+  * **Recruitment:** open vacancies, positions still to fill, applications received, offers accepted, average time to hire, offer acceptance, approval steps on time.
+  * **Onboarding and probation:** in progress, documents overdue, starting in 30 days, probations in progress, ending in 30 days, past their end date.
+  * **Workforce:** headcount, joined this quarter, on probation, contracts ending in 90 days.
+  * Counts are compared with **the same point of the previous quarter** (a fair comparison part-way through a quarter), with coloured arrows.
+  * **Departments:** headcount, positions to fill and vacancy rate; the highest vacancy rate is highlighted.
+* **AI summary** at the top, if *Executive dashboard summary* is switched on in AI settings:
+  * written only from the totals on the page (no names), and told never to invent a number;
+  * answered from the cache until the figures change; **Rewrite** asks for a new version.
+* Every figure is computed by GRSMS from the live records. No database change.
+
+---
+
 ## 13 November 2026: AI-2, interview guides (docs/36)
 
 * **Vacancy page → Interview guide**: the questions the panel should ask, in five categories (technical, behavioural, situational, competency, practical assessment), each with *what a strong answer shows*.

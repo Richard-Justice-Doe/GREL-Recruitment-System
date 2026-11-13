@@ -26,15 +26,33 @@ public class DocumentCheckService(IRepository<EmployeeDocument> documents, IRepo
         var docs = (await documents.ListAsync(d => onboardingIds.Contains(d.OnboardingRecordId) && d.IsApplicable, ct)).ToList();
         var docIds = docs.Select(d => d.Id).ToList();
         var files = docIds.Count == 0 ? [] : await attachments.ListAsync(a => a.OwnerType == AttachmentOwners.EmployeeDocument && docIds.Contains(a.OwnerId), ct);
+        var types = (await documentTypes.ListAsync(ct: ct)).GroupBy(t => t.Code).ToDictionary(g => g.Key, g => g.First().Name);
+        return await FlagsAsync(docs, files, types, today, ct);
+    }
 
+    /// <summary>
+    /// The same for documents, files and type names already loaded (the onboarding page has them in its snapshot), so the page only
+    /// adds the look-up of identical files elsewhere (one query; two more only when one is found).
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, IReadOnlyList<DocumentFlag>>> FlagsAsync(IReadOnlyList<EmployeeDocument> docs, IReadOnlyList<Attachment> files,
+        IReadOnlyDictionary<string, string> types, DateOnly today, CancellationToken ct = default)
+    {
         // Same file elsewhere: any current new-hire document file with the same fingerprint.
         var hashes = files.Select(f => f.Sha256).Where(h => h.Length > 0).Distinct().ToList();
-        var twins = hashes.Count == 0 ? [] : await attachments.ListAsync(a => a.OwnerType == AttachmentOwners.EmployeeDocument && hashes.Contains(a.Sha256), ct);
-        var twinDocIds = twins.Select(t => t.OwnerId).Distinct().ToList();
-        var twinDocs = (await documents.ListAsync(d => twinDocIds.Contains(d.Id), ct)).ToDictionary(d => d.Id);
-        var otherObIds = twinDocs.Values.Select(d => d.OnboardingRecordId).Distinct().ToList();
-        var obNumbers = (await onboardings.ListAsync(o => otherObIds.Contains(o.Id), ct)).ToDictionary(o => o.Id, o => o.Number);
-        var types = (await documentTypes.ListAsync(ct: ct)).GroupBy(t => t.Code).ToDictionary(g => g.Key, g => g.First().Name);
+        var fileIds = files.Select(f => f.Id).ToHashSet();
+        var twins = hashes.Count == 0 ? [] : (await attachments.ListAsync(a => a.OwnerType == AttachmentOwners.EmployeeDocument && hashes.Contains(a.Sha256), ct))
+            .Where(t => !fileIds.Contains(t.Id)).ToList();
+        var loaded = docs.ToDictionary(d => d.Id);
+        var missing = twins.Select(t => t.OwnerId).Where(id => !loaded.ContainsKey(id)).Distinct().ToList();
+        var twinDocs = new Dictionary<int, EmployeeDocument>(loaded);
+        if (missing.Count > 0)
+            foreach (var d in await documents.ListAsync(d => missing.Contains(d.Id), ct)) twinDocs[d.Id] = d;
+        twins.AddRange(files); // twins among the loaded files (same onboarding, or another one in the same report)
+        // Onboarding numbers are needed only when the same file appears in more than one onboarding.
+        var sharedHashes = twins.GroupBy(t => t.Sha256)
+            .Where(g => g.Select(t => twinDocs.GetValueOrDefault(t.OwnerId)?.OnboardingRecordId).OfType<int>().Distinct().Count() > 1).Select(g => g.Key).ToHashSet();
+        var otherObIds = twins.Where(t => sharedHashes.Contains(t.Sha256)).Select(t => twinDocs.GetValueOrDefault(t.OwnerId)?.OnboardingRecordId).OfType<int>().Distinct().ToList();
+        var obNumbers = otherObIds.Count == 0 ? [] : (await onboardings.ListAsync(o => otherObIds.Contains(o.Id), ct)).ToDictionary(o => o.Id, o => o.Number);
 
         var result = new Dictionary<int, IReadOnlyList<DocumentFlag>>();
         foreach (var d in docs)

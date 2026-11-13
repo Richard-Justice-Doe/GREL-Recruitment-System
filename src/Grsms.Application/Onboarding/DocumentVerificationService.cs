@@ -101,7 +101,9 @@ public class DocumentVerificationService(
         var canReview = CanReview(o);
         // docs/36 AI-4: automatic checks (expiry, duplicates, low resolution); the new employee never sees remarks about other people.
         var own0 = o.EmployeeUserId == me.UserId;
-        var flags = await checks.ForOnboardingsAsync([o.Id], DateOnly.FromDateTime(DateTime.UtcNow), ct);
+        var flags = await checks.FlagsAsync(snap.Documents.Select(x => x.Document).Where(x => x.IsApplicable).ToList(),
+            snap.Documents.SelectMany(x => snap.CurrentFiles[x.Document.Id]).ToList(), snap.Types.ToDictionary(t => t.Key, t => t.Value.Name),
+            DateOnly.FromDateTime(DateTime.UtcNow), ct);
         var own = o.EmployeeUserId == me.UserId;
 
         var dtos = new List<EmployeeDocumentDto>();

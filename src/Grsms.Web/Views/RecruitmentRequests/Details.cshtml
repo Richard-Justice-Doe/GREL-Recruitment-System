@@ -46,6 +46,13 @@
 }
 <partial name="_NextStepBanner" model="nextStep" />
 
+@* docs/37 CR5: the process guide (journey, next action, owner, waiting time, target); the old stepper is the fallback. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process)
+{
+    <partial name="_ProcessGuide" model="process" />
+}
+else
+{
 <div class="card glass mb-3">
     <div class="card-body py-4">
         <partial name="_WorkflowStepper" model="Model" />
@@ -57,6 +64,7 @@
         }
     </div>
 </div>
+}
 
 <div class="row g-3">
     @* ------------------------------------------------------------ left column: the form + history *@

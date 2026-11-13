@@ -23,7 +23,7 @@ public class ApplicationsController(ApplicationService applications, Application
         return View(await applications.SearchAsync(filter, ct));
     }
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await applications.GetDetailsAsync(id, ct);
         if (model is null) return NotFound();
@@ -33,6 +33,7 @@ public class ApplicationsController(ApplicationService applications, Application
         // Phase 7: can an interview / assessment be scheduled now?
         ViewBag.CanSchedule = await interviews.CanScheduleForAsync(id, ct);
         ViewBag.AiSummary = Helpers.AiInsightCard.Cv(await summaries.GetCvPanelAsync(id, ct), id); // docs/36 AI-5
+        ViewBag.Process = await guide.ForApplicationAsync(id, ct); // docs/37 CR5
         return View(model);
     }
 

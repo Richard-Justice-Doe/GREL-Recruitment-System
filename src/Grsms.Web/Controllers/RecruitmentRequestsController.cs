@@ -116,10 +116,12 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
 
     // ================================================================= Details + workflow actions
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await service.GetDetailsAsync(id, ct);
-        return model is null ? NotFound() : View(model);
+        if (model is null) return NotFound();
+        ViewBag.Process = await guide.ForRequestAsync(id, ct); // docs/37 CR5
+        return View(model);
     }
 
     [HttpPost]

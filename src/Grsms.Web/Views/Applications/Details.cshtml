@@ -29,6 +29,7 @@
         : (false, Model.Status.DisplayName(), null, null);
 }
 <partial name="_NextStepBanner" model="nextStep" />
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process) { <partial name="_ProcessGuide" model="process" /> } @* docs/37 CR5 *@
 
 <div class="row g-3">
     <div class="col-xl-7">

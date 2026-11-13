@@ -106,7 +106,7 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
 
     // ================================================================= Details + actions
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await service.GetDetailsAsync(id, ct);
         if (model is null) return NotFound();
@@ -118,6 +118,7 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
         // Phase 5: how many applications it has received.
         ViewBag.ApplicationCount = (await applications.SearchAsync(new Application.Applications.ApplicationFilter { Tab = "all", VacancyId = id, PageSize = 1 }, ct)).TotalCount;
         ViewBag.QuestionCount = (await questions.ForInterviewAsync(id, ct)).Count; // docs/36 AI-2
+        ViewBag.Process = await guide.ForVacancyAsync(id, ct); // docs/37 CR5
         return View(model);
     }
 

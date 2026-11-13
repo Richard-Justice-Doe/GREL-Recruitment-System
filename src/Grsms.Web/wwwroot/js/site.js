@@ -331,3 +331,11 @@
         document.querySelectorAll(".ai-azure-only").forEach(function (el) { el.hidden = select.value !== "AzureOpenAI"; });
     });
 })();
+
+// docs/37 CR5: when the process timeline scrolls (narrow screens), bring the current step into view.
+(function () {
+    document.querySelectorAll(".process-timeline").forEach(function (list) {
+        var current = list.querySelector(".is-current, .is-stopped");
+        if (current && list.scrollWidth > list.clientWidth) list.scrollLeft = current.offsetLeft - list.clientWidth / 2 + current.offsetWidth / 2;
+    });
+})();

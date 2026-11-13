@@ -4,6 +4,21 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 13 November 2026: change request C2, the process guide (docs/37 CR5)
+
+* At the top of every **recruitment request**, **vacancy** and **application** page, a guide that answers *where is this, what's next, who must act, since when, is it late*:
+  * **Timeline:** ✔ done (with the date), ● current, ○ to come, ✖ stopped.
+    * Requests and vacancies: request submitted → HOD review → HR Manager review → MD approval → vacancy prepared → vacancy approved → advertised → applications → selection and hiring → positions filled.
+    * Applications: applied → screening → interview → hire approval → offer → onboarding → employee.
+  * **Next action**, e.g. "Waiting for the HR Manager's approval", "Panel members to submit their scorecards", "Waiting for the candidate to accept or decline the offer (reply by …)".
+  * **Current owner**, with the people's names, and the **next approver**.
+  * **Pending for**, e.g. "5 days 9 hours", with **On track** (green), **Approaching the target** (amber, from 75 % of it) or **Overdue** (red). The targets are the workflow targets in *System settings*; steps without a target show no colour.
+  * **Expected by** (start plus the target in working days, or the reply-by / closing / document deadline) and the **last action** (what, who, when) for following up.
+* Worked out from the existing statuses and histories: no database change. It replaces the old progress steppers on these pages; the action banner (*Your next step*) stays. On narrow screens the timeline scrolls inside its card, and on phones it stacks.
+* Next: the interview, hiring case and onboarding pages and the **Action Center** (C3).
+
+---
+
 ## 13 November 2026: change requests C1, scorecard reasons and panel replacement (docs/37)
 
 * **Docs/37:** impact analysis and plan for the five change requests of 13 November:

@@ -44,6 +44,17 @@
 }
 <partial name="_NextStepBanner" model="nextStep" />
 
+@* docs/37 CR5: the process guide; the old stepper is the fallback. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process)
+{
+    <partial name="_ProcessGuide" model="process" />
+    @if (Model.IsOpenForApplications)
+    {
+        <p class="small text-success mt-n2 mb-3"><i class="fa-solid fa-door-open me-1"></i>Open for applications. Closes @Model.ClosingDate.ToString("dddd dd MMM yyyy") (@(Model.DaysToClosing == 0 ? "today" : $"in {Model.DaysToClosing} days")).</p>
+    }
+}
+else
+{
 <div class="card glass mb-3">
     <div class="card-body py-4">
         <ol class="stepper" aria-label="Vacancy progress">
@@ -72,6 +83,7 @@
         </p>
     </div>
 </div>
+}
 
 @if (Model.ReturnComments is not null)
 {

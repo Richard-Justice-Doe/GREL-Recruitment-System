@@ -1051,3 +1051,15 @@ details[open] > summary > .doc-chevron { transform: rotate(180deg); }
     .doc-body { padding-left: 0.85rem; }
 }
 @media (prefers-reduced-motion: reduce) { .doc-item.is-flash { animation: none; } .doc-chip:hover { transform: none; } }
+
+/* docs/36 AI-7: knowledge base (Views/Knowledge, Views/KnowledgeAdmin). */
+.kb-question { flex: 1 1 20rem; min-width: 0; }
+.kb-answer { border-left: 4px solid var(--grsms-brand); }
+.kb-answer-text, .kb-section-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.kb-sources { padding-left: 1.4rem; }
+.kb-sources li { margin-bottom: 0.3rem; }
+.kb-match { padding: 0.55rem 0; border-top: 1px solid var(--bs-border-color); }
+.kb-match:first-child { border-top: 0; }
+.kb-section { padding: 0.9rem 0; border-top: 1px solid var(--bs-border-color); scroll-margin-top: 5rem; }
+.kb-section:first-child { border-top: 0; padding-top: 0; }
+.kb-section:target { background: color-mix(in srgb, var(--grsms-brand) 8%, transparent); border-radius: 0.5rem; padding-left: 0.75rem; padding-right: 0.75rem; }

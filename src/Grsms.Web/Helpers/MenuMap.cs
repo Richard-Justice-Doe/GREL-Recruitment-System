@@ -29,6 +29,7 @@ public static class MenuMap
         "Employees" => new("Employees", "Employees", controller),
         "Probation" => new("Onboarding", "Probation", controller),
         "PersonnelFiles" => new("Employees", "Personnel files", controller),
+        "Knowledge" => new("Help", "Policies & procedures", controller), // docs/36 AI-7
         _ => null
     };
 }

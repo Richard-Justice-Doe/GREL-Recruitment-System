@@ -65,6 +65,8 @@ public static class DependencyInjection
         services.AddScoped<Onboarding.DocumentCheckService>(); // docs/36 AI-4
         services.AddScoped<Ai.AiSummaryService>(); // docs/36 AI-5
         services.AddScoped<Ai.OnboardingAssistantService>(); // docs/36 AI-6
+        services.AddSingleton<Knowledge.KnowledgeIndexCache>(); // docs/36 AI-7
+        services.AddScoped<Knowledge.KnowledgeBaseService>();
         services.AddScoped<Process.ProcessGuideService>(); // docs/37 CR5
         services.AddScoped<Process.ActionCenterService>();
 

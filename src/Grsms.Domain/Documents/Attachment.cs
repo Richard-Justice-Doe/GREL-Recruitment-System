@@ -61,7 +61,10 @@ public enum AttachmentCategory
     [Display(Name = "New-hire document")] NewHireDocument,
 
     // Phase 20: a document HR filed directly in a personnel file
-    [Display(Name = "Personnel file document")] PersonnelFileDocument
+    [Display(Name = "Personnel file document")] PersonnelFileDocument,
+
+    // docs/36 AI-7: a policy or procedure in the knowledge base
+    [Display(Name = "Knowledge-base document")] KnowledgeDocument
 }
 
 /// <summary>The values used in <see cref="Attachment.OwnerType"/>.</summary>
@@ -83,4 +86,7 @@ public static class AttachmentOwners
 
     /// <summary>Phase 20: a file HR added directly to an employee's personnel file (OwnerId = PersonnelFiles.Id).</summary>
     public const string PersonnelFile = "PersonnelFile";
+
+    /// <summary>docs/36 AI-7: the file of a knowledge-base document (OwnerId = KnowledgeDocuments.Id; older versions stay as history).</summary>
+    public const string KnowledgeDocument = "KnowledgeDocument";
 }

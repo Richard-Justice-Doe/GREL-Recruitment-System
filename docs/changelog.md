@@ -4,6 +4,38 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 14 November 2026: AI-7, knowledge base (docs/36 phase 7)
+
+GREL's policy library. As decided (D4), the library is built now and HR adds the documents later. Guide: [docs/38](38-knowledge-base.md).
+
+* **Administration → Knowledge base.** New permission *Maintain the knowledge base*, for the HR Administrator and HR Manager.
+  * Add a PDF or Word policy with its owner, version, effective date and audience: *Staff*, or *Staff and new employees*.
+  * The file goes through the usual upload checks.
+  * The text is read and split into sections at its headings.
+  * Upload a new version (the old file stays as history), edit, archive or delete.
+  * A scanned file with no text is kept and flagged *No text*.
+* **Policies & procedures** in every staff member's menu: the library, each document's sections, preview and download, and a question box.
+* **Search** runs inside GRSMS (BM25, headings count double, light stemming, common words ignored), not MySQL full-text search as first planned. The ranking is the same on MySQL and in the tests, and short words aren't lost. The index is rebuilt only when a document changes.
+* **AI answers** (switch *Knowledge base answers*, no personal data):
+  * built only from the 6 best sections, with sources cited as [1], [2] (document, version, section);
+  * invented source numbers are dropped, and "found" is only shown when a real source is cited;
+  * nothing is sent when no section matches;
+  * with the switch off, the matching sections are shown instead.
+* **Onboarding assistant:** with both switches on, it answers new employees' policy questions from the documents marked for them, with an **Open** button. Staff-only documents are never sent for a new employee. Staff asking on the onboarding page can draw on all documents.
+* **Database:** script `database/37_knowledge_base.sql` (KnowledgeDocuments, KnowledgeSections). The app applies the migration at start-up.
+* **Tests:**
+  * splitting and headings;
+  * HR-only changes and file types;
+  * search ranking and audiences;
+  * new versions and history, scanned files and delete;
+  * new employees' access;
+  * answers with checked citations, and no call when nothing matches;
+  * the assistant using only new-employee documents;
+  * the full page journey.
+  297 tests pass.
+
+---
+
 ## 14 November 2026: Google Gemini added to the AI providers
 
 Requested by the user. *AI settings & usage → Provider* now offers **Google Gemini** next to Anthropic (Claude), OpenAI and Azure OpenAI. Every AI feature works with it unchanged, through the same gateway: switches, budget, log and personal-data rules.

@@ -27,6 +27,7 @@ public class AdministrationController(IAuthorizationService auth) : AppControlle
         (Policies.MasterData, new("Onboarding set-up", "Onboarding documents", "The documents new employees upload.", "fa-file-circle-check", "OnboardingDocuments", "Index")),
         (Policies.UserAdmin, new("People", "Users & roles", "Add staff accounts, reset passwords, unlock, deactivate.", "fa-users-gear", "Users", "Index")),
         (Policies.Grades, new("People", "Grades", "GREL's job grades, given to employees on their record.", "fa-layer-group", "Grades", "Index")), // Phase 28
+        (Policies.KnowledgeBase, new("People", "Knowledge base", "GREL's policies and procedures: staff search them, and the AI answers from them.", "fa-book", "KnowledgeAdmin", "Index")), // docs/36 AI-7
         (Policies.SystemSettings, new("People", "Roles & permissions", "Which roles may open which screens.", "fa-user-shield", "Roles", "Index")),
         (Policies.SystemSettings, new("System", "Screening (ATS) settings", "Score weights, bands and automatic-rejection rules.", "fa-sliders", "Ats", "Settings")),
         (Policies.SystemSettings, new("System", "System settings", "Email server, Microsoft 365 sign-in, workflow settings.", "fa-gear", "SystemSettings", "Index")),

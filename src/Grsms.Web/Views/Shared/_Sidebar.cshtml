@@ -90,6 +90,13 @@
                 <i class="fa-solid fa-chart-pie"></i> Executive dashboard
             </a>
         }
+        @if (isStaff)
+        {
+            @* docs/36 AI-7: GREL's policies and procedures, with the question box *@
+            <a class="nav-link @Active("Knowledge")" asp-controller="Knowledge" asp-action="Index">
+                <i class="fa-solid fa-book"></i> Policies &amp; procedures
+            </a>
+        }
 
         @if (!isStaff)
         {

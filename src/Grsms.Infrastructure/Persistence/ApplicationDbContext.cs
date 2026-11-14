@@ -112,6 +112,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Ai.AiInsight> AiInsights => Set<Domain.Ai.AiInsight>(); // docs/36 AI-5
     public DbSet<Domain.Interviews.InterviewPanelChange> InterviewPanelChanges => Set<Domain.Interviews.InterviewPanelChange>(); // docs/37 CR3
     public DbSet<VacancyInterviewQuestion> VacancyInterviewQuestions => Set<VacancyInterviewQuestion>(); // docs/36 AI-2
+    public DbSet<Domain.Knowledge.KnowledgeDocument> KnowledgeDocuments => Set<Domain.Knowledge.KnowledgeDocument>(); // docs/36 AI-7
+    public DbSet<Domain.Knowledge.KnowledgeSection> KnowledgeSections => Set<Domain.Knowledge.KnowledgeSection>();
 
     /// <summary>
     /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and

@@ -58,3 +58,35 @@ internal class AiInsightConfiguration : IEntityTypeConfiguration<AiInsight>
         b.HasIndex(i => new { i.RecordType, i.RecordId, i.Feature });
     }
 }
+
+/// <summary>Table "KnowledgeDocuments" (docs/36 AI-7): GREL's policy library. Audited like any record.</summary>
+internal class KnowledgeDocumentConfiguration : IEntityTypeConfiguration<Domain.Knowledge.KnowledgeDocument>
+{
+    public void Configure(EntityTypeBuilder<Domain.Knowledge.KnowledgeDocument> b)
+    {
+        b.ToTable("KnowledgeDocuments");
+        b.ConfigureBase();
+        b.Property(d => d.Title).HasMaxLength(200).IsRequired();
+        b.Property(d => d.Owner).HasMaxLength(150).IsRequired();
+        b.Property(d => d.Version).HasMaxLength(30).IsRequired();
+        b.Property(d => d.Audience).HasConversion<string>().HasMaxLength(30);
+        b.Property(d => d.Summary).HasMaxLength(500);
+        b.Property(d => d.FileName).HasMaxLength(200).IsRequired();
+        b.Property(d => d.ReadProblem).HasMaxLength(300);
+        b.HasMany(d => d.Sections).WithOne().HasForeignKey(s => s.KnowledgeDocumentId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(d => d.IsActive);
+    }
+}
+
+/// <summary>Table "KnowledgeSections": the searchable pieces of each document (searched in GRSMS itself, see KnowledgeSearch).</summary>
+internal class KnowledgeSectionConfiguration : IEntityTypeConfiguration<Domain.Knowledge.KnowledgeSection>
+{
+    public void Configure(EntityTypeBuilder<Domain.Knowledge.KnowledgeSection> b)
+    {
+        b.ToTable("KnowledgeSections");
+        b.ConfigureBase();
+        b.Property(s => s.Heading).HasMaxLength(300).IsRequired();
+        b.Property(s => s.Text).HasColumnType("text").IsRequired();
+        b.HasIndex(s => new { s.KnowledgeDocumentId, s.SortOrder });
+    }
+}

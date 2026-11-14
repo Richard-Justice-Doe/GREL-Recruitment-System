@@ -66,6 +66,29 @@ public class ProcessGuideTests : IAsyncLifetime
     });
 
     [Fact]
+    public void Action_center_priority_follows_targets_and_age()
+    {
+        using var scope = _db.NewScope();
+        var center = scope.ServiceProvider.GetRequiredService<ActionCenterService>();
+        var now = new DateTime(2026, 11, 13, 12, 0, 0, DateTimeKind.Utc); // Friday
+        Grsms.Application.Dashboard.DashboardTaskDto Task(Grsms.Application.Dashboard.DashboardTaskTarget target, Enum status, DateTime since) =>
+            new(target, 1, "Tapper", "RR-1", "Approve", "Kofi", status, since);
+
+        // HR approval: target 2 working days (default).
+        var fresh = center.Rate(Task(Grsms.Application.Dashboard.DashboardTaskTarget.Request, RecruitmentRequestStatus.HrApproval, now.AddHours(-2)), now);
+        Assert.Equal((ActionPriority.Medium, 2), (fresh.Priority, fresh.TargetWorkingDays!.Value)); // due Tuesday: within 2 working days
+        var late = center.Rate(Task(Grsms.Application.Dashboard.DashboardTaskTarget.Request, RecruitmentRequestStatus.HrApproval, now.AddDays(-7)), now);
+        Assert.Equal((ActionPriority.High, ProcessHealth.Overdue), (late.Priority, late.Health));
+        Assert.Contains("Overdue", late.Why);
+
+        // No target: by age (Medium after 3 working days, High after 7).
+        var shortlist = Grsms.Application.Dashboard.DashboardTaskTarget.Shortlist;
+        Assert.Equal(ActionPriority.Low, center.Rate(Task(shortlist, VacancyStatus.Published, now.AddDays(-1)), now).Priority);
+        Assert.Equal(ActionPriority.Medium, center.Rate(Task(shortlist, VacancyStatus.Published, now.AddDays(-4)), now).Priority);
+        Assert.Equal(ActionPriority.High, center.Rate(Task(shortlist, VacancyStatus.Published, now.AddDays(-14)), now).Priority);
+    }
+
+    [Fact]
     public void Health_follows_the_working_day_target()
     {
         var monday = new DateTime(2026, 11, 9, 9, 0, 0, DateTimeKind.Utc);

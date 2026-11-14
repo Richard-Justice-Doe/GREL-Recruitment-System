@@ -60,6 +60,8 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
     <div class="alert alert-secondary">Cancelled: @Model.CancelReason</div>
 }
 
+@* docs/37 CR5: the whole journey (who acts next, since when); the onboarding steps follow below. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process) { <partial name="_ProcessGuide" model="process" /> }
 <div class="card glass mb-3">
     <div class="card-body py-4">
         <partial name="_OnboardingStepper" model="(Model.Status, Model.History.LastOrDefault(h => h.ToStatus == OnboardingStatus.Cancelled)?.FromStatus)" />

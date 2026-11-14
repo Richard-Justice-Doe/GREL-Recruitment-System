@@ -202,4 +202,5 @@ The order follows "CR5 is the highest priority" after a quick start with the two
 |---|---|
 | C1 scorecard comments + panel replacement | ✅ 13 Nov: comment per criterion (form, session page, hiring case, draft justification, AI summary); replace any member with a reason, add a substitute, resend an invitation, panel change history (script 36) |
 | C2 process guide on request, vacancy and application pages | ✅ 13 Nov: `Application/Process/ProcessGuideService.cs`, `Views/Shared/_ProcessGuide.cshtml`; requisition and candidate journeys; next action, owner, next approver, pending for, green/amber/red against the workflow targets, expected date, last action; replaces the old steppers |
-| C3–C6 | To do |
+| C3 guide on interview, hiring case and onboarding pages; Action Center | ✅ 14 Nov: `Application/Process/ActionCenterService.cs`, menu → Action Center (staff: all pending actions with High/Medium/Low priority, due date and reason; candidates: their next steps); Home links to it |
+| C4–C6 | To do |

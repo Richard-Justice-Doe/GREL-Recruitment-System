@@ -138,6 +138,8 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
     </section>
 }
 
+@* docs/37 CR5: where the candidate's journey stands, who acts next, since when. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process) { <partial name="_ProcessGuide" model="process" /> }
 <div class="row g-3" data-section-tabs data-section-default="@(Model.Offer is not null || Model.Recommendation?.Status == HiringStatus.Approved ? "Offer" : Model.Recommendation is not null ? "Recommendation" : "Interview scores")">
     <div class="col-xl-7">
         @* ---- Results so far: screening and the validated interview scores (9 Nov 2026), in view for the recommendation,

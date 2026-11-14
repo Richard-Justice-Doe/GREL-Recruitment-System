@@ -4,6 +4,22 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 14 November 2026: change request C3, Action Center and the guide on every candidate page (docs/37 CR5)
+
+* **Menu → Action Center** (every user):
+  * **Staff:** everything waiting for you, across requests, vacancies, adverts, screening, shortlisting, panel invitations, scorecards, score validation, hiring, onboarding (letters, documents, activation, induction) and probation. All in one list, **most urgent first**:
+    * **High:** overdue against its workflow target, or due today;
+    * **Medium:** past 75 % of its target, or due within 2 working days;
+    * **Low:** the rest.
+    * Steps without a target become Medium after 3 working days and High after 7.
+  * Each row shows what to do, the record, since when, why it has that priority (e.g. "Overdue: target 2 working days, waiting 5") and the expected date, with a button to the page. Filter by priority.
+  * **Candidates and new employees:** their next steps (offer, documents, letter, personal record).
+  * Built from the same queries as Home's *Your to-dos*, which now links to it ("See them all, by priority").
+* The **process guide** (C2) is now also on the **interview**, **hiring case** and **onboarding** pages: the candidate's whole journey, next action, owner, waiting time against the target, expected date and last action. On the onboarding page it sits above the detailed onboarding steps.
+* No database change. 275 tests pass.
+
+---
+
 ## 13 November 2026: change request C2, the process guide (docs/37 CR5)
 
 * At the top of every **recruitment request**, **vacancy** and **application** page, a guide that answers *where is this, what's next, who must act, since when, is it late*:

@@ -1,0 +1,62 @@
+@* docs/37 CR5 (step C3): the Action Center: every pending action of the signed-in staff member, by priority. Built from the same
+   queries as "My tasks" on Home (Application/Process/ActionCenterService). *@
+@using Grsms.Application.Process
+@using Grsms.Web.Helpers
+@model ActionCenterDto
+@{
+    ViewData["Title"] = "Action Center";
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+    var filter = ViewBag.Priority as ActionPriority?;
+    var shown = filter is { } f ? Model.Items.Where(i => i.Priority == f).ToList() : Model.Items.ToList();
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    string PriorityCss(ActionPriority p) => p switch { ActionPriority.High => "badge-soft-danger", ActionPriority.Medium => "badge-soft-warning", _ => "badge-soft-secondary" };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Action Center</h1>
+        <p>Everything waiting for you, most urgent first. Priorities follow the workflow targets in System settings.</p>
+    </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Filter by priority">
+    <a asp-action="Index" class="btn btn-sm @(filter is null ? "btn-primary" : "btn-outline-secondary")">All <span class="badge text-bg-light ms-1">@Model.Items.Count</span></a>
+    @foreach (var p in Enum.GetValues<ActionPriority>())
+    {
+        <a asp-action="Index" asp-route-priority="@p" class="btn btn-sm @(filter == p ? "btn-primary" : "btn-outline-secondary")"
+           aria-current="@(filter == p ? "true" : null)">@p.DisplayName() <span class="badge @PriorityCss(p) ms-1">@Model.Count(p)</span></a>
+    }
+</div>
+
+@if (shown.Count == 0)
+{
+    <div class="dash-card dash-empty"><i class="fa-regular fa-circle-check d-block"></i>@(filter is null ? "Nothing is waiting for you. Well done!" : $"No {filter.Value.DisplayName().ToLowerInvariant()}-priority actions.")</div>
+}
+else
+{
+    <div class="action-list">
+        @foreach (var item in shown)
+        {
+            var t = item.Task;
+            var (tone, label, button) = TaskLinks.Look(t.Target);
+            <article class="dash-card action-row @tone" data-priority="@item.Priority">
+                <div class="action-main">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                        <span class="badge rounded-pill @PriorityCss(item.Priority)">@item.Priority.DisplayName()</span>
+                        <span class="small text-body-secondary">@label · @t.Reference</span>
+                    </div>
+                    <h2 class="h6 mb-1">@t.Action: <span class="fw-normal">@t.Title</span></h2>
+                    <div class="small text-body-secondary">
+                        @if (!string.IsNullOrWhiteSpace(t.PersonName)) { <span>@t.PersonName · </span> }
+                        <span>since @t.Since.ToString("d MMM yyyy", gb)</span> · <span>@item.Why</span>
+                        @if (item.DueDate is { } due)
+                        {
+                            <span> · expected by <strong class="@(due < today ? "text-danger" : "")">@due.ToString("ddd d MMM", gb)</strong></span>
+                        }
+                    </div>
+                </div>
+                <a href="@TaskLinks.Url(Url, t)" class="btn btn-sm btn-primary action-go">@button <i class="fa-solid fa-chevron-right ms-1"></i></a>
+            </article>
+        }
+    </div>
+}

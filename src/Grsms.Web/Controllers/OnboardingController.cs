@@ -52,11 +52,12 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         return View(form);
     }
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await onboarding.GetAsync(id, ct);
         if (model is null) return NotFound();
         if (model.CanManage) ViewBag.Staff = new SelectList(await onboarding.StaffAsync(ct), "Value", "Text");
+        ViewBag.Process = await guide.ForApplicationAsync(model.ApplicationId, ct); // docs/37 CR5
         return View(model);
     }
 

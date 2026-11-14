@@ -81,6 +81,9 @@
         <a class="nav-link @Active("Home")" asp-controller="Home" asp-action="Index">
             <i class="fa-solid fa-house"></i> Home
         </a>
+        <a class="nav-link @Active("ActionCenter")" asp-controller="ActionCenter" asp-action="Index">
+            <i class="fa-solid fa-list-check"></i> Action Center
+        </a>
         @if (canExecutive)
         {
             <a class="nav-link @Active("Executive")" asp-controller="Executive" asp-action="Index">

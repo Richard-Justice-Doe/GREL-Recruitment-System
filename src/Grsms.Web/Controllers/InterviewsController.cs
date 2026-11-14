@@ -52,11 +52,12 @@ public class InterviewsController(InterviewService interviews, Application.Vacan
         return View(form);
     }
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await interviews.GetDetailsAsync(id, ct);
         if (model is null) return NotFound();
         ViewBag.Guide = await questions.ForInterviewAsync(model.VacancyId, ct); // docs/36 AI-2
+        ViewBag.Process = await guide.ForApplicationAsync(model.ApplicationId, ct); // docs/37 CR5
         return View(model);
     }
 

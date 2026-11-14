@@ -47,7 +47,9 @@ public class DashboardService(
     private static readonly RecruitmentRequestStatus[] InApproval =
         [.. RecruitmentWorkflow.DecisionStages];
 
-    public async Task<DashboardDto> GetAsync(DashboardAccess access, DateOnly? month, DashboardFilter? filter = null, CancellationToken ct = default)
+    /// <param name="taskLimit">How many "My tasks" rows of each kind (Home shows a few; the Action Center, docs/37 CR5, asks for all).</param>
+    public async Task<DashboardDto> GetAsync(DashboardAccess access, DateOnly? month, DashboardFilter? filter = null, CancellationToken ct = default,
+        int taskLimit = TaskRows)
     {
         var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(now);
@@ -84,7 +86,7 @@ public class DashboardService(
         if (access.Requests)
         {
             // Tasks: requests waiting for my decision ...
-            var awaiting = await requestService.SearchAsync(new RecruitmentRequestFilter { AwaitingMe = true, PageSize = TaskRows }, ct);
+            var awaiting = await requestService.SearchAsync(new RecruitmentRequestFilter { AwaitingMe = true, PageSize = taskLimit }, ct);
             taskTotal += awaiting.TotalCount;
             if (awaiting.TotalCount > 0 || RequestApprovers.Any(scope.IsInRole))
                 cards.Add(new ActionCardDto("Requests awaiting your approval", "fa-file-signature", awaiting.TotalCount,
@@ -121,7 +123,7 @@ public class DashboardService(
             // Tasks: vacancies to approve (HR Manager), approved requests needing a vacancy and my draft vacancies (recruiters).
             if (scope.IsInRole(Roles.HrManager))
             {
-                var pending = await vacancyService.SearchAsync(new VacancyFilter { Tab = "pending", PageSize = TaskRows }, ct);
+                var pending = await vacancyService.SearchAsync(new VacancyFilter { Tab = "pending", PageSize = taskLimit }, ct);
                 taskTotal += pending.TotalCount;
                 cards.Add(new ActionCardDto("Vacancies awaiting publication", "fa-briefcase", pending.TotalCount,
                     pending.TotalCount == 0 ? "Nothing waiting for you" : "Approve or return", "tone-probation", "Vacancies", "Index", Route("pending"), true));
@@ -172,7 +174,7 @@ public class DashboardService(
         }
 
         // ------------------------------------------------------------ Interviews (Phase 7): my scorecards to submit
-        var toScore = await interviews.SearchAsync(new Interviews.InterviewFilter { Tab = "scorecards", PageSize = TaskRows }, ct);
+        var toScore = await interviews.SearchAsync(new Interviews.InterviewFilter { Tab = "scorecards", PageSize = taskLimit }, ct);
         taskTotal += toScore.TotalCount;
         tasks.AddRange(toScore.Items.Select(i => new DashboardTaskDto(DashboardTaskTarget.Interview, i.Id, $"{EnumText.Label(i.Type)}: {i.ApplicantName}",
             i.VacancyNumber, "Submit your scorecard", "Recruitment", i.Status, i.StartsAt)));
@@ -180,13 +182,13 @@ public class DashboardService(
         // docs/35: panel invitations waiting for my reply.
         var replies = await interviews.ListAwaitingMyReplyAsync(ct);
         taskTotal += replies.Count;
-        tasks.AddRange(replies.Take(TaskRows).Select(i => new DashboardTaskDto(DashboardTaskTarget.Interview, i.Id,
+        tasks.AddRange(replies.Take(taskLimit).Select(i => new DashboardTaskDto(DashboardTaskTarget.Interview, i.Id,
             $"Panel invitation: {EnumText.Label(i.Type)}", i.StartsAt.ToString("dd MMM HH:mm"), "Accept or decline", "Recruitment", i.Status, i.CreatedAt)));
 
         // Score validation (9 Nov 2026): every scorecard is in and the vacancy's Recruitment Officer checks them.
         var toValidate = await interviews.ListAwaitingMyValidationAsync(ct);
         taskTotal += toValidate.Count;
-        tasks.AddRange(toValidate.Take(TaskRows).Select(i => new DashboardTaskDto(DashboardTaskTarget.InterviewValidation, i.Id,
+        tasks.AddRange(toValidate.Take(taskLimit).Select(i => new DashboardTaskDto(DashboardTaskTarget.InterviewValidation, i.Id,
             $"Validate the scores: {i.ApplicantName}", i.VacancyNumber, $"{EnumText.Label(i.Type)}, round {i.Round}: all {i.ScorecardsIn} scorecards are in",
             "Recruitment", i.Status, i.StartsAt)));
 
@@ -195,7 +197,7 @@ public class DashboardService(
         {
             var decisions = await hiring.AwaitingMyDecisionAsync(ct);
             taskTotal += decisions.Count;
-            tasks.AddRange(decisions.Take(TaskRows).Select(h => new DashboardTaskDto(DashboardTaskTarget.Hiring, h.ApplicationId,
+            tasks.AddRange(decisions.Take(taskLimit).Select(h => new DashboardTaskDto(DashboardTaskTarget.Hiring, h.ApplicationId,
                 $"Hire {h.ApplicantName}", h.Number, h.Status switch
                 {
                     Domain.Hiring.HiringStatus.Draft => "Review the draft recommendation and submit it to the HOD",
@@ -207,7 +209,7 @@ public class DashboardService(
             // 9 Nov 2026: interview scores validated, so the next step is the hiring recommendation (vacancy's recruiter).
             var toRecommend = await hiring.ListReadyToRecommendAsync(onlyMine: true, ct);
             taskTotal += toRecommend.Count;
-            tasks.AddRange(toRecommend.Take(TaskRows).Select(r => new DashboardTaskDto(DashboardTaskTarget.HiringRecommendation, r.ApplicationId,
+            tasks.AddRange(toRecommend.Take(taskLimit).Select(r => new DashboardTaskDto(DashboardTaskTarget.HiringRecommendation, r.ApplicationId,
                 $"Proceed with {r.ApplicantName}?", r.VacancyNumber,
                 $"Interview scores validated{(r.InterviewAverage is decimal a ? $" ({a:0.0}/100)" : "")}: decide whether to start the hiring process",
                 "Recruitment", Domain.Applications.ApplicationStatus.Interview, r.LastValidatedAt)));
@@ -216,25 +218,25 @@ public class DashboardService(
         // ------------------------------------------------------------ Onboarding (Phase 9): accepted offers to start (HR), my checklist items (anyone)
         var toStart = await onboarding.ToStartAsync(ct: ct);
         taskTotal += toStart.Count;
-        tasks.AddRange(toStart.Take(TaskRows).Select(s => new DashboardTaskDto(DashboardTaskTarget.NewOnboarding, s.ApplicationId,
+        tasks.AddRange(toStart.Take(taskLimit).Select(s => new DashboardTaskDto(DashboardTaskTarget.NewOnboarding, s.ApplicationId,
             $"Onboard {s.EmployeeName}", s.OfferNumber, $"Start onboarding (starts {s.StartDate:dd MMM})", "Recruitment",
             Domain.Applications.ApplicationStatus.Hired, s.AcceptedAt)));
 
         var myOnboarding = await onboarding.MyTasksAsync(ct);
         taskTotal += myOnboarding.Count;
-        tasks.AddRange(myOnboarding.Take(TaskRows).Select(t => new DashboardTaskDto(DashboardTaskTarget.Onboarding, t.OnboardingId,
+        tasks.AddRange(myOnboarding.Take(taskLimit).Select(t => new DashboardTaskDto(DashboardTaskTarget.Onboarding, t.OnboardingId,
             $"{t.Title}: {t.EmployeeName}", t.Number, t.DueDate is null ? "Onboarding task" : $"Due {t.DueDate:dd MMM}", "Recruitment",
             Domain.Onboarding.OnboardingTaskStatus.Open, t.Since)));
 
         // ------------------------------------------------------------ Usability U1: the rest of the work waiting for someone
         var atsWaiting = await ats.AwaitingHrByVacancyAsync(ct);
         taskTotal += atsWaiting.Count;
-        tasks.AddRange(atsWaiting.Take(TaskRows).Select(x => new DashboardTaskDto(DashboardTaskTarget.AtsConfirm, x.VacancyId, x.JobTitle,
+        tasks.AddRange(atsWaiting.Take(taskLimit).Select(x => new DashboardTaskDto(DashboardTaskTarget.AtsConfirm, x.VacancyId, x.JobTitle,
             x.VacancyNumber, $"{x.Count} automatic rejection(s) to confirm", "Recruitment", Domain.Applications.ApplicationStatus.AutoRejected, x.Since)));
 
         var onboardingWork = await onboarding.MyWorkAsync(ct);
         taskTotal += onboardingWork.Count;
-        tasks.AddRange(onboardingWork.Take(TaskRows).Select(w => new DashboardTaskDto(w.Kind switch
+        tasks.AddRange(onboardingWork.Take(taskLimit).Select(w => new DashboardTaskDto(w.Kind switch
             {
                 Onboarding.OnboardingWorkKind.IssueLetter => DashboardTaskTarget.OnboardingLetter,
                 Onboarding.OnboardingWorkKind.VerifyDocuments => DashboardTaskTarget.OnboardingDocuments,
@@ -250,7 +252,7 @@ public class DashboardService(
 
         var probationWork = await probation.MyWorkAsync(ct);
         taskTotal += probationWork.Count;
-        tasks.AddRange(probationWork.Take(TaskRows).Select(w => new DashboardTaskDto(
+        tasks.AddRange(probationWork.Take(taskLimit).Select(w => new DashboardTaskDto(
             w.IsDecision ? DashboardTaskTarget.ProbationDecision : DashboardTaskTarget.ProbationStep, w.ProbationId, w.EmployeeName, w.Number,
             w.Due is { } due ? $"{w.Step}, due {due:dd MMM}" : w.Step, "Recruitment",
             w.IsDecision ? Domain.Probation.ProbationStatus.AwaitingHrDecision : Domain.Probation.ProbationStatus.InProgress, w.Since)));
@@ -259,7 +261,7 @@ public class DashboardService(
         // ------------------------------------------------------------ Job adverts (11 Nov 2026, docs/29 change 2): HR review, IT approval, corrections
         var advertWork = await advertService.MyWorkAsync(ct);
         taskTotal += advertWork.Count;
-        tasks.AddRange(advertWork.Take(TaskRows).Select(w => new DashboardTaskDto(DashboardTaskTarget.Advert, w.Id, w.Title, w.AdvertNumber,
+        tasks.AddRange(advertWork.Take(taskLimit).Select(w => new DashboardTaskDto(DashboardTaskTarget.Advert, w.Id, w.Title, w.AdvertNumber,
             w.Action, "Recruitment", w.Status, w.Since)));
         var advertCards = await advertService.ItSummaryAsync(ct);
 
@@ -303,7 +305,7 @@ public class DashboardService(
         {
             Cards = cards,
             // Oldest first: the longer something has waited, the higher it sits.
-            Tasks = tasks.OrderBy(t => t.Since).Take(TaskRows).ToList(),
+            Tasks = tasks.OrderBy(t => t.Since).Take(taskLimit).ToList(),
             TaskTotal = taskTotal,
             ClosingDays = closingDays,
             Month = shownMonth,

@@ -139,7 +139,7 @@
 <section aria-labelledby="todos-title">
     <div class="section-head">
         <h2 id="todos-title">Your to-dos</h2>
-        <span class="section-sub">Only things waiting for you, oldest first</span>
+        <span class="section-sub">Only things waiting for you, oldest first · <a asp-controller="ActionCenter" asp-action="Index">Action Center: all, by priority</a></span>
     </div>
     @if (d.Tasks.Count == 0)
     {
@@ -187,7 +187,7 @@
         </div>
         @if (d.TaskTotal > d.Tasks.Count)
         {
-            <p class="dash-more mt-n3 mb-4">Showing the @d.Tasks.Count oldest of @d.TaskTotal. Open Recruitment requests or Vacancies to see them all.</p>
+            <p class="dash-more mt-n3 mb-4">Showing the @d.Tasks.Count oldest of @d.TaskTotal. <a asp-controller="ActionCenter" asp-action="Index">See them all, by priority, in the Action Center</a>.</p>
         }
     }
 </section>

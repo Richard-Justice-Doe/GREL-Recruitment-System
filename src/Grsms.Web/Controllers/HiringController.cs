@@ -24,12 +24,13 @@ public class HiringController(HiringService hiring, Application.Onboarding.Onboa
     }
 
     /// <param name="id">The application id.</param>
-    public async Task<IActionResult> Case(int id, CancellationToken ct)
+    public async Task<IActionResult> Case(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await hiring.GetCaseAsync(id, ct);
         if (model is null) return NotFound();
         ViewBag.OnboardingId = await onboarding.IdForApplicationAsync(id, ct); // Phase 9
         ViewBag.AiSummary = Helpers.AiInsightCard.Interview(await summaries.GetInterviewPanelAsync(id, ct), id); // docs/36 AI-5
+        ViewBag.Process = await guide.ForApplicationAsync(id, ct); // docs/37 CR5
         return View(model);
     }
 

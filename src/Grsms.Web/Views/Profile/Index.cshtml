@@ -130,6 +130,7 @@ else
                             <i class="fa-regular @(d.ContentType == "application/pdf" ? "fa-file-pdf" : "fa-file-lines") fa-lg mt-1"></i>
                             <div class="flex-grow-1 text-break">
                                 <a asp-action="Download" asp-route-attachmentId="@d.Id" class="fw-semibold text-decoration-none">@d.FileName</a>
+                                <partial name="_PreviewButton" model='((string?)Url.Action("Download", new { attachmentId = d.Id }), (string?)d.FileName)' />
                                 <div class="small text-body-secondary">@d.Category.DisplayName() · @d.UploadedAt.ToString("dd MMM yyyy")</div>
                             </div>
                             <form asp-action="RemoveDocument" asp-route-returnUrl="@returnUrl" method="post">

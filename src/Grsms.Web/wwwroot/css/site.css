@@ -960,3 +960,14 @@ dl.details-grid dd { margin: 0; }
 .action-main { flex: 1 1 auto; min-width: 0; }
 .action-go { flex: none; white-space: nowrap; }
 @media (max-width: 575.98px) { .action-row { flex-direction: column; align-items: stretch; } .action-go { width: 100%; } }
+
+/* docs/37 CR4: document preview modal (js/document-preview.js). */
+.doc-preview-body { background: color-mix(in srgb, var(--bs-body-color) 6%, var(--bs-body-bg)); min-height: 60vh; overflow: auto; }
+.doc-preview-canvas { display: block; margin: 0 auto; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18); background: #fff; }
+.doc-preview-image-holder { display: grid; place-items: center; min-height: 60vh; overflow: auto; }
+.doc-preview-image { max-width: 100%; transition: transform 0.15s ease; transform-origin: center center; }
+.doc-preview-docx { background: #fff; color: #1d2125; max-width: 52rem; margin: 0 auto; padding: 2rem 2.5rem; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18); }
+.doc-preview-docx img { max-width: 100%; height: auto; }
+.doc-preview-docx table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
+.doc-preview-docx td { border: 1px solid #ccd; padding: 0.3rem 0.5rem; vertical-align: top; }
+@media (max-width: 575.98px) { .doc-preview-docx { padding: 1rem; } }

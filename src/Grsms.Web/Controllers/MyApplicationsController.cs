@@ -143,10 +143,10 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     }
 
     /// <summary>Downloads one of my own document files.</summary>
-    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await documents.OpenFileAsync(documentId, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 
     // ================================================================= Phase 19: my personal record declaration
@@ -257,9 +257,9 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    public async Task<IActionResult> Download(int id, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> Download(int id, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await applications.OpenMyDocumentAsync(id, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 }

@@ -43,6 +43,7 @@
                                     {
                                         case PersonnelDocumentKind.File:
                                             <a asp-action="Download" asp-route-id="@d.Id" class="fw-semibold text-decoration-none">@d.Title</a>
+                                            <partial name="_PreviewButton" model='((string?)Url.Action("Download", new { id = d.Id }), d.FileName)' />
                                             break;
                                         case PersonnelDocumentKind.Letter:
                                             <a asp-action="Letter" asp-route-id="@d.Id" class="fw-semibold text-decoration-none">@d.Title</a>

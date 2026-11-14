@@ -205,10 +205,10 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
 
     /// <summary>Downloads a new-hire document file (onboarding.view; always as a download, never shown inside the site; every opening is recorded).</summary>
     [Authorize(Policy = Policies.ViewOnboarding)]
-    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await documents.OpenFileAsync(documentId, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 
     /// <summary>Phase 27 stage C: more time for the documents, once.</summary>

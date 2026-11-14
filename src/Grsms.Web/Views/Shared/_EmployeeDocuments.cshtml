@@ -108,6 +108,7 @@
                             <i class="fa-regular fa-file"></i>
                             <a asp-controller="@controller" asp-action="DownloadDocument" asp-route-id="@routeId" asp-route-documentId="@d.Id" asp-route-attachmentId="@f.AttachmentId"
                                class="text-decoration-none text-break">@f.FileName</a>
+                            <partial name="_PreviewButton" model='((string?)Url.Action("DownloadDocument", controller, new { id = routeId, documentId = d.Id, attachmentId = f.AttachmentId }), (string?)f.FileName)' />
                             <span class="text-body-secondary">@Size(f.SizeBytes) · @f.UploadedAt.ToString("dd MMM yyyy")</span>
                             @if (d.CanEdit)
                             {

@@ -195,10 +195,10 @@ public class RecruitmentRequestsController(RecruitmentRequestService service) : 
     }
 
     /// <summary>Downloads a file. Always sent as a download (never opened inside the site) for safety.</summary>
-    public async Task<IActionResult> Download(int id, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> Download(int id, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await service.OpenAttachmentAsync(id, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 
     // ================================================================= Helpers

@@ -325,6 +325,7 @@ else
                             <i class="fa-regular @(a.ContentType == "application/pdf" ? "fa-file-pdf" : a.ContentType.Contains("spreadsheet") ? "fa-file-excel" : a.ContentType.Contains("word") ? "fa-file-word" : "fa-file-lines") fa-lg mt-1"></i>
                             <div class="flex-grow-1 text-break">
                                 <a asp-action="Download" asp-route-id="@Model.Id" asp-route-attachmentId="@a.Id" class="fw-semibold text-decoration-none">@a.FileName</a>
+                                <partial name="_PreviewButton" model='((string?)Url.Action("Download", new { id = Model.Id, attachmentId = a.Id }), (string?)a.FileName)' />
                                 <div class="small text-body-secondary">@a.Category.DisplayName() · @Size(a.SizeBytes) · @a.UploadedAt.ToString("dd MMM yyyy")</div>
                             </div>
                             @if (Model.CanEdit)

@@ -77,9 +77,9 @@ public class ProfileController(CandidateProfileService profiles, JobAlertService
         return RedirectToAction(nameof(Index));
     }
 
-    public async Task<IActionResult> Download(int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> Download(int attachmentId, string? view, CancellationToken ct)
     {
         var file = await profiles.OpenDocumentAsync(attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 }

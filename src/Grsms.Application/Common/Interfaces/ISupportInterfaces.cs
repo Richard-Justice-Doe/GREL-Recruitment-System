@@ -111,3 +111,14 @@ public interface IPdfRenderer
     /// <summary>The PDF bytes, or null if rendering failed (logged).</summary>
     Task<byte[]?> RenderAsync(string html, CancellationToken ct = default);
 }
+
+/// <summary>
+/// 14 November 2026 (docs/37 CR4): a Word (.docx) document as simple, safe HTML for the in-page preview (headings, paragraphs, bold and
+/// italic, lists, tables, embedded pictures). Layout is approximate; the original file is unchanged and can still be downloaded.
+/// Implemented in Infrastructure/Documents/DocxHtmlPreview.
+/// </summary>
+public interface IDocumentHtmlPreview
+{
+    /// <summary>The HTML (a fragment, no scripts), or null when the file can't be read as a Word document.</summary>
+    Task<string?> ToHtmlAsync(Stream docx, CancellationToken ct = default);
+}

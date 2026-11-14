@@ -36,10 +36,10 @@ public class PersonnelFilesController(PersonnelFileService files) : AppControlle
     }
 
     /// <summary>Downloads a filed file (always as a download, never shown inside the site).</summary>
-    public async Task<IActionResult> Download(int id, CancellationToken ct)
+    public async Task<IActionResult> Download(int id, string? view, CancellationToken ct)
     {
         var file = await files.OpenAsync(id, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 
     [HttpPost]

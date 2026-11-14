@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>(); // Phase 27: placeholder, every file passes
         services.AddSingleton<IPdfRenderer, Documents.ChromiumPdfRenderer>(); // 13 Nov 2026: PDF letters through headless Chromium
+        services.AddSingleton<IDocumentHtmlPreview, Documents.DocxHtmlPreview>(); // docs/37 CR4: Word preview
         services.AddSingleton<Application.Ai.IAiClient>(_ => new Ai.AiClient()); // docs/36: AI providers (Anthropic, OpenAI, Azure OpenAI)
         services.AddSingleton<Application.Ai.IAiLogStore, Ai.AiLogStore>();
 

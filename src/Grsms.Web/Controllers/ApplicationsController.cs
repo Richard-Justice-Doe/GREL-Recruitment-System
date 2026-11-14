@@ -46,10 +46,10 @@ public class ApplicationsController(ApplicationService applications, Application
         Act(id, () => applications.MarkNotSuccessfulAsync(id, reason, ct), "Marked not successful. The applicant has been emailed (without the reason).");
 
     /// <summary>Downloads an applicant's document (always as a download, never opened inside the site).</summary>
-    public async Task<IActionResult> Download(int id, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> Download(int id, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await applications.OpenDocumentAsync(id, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 
     /// <summary>docs/36 AI-5: the AI CV summary (advisory; the ATS score is unchanged).</summary>

@@ -4,6 +4,24 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 14 November 2026: change request C4, document preview (docs/37 CR4)
+
+* **Preview** next to every PDF, JPEG, PNG and Word (.docx) file, in:
+  * the application (CV and documents), for staff and the candidate;
+  * the recruitment request's attachments;
+  * the candidate profile;
+  * onboarding documents (new employee and RO verification);
+  * personnel files.
+* It opens a full-screen window without downloading:
+  * **PDF** (including scans): page by page, previous / next, zoom in / out, fit to width. It uses PDF.js (Mozilla, Apache-2.0, version 4.10.38) served by GRSMS itself from `wwwroot/lib/pdfjs`, so nothing is loaded from the internet, and it works under the site's content security policy.
+  * **Pictures:** zoom in / out, rotate, actual size.
+  * **Word:** converted on the server to simple HTML (headings, text, bold / italic, lists, tables, pictures; layout approximate). Text is encoded and sanitised, and files with DTDs or that expand too much are refused.
+  * **Download** stays one click away; Esc or ✕ closes.
+* **Security:** the preview uses the same download address with `?view=inline` or `?view=html`, so every permission check and the "opened" log apply exactly as for downloads. Previews are never cached. Other file types are still only downloaded.
+* No database change. 277 tests pass. The PDF viewer was also checked in Chrome under the site's security policy.
+
+---
+
 ## 14 November 2026: change request C3, Action Center and the guide on every candidate page (docs/37 CR5)
 
 * **Menu → Action Center** (every user):

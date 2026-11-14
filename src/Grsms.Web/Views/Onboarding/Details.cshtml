@@ -78,6 +78,8 @@ Notice: one month's notice on either side, after confirmation.
     </div>
 </div>
 
+@* docs/36 AI-6: the onboarding assistant (only when switched on in AI settings; folded until opened) *@
+<partial name="_OnboardingAssistant" model="new Grsms.Web.Helpers.AssistantBox(null, Model.Id)" />
 <div class="row g-3" data-section-tabs data-section-default="@(OnboardingWorkflow.BeforeActivation(Model.Status) ? "Documents" : "Checklist")">
     <div class="col-xl-7">
         @* ---- Phase 19: the personal record declaration (HR only) *@

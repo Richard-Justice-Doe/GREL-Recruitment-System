@@ -4,6 +4,44 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 14 November 2026: AI-6, onboarding assistant (docs/36 phase 5)
+
+A chat box that answers questions about one onboarding. It is off until the Super Admin switches on *Onboarding assistant* in *AI settings & usage*. It is marked *Personal data* because it sends the person's onboarding status.
+
+* **Where:**
+  * the new employee's application page (open);
+  * *My new-hire documents* (folded to one line, because on a phone it comes before the checklist);
+  * the RO's onboarding page (folded).
+* **Facts from GRSMS, wording from AI.** Each question sends the onboarding's own facts:
+  * stage, letter and personal record;
+  * every document, with its status and why it was rejected;
+  * due date, first day and the things to bring;
+  * open tasks, and the next step from the process guide.
+* **Who sees what:** the facts are built by the same services and visibility rules as the pages. The new employee gets only their own onboarding, and staff only one they may open. The HOD gets no personal documents.
+* **What is never sent:** pay, and the new employee's own name.
+* **How it answers:**
+  * only from the facts;
+  * it says when it doesn't know, and who to ask;
+  * policy questions go to HR until the knowledge base (AI-7) is ready.
+* **Buttons** (*Upload my Ghana Card*, *Read and sign my appointment letter*, *Review the Passport*): the model picks them by key from a list GRSMS builds, so the URLs never come from the model. Unknown keys are dropped, and the page accepts only same-site links.
+* **Privacy:** no cache, and the chat is not stored. The page sends the last 6 turns, the question is limited to 500 characters, and every call is logged and budgeted like the other AI features.
+* **Files:**
+  * `Application/Ai/OnboardingAssistant.cs`;
+  * `AiController.Onboarding`;
+  * `Views/Shared/_OnboardingAssistant.cshtml` and `Web/Helpers/AssistantBox.cs`;
+  * `wwwroot/js/onboarding-assistant.js`, and chat styles in `site.css`.
+  No database change.
+* **Tests:**
+  * switched off means nothing is sent;
+  * own onboarding only;
+  * no pay and no own name in what is sent;
+  * buttons only from GRSMS keys;
+  * staff and HOD visibility;
+  * the endpoint, and the box appearing only when switched on.
+  281 tests pass.
+
+---
+
 ## 14 November 2026: change request C6, usability pass and mobile check (docs/37 CR5.4)
 
 The last step of docs/37. Look and flow only: no database change, and no change to who can do what.

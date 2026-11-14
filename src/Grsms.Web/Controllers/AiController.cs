@@ -13,7 +13,7 @@ namespace Grsms.Web.Controllers;
 /// endpoint needs the same permission as the form it serves.
 /// </summary>
 [Authorize]
-public class AiController(JobDescriptionDrafter jobDescriptions, AdvertWriter adverts) : Controller
+public class AiController(JobDescriptionDrafter jobDescriptions, AdvertWriter adverts, OnboardingAssistantService assistant) : Controller
 {
     /// <summary>The panel's answer. <see cref="Fields"/>: form field name → value.</summary>
     public sealed record PanelResponse(bool Ok, string? Problem, bool FromCache, string? Confidence, string? ConfidenceNote,
@@ -86,6 +86,35 @@ public class AiController(JobDescriptionDrafter jobDescriptions, AdvertWriter ad
         return Json(new PanelResponse(true, null, r.FromCache, string.IsNullOrWhiteSpace(benefits) ? "Medium" : "High",
             string.IsNullOrWhiteSpace(benefits) ? "No benefits were given, so none are mentioned: add them for a more attractive advert." : "Based on the vacancy and the benefits you gave.",
             sections, fields));
+    }
+
+    /// <summary>The onboarding assistant's answer (docs/36 AI-6): plain text and up to three buttons whose URLs come from GRSMS.</summary>
+    public sealed record ChatResponse(bool Ok, string? Problem, string? Answer, IReadOnlyList<AssistantAction> Actions);
+
+    private sealed record Turn(bool U, string? T);
+
+    /// <summary>
+    /// AI-6: the onboarding assistant. The new employee asks about their own onboarding (applicationId); staff ask about one they may
+    /// open (onboardingId). The service applies the same visibility rules as the pages. history: the chat so far, kept by the page
+    /// (JSON [{"u":true,"t":"..."}], last 6 turns), never stored.
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> Onboarding(int? applicationId, int? onboardingId, string? question, string? history, CancellationToken ct)
+    {
+        var turns = new List<AssistantTurn>();
+        if (!string.IsNullOrEmpty(history) && history.Length <= 20_000)
+        {
+            try
+            {
+                turns = (System.Text.Json.JsonSerializer.Deserialize<List<Turn>>(history, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [])
+                    .Where(t => !string.IsNullOrWhiteSpace(t.T)).Select(t => new AssistantTurn(t.U, t.T!)).ToList();
+            }
+            catch (System.Text.Json.JsonException) { /* a broken history is ignored, the question still gets an answer */ }
+        }
+        var r = applicationId is { } app ? await assistant.AskMineAsync(app, question, turns, ct)
+            : onboardingId is { } id ? await assistant.AskStaffAsync(id, question, turns, ct)
+            : AiResult<AssistantReply>.Fail("Onboarding not found.");
+        return Json(r.Succeeded ? new ChatResponse(true, null, r.Value!.Answer, r.Value.Actions) : new ChatResponse(false, r.Problem, null, []));
     }
 
     private static string? Clip(string? s, int max) => string.IsNullOrWhiteSpace(s) ? null : s.Trim().Length > max ? s.Trim()[..max] : s.Trim();

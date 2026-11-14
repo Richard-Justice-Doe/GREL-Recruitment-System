@@ -601,4 +601,63 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         var panelClient = await SignedInAsync("m.panel@grel.test");
         Assert.Contains("/Account/AccessDenied", (await panelClient.GetAsync("/Administration")).Headers.Location!.ToString()); // nothing to administer
     }
+
+    /// <summary>docs/36 AI-6: the assistant shows only when switched on, answers the new employee and staff, and refuses other people's onboarding.</summary>
+    [Fact]
+    public async Task Onboarding_assistant_shows_when_switched_on_and_answers_through_the_ai_endpoint()
+    {
+        var start = Today.AddDays(14);
+        var c = await AcceptedOfferAsync("as", "Kwesi Ofori", start);
+        var (details, id) = await StartAsync(c, start);
+        var employee = await SignedInAsync(c.Email("cand"));
+        var recruiter = await SignedInAsync(c.Email("ro"));
+        var myPage = $"/MyApplications/Details/{c.ApplicationId}";
+        var myDocuments = $"/MyApplications/Documents/{c.ApplicationId}";
+        Assert.DoesNotContain("data-assistant", await employee.GetStringAsync(myPage));
+        Assert.DoesNotContain("data-assistant", await recruiter.GetStringAsync(details));
+
+        async Task SwitchAsync(bool on)
+        {
+            using var scope = factory.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<Grsms.Application.Settings.ISettingsStore>().SaveAsync(new Dictionary<string, string?>
+            {
+                [Grsms.Domain.Settings.SettingCatalogue.AiEnabled] = on ? "true" : "false",
+                [Grsms.Domain.Settings.SettingCatalogue.AiApiKey] = on ? "k" : "",
+                [Grsms.Domain.Settings.SettingCatalogue.AiFeatureKey(Grsms.Domain.Ai.AiFeature.OnboardingAssistant)] = on ? "true" : "false"
+            });
+        }
+        await SwitchAsync(true);
+        try
+        {
+            Assert.Contains("Questions about your onboarding? Ask the assistant", await employee.GetStringAsync(myPage));
+            Assert.Contains("data-assistant", await employee.GetStringAsync(myDocuments));
+            Assert.Contains("Ask the onboarding assistant", await recruiter.GetStringAsync(details));
+
+            factory.Ai.Reply = _ => new Grsms.Application.Ai.AiReply("""{"answer":"Upload your Ghana Card first.","actions":["documents","/Admin"]}""", 10, 10, "m");
+            var mine = await employee.PostFormAsync(myDocuments, "/Ai/Onboarding", new()
+            {
+                ["applicationId"] = c.ApplicationId.ToString(), ["question"] = "What is missing?", ["history"] = """[{"u":true,"t":"Hello"}]"""
+            });
+            var json = await mine.Content.ReadAsStringAsync();
+            Assert.Contains("\"ok\":true", json);
+            Assert.Contains("Upload your Ghana Card first.", json);
+            Assert.Contains($"\"url\":\"/MyApplications/Documents/{c.ApplicationId}\"", json);
+            Assert.DoesNotContain("/Admin", json);
+
+            factory.Ai.Reply = _ => new Grsms.Application.Ai.AiReply("""{"answer":"The letter is not issued yet.","actions":["letter"]}""", 10, 10, "m");
+            var staff = await (await recruiter.PostFormAsync(details, "/Ai/Onboarding", new() { ["onboardingId"] = id.ToString(), ["question"] = "Is the letter out?" }))
+                .Content.ReadAsStringAsync();
+            Assert.Contains($"\"url\":\"/Onboarding/Letter/{id}\"", staff);
+
+            // Not their own application / not an onboarding they may open.
+            Assert.Contains("Onboarding not found.", await (await recruiter.PostFormAsync(details, "/Ai/Onboarding",
+                new() { ["applicationId"] = c.ApplicationId.ToString(), ["question"] = "What is missing?" })).Content.ReadAsStringAsync());
+            Assert.Contains("Onboarding not found.", await (await employee.PostFormAsync(myDocuments, "/Ai/Onboarding",
+                new() { ["onboardingId"] = id.ToString(), ["question"] = "What is missing?" })).Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            await SwitchAsync(false);
+        }
+    }
 }

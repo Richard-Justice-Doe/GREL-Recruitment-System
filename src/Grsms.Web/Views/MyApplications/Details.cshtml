@@ -153,6 +153,8 @@
                 </div>
             </div>
         }
+        @* docs/36 AI-6: the onboarding assistant (only when switched on in AI settings) *@
+        @if (ViewBag.Appointment is MyAppointmentDto) { <partial name="_OnboardingAssistant" model="new Grsms.Web.Helpers.AssistantBox(Model.Id, null)" /> }
         @* ---- Phase 8: the offer *@
         @if (ViewBag.Offer is MyOfferDto offer)
         {

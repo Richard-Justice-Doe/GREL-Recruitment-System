@@ -75,6 +75,17 @@ GRSMS records the time, the name typed and the network address. HR (the person w
 
 **A signed letter is final:** it can no longer be revised, and the start date it states can no longer be changed. The time, place and other first-day details can still change. If they change after the letter is issued, the new employee is emailed.
 
+**Onboarding assistant (AI, 14 November 2026).** When the Super Admin switches on *Onboarding assistant* in *AI settings & usage*, a chat box appears:
+* on the new employee's application page (open) and *My new-hire documents* page (folded to one line);
+* on the staff onboarding page (folded).
+
+Ask in plain words, for example *What do I still need to do?*, *Why was my Ghana Card rejected?* or *What is blocking activation?*.
+* The answer is built from this onboarding's own details in GRSMS: documents, letter, first day, tasks and next step. The AI only words it.
+* Buttons under the answer go straight to the right place, such as *Upload my Ghana Card* or *Review the Passport*.
+* It says when it doesn't know, and who to ask.
+* Questions about GREL's policies go to HR for now; the knowledge base comes later.
+* The chat is not saved. The page itself is always right.
+
 ## 5. Completing or cancelling (Recruitment Officer or HR Manager)
 
 **Since Phase 18** there is no single *Complete onboarding* button: HR closes the induction once every item is done or not needed and the start date has come, then **activates** the employee with their staff number. See [24 Employee onboarding](24-onboarding-module.md#induction-and-activation).

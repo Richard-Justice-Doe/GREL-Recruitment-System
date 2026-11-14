@@ -939,6 +939,21 @@ dl.details-grid dd { margin: 0; }
 .ai-panel.is-busy { opacity: 0.85; }
 .ai-filled { box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--grsms-brand) 30%, transparent); }
 
+/* docs/36 AI-6: the onboarding assistant chat (js/onboarding-assistant.js). */
+.assistant > summary { list-style: none; cursor: pointer; }
+.assistant > summary::-webkit-details-marker { display: none; }
+.assistant > summary::after { content: "\f078"; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size: 0.75rem; margin-left: auto; color: var(--bs-secondary-color); transition: transform 0.15s; }
+.assistant[open] > summary::after { transform: rotate(180deg); }
+.assistant-log { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.6rem; max-height: 26rem; overflow-y: auto; }
+.assistant-log:empty { display: none; }
+.assistant-msg { max-width: 88%; padding: 0.55rem 0.8rem; border-radius: 0.9rem; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.92rem; }
+.assistant-msg.from-user { align-self: flex-end; background: var(--grsms-brand); color: #fff; border-bottom-right-radius: 0.25rem; }
+[data-bs-theme="dark"] .assistant-msg.from-user { color: #0f1412; }
+.assistant-msg.from-ai { align-self: flex-start; background: color-mix(in srgb, var(--grsms-brand) 7%, var(--bs-body-bg)); border: 1px solid var(--bs-border-color); border-bottom-left-radius: 0.25rem; }
+.assistant-msg.is-waiting { color: var(--bs-secondary-color); font-style: italic; }
+.assistant-msg.is-problem { border-color: color-mix(in srgb, var(--bs-danger) 45%, transparent); color: var(--bs-danger-text-emphasis); }
+.assistant-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; white-space: normal; }
+
 /* docs/37 CR5: the process guide (Views/Shared/_ProcessGuide.cshtml). Too many steps for the width: the timeline scrolls inside the card (never the page); on phones it stacks. */
 .process-timeline { position: relative; list-style: none; margin: 0; padding: 0 0 0.35rem; display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
 .pt-step { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1 1 0; min-width: 6.5rem; padding: 0 0.25rem; }

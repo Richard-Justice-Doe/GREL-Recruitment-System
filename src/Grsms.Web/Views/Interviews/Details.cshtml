@@ -31,12 +31,12 @@
 <div class="page-header">
     <div>
         <h1>@Model.Type.DisplayName(): @Model.ApplicantName
-            <span class="badge @statusCss align-middle fs-6">@Model.Status.DisplayName()</span>
+            <span class="badge @statusCss">@Model.Status.DisplayName()</span>
         </h1>
         <p>Round @Model.Round · <a asp-controller="Applications" asp-action="Details" asp-route-id="@Model.ApplicationId">@Model.ApplicationNumber</a>
             · @Model.VacancyNumber @Model.JobTitle · @Model.DepartmentName</p>
     </div>
-    <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left"></i>Interviews</a>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All interviews</a>
 </div>
 
 @* ---------------------------------------------------------------- Your next step *@
@@ -48,7 +48,7 @@
             <h2>Correct your scorecard and submit it again</h2>
             <p>@(mine.ReturnedByName ?? validator) sent it back: <em>@mine.ReturnReason</em></p>
         </div>
-        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-primary">Correct my scorecard</a></div>
+        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-outline-primary">Correct my scorecard <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a></div>
     </section>
 }
 else if (Model.CanScore && mine is null)
@@ -59,7 +59,7 @@ else if (Model.CanScore && mine is null)
             <h2>Submit your scorecard</h2>
             <p>Rate each criterion and give your recommendation. You will see the other panel members' scorecards once yours is in.</p>
         </div>
-        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-primary">Open my scorecard</a></div>
+        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-outline-primary">Open my scorecard <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a></div>
     </section>
 }
 else if (Model.IsValidator && Model.CanValidate)
@@ -71,7 +71,7 @@ else if (Model.IsValidator && Model.CanValidate)
             <p>All @validCards.Count scorecards are in. Check them below, then validate, or return one to its panel member to correct.
                The Head of Department and the interview results see the scores only after you validate them.</p>
         </div>
-        <div class="next-step-actions"><a href="#validate" class="btn btn-primary">Validate the scores</a></div>
+        <div class="next-step-actions"><a href="#validate" class="btn btn-outline-primary">Validate the scores <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a></div>
     </section>
 }
 else if (open && Model.MissingScorers.Count > 0)

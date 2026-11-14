@@ -13,15 +13,15 @@
 
 <div class="page-header">
     <div>
-        <h1>@Model.Name</h1>
-        <p>Staff number <strong>@Model.EmployeeNumber</strong> · @Model.PositionTitle, @Model.DepartmentName · <partial name="_EmployeeStatusBadge" model="Model.Status" /></p>
+        <h1>@Model.Name <partial name="_EmployeeStatusBadge" model="Model.Status" /></h1>
+        <p>Staff number <strong>@Model.EmployeeNumber</strong> · @Model.PositionTitle, @Model.DepartmentName</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All employees</a>
         @if (Model.CanManage)
         {
             <a asp-action="UpdateJob" asp-route-id="@Model.Id" class="btn btn-primary"><i class="fa-solid fa-pen me-1"></i>Update job details</a>
         }
-        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All employees</a>
     </div>
 </div>
 

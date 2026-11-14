@@ -9,7 +9,7 @@
         <p>The documents a new employee uploads in My Onboarding. A change applies at once to every onboarding not yet activated:
             a new or re-activated document is added as "Not submitted"; a retired one stops counting, but files already uploaded are kept.</p>
     </div>
-    <a href="#add" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add a document</a>
+    <a href="#add" class="btn btn-outline-primary"><i class="fa-solid fa-plus me-1"></i>Add a document</a>
 </div>
 
 @foreach (var group in Model.Where(t => !t.IsLegacy).GroupBy(t => t.Group))

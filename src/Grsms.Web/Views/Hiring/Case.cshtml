@@ -33,9 +33,9 @@
             · @Model.VacancyNumber @Model.JobTitle · @Model.DivisionName → @Model.DepartmentName
             · positions: @Model.PositionsTaken of @Model.Positions offered or filled</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All hiring</a>
         <a asp-controller="Interviews" asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-outline-secondary">Interview results</a>
-        <a asp-action="Index" class="btn btn-outline-secondary">All hiring</a>
     </div>
 </div>
 
@@ -72,7 +72,7 @@ else if (Model.CanSubmitDraft)
             <p>The hiring process has started for @Model.ApplicantName. Check the start date and justification below
                (add the references and fit), then click <strong>Approve hire</strong>. The background checks are open further down.</p>
         </div>
-        <div class="next-step-actions"><a href="#recommend" class="btn btn-primary">Review the draft</a></div>
+        <div class="next-step-actions"><a href="#recommend" class="btn btn-outline-primary">Review the draft <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a></div>
     </section>
 }
 else if (Model.CanOffer)
@@ -89,7 +89,7 @@ else if (Model.CanOffer)
             {
                 <a asp-action="OfferLetter" asp-route-id="@Model.ApplicationId" class="btn btn-outline-primary"><i class="fa-solid fa-eye me-1"></i>Preview letter</a>
             }
-            <a href="#send-offer" class="btn btn-primary">Check and send</a>
+            <a href="#send-offer" class="btn btn-outline-primary">Check and send <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a>
         </div>
     </section>
 }
@@ -227,7 +227,7 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                             </div>
                             <label for="justification" class="form-label small">Why this candidate (interview results, references, fit)</label>
                             <textarea id="justification" name="justification" class="form-control mb-2" rows="6" maxlength="4000" required>@justificationStart</textarea>
-                            <button type="submit" class="btn btn-success"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
+                            <button type="submit" class="btn btn-outline-success"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
                         </form>
                     }
                     else
@@ -328,7 +328,7 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                     }
                     else if (o.Status == OfferStatus.Accepted && (User.IsInRole(Roles.RecruitmentOfficer) || User.IsInRole(Roles.HrManager)))
                     {
-                        <a asp-controller="Onboarding" asp-action="Start" asp-route-id="@Model.ApplicationId" class="btn btn-sm btn-primary mb-2"><i class="fa-solid fa-play me-1"></i>Start onboarding</a>
+                        <a asp-controller="Onboarding" asp-action="Start" asp-route-id="@Model.ApplicationId" class="btn btn-sm btn-outline-primary mb-2"><i class="fa-solid fa-play me-1"></i>Start onboarding</a>
                     }
                     @if (Model.CanWithdrawOffer)
                     {

@@ -66,12 +66,12 @@ public sealed class GrsmsWebFactory : WebApplicationFactory<Program>
     /// <summary>The PDF renderer the site uses in tests (records the last letter page).</summary>
     public FakePdfRenderer Pdf { get; } = new();
 
-    /// <summary>An HTTPS client that keeps cookies but does NOT follow redirects, so tests can check where they point.</summary>
-    public HttpClient NewClient() => CreateClient(new WebApplicationFactoryClientOptions
-    {
-        BaseAddress = new Uri("https://localhost"),
-        AllowAutoRedirect = false
-    });
+    /// <summary>
+    /// An HTTPS client that keeps cookies but does NOT follow redirects, so tests can check where they point. It also checks
+    /// every record page it opens for "one primary button per page" (docs/37 C6, <see cref="PrimaryActionCheck"/>).
+    /// </summary>
+    public HttpClient NewClient() =>
+        CreateDefaultClient(new Uri("https://localhost"), new Microsoft.AspNetCore.Mvc.Testing.Handlers.CookieContainerHandler(), new PrimaryActionCheck());
 
     protected override void Dispose(bool disposing)
     {

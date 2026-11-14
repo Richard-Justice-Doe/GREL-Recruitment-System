@@ -145,7 +145,7 @@
                     <div class="border-top mt-3 pt-3">
                         <p class="small mb-2">Onboarding: <strong>@appt.Status.DisplayName()</strong></p>
                         <a asp-action="Documents" asp-route-id="@Model.Id"
-                           class="btn btn-sm @(OnboardingWorkflow.EmployeeMayEditDocuments(appt.Status) ? "btn-primary" : "btn-outline-secondary")">
+                           class="btn btn-sm @(OnboardingWorkflow.EmployeeMayEditDocuments(appt.Status) ? (appt.LetterReady && appt.CanSign ? "btn-outline-primary" : "btn-primary") : "btn-outline-secondary")">
                             <i class="fa-solid fa-folder-open me-1"></i>@(OnboardingWorkflow.EmployeeMayEditDocuments(appt.Status) ? "Upload my new-hire documents" : "View my new-hire documents")
                         </a>
                         <a asp-action="PersonalRecord" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary ms-1"><i class="fa-regular fa-id-card me-1"></i>My personal record</a>

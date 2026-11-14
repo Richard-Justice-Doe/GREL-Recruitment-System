@@ -4,6 +4,37 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 14 November 2026: change request C6, usability pass and mobile check (docs/37 CR5.4)
+
+The last step of docs/37. Look and flow only: no database change, and no change to who can do what.
+
+* **One record header** on the request, vacancy, advert, application, interview, hiring case, onboarding, probation, employee and personnel file pages:
+  * the title with its status badge, the same size on every page (the employee's badge moved into the title);
+  * the reference and context below;
+  * the actions on the right, with *All …* (back to the list) first.
+  * On a phone the back button hides, because the breadcrumb above already leads back (and returns to the list as you left it). The other header buttons get smaller. The candidate portal keeps its back button, since it has no breadcrumb.
+* **One primary button per page.** Buttons that only jump to a form further down are now outline buttons with a ↓ arrow, so the form's own button is the one primary action:
+  * *Go*, *Review the draft*, *Check and send*;
+  * *Open*, *Correct* and *Validate the scores*;
+  * *Add a document*.
+  On phones the floating *Go* button stays solid.
+* **Other secondary actions are outline buttons too:**
+  * the vacancy's *Shortlisting*;
+  * the request's attachment *Upload*;
+  * the direct *Approve hire* next to *Proceed with this candidate*;
+  * the second *Start onboarding* in the offer card;
+  * the department's *Edit*;
+  * the new employee's *Upload my new-hire documents*, while the appointment letter waits to be signed.
+* **Checked automatically:** every record page that a web test opens, in every state the tests reach, may show at most one filled button. The per-document buttons inside the folded checklist rows and buttons in pop-up dialogs don't count. See `tests/Grsms.Tests/Infrastructure/PrimaryActionCheck.cs`, which runs through `GrsmsWebFactory.NewClient`, plus a unit test of the check.
+* **Mobile check of every record page at 390 px:** no page scrolls sideways (wide tables and tab rows scroll inside their own box). Fixed:
+  * **"Your next step"** no longer leaves an empty band under its button on phones. The space is kept only when the floating *Go* button is there.
+  * **The process guide** keeps its one-row timeline on phones instead of 7–12 stacked rows. The steps are sized so a whole number fits, starting at the step before the current one, so no label is cut. The status boxes sit in two columns. The guide is about half as tall.
+  * **Tab rows** (Documents / Checklist / … / Everything) fade at the right edge as a hint that they scroll, and keep the chosen tab in view.
+* Breadcrumbs on every staff page already existed (docs/32). The header adds no database queries.
+* 278 tests pass.
+
+---
+
 ## 14 November 2026: change request C5, remove everything about money (docs/37 CR1)
 
 Per decision D1: "remove anything about money". Budget codes on requests are removed too. The employee's bank account is kept, and so are the advert benefits text and the budget approval document.

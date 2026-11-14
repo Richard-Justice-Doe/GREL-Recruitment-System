@@ -8,7 +8,8 @@ public enum AiProvider
 {
     [Display(Name = "Anthropic (Claude)")] Anthropic,
     [Display(Name = "OpenAI")] OpenAI,
-    [Display(Name = "Azure OpenAI")] AzureOpenAI
+    [Display(Name = "Azure OpenAI")] AzureOpenAI,
+    [Display(Name = "Google Gemini")] Gemini // 14 Nov 2026
 }
 
 /// <summary>

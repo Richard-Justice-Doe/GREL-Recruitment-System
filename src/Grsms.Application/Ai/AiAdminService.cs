@@ -47,8 +47,13 @@ public class AiAdminService(SystemSettingsService settings, ISettingsStore store
         if (provider == nameof(AiProvider.AzureOpenAI) &&
             !Uri.TryCreate(values.GetValueOrDefault(SettingCatalogue.AiAzureEndpoint)?.Trim(), UriKind.Absolute, out var uri) | uri?.Scheme != "https")
             return Result.Failure("Azure OpenAI needs its endpoint, starting with https://.");
-        if (provider is nameof(AiProvider.OpenAI) or nameof(AiProvider.AzureOpenAI) && string.IsNullOrWhiteSpace(values.GetValueOrDefault(SettingCatalogue.AiModel)))
-            return Result.Failure(provider == nameof(AiProvider.OpenAI) ? "Enter the OpenAI model name." : "Enter the Azure OpenAI deployment name.");
+        if (provider is nameof(AiProvider.OpenAI) or nameof(AiProvider.AzureOpenAI) or nameof(AiProvider.Gemini) && string.IsNullOrWhiteSpace(values.GetValueOrDefault(SettingCatalogue.AiModel)))
+            return Result.Failure(provider switch
+            {
+                nameof(AiProvider.OpenAI) => "Enter the OpenAI model name.",
+                nameof(AiProvider.Gemini) => "Enter the Gemini model name (from Google AI Studio).",
+                _ => "Enter the Azure OpenAI deployment name."
+            });
         return await settings.SaveGroupAsync(SettingCatalogue.AiService, values, ct);
     }
 

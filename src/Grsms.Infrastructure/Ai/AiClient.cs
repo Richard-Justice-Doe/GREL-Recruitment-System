@@ -16,6 +16,8 @@ namespace Grsms.Infrastructure.Ai;
 ///   * Anthropic (Claude): the official Anthropic SDK already used by the CV reader; structured output via output_config.format.
 ///   * OpenAI and Azure OpenAI: the Chat Completions REST API (same body; Azure uses the deployment URL and an "api-key" header);
 ///     structured output via response_format json_schema (strict).
+///   * Google Gemini (14 November 2026): the Gemini API generateContent REST call, key in the x-goog-api-key header (never in the
+///     URL, so it can't end up in logs); structured output via generationConfig.responseJsonSchema.
 /// Every problem becomes an <see cref="AiProviderException"/> with a message safe to log (never the key).
 /// </summary>
 public sealed class AiClient(HttpClient? http = null) : IAiClient
@@ -23,13 +25,24 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
     private static readonly HttpClient Shared = new() { Timeout = Timeout.InfiniteTimeSpan }; // per-call time-out below
     private readonly HttpClient _http = http ?? Shared; // tests pass their own
 
+    public const string GeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/";
+
+    /// <summary>
+    /// Gemini's "thinking" models count their reasoning against the output limit, so a short answer could be cut off before it
+    /// starts. This much is added on top of the feature's own limit (only tokens actually used are billed).
+    /// </summary>
+    public const int GeminiThinkingAllowance = 8192;
+
     public async Task<AiReply> SendAsync(AiConnection connection, AiCall call, CancellationToken ct = default)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(connection.Timeout);
-        return connection.Provider == AiProvider.Anthropic
-            ? await AnthropicAsync(connection, call, timeout.Token)
-            : await OpenAiAsync(connection, call, timeout.Token);
+        return connection.Provider switch
+        {
+            AiProvider.Anthropic => await AnthropicAsync(connection, call, timeout.Token),
+            AiProvider.Gemini => await GeminiAsync(connection, call, timeout.Token),
+            _ => await OpenAiAsync(connection, call, timeout.Token)
+        };
     }
 
     // ===================================================================== Anthropic
@@ -95,6 +108,68 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
         if (azure) request.Headers.Add("api-key", c.ApiKey);
         else request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", c.ApiKey);
 
+        var json = await PostAsync(request, ct);
+        var choice = (json?["choices"] as JsonArray)?.FirstOrDefault();
+        var finish = choice?["finish_reason"]?.GetValue<string>();
+        if (choice?["message"]?["refusal"]?.GetValue<string>() is { Length: > 0 } refusal) throw new AiProviderException($"The model declined: {refusal}");
+        if (finish == "length") throw new AiProviderException("The answer was too long and was cut off.");
+        if (finish == "content_filter") throw new AiProviderException("The provider's content filter stopped the answer.");
+        if (choice is null) throw new AiProviderException("The provider gave no answer.");
+        var content = choice?["message"]?["content"]?.GetValue<string>() ?? "";
+        return new AiReply(content,
+            json?["usage"]?["prompt_tokens"]?.GetValue<int>() ?? 0,
+            json?["usage"]?["completion_tokens"]?.GetValue<int>() ?? 0,
+            json?["model"]?.GetValue<string>() ?? c.Model);
+    }
+
+    // ===================================================================== Google Gemini
+
+    private async Task<AiReply> GeminiAsync(AiConnection c, AiCall call, CancellationToken ct)
+    {
+        var model = c.Model.StartsWith("models/", StringComparison.OrdinalIgnoreCase) ? c.Model["models/".Length..] : c.Model;
+        var generation = new JsonObject { ["maxOutputTokens"] = call.MaxOutputTokens + GeminiThinkingAllowance };
+        if (call.Schema is not null)
+        {
+            generation["responseMimeType"] = "application/json";
+            generation["responseJsonSchema"] = JsonNode.Parse(call.Schema.ToJsonString());
+        }
+        var body = new JsonObject
+        {
+            ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = call.Instructions }) },
+            ["contents"] = new JsonArray(new JsonObject { ["role"] = "user", ["parts"] = new JsonArray(new JsonObject { ["text"] = call.Input }) }),
+            ["generationConfig"] = generation
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{GeminiBaseUrl}{Uri.EscapeDataString(model)}:generateContent")
+        {
+            Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("x-goog-api-key", c.ApiKey);
+
+        var json = await PostAsync(request, ct);
+        if (json?["promptFeedback"]?["blockReason"]?.GetValue<string>() is { Length: > 0 } blocked)
+            throw new AiProviderException($"The provider's safety filter stopped the request ({blocked}).");
+        var candidate = (json?["candidates"] as JsonArray)?.FirstOrDefault(); // an empty list must not throw
+        var finish = candidate?["finishReason"]?.GetValue<string>();
+        if (finish == "MAX_TOKENS") throw new AiProviderException("The answer was too long and was cut off.");
+        if (finish is "SAFETY" or "PROHIBITED_CONTENT" or "BLOCKLIST" or "SPII" or "RECITATION")
+            throw new AiProviderException($"The provider's content filter stopped the answer ({finish}).");
+        if (candidate is null) throw new AiProviderException("The provider gave no answer.");
+        // Thought summaries (if any) are marked "thought": true and are not part of the answer.
+        var text = string.Concat((candidate["content"]?["parts"] as JsonArray ?? [])
+            .Where(p => p?["thought"]?.GetValue<bool>() != true)
+            .Select(p => p?["text"]?.GetValue<string>() ?? ""));
+        var usage = json?["usageMetadata"];
+        return new AiReply(text,
+            usage?["promptTokenCount"]?.GetValue<int>() ?? 0,
+            (usage?["candidatesTokenCount"]?.GetValue<int>() ?? 0) + (usage?["thoughtsTokenCount"]?.GetValue<int>() ?? 0), // thinking is billed as output
+            json?["modelVersion"]?.GetValue<string>() ?? model);
+    }
+
+    // ===================================================================== Shared HTTP
+
+    /// <summary>Sends the request and returns the JSON answer, or throws a safe <see cref="AiProviderException"/>.</summary>
+    private async Task<JsonNode?> PostAsync(HttpRequestMessage request, CancellationToken ct)
+    {
         HttpResponseMessage response;
         try
         {
@@ -114,26 +189,17 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
                 throw response.StatusCode switch
                 {
                     HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new AiProviderException("The API key was refused.", keyRefused: true),
+                    // Gemini answers a wrong key with 400 "API key not valid".
+                    HttpStatusCode.BadRequest when message?.Contains("API key", StringComparison.OrdinalIgnoreCase) == true
+                        => new AiProviderException("The API key was refused.", keyRefused: true),
                     HttpStatusCode.TooManyRequests => new AiProviderException("The provider's rate limit or quota was reached."),
                     >= HttpStatusCode.InternalServerError => new AiProviderException("The provider had a service error."),
                     _ => new AiProviderException($"The request was refused ({(int)response.StatusCode}){(message is null ? "" : $": {message}")}.")
                 };
             }
 
-            JsonNode? json;
-            try { json = JsonNode.Parse(text); }
+            try { return JsonNode.Parse(text); }
             catch (JsonException ex) { throw new AiProviderException("The provider's answer could not be read.", inner: ex); }
-
-            var choice = json?["choices"]?[0];
-            var finish = choice?["finish_reason"]?.GetValue<string>();
-            if (choice?["message"]?["refusal"]?.GetValue<string>() is { Length: > 0 } refusal) throw new AiProviderException($"The model declined: {refusal}");
-            if (finish == "length") throw new AiProviderException("The answer was too long and was cut off.");
-            if (finish == "content_filter") throw new AiProviderException("The provider's content filter stopped the answer.");
-            var content = choice?["message"]?["content"]?.GetValue<string>() ?? "";
-            return new AiReply(content,
-                json?["usage"]?["prompt_tokens"]?.GetValue<int>() ?? 0,
-                json?["usage"]?["completion_tokens"]?.GetValue<int>() ?? 0,
-                json?["model"]?.GetValue<string>() ?? c.Model);
         }
     }
 

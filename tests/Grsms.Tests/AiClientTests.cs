@@ -80,4 +80,55 @@ public class AiClientTests
         Assert.Equal(keyRefused, ex.KeyRefused);
         Assert.DoesNotContain("sk-secret", ex.Message);
     }
+
+    // ===================================================================== Google Gemini (14 November 2026)
+
+    private static AiConnection Gemini(string model = "gemini-test") =>
+        new(AiProvider.Gemini, "AIza-secret", model, null, "2024-10-21", TimeSpan.FromSeconds(10));
+
+    private const string GeminiOk = """
+        {"candidates":[{"finishReason":"STOP","content":{"role":"model","parts":[{"text":"Planning…","thought":true},{"text":"{\"ok\":true,"},{"text":"\"reply\":\"Hi\"}"}]}}],
+         "usageMetadata":{"promptTokenCount":40,"candidatesTokenCount":9,"thoughtsTokenCount":30},"modelVersion":"gemini-test-001"}
+        """;
+
+    [Fact]
+    public async Task Gemini_request_uses_the_key_header_system_instruction_and_json_schema()
+    {
+        var handler = new Handler(HttpStatusCode.OK, GeminiOk);
+        var reply = await new AiClient(new HttpClient(handler)).SendAsync(Gemini("models/gemini-test"), new AiCall("Be brief.", "Test.", Schema, 200));
+
+        // The thought part is left out; thinking tokens count as output (they are billed).
+        Assert.Equal(("{\"ok\":true,\"reply\":\"Hi\"}", 40, 39, "gemini-test-001"), (reply.Text, reply.InputTokens, reply.OutputTokens, reply.Model));
+        Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-test:generateContent", handler.Request!.RequestUri!.ToString());
+        Assert.Equal("AIza-secret", handler.Request.Headers.GetValues("x-goog-api-key").Single());
+        Assert.DoesNotContain("AIza", handler.Request.RequestUri.ToString()); // never in the URL (logs)
+        var body = JsonNode.Parse(handler.Body!)!;
+        Assert.Equal("Be brief.", body["systemInstruction"]!["parts"]![0]!["text"]!.GetValue<string>());
+        Assert.Equal("Test.", body["contents"]![0]!["parts"]![0]!["text"]!.GetValue<string>());
+        Assert.Equal(200 + AiClient.GeminiThinkingAllowance, body["generationConfig"]!["maxOutputTokens"]!.GetValue<int>());
+        Assert.Equal("application/json", body["generationConfig"]!["responseMimeType"]!.GetValue<string>());
+        Assert.Equal("object", body["generationConfig"]!["responseJsonSchema"]!["type"]!.GetValue<string>());
+
+        var plain = new Handler(HttpStatusCode.OK, GeminiOk);
+        await new AiClient(new HttpClient(plain)).SendAsync(Gemini(), new AiCall("x", "y", null));
+        Assert.Null(JsonNode.Parse(plain.Body!)!["generationConfig"]!["responseMimeType"]); // plain text asked
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest, "{\"error\":{\"code\":400,\"message\":\"API key not valid. Please pass a valid API key.\",\"status\":\"INVALID_ARGUMENT\"}}", "API key was refused", true)]
+    [InlineData(HttpStatusCode.Forbidden, "{\"error\":{\"message\":\"Permission denied\"}}", "API key was refused", true)]
+    [InlineData(HttpStatusCode.TooManyRequests, "{\"error\":{\"message\":\"Quota exceeded\"}}", "rate limit", false)]
+    [InlineData(HttpStatusCode.NotFound, "{\"error\":{\"message\":\"models/gemini-x is not found\"}}", "not found", false)]
+    [InlineData(HttpStatusCode.OK, "{\"candidates\":[{\"finishReason\":\"MAX_TOKENS\",\"content\":{\"parts\":[{\"text\":\"{\"}]}}]}", "too long", false)]
+    [InlineData(HttpStatusCode.OK, "{\"candidates\":[{\"finishReason\":\"SAFETY\"}]}", "content filter", false)]
+    [InlineData(HttpStatusCode.OK, "{\"promptFeedback\":{\"blockReason\":\"SAFETY\"}}", "safety filter", false)]
+    [InlineData(HttpStatusCode.OK, "{\"candidates\":[]}", "no answer", false)]
+    public async Task Gemini_problems_are_reported_without_the_key(HttpStatusCode status, string body, string expected, bool keyRefused)
+    {
+        var ex = await Assert.ThrowsAsync<AiProviderException>(() =>
+            new AiClient(new HttpClient(new Handler(status, body))).SendAsync(Gemini(), new AiCall("x", "y", null)));
+        Assert.Contains(expected, ex.Message);
+        Assert.Equal(keyRefused, ex.KeyRefused);
+        Assert.DoesNotContain("AIza-secret", ex.Message);
+    }
 }

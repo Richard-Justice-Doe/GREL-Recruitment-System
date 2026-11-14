@@ -4,6 +4,26 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 14 November 2026: Google Gemini added to the AI providers
+
+Requested by the user. *AI settings & usage → Provider* now offers **Google Gemini** next to Anthropic (Claude), OpenAI and Azure OpenAI. Every AI feature works with it unchanged, through the same gateway: switches, budget, log and personal-data rules.
+
+* **Setting it up:** choose *Google Gemini*, paste the API key from Google AI Studio, and enter the model name (e.g. `gemini-2.5-flash`; check AI Studio for current names). The model name is required. *Test the connection* checks the key.
+* **How it calls Gemini** (`Infrastructure/Ai/AiClient.cs`):
+  * the Gemini API `generateContent` call;
+  * the key goes in the `x-goog-api-key` header, never in the URL, so it can't end up in logs;
+  * the instructions go as the system instruction;
+  * structured answers use `responseJsonSchema`, the same schema as for the other providers.
+* **Thinking models:** Gemini counts its "thinking" against the output limit, so 8,192 tokens are added on top of each feature's limit so short answers aren't cut off. Only tokens actually used are billed, and thinking tokens are counted as output in the cost log. Thought summaries are never shown as the answer.
+* **Errors** are reported in plain words without the key:
+  * a wrong key (Gemini answers 400 "API key not valid") and permission refusals;
+  * quota limits and a model that isn't found;
+  * answers cut off, or stopped by Google's safety filters.
+* **Also fixed:** an empty answer list from the OpenAI or Gemini APIs now gives "The provider gave no answer" instead of an internal error.
+* **Tests:** request shape, key header, thought parts left out, usage counts, eight error cases, and the model name required. 290 tests pass. No database change.
+
+---
+
 ## 14 November 2026: AI-6, onboarding assistant (docs/36 phase 5)
 
 A chat box that answers questions about one onboarding. It is off until the Super Admin switches on *Onboarding assistant* in *AI settings & usage*. It is marked *Personal data* because it sends the person's onboarding status.

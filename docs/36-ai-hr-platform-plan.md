@@ -188,7 +188,7 @@ The order puts the features with no personal data first, so they can go live whi
 
 | # | Decision |
 |---|---|
-| D1 | **Provider chosen in settings.** Adapters are built for Anthropic (Claude), OpenAI and Azure OpenAI; the Super Admin picks one and enters the key (the user will add their own key). |
+| D1 | **Provider chosen in settings.** Adapters are built for Anthropic (Claude), OpenAI, Azure OpenAI and (added 14 Nov at the user's request) Google Gemini; the Super Admin picks one and enters the key (the user will add their own key). |
 | D2 | **All features may send personal data, each behind its own switch** (off by default). The Super Admin switches each on once GREL's data-protection sign-off is in place; the AI settings page marks those features *Personal data* and says what each sends. |
 | D3 | **Order as §8.** |
 | D4 | **Build the knowledge-base library now; HR uploads the documents later.** |

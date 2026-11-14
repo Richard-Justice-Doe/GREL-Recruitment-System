@@ -158,6 +158,8 @@ public class AiGatewayTests : IDisposable
 
             // Saving checks the provider's needs.
             Assert.False((await admin.SaveServiceAsync(new Dictionary<string, string?> { [SettingCatalogue.AiProviderKey] = "OpenAI" })).Succeeded); // no model
+            var gemini = await admin.SaveServiceAsync(new Dictionary<string, string?> { [SettingCatalogue.AiProviderKey] = "Gemini" }); // no model
+            Assert.Equal("Enter the Gemini model name (from Google AI Studio).", Assert.Single(gemini.Errors));
             Assert.False((await admin.SaveServiceAsync(new Dictionary<string, string?>
                 { [SettingCatalogue.AiProviderKey] = "AzureOpenAI", [SettingCatalogue.AiModel] = "d", [SettingCatalogue.AiAzureEndpoint] = "http://x" })).Succeeded);
             Assert.False((await admin.SaveServiceAsync(new Dictionary<string, string?>

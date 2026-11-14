@@ -971,3 +971,51 @@ dl.details-grid dd { margin: 0; }
 .doc-preview-docx table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
 .doc-preview-docx td { border: 1px solid #ccd; padding: 0.3rem 0.5rem; vertical-align: top; }
 @media (max-width: 575.98px) { .doc-preview-docx { padding: 1rem; } }
+
+/* 14 Nov 2026: the onboarding document checklist (Views/Shared/_EmployeeDocuments.cshtml): progress, filter chips, folding groups,
+   one compact row per document with a coloured status icon. */
+.doc-progress { height: 0.5rem; border-radius: 1rem; }
+.doc-progress .progress-bar { background: linear-gradient(90deg, var(--grsms-brand), color-mix(in srgb, var(--grsms-brand) 60%, #6ad19b)); transition: width 0.6s ease; }
+.doc-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+.doc-chip { border: 1px solid var(--bs-border-color); background: var(--bs-body-bg); color: var(--bs-body-color); border-radius: 2rem; padding: 0.2rem 0.75rem;
+    font-size: 0.8rem; font-weight: 600; transition: background 0.15s, border-color 0.15s, transform 0.15s; }
+.doc-chip span { display: inline-block; min-width: 1.4rem; margin-left: 0.25rem; padding: 0 0.35rem; border-radius: 1rem; background: color-mix(in srgb, var(--bs-body-color) 9%, transparent); font-size: 0.72rem; }
+.doc-chip:hover { transform: translateY(-1px); border-color: var(--grsms-brand); }
+.doc-chip.is-active { background: var(--grsms-brand); border-color: var(--grsms-brand); color: #fff; }
+.doc-chip.is-active span { background: rgba(255, 255, 255, 0.25); }
+.doc-chip.chip-mine:not(.is-active) { border-color: #e0a100; color: #9a6b00; }
+.doc-chip.chip-rejected:not(.is-active) { border-color: #f1aeb5; }
+.doc-group { border-top: 1px solid var(--bs-border-color); padding: 0.35rem 0; }
+.doc-group > summary { list-style: none; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.45rem 0.1rem; font-weight: 700; }
+.doc-group > summary::-webkit-details-marker, .doc-item > summary::-webkit-details-marker { display: none; }
+.doc-group-name { flex: 1 1 auto; }
+.doc-group-count { font-size: 0.78rem; font-weight: 600; color: var(--bs-secondary-color); }
+.doc-group-count.is-complete { color: #1a8a55; }
+.doc-chevron { font-size: 0.7rem; color: var(--bs-secondary-color); transition: transform 0.2s ease; }
+details[open] > summary > .doc-chevron { transform: rotate(180deg); }
+.doc-item { border: 1px solid var(--bs-border-color); border-radius: 0.8rem; margin: 0 0 0.45rem; background: var(--bs-body-bg);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease; border-left: 4px solid var(--doc-tone, var(--bs-border-color)); }
+.doc-item:hover { box-shadow: 0 4px 14px rgba(16, 24, 40, 0.07); }
+.doc-item > summary { list-style: none; display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 0.75rem; cursor: pointer; }
+.doc-item.is-mine[open] { box-shadow: 0 0 0 2px color-mix(in srgb, #e0a100 35%, transparent); }
+.doc-item.is-retired { opacity: 0.7; }
+.doc-item.is-flash { animation: doc-flash 1.6s ease; }
+@keyframes doc-flash { 0%, 40% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--grsms-brand) 40%, transparent); } 100% { box-shadow: none; } }
+.doc-icon { flex: none; width: 1.9rem; height: 1.9rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.8rem; color: #fff; background: var(--doc-tone, #98a2b3); }
+.doc-item.tone-ok { --doc-tone: #1a8a55; }
+.doc-item.tone-bad { --doc-tone: #d93f45; }
+.doc-item.tone-todo { --doc-tone: #e0a100; }
+.doc-item.tone-wait { --doc-tone: #2f80ed; }
+.doc-item.tone-muted { --doc-tone: #b4bcc8; }
+.doc-title { flex: 1 1 auto; min-width: 0; line-height: 1.25; }
+.doc-title strong { font-size: 0.92rem; }
+.doc-meta { display: flex; flex-wrap: wrap; gap: 0.15rem 0.75rem; color: var(--bs-secondary-color); margin-top: 0.1rem; }
+.doc-you { color: #9a6b00; font-weight: 700; }
+.doc-body { padding: 0 0.85rem 0.75rem 3.3rem; border-top: 1px dashed var(--bs-border-color); padding-top: 0.6rem; }
+.doc-files li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.3rem 0; }
+@media (max-width: 575.98px) {
+    .doc-item > summary { flex-wrap: wrap; }
+    .doc-item > summary .badge { order: 3; }
+    .doc-body { padding-left: 0.85rem; }
+}
+@media (prefers-reduced-motion: reduce) { .doc-item.is-flash { animation: none; } .doc-chip:hover { transform: none; } }

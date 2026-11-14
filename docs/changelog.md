@@ -4,6 +4,29 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 14 November 2026: a friendlier onboarding documents checklist
+
+Requested by the user: "make it nice and lively; the user has to scroll down". It affects both the RO's onboarding page and the new employee's portal. Only the look changed: every action works as before.
+
+* **Progress bar** ("14 of 18 complete") and **filter chips**:
+  * All;
+  * **Needs your action**;
+  * Waiting for review / Being checked;
+  * Rejected;
+  * Missing;
+  * Verified / Accepted.
+* **Groups fold** (Personal, Education, …), each showing "4/6 done", or a green tick when complete. A group opens by itself only when something in it needs attention.
+* **One compact row per document:**
+  * a coloured status icon: ✔ verified, ⌛ waiting, ✖ rejected, ⬆ missing;
+  * the name, number of files, any checks to look at, and "Your action" when it waits for you;
+  * the status badge.
+  * Click the row to see the description, files (with Preview), actions and history.
+* **Only the first document waiting for you opens by itself.** New employees also see their rejected documents open. After an upload the page reopens that document and highlights it.
+* "Same file as …" remarks are merged into one line, and the duplicated "valid until not given" line is gone.
+* No database change. 277 tests pass.
+
+---
+
 ## 14 November 2026: change request C4, document preview (docs/37 CR4)
 
 * **Preview** next to every PDF, JPEG, PNG and Word (.docx) file, in:

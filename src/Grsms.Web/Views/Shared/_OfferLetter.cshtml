@@ -17,7 +17,7 @@
             <tr><th scope="row">Department</th><td>@Model.DepartmentName</td></tr>
             <tr><th scope="row">Place of work</th><td>@Model.SiteName</td></tr>
             @if (Model.ReportingTo is not null) { <tr><th scope="row">Reporting to</th><td>@Model.ReportingTo</td></tr> }
-            <tr><th scope="row">Monthly salary</th><td>GHS @Model.MonthlySalary.ToString("N2", gb) (gross)</td></tr>
+            <tr><th scope="row">Remuneration</th><td>In line with GREL's conditions of service</td></tr>
             <tr><th scope="row">Start date</th><td>@Model.StartDate.ToString("dddd d MMMM yyyy", gb)</td></tr>
             </tbody>
         </table>

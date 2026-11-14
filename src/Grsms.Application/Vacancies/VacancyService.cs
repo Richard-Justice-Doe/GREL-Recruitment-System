@@ -510,10 +510,6 @@ public class VacancyService(
         if (form.ClosingDate is not { } closing || closing <= Today)
             errors.Add("The closing date must be after today.");
 
-        if (form.SalaryMin is { } min && form.SalaryMax is { } max && min > max)
-            errors.Add("The lowest salary cannot be more than the highest salary.");
-        if (form.ShowSalary && form.SalaryMin is null && form.SalaryMax is null)
-            errors.Add("Enter a salary range, or untick 'Show the salary range on adverts'.");
 
         if (form.UnitId is int unitId && !await units.AnyAsync(u => u.Id == unitId && u.DepartmentId == departmentId && u.IsActive, ct))
             errors.Add("The selected unit is not an active unit of this department.");
@@ -558,9 +554,7 @@ public class VacancyService(
         v.QualificationNotes = form.QualificationNotes;
         v.MinYearsExperience = form.MinYearsExperience;
         v.ExperienceNotes = form.ExperienceNotes;
-        v.SalaryMin = form.SalaryMin;
-        v.SalaryMax = form.SalaryMax;
-        v.ShowSalary = form.ShowSalary;
+        // docs/37 CR1: the salary range is no longer on the form; earlier values are kept as they are, hidden.
         v.ClosingDate = form.ClosingDate!.Value;
 
         // Replace the requirement lists as a whole. If something is listed as both essential and

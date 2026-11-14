@@ -52,7 +52,7 @@ Any advert ──Clone──► a new Draft
 
 ### 1. Create the advert (Recruitment Officer)
 1. Open the vacancy (**Vacancies → Open**) and click **Create advert** in the *Job adverts* box. The button only appears while the vacancy is published and open.
-2. The form is filled in from the vacancy: title, advert text (description, requirements, salary if *show on adverts* was ticked, location) and *How to apply*. Edit anything you like.
+2. The form is filled in from the vacancy: title, advert text (description, requirements, location; no salary: docs/37 CR1) and *How to apply*. Edit anything you like.
    * **With AI** (if switched on in *AI settings & usage*): **Write the advert with AI** writes four versions from the vacancy: the careers text, a job-board and newspaper version, an internal notice for staff, and a LinkedIn post. Add the benefits to mention if you like. **Use these versions** puts them in the form to edit. The requirements are kept exactly as approved.
    * **Versions for other channels (optional)**: the job-board, LinkedIn and internal-notice texts. Empty = the advert text is used. They become the copy-ready text for Indeed, Jobberman, newspapers and LinkedIn; the internal notice is shown copy-ready on the advert page.
 3. Choose the **start date** (today = live as soon as the IT Manager approves it; a later date = scheduled) and **end date** (at the latest the vacancy's closing date).

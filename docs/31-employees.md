@@ -68,7 +68,7 @@ Every row is checked first. **If any row is wrong, nothing is imported** and the
 
 ## Grades
 
-**Administration → Grades.** Add GREL's grades lowest first: a code (e.g. `G5`), a name (*Senior Officer*), the order and, for reference, a monthly salary range. A grade can be deactivated: employees who have it keep it, but it can no longer be given. The list shows how many current employees hold each grade (click to see them).
+**Administration → Grades.** Add GREL's grades lowest first: a code (e.g. `G5`), a name (*Senior Officer*) and the order. Grades carry no pay band (docs/37 CR1). A grade can be deactivated: employees who have it keep it, but it can no longer be given. The list shows how many current employees hold each grade (click to see them).
 
 ## The personnel file
 

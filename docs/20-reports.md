@@ -29,11 +29,11 @@ Switching between reports keeps the division, department, vacancy and period.
 | Report | Shows | The period applies to |
 |---|---|---|
 | **Overview** | the executive dashboard: requests raised, positions approved, vacancies published, applications, hires, offer acceptance rate, average time to hire, positions still open; the **recruitment funnel**; **applications** and **hires per month** (12 months); **divisions compared** | the date of each event |
-| **Recruitment requests** | each request: position, positions, estimated annual cost, status, dates, days to approve; totals | the date requested |
+| **Recruitment requests** | each request: position, positions, status, dates, days to approve; totals (no cost: docs/37 CR1) | the date requested |
 | **Vacancies** | each vacancy: positions, and applications that reached each stage (applied, shortlisted, interviewed, offered), filled and still open | the date published |
 | **Applications** | each application: applicant, vacancy, staff or external, source, screening score, **furthest stage reached**, status | the date received |
 | **Application sources** | per source (careers page, LinkedIn, Jobberman, newspapers, referrals...): applications, shortlisted, interviewed, hired, and hires per application | the date received |
-| **Offers** | each offer: candidate, salary, sent, reply-by, status, days to answer; acceptance rate and average salary | the date sent |
+| **Offers** | each offer: candidate, job, department, sent, reply-by, status, days to answer; acceptance rate (no salary: docs/37 CR1) | the date sent |
 | **Time to hire** | each hire: requested → approved → published → offer accepted, in days; averages and a chart by department | the date the offer was accepted |
 | **Workflow targets** (12 Nov 2026) | each wait at each step (request HOD / HR / MD review, vacancy approval, advert HR review and IT approval, offer answer, document verification) in working days against the target in System settings: *finished on time*, *finished late*, *waiting* or *waiting, past target* (shown first); % on time per step. A request returned and resubmitted counts each wait; an offer that expired unanswered is late. Status filter = the result | the date the step started |
 | **Onboarding status** | each new employee: start date, status, appointment letter, checklist progress, overdue items | the start date |

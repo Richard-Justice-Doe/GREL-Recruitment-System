@@ -10,7 +10,7 @@ public enum VacancyStatus
     /// <summary>Being prepared by the Recruitment Officer (also where a returned vacancy goes back to).</summary>
     [Display(Name = "Draft")] Draft,
 
-    /// <summary>Waiting for the HR Manager to approve the wording, requirements and salary.</summary>
+    /// <summary>Waiting for the HR Manager to approve the wording and requirements.</summary>
     [Display(Name = "Pending approval")] PendingApproval,
 
     /// <summary>Approved and open for applications until the closing date.</summary>

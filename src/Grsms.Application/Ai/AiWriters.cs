@@ -128,7 +128,7 @@ public class AdvertWriter(AiGateway ai, Vacancies.IVacancyRepository vacancies, 
         if (benefits?.Length > 2000) return AiResult<AdvertVersions>.Fail("Keep the benefits under 2,000 characters.");
         var request = new AdvertVersionsRequest(v.Id, string.IsNullOrWhiteSpace(title) ? v.JobTitle : title.Trim(), v.JobDescription, RequirementsText(v),
             (await departments.GetByIdAsync(v.DepartmentId, ct))?.Name ?? "", (await sites.GetByIdAsync(v.SiteId, ct))?.Name ?? "",
-            EnumText.Label(v.EmploymentType), v.ShowSalary ? Adverts.AdvertText.Salary(v) : null, v.ClosingDate, benefits,
+            EnumText.Label(v.EmploymentType), null, v.ClosingDate, benefits, // docs/37 CR1: never a salary
             v.VacancyType == VacancyType.Internal);
         return await WriteAsync(request, regenerate, ct);
     }
@@ -139,7 +139,7 @@ public class AdvertWriter(AiGateway ai, Vacancies.IVacancyRepository vacancies, 
         "Write four versions of a job advertisement from the vacancy details, as plain text (no Markdown, no emojis, no hashtags " +
         "except up to three at the end of the LinkedIn version). Each version: an attractive two- or three-sentence summary of the role " +
         "and why it matters at GREL; the key responsibilities; the requirements exactly as given (do not add or drop any); benefits only " +
-        "if given; the location and employment type; the salary only if given; and the closing date. Do not include an application link " +
+        "if given; the location and employment type; and the closing date. Never mention pay, salary or any amount of money. Do not include an application link " +
         "or how-to-apply instructions (GRSMS adds them). " +
         "careers_portal: the full version for GREL's careers page, with short headed sections. " +
         "external: for job boards and newspapers, concise and formal (about 60 % of the careers version). " +

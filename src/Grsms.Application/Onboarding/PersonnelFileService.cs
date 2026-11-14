@@ -298,7 +298,7 @@ public class PersonnelFileService(
                $"<p><strong>Reference:</strong> {E(o.LetterNumber)}<br><strong>Issued:</strong> {o.LetterIssuedAt?.ToString("d MMMM yyyy", Gb)}</p>" +
                $"<p>Dear {E(o.EmployeeName)},</p>" +
                $"<p>We are pleased to appoint you to the position of <strong>{E(o.JobTitle)}</strong> in {E(dept)}, based at {E(site)}, " +
-               $"at a monthly salary of GHS {o.MonthlySalary.ToString("N2", Gb)}, with effect from {o.StartDate.ToString("d MMMM yyyy", Gb)}.</p>" +
+               $"with effect from {o.StartDate.ToString("d MMMM yyyy", Gb)}. Remuneration and benefits follow GREL's conditions of service.</p>" + // docs/37 CR1
                $"<h4>Conditions of appointment</h4><p>{terms}</p>" +
                $"<p><strong>Accepted and signed electronically</strong> by {E(o.LetterAcknowledgedName)} on " +
                $"{o.LetterAcknowledgedAt?.ToString("d MMMM yyyy HH:mm", Gb)} (from {E(o.LetterAcknowledgedIp)}).</p>";
@@ -311,8 +311,8 @@ public class PersonnelFileService(
         return $"<h3>Offer of employment: {E(offer.JobTitle)}</h3>" +
                $"<p><strong>Reference:</strong> {E(offer.Number)}<br><strong>Sent:</strong> {offer.SentAt.ToString("d MMMM yyyy", Gb)}" +
                $"<br><strong>Accepted:</strong> {offer.RespondedAt?.ToString("d MMMM yyyy HH:mm", Gb)}</p>" +
-               $"<p>Offer to {E(o.EmployeeName)} for the position of <strong>{E(offer.JobTitle)}</strong> at a monthly salary of GHS " +
-               $"{offer.MonthlySalary.ToString("N2", Gb)}, starting {offer.StartDate.ToString("d MMMM yyyy", Gb)}.</p>" +
+               $"<p>Offer to {E(o.EmployeeName)} for the position of <strong>{E(offer.JobTitle)}</strong>, " + // docs/37 CR1: no salary
+               $"starting {offer.StartDate.ToString("d MMMM yyyy", Gb)}.</p>" +
                (terms.Length > 0 ? $"<h4>Terms</h4><p>{terms}</p>" : "");
     }
 

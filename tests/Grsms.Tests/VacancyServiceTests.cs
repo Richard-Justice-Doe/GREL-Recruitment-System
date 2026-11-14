@@ -195,7 +195,7 @@ public class VacancyServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Closing_date_and_salary_are_validated()
+    public async Task Closing_date_is_validated_and_salary_is_ignored()
     {
         var requestId = await RequestAsync();
         AsRecruiter();
@@ -203,11 +203,11 @@ public class VacancyServiceTests : IAsyncLifetime
         var past = Form(requestId); past.ClosingDate = Today;
         Assert.False((await Run(s => s.CreateAsync(past))).Succeeded);
 
+        // docs/37 CR1: the salary range is no longer on the form, so odd values are neither checked nor saved.
         var badSalary = Form(requestId); badSalary.SalaryMin = 9000; badSalary.SalaryMax = 5000;
-        Assert.False((await Run(s => s.CreateAsync(badSalary))).Succeeded);
-
-        var noSalary = Form(requestId); noSalary.SalaryMin = noSalary.SalaryMax = null; noSalary.ShowSalary = true;
-        Assert.False((await Run(s => s.CreateAsync(noSalary))).Succeeded);
+        var created = await Run(s => s.CreateAsync(badSalary));
+        Assert.True(created.Succeeded, string.Join(" ", created.Errors));
+        Assert.Null((await Details(created.Value))!.SalaryMin);
     }
 
     [Fact]

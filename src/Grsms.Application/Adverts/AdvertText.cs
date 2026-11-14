@@ -17,7 +17,7 @@ public static class AdvertText
 
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
 
-    /// <summary>Default advert body for a vacancy: description, requirements, salary and location.</summary>
+    /// <summary>Default advert body for a vacancy: description, requirements and location.</summary>
     public static string DefaultBody(Vacancy v, string departmentName, string siteName)
     {
         var sb = new StringBuilder();
@@ -47,22 +47,12 @@ public static class AdvertText
         sb.AppendLine($"Location: {siteName}");
         sb.AppendLine($"Employment type: {EnumText.Label(v.EmploymentType)}");
         if (v.NumberOfPositions > 1) sb.AppendLine($"Positions: {v.NumberOfPositions}");
-        if (v.ShowSalary && Salary(v) is { } salary) sb.AppendLine($"Salary: {salary}");
         return sb.ToString().TrimEnd();
     }
 
     /// <summary>Default "How to apply" wording.</summary>
     public static string DefaultHowToApply(DateOnly closingDate) =>
         $"Apply online through the GREL careers page by {closingDate.ToString("d MMMM yyyy", Gb)}. Only shortlisted candidates will be contacted.";
-
-    /// <summary>Monthly salary range text, or null when none is set.</summary>
-    public static string? Salary(Vacancy v) => (v.SalaryMin, v.SalaryMax) switch
-    {
-        ({ } min, { } max) => $"GHS {min:N0} – {max:N0} per month",
-        ({ } min, null) => $"From GHS {min:N0} per month",
-        (null, { } max) => $"Up to GHS {max:N0} per month",
-        _ => null
-    };
 
     /// <summary>Copy-ready text for one external channel.</summary>
     public static string ForChannel(AdvertChannel channel, JobAdvert a, string link)

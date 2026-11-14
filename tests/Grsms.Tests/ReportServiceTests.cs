@@ -216,8 +216,8 @@ public class ReportServiceTests : IAsyncLifetime
         Assert.Equal("100%", sources.Table.Rows.Single(x => (string?)x.Cells[0] == "LinkedIn").Cells[5]);
 
         var offers = await RunAs(_md, Roles.ManagingDirector, new ReportFilter { Report = ReportKeys.Offers });
-        Assert.Equal(("2", "1", "1", "50%", "GHS 7,000"),
-            (Kpi(offers, "Offers sent"), Kpi(offers, "Accepted"), Kpi(offers, "Declined"), Kpi(offers, "Acceptance rate"), Kpi(offers, "Average monthly salary")));
+        Assert.Equal(("2", "1", "1", "50%"),
+            (Kpi(offers, "Offers sent"), Kpi(offers, "Accepted"), Kpi(offers, "Declined"), Kpi(offers, "Acceptance rate")));
     }
 
     [Fact]

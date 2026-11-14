@@ -78,14 +78,13 @@ public class GradeService(IRepository<Grade> grades, IEmployeeRepository employe
         var errors = new List<string>();
         if (await grades.AnyAsync(g => g.Code == form.Code && g.Id != form.Id, ct)) errors.Add($"The code '{form.Code}' is already used by another grade.");
         if (await grades.AnyAsync(g => g.Name == form.Name && g.Id != form.Id, ct)) errors.Add($"A grade named '{form.Name}' already exists.");
-        if (form.MinMonthlySalary is { } min && form.MaxMonthlySalary is { } max && min > max)
-            errors.Add("The minimum salary cannot be more than the maximum.");
         return errors;
     }
 
     private static void Apply(GradeFormDto form, Grade g)
     {
-        (g.Code, g.Name, g.SortOrder, g.MinMonthlySalary, g.MaxMonthlySalary, g.IsActive) =
-            (form.Code, form.Name, form.SortOrder, form.MinMonthlySalary, form.MaxMonthlySalary, form.IsActive);
+        // docs/37 CR1: the salary range is no longer on the form; earlier values are kept, hidden.
+        (g.Code, g.Name, g.SortOrder, g.IsActive) =
+            (form.Code, form.Name, form.SortOrder, form.IsActive);
     }
 }

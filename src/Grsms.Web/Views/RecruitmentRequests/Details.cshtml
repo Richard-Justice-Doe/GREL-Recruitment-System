@@ -145,12 +145,6 @@ else
 
                 <h3 class="h6 mt-4">Budget</h3>
                 <dl class="details-grid mb-0">
-                    @if (!string.IsNullOrEmpty(Model.BudgetCode))
-                    {
-                        @* Only requests raised before QF-81-11 was digitised have a budget code and cost. *@
-                        <dt>Budget code</dt><dd><code>@Model.BudgetCode</code></dd>
-                        <dt>Estimated annual cost</dt><dd>GHS @Model.EstimatedAnnualCost.ToString("N2")</dd>
-                    }
                     <dt>Budget approval document</dt>
                     <dd>@(attachedCategories.Contains(AttachmentCategory.BudgetApproval) ? "Attached (see Supporting documents)" : "Not attached")</dd>
                     @if (Model.BudgetValidated)

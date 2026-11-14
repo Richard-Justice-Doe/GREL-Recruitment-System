@@ -92,7 +92,7 @@ public static class Permissions
     /// <summary>Register existing staff (one by one or by CSV import) and update employees' job details.</summary>
     public const string ManageEmployees = "employees.manage";
 
-    /// <summary>Keep GREL's list of salary grades.</summary>
+    /// <summary>Keep GREL's list of job grades.</summary>
     public const string ManageGrades = "grades.manage";
 
     // ---------------------------------------------------------------- docs/36 AI-3
@@ -170,7 +170,7 @@ public static class Permissions
             "See the employee list, each employee's record and job history (a Head of Department sees their own departments)."),
         new(ManageEmployees, "Employees", "Manage employees",
             "Register existing staff (one by one or by CSV import) and update employees' job details: position, grade, reporting line, contract, place of work."),
-        new(ManageGrades, "Employees", "Maintain grades", "Add and edit GREL's salary grades."),
+        new(ManageGrades, "Employees", "Maintain grades", "Add and edit GREL's job grades."),
         new(ViewExecutiveDashboard, "Reports", "Open the executive dashboard",
             "Recruitment, onboarding and workforce figures for all departments, with trends and the written summary (docs/36)."),
 

@@ -56,7 +56,7 @@ Items assigned to you appear in *My tasks* on the Home page, with a count next t
 
 On the onboarding page, an HR Manager writes the **conditions of appointment** (pre-filled with the offer's terms, or with a standard text covering probation, hours, benefits and notice) and clicks **Issue the appointment letter**. The letter gets its own number (`APT-2026-0001`), and the new employee is emailed.
 
-The letter shows the position, department, place of work, reporting manager, monthly salary, date of appointment, the conditions, and where and when to report. **Letter preview** shows it exactly as the new employee sees it; it can be printed or downloaded as a **PDF** (marked *DRAFT* until issued). Once issued, the new employee can download it as a PDF too, with their electronic signature once signed.
+The letter shows the position, department, place of work, reporting manager, remuneration ("in line with GREL's conditions of service"; no amount), date of appointment, the conditions, and where and when to report. **Letter preview** shows it exactly as the new employee sees it; it can be printed or downloaded as a **PDF** (marked *DRAFT* until issued). Once issued, the new employee can download it as a PDF too, with their electronic signature once signed.
 
 Until the new employee signs, the HR Manager can **issue a revised letter**. It keeps the same number, and the new employee is emailed again.
 

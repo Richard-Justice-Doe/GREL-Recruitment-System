@@ -250,7 +250,7 @@ public class HiringService(
                 DivisionId = app.DivisionId,
                 DepartmentId = app.DepartmentId,
                 RequestingHodUserId = app.RequestingHodUserId,
-                ProposedSalary = v?.SalaryMin ?? 0,
+                ProposedSalary = 0, // docs/37 CR1: no salary
                 ProposedStartDate = Today.AddDays(HiringWorkflow.DraftStartInDays),
                 Justification = ScoreJustification(await WithRatingsAsync(sessions, ct)),
                 CreatedByUserId = MyId,
@@ -332,7 +332,9 @@ public class HiringService(
         if (RecommendProblem(app, draft is null ? current : null, sessions) is { } problem) return Result.Failure<int>(problem);
 
         justification = Clean(justification);
-        if (salary is not { } pay || pay <= 0 || pay > 10_000_000) return Result.Failure<int>("Enter the proposed monthly salary in GHS.");
+        // docs/37 CR1 (13 Nov 2026): GRSMS no longer handles money. The salary argument is ignored; new records store 0 and
+        // earlier values stay in the database, hidden.
+        const decimal pay = 0;
         if (startDate is not { } start || start < Today) return Result.Failure<int>("Choose a start date from today onwards.");
         if (justification is null || justification.Length < 20) return Result.Failure<int>("Explain the recommendation in at least 20 characters (interview results, references, ...).");
         if (justification.Length > 4000) return Result.Failure<int>("The justification must be 4,000 characters or fewer.");
@@ -346,7 +348,6 @@ public class HiringService(
         if (draft is not null)
         {
             // Approving the draft started by "Proceed": same record and number.
-            draft.ProposedSalary = pay;
             draft.ProposedStartDate = start;
             draft.Justification = justification;
             draft.Status = HiringStatus.Approved;
@@ -354,7 +355,7 @@ public class HiringService(
             draft.CreatedAt = now;
             draft.Version = Guid.NewGuid();
             app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName,
-                $"{draft.Number}: hire approved by the Recruitment Officer, GHS {pay:N2} per month from {start:dd MMM yyyy}", now);
+                $"{draft.Number}: hire approved by the Recruitment Officer, start {start:dd MMM yyyy}", now);
             var approved = await SaveAsync(ct);
             if (!approved.Succeeded) return Result.Failure<int>([.. approved.Errors]);
             await DraftOfferAndSaveAsync(app, draft, ct);
@@ -378,7 +379,7 @@ public class HiringService(
         };
         recommendations.Add(rec);
         app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName,
-            $"{rec.Number}: hire approved by the Recruitment Officer, GHS {pay:N2} per month from {start:dd MMM yyyy}", now);
+            $"{rec.Number}: hire approved by the Recruitment Officer, start {start:dd MMM yyyy}", now);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
         await DraftOfferAndSaveAsync(app, rec, ct);
@@ -545,10 +546,9 @@ public class HiringService(
         };
     }
 
-    /// <summary>The checks shared by saving a draft and sending: salary within the approved amount, dates, terms length.</summary>
+    /// <summary>The checks shared by saving a draft and sending: dates and terms length (docs/37 CR1: no salary).</summary>
     private string? OfferTermsProblem(HiringRecommendation rec, decimal pay, DateOnly start, DateOnly expiry, string? terms)
     {
-        if (pay <= 0 || pay > rec.ProposedSalary) return $"The salary must be more than 0 and no more than the approved GHS {rec.ProposedSalary:N2}.";
         if (start < Today) return "The start date cannot be in the past.";
         var maxDays = settings.GetInt(Domain.Settings.SettingCatalogue.OfferReplyMaxDays); // Phase 16: System settings
         if (expiry < Today || expiry > Today.AddDays(maxDays) || expiry > start)
@@ -569,7 +569,7 @@ public class HiringService(
         if (app.Status != ApplicationStatus.Interview) return Result.Failure<int>("Offers can only be made to applicants at the interview stage.");
 
         var draft = appOffers.FirstOrDefault(o => o.Status == OfferStatus.Draft);
-        var pay = salary ?? draft?.MonthlySalary ?? rec.ProposedSalary;
+        var pay = draft?.MonthlySalary ?? 0m; // docs/37 CR1: salary not handled; the argument is ignored
         var start = startDate ?? draft?.StartDate ?? rec.ProposedStartDate;
         var expiry = expiresOn ?? draft?.ExpiresOn ?? DefaultReplyBy(start);
         terms = Clean(terms);
@@ -616,7 +616,7 @@ public class HiringService(
             return Result.Failure<int>(problem);
 
         var draft = appOffers.FirstOrDefault(o => o.Status == OfferStatus.Draft);
-        var pay = salary ?? draft?.MonthlySalary ?? rec.ProposedSalary;
+        var pay = draft?.MonthlySalary ?? 0m; // docs/37 CR1: salary not handled; the argument is ignored
         var start = startDate ?? draft?.StartDate ?? rec.ProposedStartDate;
         var expiry = expiresOn ?? draft?.ExpiresOn ?? DefaultReplyBy(start);
         terms = terms is null && draft is not null ? draft.Terms : Clean(terms); // not posted = keep the draft's

@@ -170,7 +170,7 @@ public class AdvertServiceTests : IAsyncLifetime
         var form = (await Run(s => s.GetNewFormAsync(published))).Value!;
         Assert.StartsWith("Safety Officer", form.Title);
         Assert.Contains("NEBOSH IGC", form.Body);
-        Assert.Contains("GHS 6,000 – 8,000 per month", form.Body);
+        Assert.DoesNotContain("GHS", form.Body); // docs/37 CR1: no salary on adverts
         Assert.Equal(Today.AddDays(14), form.EndDate);
         Assert.Equal([AdvertChannel.InternalPortal, AdvertChannel.CompanyWebsite], form.Channels);
     }

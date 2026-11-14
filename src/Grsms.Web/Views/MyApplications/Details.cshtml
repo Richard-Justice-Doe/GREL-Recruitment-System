@@ -159,7 +159,7 @@
             <div class="card glass mb-3 @(offer.CanRespond ? "border border-success" : "")">
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-solid fa-envelope-open-text me-1"></i>Your offer</h2>
-                    <p class="small mb-2">@offer.JobTitle · GHS @offer.MonthlySalary.ToString("N2") per month · starts @offer.StartDate.ToString("dd MMM yyyy")<br />
+                    <p class="small mb-2">@offer.JobTitle · starts @offer.StartDate.ToString("dd MMM yyyy")<br />
                         <strong>@offer.Status.DisplayName()</strong>@(offer.CanRespond ? $" · reply by {offer.ExpiresOn:dd MMM yyyy}" : "")</p>
                     <a asp-action="Offer" asp-route-id="@Model.Id" class="btn btn-sm @(offer.CanRespond ? "btn-success" : "btn-outline-secondary")">@(offer.CanRespond ? "Read and reply to my offer" : "View my offer letter")</a>
                 </div>

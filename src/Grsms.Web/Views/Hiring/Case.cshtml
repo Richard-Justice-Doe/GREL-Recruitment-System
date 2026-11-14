@@ -69,7 +69,7 @@ else if (Model.CanSubmitDraft)
         <div class="next-step-text">
             <span class="next-step-label">Your next step</span>
             <h2>Review and approve the hire</h2>
-            <p>The hiring process has started for @Model.ApplicantName. Check the salary, start date and justification below
+            <p>The hiring process has started for @Model.ApplicantName. Check the start date and justification below
                (add the references and fit), then click <strong>Approve hire</strong>. The background checks are open further down.</p>
         </div>
         <div class="next-step-actions"><a href="#recommend" class="btn btn-primary">Review the draft</a></div>
@@ -150,8 +150,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                     <div class="pill tone-hire" style="font-size:.85rem;padding:.5rem .9rem">Screening <strong class="ms-1">@(Model.ScreeningScore?.ToString() ?? "—")</strong></div>
                     <div class="pill tone-interview" style="font-size:.85rem;padding:.5rem .9rem">Interview average <strong class="ms-1">@(Model.InterviewAverage is decimal ia ? $"{ia:0.0} / 100" : "not validated yet")</strong></div>
                     <div class="pill pill-muted" style="font-size:.85rem;padding:.5rem .9rem">Validated rounds <strong class="ms-1">@Model.CompletedInterviews</strong></div>
-                    <div class="pill pill-muted" style="font-size:.85rem;padding:.5rem .9rem">Advertised salary <strong class="ms-1">
-                        @(Model.VacancySalaryMin is null && Model.VacancySalaryMax is null ? "not set" : $"GHS {Model.VacancySalaryMin:N0} – {Model.VacancySalaryMax:N0}")</strong></div>
                 </div>
 
                 @* docs/36 AI-5: advisory AI summary of the validated scores. *@
@@ -223,10 +221,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                         <form id="recommend" asp-action="Recommend" asp-route-id="@Model.ApplicationId" method="post">
                             <div class="row g-2 mb-2">
                                 <div class="col-md-6">
-                                    <label for="salary" class="form-label small">Proposed monthly salary (GHS)</label>
-                                    <input id="salary" name="salary" type="number" step="0.01" min="1" class="form-control" required value="@Model.VacancySalaryMin" />
-                                </div>
-                                <div class="col-md-6">
                                     <label for="startDate" class="form-label small">Proposed start date</label>
                                     <input id="startDate" name="startDate" type="date" class="form-control" required min="@today.ToString("yyyy-MM-dd")" value="@today.AddDays(30).ToString("yyyy-MM-dd")" />
                                 </div>
@@ -249,14 +243,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                     <form id="recommend" asp-action="Recommend" asp-route-id="@Model.ApplicationId" method="post">
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
-                                <label for="salary" class="form-label small">Proposed monthly salary (GHS)</label>
-                                <input id="salary" name="salary" type="number" step="0.01" min="1" class="form-control" required value="@(r.ProposedSalary > 0 ? r.ProposedSalary.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "")" />
-                                @if (Model.VacancySalaryMin is not null || Model.VacancySalaryMax is not null)
-                                {
-                                    <div class="form-text">Advertised: GHS @Model.VacancySalaryMin?.ToString("N0") – @Model.VacancySalaryMax?.ToString("N0")</div>
-                                }
-                            </div>
-                            <div class="col-md-6">
                                 <label for="startDate" class="form-label small">Proposed start date</label>
                                 <input id="startDate" name="startDate" type="date" class="form-control" required min="@today.ToString("yyyy-MM-dd")" value="@r.ProposedStartDate.ToString("yyyy-MM-dd")" />
                             </div>
@@ -276,7 +262,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                     var roApproved = r.Status == HiringStatus.Approved && r.HodDecision == HiringDecision.None && r.HrDecision == HiringDecision.None;
                     <dl class="details-grid small">
                         <dt>@(roApproved ? "Approved by" : "Proposed by")</dt><dd>@r.CreatedBy@(roApproved ? " (Recruitment Officer)" : ""), @r.CreatedAt.ToString("dd MMM yyyy")</dd>
-                        <dt>Salary</dt><dd>GHS @r.ProposedSalary.ToString("N2") per month</dd>
                         <dt>Start date</dt><dd>@r.ProposedStartDate.ToString("dd MMM yyyy")</dd>
                         <dt>Justification</dt><dd style="white-space: pre-wrap">@r.Justification</dd>
                     </dl>
@@ -331,7 +316,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                 {
                     <dl class="details-grid small">
                         <dt>Offer</dt><dd>@o.Number · <strong>@o.Status.DisplayName()</strong></dd>
-                        <dt>Salary</dt><dd>GHS @o.MonthlySalary.ToString("N2") per month</dd>
                         <dt>Start date</dt><dd>@o.StartDate.ToString("dd MMM yyyy")</dd>
                         <dt>Reply by</dt><dd>@o.ExpiresOn.ToString("dd MMM yyyy")</dd>
                         <dt>Sent</dt><dd>@o.SentAt.ToString("dd MMM yyyy HH:mm")</dd>
@@ -365,10 +349,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                     }
                     <form id="send-offer" asp-action="SendOffer" asp-route-id="@Model.ApplicationId" method="post">
                         <div class="row g-2 mb-2">
-                            <div class="col-md-4">
-                                <label for="offerSalary" class="form-label small">Monthly salary (GHS)</label>
-                                <input id="offerSalary" name="salary" type="number" step="0.01" class="form-control" value="@Model.FormSalary" max="@r!.ProposedSalary" required />
-                            </div>
                             <div class="col-md-4">
                                 <label for="offerStart" class="form-label small">Start date</label>
                                 <input id="offerStart" name="startDate" type="date" class="form-control" value="@Model.FormStartDate.ToString("yyyy-MM-dd")" required />

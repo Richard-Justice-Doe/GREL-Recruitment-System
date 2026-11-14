@@ -15,9 +15,9 @@ As soon as the Recruitment Officer **validates the interview scores**, the candi
 1. The Recruitment Officer lands on **Hiring and offers → Ready to recommend** for that vacancy: every candidate with validated scores and no recommendation yet, best score first. The vacancy's Recruitment Officer (or every Recruitment Officer, if the vacancy owner is not one) is also emailed and gets a *Proceed with …?* card in *Your to-dos*.
 2. The Recruitment Officer **ticks the candidate(s) to proceed with** and clicks **Proceed with the selected candidates** (or **Proceed with this candidate** on a hiring case). Candidates not ticked stay on the list.
 3. For each one, GRSMS **starts the hiring process automatically**:
-   * a **draft recommendation** (status *Draft: not yet submitted*): the advertised minimum salary, a start date 30 days away, and a justification that already lists the validated scores;
+   * a **draft recommendation** (status *Draft: not yet submitted*): a start date 30 days away, and a justification that already lists the validated scores;
    * the five standard **background checks**, as *Pending*: references, education / certificates, previous employment, police clearance, medical.
-4. On the hiring case (*Your next step: review and approve the hire*), the Recruitment Officer checks the salary and start date, adds references and fit, and clicks **Approve hire**. **Only the Recruitment Officer approves**: the HOD, HR Manager and MD are not asked (decision of 9 November 2026). **Discard draft** sends the candidate back to *Ready to recommend* (the checks are kept).
+4. On the hiring case (*Your next step: review and approve the hire*), the Recruitment Officer checks the start date, adds references and fit, and clicks **Approve hire**. **Only the Recruitment Officer approves**: the HOD, HR Manager and MD are not asked (decision of 9 November 2026). **Discard draft** sends the candidate back to *Ready to recommend* (the checks are kept).
 5. When the background checks are complete, the hiring case shows **Send the offer**; when the candidate **accepts**, it shows **Click to proceed to onboarding**, which opens the onboarding start (first-day details, then the appointment letter).
 
 **Positions:** the Recruitment Officer can select (proceed with or approve) at most as many candidates as the vacancy has positions. The others stay on *Ready to recommend* as reserves.
@@ -44,7 +44,7 @@ A check starts as **Pending**. Record the outcome: **Cleared**, **Cleared with c
 
 > **Since 9 November 2026 a new hire needs only the Recruitment Officer's approval** (above). The three-step approval below applies only to recommendations made before then that are still waiting.
 
-The recruiter fills in the **proposed monthly salary**, **start date** and **why this candidate** (interview results, references, fit), then clicks **Recommend**. This needs at least one **completed** interview or assessment.
+The recruiter fills in the **start date** and **why this candidate** (interview results, references, fit), then clicks **Recommend**. This needs at least one **completed** interview or assessment.
 
 The recommendation then goes through three decisions, each recorded with who decided, when and their comment:
 
@@ -67,10 +67,9 @@ The recommendation is the **hiring report**. It records the division, department
 
 ## 3. The offer (Recruitment Officer or HR Manager)
 
-**The offer is drafted for you (13 November 2026).** When the hire is approved, GRSMS drafts the offer at once: its reference number, the approved salary and start date, a reply-by date (7 days by default, never after the start date) and the default terms. Both defaults are set in *System settings → Recruitment workflow*. The candidate does not see a draft.
+**The offer is drafted for you (13 November 2026).** When the hire is approved, GRSMS drafts the offer at once: its reference number, the approved start date, a reply-by date (7 days by default, never after the start date) and the default terms. Both defaults are set in *System settings → Recruitment workflow*. The candidate does not see a draft.
 
 On the hiring case, under **Offer**:
-* **Salary**: up to the approved amount.
 * **Start date**.
 * **Reply by**: within 30 days, and no later than the start date.
 * **Other terms** for the letter, such as probation or benefits.
@@ -90,7 +89,7 @@ The recruiter can **withdraw** a sent offer, with a reason; the candidate is tol
 
 On *My applications*, the candidate sees **Your offer → Read and reply to my offer**. The **offer letter** shows:
 * position, department, place of work, reporting manager;
-* monthly salary, start date, terms, and the reply-by date.
+* start date, terms, and the reply-by date. The letter states that remuneration follows GREL's conditions of service; no amounts are shown (docs/37 CR1).
 
 The letter can be printed or downloaded as a **PDF** (GREL letterhead and signatory from *Administration → Letterhead & signature*). Then the candidate either:
 * ticks *I accept on these terms* and clicks **Accept the offer**. The application becomes **Hired**, and the recruiter and HOD are emailed. The candidate gets a welcome email.

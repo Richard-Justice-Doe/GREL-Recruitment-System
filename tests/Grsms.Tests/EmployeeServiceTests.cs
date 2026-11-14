@@ -68,7 +68,7 @@ public class EmployeeServiceTests : OnboardingTestBase
         // The accepted offer is now in the personnel file too (Recruitment documents), frozen as accepted.
         var offer = await Db(db => db.PersonnelFileDocuments.SingleAsync(d => d.SourceType == "OfferLetter"));
         Assert.Equal(PersonnelFileCategories.RecruitmentDocuments, offer.CategoryId);
-        Assert.Contains("8,500.00", offer.Content);
+        Assert.DoesNotContain("8,500", offer.Content); // docs/37 CR1: no salary on file
 
         // HR sees the record; the employee page links the onboarding, personnel file and probation.
         AsHrManager();

@@ -4,6 +4,28 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 14 November 2026: change request C5, remove everything about money (docs/37 CR1)
+
+Per decision D1: "remove anything about money". Budget codes on requests are removed too. The employee's bank account is kept, and so are the advert benefits text and the budget approval document.
+
+* **Vacancies:** the salary range and "show on adverts" are gone from the form and the vacancy page. They are no longer validated or saved.
+* **Adverts:** the default advert text has no salary line. The AI advert writer receives no salary and is told never to mention pay.
+* **Hiring:**
+  * no proposed salary on the draft or approval form;
+  * no advertised-salary pill and no salary column in the hiring list;
+  * offers have no salary field, and any salary that is posted is ignored.
+* **Letters:** the offer and appointment letters, including the PDFs, show *Remuneration: In line with GREL's conditions of service* instead of an amount. The default notice term no longer mentions "salary in lieu".
+* **Candidate portal and onboarding:** no salary on the offer line or the onboarding page. The personnel file's offer and appointment records have no amount.
+* **Requests:** no budget code and no estimated annual cost on the request page.
+* **Grades:** no pay band on the form or the list. "Salary grades" is now "job grades".
+* **Reports and CSV exports:**
+  * the requests report has no cost column, KPI or total;
+  * the offers report has no salary column and no average-salary KPI.
+* **Old values stay in the database, hidden.** No migration and no script.
+* **Checks:** tests updated (the salary is ignored and never shown). 277 tests pass.
+
+---
+
 ## 14 November 2026: a friendlier onboarding documents checklist
 
 Requested by the user: "make it nice and lively; the user has to scroll down". It affects both the RO's onboarding page and the new employee's portal. Only the look changed: every action works as before.

@@ -110,7 +110,7 @@ public class HiringWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFac
         })).StatusCode);
         var preview = await recruiter.GetStringAsync($"/Hiring/OfferLetter/{applicationId}");
         Assert.Contains("Draft, not sent", preview);
-        Assert.Contains("4,100.00", preview);
+        Assert.Contains("Remuneration", preview); Assert.DoesNotContain("GHS", preview); // docs/37 CR1: no salary
         Assert.Contains("Preview letter", await recruiter.GetStringAsync(casePage));
         // The draft as a PDF: self-contained page (logo embedded), marked DRAFT.
         var draftPdf = await recruiter.GetAsync($"/Hiring/OfferPdf/{applicationId}");
@@ -118,7 +118,7 @@ public class HiringWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFac
         Assert.EndsWith("-DRAFT.pdf", draftPdf.Content.Headers.ContentDisposition!.FileName!.Trim('"'));
         Assert.Contains("class=\"draft-mark\"", factory.Pdf.LastHtml);
         Assert.Contains("src=\"data:image/png;base64,", factory.Pdf.LastHtml);
-        Assert.Contains("4,100.00", factory.Pdf.LastHtml);
+        Assert.Contains("Remuneration", factory.Pdf.LastHtml); Assert.DoesNotContain("Monthly salary", factory.Pdf.LastHtml);
         // The candidate can't reach a draft.
         var early = await SignedInAsync("h.cand@mail.test");
         Assert.Equal(HttpStatusCode.NotFound, (await early.GetAsync($"/MyApplications/OfferPdf/{applicationId}")).StatusCode);
@@ -133,7 +133,7 @@ public class HiringWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFac
         Assert.Contains("Read and reply to my offer", await cand.GetStringAsync($"/MyApplications/Details/{applicationId}"));
         var letter = await cand.GetStringAsync($"/MyApplications/Offer/{applicationId}");
         Assert.Contains("Auto Electrician", letter);
-        Assert.Contains("4,200.00", letter);
+        Assert.Contains("Remuneration", letter); Assert.DoesNotContain("GHS", letter);
         Assert.Contains("Abura", letter);
         Assert.Contains("/images/grel-logo.png", letter); // GREL letterhead (12 Nov 2026)
         Assert.Equal(HttpStatusCode.OK, (await cand.GetAsync("/images/grel-logo.png")).StatusCode);

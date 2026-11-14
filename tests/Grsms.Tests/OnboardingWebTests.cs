@@ -375,7 +375,7 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         var letterPage = $"/MyApplications/Appointment/{c.ApplicationId}";
         var letter = await employee.GetStringAsync(letterPage);
         Assert.Contains("Letter of appointment: Diesel Mechanic", letter);
-        Assert.Contains("3,900.00", letter);
+        Assert.Contains("Remuneration", letter); Assert.DoesNotContain("GHS", letter); // docs/37 CR1
         await employee.PostFormAsync(letterPage, $"/MyApplications/SignLetter/{c.ApplicationId}", new() { ["fullName"] = "Efua Asante" }); // box not ticked
         Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(letterPage, $"/MyApplications/SignLetter/{c.ApplicationId}",
             new() { ["fullName"] = "Efua Asante", ["confirm"] = "true" })).StatusCode);

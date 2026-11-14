@@ -1,4 +1,4 @@
-@* One vacancy: progress stepper, job details, requirements, salary, the action panel for whoever may
+@* One vacancy: progress stepper, job details, requirements, the action panel for whoever may
    act now, and the history. What each person may do comes from the service (Model.CanEdit, ...). *@
 @model VacancyDetailsDto
 @{
@@ -9,11 +9,6 @@
     var current = (int)Model.Status; // the enum order matches the steps
     var skills = Model.Requirements.Where(r => r.Type == RequirementType.Skill).ToList();
     var certs = Model.Requirements.Where(r => r.Type == RequirementType.Certification).ToList();
-    string Salary() =>
-        Model.SalaryMin is null && Model.SalaryMax is null ? "Not specified"
-        : Model.SalaryMin is { } a && Model.SalaryMax is { } b ? $"GHS {a:N2} - {b:N2} per month"
-        : Model.SalaryMin is { } m ? $"From GHS {m:N2} per month"
-        : $"Up to GHS {Model.SalaryMax:N2} per month";
     string DotCss(VacancyAction a) => a switch
     {
         VacancyAction.Returned => "warning",
@@ -108,7 +103,6 @@ else
                     <dt>Employment type</dt><dd>@Model.EmploymentType.DisplayName()</dd>
                     <dt>Positions</dt><dd>@Model.NumberOfPositions</dd>
                     <dt>Who may apply</dt><dd>@Model.VacancyType.DisplayName()</dd>
-                    <dt>Salary</dt><dd>@Salary() @(Model.ShowSalary ? "" : "(not shown on adverts)")</dd>
                     <dt>Closing date</dt><dd>@Model.ClosingDate.ToString("dd MMM yyyy")</dd>
                     <dt>Vacancy owner</dt><dd>@Model.RecruiterName</dd>
                     @if (Model.PublishedAt is not null)
@@ -175,7 +169,7 @@ else
             <div class="card glass mb-3">
                 <div class="card-body p-4">
                     <h2 id="ready" class="h6 text-uppercase text-body-secondary mb-3">Ready?</h2>
-                    <p class="small">Check the wording, requirements, salary and closing date, then send it to the HR Manager. Approving it publishes it.</p>
+                    <p class="small">Check the wording, requirements and closing date, then send it to the HR Manager. Approving it publishes it.</p>
                     <form asp-action="Submit" asp-route-id="@Model.Id" method="post">
                         <button type="submit" class="btn btn-primary w-100" data-confirm="Submit this vacancy for approval?">
                             <i class="fa-solid fa-paper-plane me-1"></i>Submit for approval

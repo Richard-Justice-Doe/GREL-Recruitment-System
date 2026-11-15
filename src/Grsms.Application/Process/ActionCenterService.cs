@@ -6,6 +6,9 @@ using Grsms.Domain.Onboarding;
 using Grsms.Domain.Recruitment;
 using Grsms.Domain.Settings;
 using Grsms.Domain.Vacancies;
+using Grsms.Application.Common;
+using Grsms.Application.Common.Interfaces;
+using Grsms.Domain.Applications;
 
 namespace Grsms.Application.Process;
 
@@ -16,11 +19,29 @@ public enum ActionPriority
     [Display(Name = "Low")] Low
 }
 
-/// <summary>One pending action with its priority, health against the target and the date it is expected by.</summary>
-public sealed record ActionItem(DashboardTaskDto Task, ActionPriority Priority, ProcessHealth Health, int? TargetWorkingDays, DateOnly? DueDate, string Why);
-
-public sealed record ActionCenterDto(IReadOnlyList<ActionItem> Items)
+/// <summary>G2 (15 Nov 2026): when an action is due, for the Action Center's sections (red, amber, neutral).</summary>
+public enum ActionTiming
 {
+    [Display(Name = "Overdue")] Overdue,
+    [Display(Name = "Due today")] DueToday,
+    [Display(Name = "Coming up")] Upcoming
+}
+
+/// <summary>One pending action with its priority, health against the target and the date it is expected by.</summary>
+public sealed record ActionItem(DashboardTaskDto Task, ActionPriority Priority, ProcessHealth Health, int? TargetWorkingDays, DateOnly? DueDate, string Why)
+{
+    /// <summary>Overdue: past its target or expected date; due today: expected today; otherwise coming up.</summary>
+    public ActionTiming TimingOn(DateOnly today) =>
+        Health == ProcessHealth.Overdue || DueDate < today ? ActionTiming.Overdue : DueDate == today ? ActionTiming.DueToday : ActionTiming.Upcoming;
+}
+
+/// <summary>G2: something the person did recently (from the workflow histories), shown under "Completed".</summary>
+public sealed record CompletedItem(string What, string Kind, string Controller, int Id, DateTime At);
+
+public sealed record ActionCenterDto(IReadOnlyList<ActionItem> Items, IReadOnlyList<CompletedItem>? Completed = null)
+{
+    public IReadOnlyList<CompletedItem> Done => Completed ?? [];
+
     public int Count(ActionPriority p) => Items.Count(i => i.Priority == p);
 }
 
@@ -33,8 +54,19 @@ public sealed record ActionCenterDto(IReadOnlyList<ActionItem> Items)
 ///   * Low: the rest.
 /// A step without a target becomes Medium after 3 working days and High after 7, so nothing waits unseen.
 /// </summary>
-public class ActionCenterService(DashboardService dashboard, ISettingsStore settings)
+public class ActionCenterService(
+    DashboardService dashboard,
+    ISettingsStore settings,
+    ICurrentUserService me,
+    IRepository<RecruitmentRequestAction> requestActions,
+    IRepository<VacancyActionEntry> vacancyActions,
+    IRepository<AdvertActionEntry> advertActions,
+    IRepository<ApplicationActionEntry> applicationActions,
+    IRepository<OnboardingActionEntry> onboardingActions,
+    IRepository<EmployeeDocumentEvent> documentEvents)
 {
+    public const int CompletedDays = 14, CompletedMax = 30;
+
     public const int NoTargetMedium = 3, NoTargetHigh = 7;
 
     /// <summary>The working-day target that applies to a task, from its kind and status (null when there is none).</summary>
@@ -81,6 +113,30 @@ public class ActionCenterService(DashboardService dashboard, ISettingsStore sett
         var now = DateTime.UtcNow;
         var items = d.Tasks.Select(t => Rate(t, now))
             .OrderBy(i => i.Priority).ThenBy(i => i.DueDate ?? DateOnly.MaxValue).ThenBy(i => i.Task.Since).ToList();
-        return new ActionCenterDto(items);
+        return new ActionCenterDto(items, await CompletedAsync(now, ct));
+    }
+
+    /// <summary>
+    /// G2: what the signed-in person did in the last <see cref="CompletedDays"/> days, from the workflow histories (requests,
+    /// vacancies, adverts, applications, onboarding, new-hire documents), newest first. Six small queries, on this page only.
+    /// </summary>
+    public async Task<IReadOnlyList<CompletedItem>> CompletedAsync(DateTime now, CancellationToken ct = default)
+    {
+        if (me.UserId is not { } uid) return [];
+        var from = now.AddDays(-CompletedDays);
+        var list = new List<CompletedItem>();
+        list.AddRange((await requestActions.ListAsync(a => a.ActorUserId == uid && a.ActionAt >= from, ct))
+            .Select(a => new CompletedItem(EnumText.Label(a.Action), "Recruitment request", "RecruitmentRequests", a.RecruitmentRequestId, a.ActionAt)));
+        list.AddRange((await vacancyActions.ListAsync(a => a.ActorUserId == uid && a.ActionAt >= from, ct))
+            .Select(a => new CompletedItem(EnumText.Label(a.Action), "Vacancy", "Vacancies", a.VacancyId, a.ActionAt)));
+        list.AddRange((await advertActions.ListAsync(a => a.ActorUserId == uid && a.ActionAt >= from, ct))
+            .Select(a => new CompletedItem(EnumText.Label(a.Action), "Job advert", "Adverts", a.JobAdvertId, a.ActionAt)));
+        list.AddRange((await applicationActions.ListAsync(a => a.ActorUserId == uid && a.ActionAt >= from, ct))
+            .Select(a => new CompletedItem(EnumText.Label(a.Action), "Application", "Applications", a.JobApplicationId, a.ActionAt)));
+        list.AddRange((await onboardingActions.ListAsync(a => a.ActorUserId == uid && a.ActionAt >= from, ct))
+            .Select(a => new CompletedItem(EnumText.Label(a.Action), "Onboarding", "Onboarding", a.OnboardingRecordId, a.ActionAt)));
+        list.AddRange((await documentEvents.ListAsync(a => a.ActorUserId == uid && a.ActionAt >= from, ct))
+            .Select(a => new CompletedItem($"New-hire document: {EnumText.Label(a.Action)}", "Onboarding", "Onboarding", a.OnboardingRecordId, a.ActionAt)));
+        return list.OrderByDescending(c => c.At).Take(CompletedMax).ToList();
     }
 }

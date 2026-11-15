@@ -89,6 +89,31 @@ public class ProcessGuideTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task G2_timing_sections_and_my_completed_actions()
+    {
+        var today = new DateOnly(2026, 11, 16);
+        Grsms.Application.Dashboard.DashboardTaskDto T() => new(Grsms.Application.Dashboard.DashboardTaskTarget.Shortlist, 1, "Tapper", "RR-1", "Shortlist", null, VacancyStatus.Published, DateTime.UtcNow);
+        Assert.Equal(ActionTiming.Overdue, new ActionItem(T(), ActionPriority.High, ProcessHealth.Overdue, 2, today.AddDays(1), "").TimingOn(today));
+        Assert.Equal(ActionTiming.Overdue, new ActionItem(T(), ActionPriority.High, ProcessHealth.OnTrack, 2, today.AddDays(-1), "").TimingOn(today));
+        Assert.Equal(ActionTiming.DueToday, new ActionItem(T(), ActionPriority.High, ProcessHealth.Approaching, 2, today, "").TimingOn(today));
+        Assert.Equal(ActionTiming.Upcoming, new ActionItem(T(), ActionPriority.Low, ProcessHealth.None, null, null, "").TimingOn(today));
+
+        // Completed: the HOD's approval (from the request history) shows for the HOD only, newest first.
+        var r = await RequestAsync(RecruitmentRequestStatus.HrApproval, DateTime.UtcNow.AddDays(-1));
+        await RequestAsync(RecruitmentRequestStatus.HrApproval, DateTime.UtcNow.AddDays(-30)); // too old
+        _db.CurrentUser.SignInAs(_hod, "p.hod@grel.test", Roles.HeadOfDepartment);
+        using (var scope = _db.NewScope())
+        {
+            var done = await scope.ServiceProvider.GetRequiredService<ActionCenterService>().CompletedAsync(DateTime.UtcNow);
+            var item = Assert.Single(done);
+            Assert.Equal(("RecruitmentRequests", r.Id, "Recruitment request"), (item.Controller, item.Id, item.Kind));
+        }
+        _db.CurrentUser.SignInAs(_hrm, "p.hrm@grel.test", Roles.HrManager);
+        using (var scope = _db.NewScope())
+            Assert.Empty(await scope.ServiceProvider.GetRequiredService<ActionCenterService>().CompletedAsync(DateTime.UtcNow));
+    }
+
+    [Fact]
     public void Health_follows_the_working_day_target()
     {
         var monday = new DateTime(2026, 11, 9, 9, 0, 0, DateTimeKind.Utc);

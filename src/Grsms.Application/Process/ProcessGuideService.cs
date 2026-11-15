@@ -24,7 +24,7 @@ public enum ProcessHealth
 {
     [Display(Name = "No target")] None,
     [Display(Name = "On track")] OnTrack,
-    [Display(Name = "Approaching the target")] Approaching,
+    [Display(Name = "Approaching deadline")] Approaching,
     [Display(Name = "Overdue")] Overdue
 }
 
@@ -51,6 +51,12 @@ public sealed record ProcessGuideDto(
     bool Finished = false,
     bool Stopped = false)
 {
+    /// <summary>Workflow completion: the share of steps done (100 when finished).</summary>
+    public int Percent => Finished || Stages.Count == 0 ? 100 : (int)Math.Round(100.0 * Stages.Count(s => s.State == StageState.Done) / Stages.Count);
+
+    /// <summary>The step after the current one ("what happens after this"), or null at the end.</summary>
+    public string? AfterThis => Stages.SkipWhile(s => s.State is not (StageState.Current or StageState.Stopped)).Skip(1).FirstOrDefault()?.Label;
+
     /// <summary>"5 days 9 hours" since the step started.</summary>
     public string? PendingFor(DateTime now)
     {

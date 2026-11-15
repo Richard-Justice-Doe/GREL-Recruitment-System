@@ -1063,3 +1063,41 @@ details[open] > summary > .doc-chevron { transform: rotate(180deg); }
 .kb-section { padding: 0.9rem 0; border-top: 1px solid var(--bs-border-color); scroll-margin-top: 5rem; }
 .kb-section:first-child { border-top: 0; padding-top: 0; }
 .kb-section:target { background: color-mix(in srgb, var(--grsms-brand) 8%, transparent); border-radius: 0.5rem; padding-left: 0.75rem; padding-right: 0.75rem; }
+
+/* G1 (15 Nov 2026, guided workflow): the current step in blue (done = green ticks, to come = grey), the completion bar and the
+   follow-up line of the process guide (Views/Shared/_ProcessGuide.cshtml). */
+:root { --grsms-current: #2f6fdf; }
+[data-bs-theme="dark"] { --grsms-current: #6ea0ff; }
+.pt-step.is-current .pt-dot { border-color: var(--grsms-current); color: var(--grsms-current); box-shadow: 0 0 0 4px color-mix(in srgb, var(--grsms-current) 20%, transparent); }
+.pt-step.is-current::before { background: linear-gradient(to right, var(--grsms-brand), var(--grsms-current)); }
+.pt-step.is-current .pt-label { color: var(--grsms-current); }
+.pt-step.is-upcoming .pt-dot { background: var(--bs-tertiary-bg); }
+.pg-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.pg-head-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bs-secondary-color); }
+.pg-progress { flex: 1 1 8rem; height: 0.5rem; min-width: 6rem; }
+.pg-head-percent { font-weight: 700; font-size: 0.9rem; }
+.pg-followup { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem; border-radius: 0.65rem; font-size: 0.9rem;
+    background: color-mix(in srgb, var(--grsms-current) 7%, transparent); border: 1px solid color-mix(in srgb, var(--grsms-current) 25%, transparent); }
+.pg-followup > i { color: var(--grsms-current); margin-top: 0.2rem; }
+
+/* G2 (15 Nov 2026): Action Center sections: overdue red, due today amber, coming up neutral, completed green. */
+.ac-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.6rem; }
+.ac-chip { display: flex; flex-direction: column; padding: 0.7rem 0.9rem; border-radius: 0.9rem; text-decoration: none; font-weight: 600; font-size: 0.85rem;
+    border: 1px solid var(--bs-border-color); color: var(--bs-body-color); }
+.ac-chip-n { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+.ac-chip.tone-danger { background: color-mix(in srgb, #d93f45 10%, transparent); border-color: color-mix(in srgb, #d93f45 40%, transparent); }
+.ac-chip.tone-danger .ac-chip-n { color: #d93f45; }
+.ac-chip.tone-warning { background: color-mix(in srgb, #e0a100 12%, transparent); border-color: color-mix(in srgb, #e0a100 45%, transparent); }
+.ac-chip.tone-warning .ac-chip-n { color: #c98f00; }
+.ac-chip.tone-success { background: color-mix(in srgb, var(--grsms-brand) 10%, transparent); border-color: color-mix(in srgb, var(--grsms-brand) 40%, transparent); }
+.ac-chip.tone-success .ac-chip-n { color: var(--grsms-brand); }
+.ac-section { font-size: 0.95rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; margin: 0.5rem 0 0.75rem; display: flex; align-items: center; }
+.ac-section-n { margin-left: 0.5rem; font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 1rem; background: var(--bs-tertiary-bg); }
+.ac-section.is-overdue { color: #d93f45; }
+.ac-section.is-today { color: #c98f00; }
+.ac-section.is-done { color: var(--grsms-brand); }
+.action-row.is-overdue { box-shadow: inset 4px 0 0 #d93f45; }
+.action-row.is-today { box-shadow: inset 4px 0 0 #e0a100; }
+.ac-done-list { list-style: none; padding: 0; margin: 0 0 1rem; }
+.ac-done-list li { display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; align-items: baseline; padding: 0.45rem 0; border-bottom: 1px solid var(--bs-border-color); }
+.ac-done-list li > i { color: var(--grsms-brand); }

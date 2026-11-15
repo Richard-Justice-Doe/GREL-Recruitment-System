@@ -60,6 +60,8 @@ public class ActionCenterWebTests(GrsmsWebFactory factory) : IClassFixture<Grsms
         Assert.Contains("Field Supervisor", page);
         Assert.Contains("data-priority=\"High\"", page);
         Assert.Contains("Overdue: target 2 working days", page);
+        Assert.Contains("data-timing=\"Overdue\"", page); // G2: in the red section
+        Assert.Contains("Completed in the last 14 days", page);
         Assert.Contains("Field Supervisor", await hrm.GetStringAsync("/ActionCenter?priority=High"));
         Assert.DoesNotContain("Field Supervisor", await hrm.GetStringAsync("/ActionCenter?priority=Low"));
 

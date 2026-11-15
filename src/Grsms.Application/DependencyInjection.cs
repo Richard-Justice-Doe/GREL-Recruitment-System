@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<Dashboard.ExecutiveDashboardService>(); // docs/36 AI-3
         services.AddScoped<Onboarding.DocumentCheckService>(); // docs/36 AI-4
         services.AddScoped<Onboarding.DocumentAiCheckService>(); // docs/36 AI-8
+        services.AddScoped<Onboarding.OnboardingJourneyService>(); // G3 guided workflow
         services.AddScoped<Ai.AiSummaryService>(); // docs/36 AI-5
         services.AddScoped<Ai.OnboardingAssistantService>(); // docs/36 AI-6
         services.AddSingleton<Knowledge.KnowledgeIndexCache>(); // docs/36 AI-7

@@ -1,0 +1,10 @@
+@* G3: the new employee's journey for one of their applications (nothing when there is no onboarding, or it isn't theirs). *@
+@model int
+@inject Grsms.Application.Onboarding.OnboardingJourneyService Journeys
+@{
+    var journey = await Journeys.GetMineAsync(Model);
+}
+@if (journey is not null)
+{
+    <partial name="_OnboardingJourney" model="journey" />
+}

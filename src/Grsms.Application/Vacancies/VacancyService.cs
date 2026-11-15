@@ -360,7 +360,8 @@ public class VacancyService(
             var saved = await SaveAsync(ct);
             if (saved.Succeeded)
             {
-                var html = $"The vacancy <b>{WorkflowMailer.Enc(v.JobTitle)}</b> has been approved and published. It closes on {v.ClosingDate:dd MMM yyyy}.";
+                var html = $"The vacancy <b>{WorkflowMailer.Enc(v.JobTitle)}</b> has been approved and published. It closes on {v.ClosingDate:dd MMM yyyy}." +
+                    WorkflowMailer.NextStep("Vacancy approved and published", "Create the job advert", "Recruitment Officer");
                 var link = links.Vacancy(v.Id);
                 await mailer.ToUserAsync(v.RecruiterUserId, $"{v.VacancyNumber} published", html, link, $"Open vacancy {v.VacancyNumber}", ct);
                 if (submitter != v.RecruiterUserId)

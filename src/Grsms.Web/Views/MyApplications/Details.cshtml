@@ -17,6 +17,8 @@
     </div>
     <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>My applications</a>
 </div>
+@* G3: the onboarding journey, once there is an onboarding *@
+@if (ViewBag.Appointment is MyAppointmentDto) { <partial name="_MyOnboardingJourney" model="Model.Id" /> }
 
 <div class="card glass mb-3">
     <div class="card-body py-4">

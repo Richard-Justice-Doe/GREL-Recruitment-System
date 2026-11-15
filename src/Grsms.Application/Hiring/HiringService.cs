@@ -716,7 +716,8 @@ public class HiringService(
         if (!saved.Succeeded) return saved;
 
         var text = accept
-            ? $"<b>{WorkflowMailer.Enc(app.FullName)}</b> has <b>accepted</b> the offer for {WorkflowMailer.Enc(offer.JobTitle)} (starts {offer.StartDate.ToString("d MMMM yyyy", Gb)})."
+            ? $"<b>{WorkflowMailer.Enc(app.FullName)}</b> has <b>accepted</b> the offer for {WorkflowMailer.Enc(offer.JobTitle)} (starts {offer.StartDate.ToString("d MMMM yyyy", Gb)})." +
+              WorkflowMailer.NextStep("Offer accepted", "Employee onboarding: start it from the hiring case", "Recruitment Officer")
             : $"<b>{WorkflowMailer.Enc(app.FullName)}</b> has <b>declined</b> the offer for {WorkflowMailer.Enc(offer.JobTitle)}.{(reason is null ? "" : $" Reason: {WorkflowMailer.Enc(reason)}")}";
         var subject = $"{offer.Number} {(accept ? "accepted" : "declined")}";
         var link = links.HiringCase(app.Id);

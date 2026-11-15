@@ -371,6 +371,7 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Contains("Your first day", tracker);
         Assert.Contains("Garage workshop, Abura", tracker);
         Assert.Contains("Upload my new-hire documents", tracker);
+        Assert.Contains("Welcome to your onboarding journey", tracker); // G3
         Assert.Contains("Read and sign my appointment letter", tracker);
         var letterPage = $"/MyApplications/Appointment/{c.ApplicationId}";
         var letter = await employee.GetStringAsync(letterPage);

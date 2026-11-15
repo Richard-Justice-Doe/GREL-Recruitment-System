@@ -727,7 +727,8 @@ public class AdvertService(
         var v = await vacancies.GetByIdAsync(a.VacancyId, ct);
         var toPost = a.Channels.Where(c => c.Status == ChannelPostStatus.ToPost).Select(c => EnumText.Label(c.Channel)).ToList();
         var html = $"The advert <b>{WorkflowMailer.Enc(a.Title)}</b> is now live until {a.EndDate:dd MMM yyyy}." +
-                   (toPost.Count == 0 ? "" : $"<p>Still to post by the IT Manager, using the copy-ready text on the advert page: {WorkflowMailer.Enc(string.Join(", ", toPost))}.</p>");
+                   (toPost.Count == 0 ? "" : $"<p>Still to post by the IT Manager, using the copy-ready text on the advert page: {WorkflowMailer.Enc(string.Join(", ", toPost))}.</p>") +
+                   WorkflowMailer.NextStep("Advert published", "Receive and screen applications", "Recruitment Officer");
         var link = links.Advert(a.Id);
         if (v is not null)
             await mailer.ToUserAsync(v.RecruiterUserId, $"{a.AdvertNumber} is live", html, link, $"Open advert {a.AdvertNumber}", ct);

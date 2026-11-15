@@ -62,6 +62,22 @@ Notice: one month's notice on either side, after confirmation.
 
 @* docs/37 CR5: the whole journey (who acts next, since when); the onboarding steps follow below. *@
 @if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process) { <partial name="_ProcessGuide" model="process" /> }
+@* G3 (15 Nov 2026): the onboarding journey (the same stages the new employee sees) replaces the 1-6 stepper; a cancelled onboarding
+   keeps the stepper, which shows where it stopped. *@
+@if (Model.Status != OnboardingStatus.Cancelled)
+{
+    <partial name="_OnboardingJourney" model="Grsms.Application.Onboarding.OnboardingJourneyService.ForStaff(Model)" />
+    @if (OnboardingWorkflow.IsActive(Model.Status) && Model.ExpectedCompletionDate is { } expectedBy)
+    {
+        <p class="small text-body-secondary mt-n2 mb-3">Expected to be complete by <strong>@expectedBy.ToString("dd MMM yyyy")</strong>@(expectedBy < today ? " (overdue)" : "").</p>
+    }
+    else if (Model.CompletedAt is { } doneAt)
+    {
+        <p class="small text-body-secondary mt-n2 mb-3">Completed on @doneAt.ToString("dd MMM yyyy"), staff number <strong>@Model.EmployeeNumber</strong>.</p>
+    }
+}
+else
+{
 <div class="card glass mb-3">
     <div class="card-body py-4">
         <partial name="_OnboardingStepper" model="(Model.Status, Model.History.LastOrDefault(h => h.ToStatus == OnboardingStatus.Cancelled)?.FromStatus)" />
@@ -77,6 +93,7 @@ Notice: one month's notice on either side, after confirmation.
         }
     </div>
 </div>
+}
 
 @* docs/36 AI-6: the onboarding assistant (only when switched on in AI settings; folded until opened) *@
 <partial name="_OnboardingAssistant" model="new Grsms.Web.Helpers.AssistantBox(null, Model.Id)" />

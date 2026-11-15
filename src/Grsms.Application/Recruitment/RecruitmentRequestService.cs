@@ -579,11 +579,13 @@ public class RecruitmentRequestService(
                     $"The request for <b>{Enc(r.PositionTitle)}</b> passed {stageName} and is waiting for your decision.{commentHtml}", ct);
                 await NotifyUserAsync(r.RequestedByUserId, r,
                     $"{r.RequestNumber} passed {stageName}",
-                    $"Your request for <b>{Enc(r.PositionTitle)}</b> passed {stageName} and moved to the next approval.{commentHtml}", ct);
+                    $"Your request for <b>{Enc(r.PositionTitle)}</b> passed {stageName} and moved to the next approval.{commentHtml}" +
+                    WorkflowMailer.NextStep($"{stageName} completed", RecruitmentWorkflow.StageName(r.Status), RecruitmentWorkflow.ApproverRole(r.Status) ?? ""), ct);
                 break;
 
             case RecruitmentRequestStatus.Approved:
-                var body = $"The request for <b>{Enc(r.PositionTitle)}</b> has received final approval from the Managing Director. Recruitment can now begin.{commentHtml}";
+                var body = $"The request for <b>{Enc(r.PositionTitle)}</b> has received final approval from the Managing Director. Recruitment can now begin.{commentHtml}" +
+                    WorkflowMailer.NextStep("Final approval completed", "Vacancy preparation", "Recruitment Officer");
                 await NotifyUserAsync(r.RequestedByUserId, r, $"{r.RequestNumber} approved", body, ct);
                 if (hodId is not null && hodId != r.RequestedByUserId) await NotifyUserAsync(hodId, r, $"{r.RequestNumber} approved", body, ct);
                 await NotifyRoleAsync(Roles.HrManager, r, $"{r.RequestNumber} approved", body, ct);

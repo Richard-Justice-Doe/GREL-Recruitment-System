@@ -1,0 +1,78 @@
+@* G3 (15 Nov 2026, guided workflow): the onboarding journey. New employee: "Welcome to your onboarding journey" on every portal page
+   of their onboarding; staff: the same stages on the onboarding page. Built by Application/Onboarding/OnboardingJourney. *@
+@using Grsms.Application.Process
+@model OnboardingJourneyDto
+@{
+    var next = Model.Next;
+    string StateText(StageState s) => s switch { StageState.Done => "Completed", StageState.Current => "In progress", _ => "Waiting" };
+    string StateCss(StageState s) => s switch { StageState.Done => "badge-soft-success", StageState.Current => "badge-soft-primary", _ => "badge-soft-secondary" };
+}
+<section class="journey card glass mb-3" aria-label="Onboarding journey">
+    <div class="card-body p-3 p-md-4">
+        <h2 class="journey-title">@(Model.ForEmployee ? "Welcome to your onboarding journey" : "Onboarding journey")</h2>
+        <div class="pg-head mb-3">
+            <span class="pg-head-label">Completion</span>
+            <div class="progress pg-progress" role="progressbar" aria-label="Onboarding completion" aria-valuenow="@Model.Percent" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" style="width: @Model.Percent%"></div>
+            </div>
+            <span class="pg-head-percent">@Model.Percent%</span>
+        </div>
+        <ol class="process-timeline" aria-label="Onboarding stages">
+            @foreach (var s in Model.Stages)
+            {
+                <li class="pt-step is-@s.State.ToString().ToLowerInvariant()" aria-current="@(s == next ? "step" : null)">
+                    <span class="pt-dot" aria-hidden="true">
+                        @if (s.State == StageState.Done) { <i class="fa-solid fa-check"></i> } else { <span class="pt-num">@s.Number</span> }
+                    </span>
+                    <span class="pt-label">@s.Title</span>
+                    <span class="pt-date">@s.Status</span>
+                    <span class="visually-hidden">(@StateText(s.State))</span>
+                </li>
+            }
+        </ol>
+
+        @if (next is not null)
+        {
+            <div class="pg-followup mt-3">
+                <i class="fa-solid @(next.YourTurn && Model.ForEmployee ? "fa-hand-point-right" : "fa-user-clock")" aria-hidden="true"></i>
+                <div>
+                    <div><span class="fw-semibold">@(Model.ForEmployee && next.YourTurn ? "Your next step" : "Now"): Stage @next.Number, @next.Title</span> · @next.Status</div>
+                    <div class="small text-body-secondary">With: <strong>@next.Owner</strong>@(next.Detail is null ? "" : $". {next.Detail}")</div>
+                </div>
+            </div>
+        }
+        else if (Model.Completed)
+        {
+            <div class="pg-followup mt-3"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><div class="fw-semibold">Onboarding complete.</div></div>
+        }
+
+        <details class="journey-all mt-3">
+            <summary class="small fw-semibold">See all @Model.Stages.Count stages</summary>
+            <ol class="journey-list mt-2">
+                @foreach (var s in Model.Stages)
+                {
+                    <li class="journey-item is-@s.State.ToString().ToLowerInvariant()">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <span class="fw-semibold">Stage @s.Number · @s.Title</span>
+                            <span class="badge rounded-pill @StateCss(s.State)">@(s.State == StageState.Done ? "✅ " : "")@StateText(s.State)</span>
+                        </div>
+                        <div class="small">@s.Status · <span class="text-body-secondary">with @s.Owner</span></div>
+                        @if (s.Detail is not null) { <div class="small text-body-secondary">@s.Detail</div> }
+                        @if (s.Tasks.Count > 0)
+                        {
+                            <ul class="journey-tasks">
+                                @foreach (var t in s.Tasks)
+                                {
+                                    <li class="@(t.Done ? "is-done" : t.NotNeeded ? "is-skipped" : "")">
+                                        <i class="fa-solid @(t.Done ? "fa-check" : t.NotNeeded ? "fa-minus" : "fa-hourglass-half")" aria-hidden="true"></i>
+                                        @t.Title@(t.NotNeeded ? " (not needed)" : "")@(t.AssignedTo is null || Model.ForEmployee ? "" : $" · {t.AssignedTo}")
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ol>
+        </details>
+    </div>
+</section>

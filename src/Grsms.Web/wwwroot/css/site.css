@@ -1101,3 +1101,17 @@ details[open] > summary > .doc-chevron { transform: rotate(180deg); }
 .ac-done-list { list-style: none; padding: 0; margin: 0 0 1rem; }
 .ac-done-list li { display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; align-items: baseline; padding: 0.45rem 0; border-bottom: 1px solid var(--bs-border-color); }
 .ac-done-list li > i { color: var(--grsms-brand); }
+
+/* G3 (15 Nov 2026): the onboarding journey (Views/Shared/_OnboardingJourney.cshtml). */
+.journey-title { font-size: 1.1rem; font-weight: 800; margin: 0 0 0.75rem; }
+.pt-num { font-size: 0.72rem; font-weight: 700; }
+.journey-list { list-style: none; padding: 0; margin: 0; }
+.journey-item { padding: 0.6rem 0 0.6rem 0.9rem; border-left: 3px solid var(--bs-border-color); margin-bottom: 0.35rem; }
+.journey-item.is-done { border-left-color: var(--grsms-brand); }
+.journey-item.is-current { border-left-color: var(--grsms-current); background: color-mix(in srgb, var(--grsms-current) 5%, transparent); border-radius: 0 0.5rem 0.5rem 0; }
+.journey-tasks { list-style: none; padding: 0; margin: 0.35rem 0 0; font-size: 0.85rem; }
+.journey-tasks li { padding: 0.1rem 0; }
+.journey-tasks li > i { width: 1.1rem; color: var(--bs-secondary-color); }
+.journey-tasks li.is-done > i { color: var(--grsms-brand); }
+.journey-tasks li.is-skipped { color: var(--bs-secondary-color); }
+.journey-all > summary { cursor: pointer; color: var(--grsms-current); }

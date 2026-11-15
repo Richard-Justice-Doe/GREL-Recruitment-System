@@ -489,7 +489,9 @@ public class OnboardingService(
         foreach (var uid in new[] { o.LetterIssuedByUserId, o.CreatedByUserId }.OfType<string>().Distinct())
             await mailer.ToUserAsync(uid, $"{o.LetterNumber} signed",
                 $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> has signed the appointment letter for {WorkflowMailer.Enc(o.JobTitle)} " +
-                $"(starts {o.StartDate.ToString("d MMMM yyyy", Gb)}).", links.Onboarding(o.Id), "Open the onboarding", ct);
+                $"(starts {o.StartDate.ToString("d MMMM yyyy", Gb)})." +
+                WorkflowMailer.NextStep("Appointment letter signed", "New-hire documents and personal record, then document verification", "The new employee, then the Recruitment Officer"),
+                links.Onboarding(o.Id), "Open the onboarding", ct);
         return saved;
     }
 
@@ -713,7 +715,8 @@ public class OnboardingService(
         foreach (var uid in owners)
             await mailer.ToUserAsync(uid, $"Onboarding {o.Number}: induction can begin",
                 $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}, starts {o.StartDate.ToString("d MMMM yyyy", Gb)}) is now an " +
-                $"active GREL employee, staff number {WorkflowMailer.Enc(staffNumber)}. Please complete your induction tasks.",
+                $"active GREL employee, staff number {WorkflowMailer.Enc(staffNumber)}. Please complete your induction tasks." +
+                WorkflowMailer.NextStep("Staff account activated", "Department induction and IT set-up", "Supervisor / Head of Department and IT"),
                 links.Onboarding(o.Id), "Open the onboarding", ct);
         // Phase 28 (docs/30): the employee master record. Last, after everything above is saved; it never fails the activation.
         await employeeLifecycle.OnActivatedAsync(o, ct);

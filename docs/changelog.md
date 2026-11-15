@@ -4,6 +4,36 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 15 November 2026: guided workflow (G1–G4)
+
+Requested by the user: a new user should see at once where a process is, what is done and pending, who acts, who approves next, how long it has waited and what comes next. Much of this was already built by docs/37 CR5; these steps fill the gaps. Guide: [docs/39](39-guided-workflow.md).
+
+* **G1, the process guide on every record page:**
+  * the current step is blue, done steps have green ticks, steps to come are grey;
+  * a **workflow completion** bar and percentage, with the health badge (🟢 On track, 🟡 Approaching deadline, 🔴 Overdue);
+  * a **follow-up** line ("To move this along, follow up with: HR Manager (names), pending approval for 4 days 6 hours") and "Once done, the next step is …";
+  * breadcrumbs start at **Home**.
+* **G2, Action Center:**
+  * counts and sections for 🔴 **Overdue**, 🟡 **Due today** and **Coming up**;
+  * a 🟢 **Completed** list: your workflow actions of the last 14 days, from the request, vacancy, advert, application, onboarding and document histories, each linked;
+  * the priority filter is unchanged.
+* **G3, the onboarding journey:**
+  * "Welcome to your onboarding journey" on the new employee's application, documents, personal record and letter pages;
+  * the same 9 stages on the staff onboarding page, replacing the 1–6 stepper (a cancelled onboarding keeps it);
+  * stage 4 shows "x of y uploaded", rejected documents and the medical report; stages 7–8 show the live IT and department tasks;
+  * no separate HR approval stage, per the 10 November decision;
+  * `Application/Onboarding/OnboardingJourney.cs`, `Views/Shared/_OnboardingJourney.cshtml`.
+* **G4, next-step notifications:** `WorkflowMailer.NextStep` adds "✅ X completed. Next step: Y. Responsible: Z." to the handover messages (email and bell): request approvals to the requester, vacancy published, advert live, offer accepted (next: onboarding), letter signed, staff account activated (next: induction and IT set-up).
+* No database change.
+* **Tests:**
+  * timing sections and completed actions;
+  * the journey through real onboarding states, the new employee only, the staff wording;
+  * the welcome on the portal;
+  * the requester's next-step notification.
+  303 tests pass.
+
+---
+
 ## 15 November 2026: AI-8, optional AI document check (docs/36 phase 6); all AI steps done
 
 The last step of the AI plan. It is off until the Super Admin switches on *Document type check*. That switch is marked *Personal data*, because ID images leave GREL.

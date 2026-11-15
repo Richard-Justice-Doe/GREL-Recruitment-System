@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text;
 using Grsms.Application.Common;
 using Grsms.Application.Common.Interfaces;
@@ -285,6 +287,13 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
         AsHod();
         Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.DepartmentHeadReview)).Succeeded);
         Assert.Contains(_db.SentEmails(), m => m.Contains("hrm@grel.test") && m.Contains("needs your approval"));
+        // G4: the requester is told what was completed, the next step and who is responsible.
+        using (var scope = _db.NewScope())
+        {
+            var bell = await scope.ServiceProvider.GetRequiredService<Grsms.Infrastructure.Persistence.ApplicationDbContext>().Notifications
+                .Where(n => n.UserId == _staff).Select(n => n.Body).ToArrayAsync();
+            Assert.Contains(bell, b => b != null && b.Contains("completed. Next step:") && b.Contains("Responsible: HR Manager."));
+        }
 
         // Stage 2: the HR Manager approves; no budget confirmation is needed (11 Nov 2026, docs/29 change 1).
         As(_hrm, Roles.HrManager);

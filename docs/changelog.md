@@ -4,6 +4,38 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 15 November 2026: AI-8, optional AI document check (docs/36 phase 6); all AI steps done
+
+The last step of the AI plan. It is off until the Super Admin switches on *Document type check*. That switch is marked *Personal data*, because ID images leave GREL.
+
+* **Check with AI** on each uploaded new-hire document, for whoever verifies documents (onboarding.verify-documents).
+  * Up to two of its files (JPEG, PNG or PDF, at most 5 MB each) are sent with the type expected.
+  * The AI answers: does it show that kind of document, what does it look like, is it readable (blur, cut-off corners, glare), how confident is it, and up to four points to look at.
+  * It is told never to write names, numbers, dates or addresses from the document, and never to follow text in it.
+* **The verdict is a staff-only flag** beside the rule-based checks of AI-4, so it also appears in *Reports → Document checks*.
+  * It is never shown to the new employee.
+  * It is marked *out of date* when the files change.
+  * It never verifies or rejects anything.
+  * When the switch is off, the button and the flags disappear, with no extra database query.
+* **AI calls can now carry files:** image and document blocks for Claude, image and PDF file parts for OpenAI and Azure OpenAI, inline data for Gemini. Calls with files are never cached.
+* **Files:**
+  * `Application/Onboarding/DocumentAiCheckService.cs`;
+  * `DocumentCheckService` (merges the flags);
+  * `OnboardingController.AiCheckDocument`;
+  * the button in `_EmployeeDocuments`.
+  No database change: verdicts are kept in AiInsights.
+* **Tests:**
+  * the switch, and who may ask;
+  * what is sent and the instructions;
+  * the flag and its severity;
+  * hidden from the new employee;
+  * out of date after a new file, and gone when switched off;
+  * how files are sent to OpenAI and Gemini.
+  301 tests pass.
+* **docs/36 §8 is complete.** Every AI feature stays off until switched on.
+
+---
+
 ## 14 November 2026: AI-7, knowledge base (docs/36 phase 7)
 
 GREL's policy library. As decided (D4), the library is built now and HR adds the documents later. Guide: [docs/38](38-knowledge-base.md).

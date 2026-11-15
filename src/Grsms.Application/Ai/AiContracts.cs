@@ -11,7 +11,16 @@ public sealed record AiConnection(AiProvider Provider, string ApiKey, string Mod
 /// which the instructions tell the model to treat as data only. <see cref="Schema"/> (a JSON Schema object) asks for a JSON
 /// answer of exactly that shape; null = plain text.
 /// </summary>
-public sealed record AiCall(string Instructions, string Input, JsonObject? Schema, int MaxOutputTokens = 4000);
+/// <param name="Files">docs/36 AI-8: pictures (JPEG, PNG) or PDFs sent with the input, e.g. a scanned ID document. Never cached.</param>
+public sealed record AiCall(string Instructions, string Input, JsonObject? Schema, int MaxOutputTokens = 4000, IReadOnlyList<AiFile>? Files = null);
+
+/// <summary>A file sent with a request: its bytes, its type ("image/jpeg", "image/png" or "application/pdf") and its name.</summary>
+public sealed record AiFile(byte[] Content, string MediaType, string FileName)
+{
+    public const string Jpeg = "image/jpeg", Png = "image/png", Pdf = "application/pdf";
+    public bool IsPdf => MediaType == Pdf;
+    public string Base64 => Convert.ToBase64String(Content);
+}
 
 public sealed record AiReply(string Text, int InputTokens, int OutputTokens, string Model);
 

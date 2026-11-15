@@ -15,7 +15,7 @@ public class AiSettingsWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Contains("/AiSettings", await admin.GetStringAsync("/Administration"));
         var page = await admin.GetStringAsync("/AiSettings");
         Assert.Contains("AI settings &amp; usage", page);
-        Assert.Contains("Coming: AI-8", page); // features not built yet can't be switched on
+        Assert.DoesNotContain("Coming: AI-", page); // 15 Nov 2026: every feature of docs/36 is built
         Assert.Contains("<option value=\"Gemini\">Google Gemini</option>", page); // 14 Nov 2026
         Assert.DoesNotContain("Monthly budget", await admin.GetStringAsync("/SystemSettings")); // own page, not System settings
 

@@ -226,6 +226,18 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
 
     /// <summary>Usability U3: after acting on a document, come back to that document (not the top of the page).</summary>
+    /// <summary>docs/36 AI-8: the optional AI check of one uploaded document (advice for the RO, shown as a flag on the document).</summary>
+    [HttpPost]
+    [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
+    public async Task<IActionResult> AiCheckDocument(int id, int documentId, [FromServices] DocumentAiCheckService checks, CancellationToken ct)
+    {
+        var r = await checks.CheckAsync(documentId, id, ct);
+        if (!r.Succeeded) Fail(r);
+        else if (!r.Value.MatchesExpected) Error($"AI check: this may not be the right document; it looks like {r.Value.DetectedType}. See the note on the document.");
+        else Success(r.Value.Readable && r.Value.Issues.Count == 0 ? "AI check: it looks like the right document and readable. Still compare it with the original." : "AI check done: see the note on the document.");
+        return RedirectToAction(nameof(Details), null, new { id }, $"doc-{documentId}");
+    }
+
     private Task<IActionResult> ActAt(int id, int documentId, Func<Task<Result>> action, string successMessage) =>
         RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), null, new { id }, $"doc-{documentId}"));
 }

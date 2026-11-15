@@ -14,10 +14,10 @@ public sealed record DocumentFlag(string Code, string Severity, string Message, 
 ///   * the same file (same SHA-256) used for two documents, or uploaded by another new employee;
 ///   * photos and scans of low resolution (longer side under 1,000 pixels, read from the file header).
 /// Missing documents and deadlines are already followed by the checklist and Phase 27 stage C. Flags only inform the Recruitment
-/// Officer, who still verifies or rejects each document.
+/// Officer, who still verifies or rejects each document. 15 Nov 2026 (AI-8): the optional AI check's verdict is added as a staff-only flag.
 /// </summary>
 public class DocumentCheckService(IRepository<EmployeeDocument> documents, IRepository<Attachment> attachments, IRepository<OnboardingRecord> onboardings,
-    IRepository<OnboardingDocumentType> documentTypes)
+    IRepository<OnboardingDocumentType> documentTypes, Ai.AiGateway ai, IRepository<Domain.Ai.AiInsight> insights)
 {
     /// <summary>Flags per document id, for the given onboardings.</summary>
     public async Task<IReadOnlyDictionary<int, IReadOnlyList<DocumentFlag>>> ForOnboardingsAsync(IReadOnlyCollection<int> onboardingIds, DateOnly today,
@@ -54,6 +54,12 @@ public class DocumentCheckService(IRepository<EmployeeDocument> documents, IRepo
         var otherObIds = twins.Where(t => sharedHashes.Contains(t.Sha256)).Select(t => twinDocs.GetValueOrDefault(t.OwnerId)?.OnboardingRecordId).OfType<int>().Distinct().ToList();
         var obNumbers = otherObIds.Count == 0 ? [] : (await onboardings.ListAsync(o => otherObIds.Contains(o.Id), ct)).ToDictionary(o => o.Id, o => o.Number);
 
+        // docs/36 AI-8: the latest AI checks (one query, only while the feature is on).
+        var docIds = docs.Select(d => d.Id).ToList();
+        var aiChecks = ai.IsOn(Domain.Ai.AiFeature.DocumentCheck) && docIds.Count > 0
+            ? DocumentAiCheckService.Latest(await insights.ListAsync(i => i.RecordType == DocumentAiCheckService.RecordType && docIds.Contains(i.RecordId), ct))
+            : [];
+
         var result = new Dictionary<int, IReadOnlyList<DocumentFlag>>();
         foreach (var d in docs)
         {
@@ -84,6 +90,8 @@ public class DocumentCheckService(IRepository<EmployeeDocument> documents, IRepo
                 if (f.ImageWidth is { } w && f.ImageHeight is { } h && Math.Max(w, h) < OnboardingWorkflow.LowResolutionPixels)
                     flags.Add(new("low-resolution", "warning", $"{f.OriginalFileName}: low resolution ({w} × {h} pixels), may be hard to read."));
             }
+            if (aiChecks.TryGetValue(d.Id, out var check))
+                flags.AddRange(DocumentAiCheckService.Flags(check.Check, check.At, mine, types.GetValueOrDefault(d.DocumentTypeCode, d.DocumentTypeCode)));
             if (flags.Count > 0) result[d.Id] = flags.DistinctBy(x => x.Message).ToList();
         }
         return result;

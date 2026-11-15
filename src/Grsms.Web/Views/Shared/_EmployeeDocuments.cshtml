@@ -9,10 +9,14 @@
    that opens to show the files, actions and history. Rows needing the viewer's action open by themselves. Behaviour unchanged.
    js/document-checklist.js does the filtering and re-opens the document named in the address (#doc-12) after an upload. *@
 @model DocumentChecklistDto
+@inject Grsms.Application.Onboarding.DocumentAiCheckService AiChecks
 @{
     var controller = (string)ViewData["DocController"]!;
     var routeId = (int)ViewData["DocRouteId"]!;
     var forEmployee = controller == "MyApplications";
+    // docs/36 AI-8: the optional AI check, for whoever verifies documents (staff side only, when switched on).
+    var aiCheckOn = !forEmployee && AiChecks.CanCheck;
+    static bool Checkable(EmployeeDocumentFileDto f) => System.IO.Path.GetExtension(f.FileName).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png" or ".pdf" && f.SizeBytes <= Grsms.Application.Onboarding.DocumentAiCheckService.MaxBytes;
     var docs = forEmployee ? Model.Visible : Model.Documents;
     string Css(EmployeeDocumentDto d) => d.Status switch
     {
@@ -266,6 +270,13 @@
                                     <form asp-controller="@controller" asp-action="StartReview" asp-route-id="@routeId" method="post">
                                         <input type="hidden" name="documentId" value="@d.Id" />
                                         <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-magnifying-glass me-1"></i>Start review</button>
+                                    </form>
+                                }
+                                @if (aiCheckOn && d.Files.Any(Checkable))
+                                {
+                                    <form asp-controller="@controller" asp-action="AiCheckDocument" asp-route-id="@routeId" method="post">
+                                        <input type="hidden" name="documentId" value="@d.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Sends the file(s) to the AI service: is it the right kind of document, and readable? Advice only."><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Check with AI</button>
                                     </form>
                                 }
                                 @if (d.CanReview)

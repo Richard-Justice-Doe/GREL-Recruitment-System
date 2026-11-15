@@ -72,7 +72,8 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
         IsConfigured && (feature == AiFeature.ConnectionTest || settings.GetBool(SettingCatalogue.AiFeatureKey(feature)));
 
     public async Task<AiResult<T>> RunAsync<T>(AiFeature feature, string promptVersion, string instructions, string input,
-        (string Type, int Id)? record = null, bool useCache = false, int maxOutputTokens = 4000, CancellationToken ct = default) where T : class
+        (string Type, int Id)? record = null, bool useCache = false, int maxOutputTokens = 4000, CancellationToken ct = default,
+        IReadOnlyList<AiFile>? files = null) where T : class
     {
         var now = DateTime.UtcNow;
         var log = new AiRequestLog
@@ -98,7 +99,7 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
                 await LogAsync(log, AiOutcome.BudgetReached, null, ct));
 
         // Only features that send no personal data are cached (generators, totals).
-        var cacheable = useCache && !AiFeatures.SendsPersonalData(feature);
+        var cacheable = useCache && !AiFeatures.SendsPersonalData(feature) && files is not { Count: > 0 };
         var key = Hash($"{feature}|{promptVersion}|{connection.Provider}|{connection.Model}|{instructions}|{input}");
         if (cacheable && await store.CachedAsync(key, now, ct) is { } cached && Parse<T>(cached) is { } fromCache)
         {
@@ -107,7 +108,7 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
         }
 
         var isText = typeof(T) == typeof(string);
-        var call = new AiCall(instructions, input, isText ? null : SchemaOf<T>(), maxOutputTokens);
+        var call = new AiCall(instructions, input, isText ? null : SchemaOf<T>(), maxOutputTokens, files);
         if (settings.GetBool(SettingCatalogue.AiKeepPrompts)) log.Prompt = $"{instructions}\n\n---\n\n{input}";
 
         var watch = Stopwatch.StartNew();

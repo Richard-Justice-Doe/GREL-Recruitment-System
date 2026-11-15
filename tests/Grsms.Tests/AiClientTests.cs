@@ -131,4 +131,32 @@ public class AiClientTests
         Assert.Equal(keyRefused, ex.KeyRefused);
         Assert.DoesNotContain("AIza-secret", ex.Message);
     }
+
+    // ===================================================================== Files with the input (docs/36 AI-8)
+
+    private static readonly AiFile[] Files = [new("%PDF-1.4"u8.ToArray(), AiFile.Pdf, "card.pdf"), new([0xFF, 0xD8, 0xFF], AiFile.Jpeg, "card.jpg")];
+
+    [Fact]
+    public async Task OpenAi_sends_files_as_a_pdf_file_part_and_an_image_part_before_the_text()
+    {
+        var handler = new Handler(HttpStatusCode.OK, Ok);
+        await new AiClient(new HttpClient(handler)).SendAsync(Conn(AiProvider.OpenAI), new AiCall("x", "Check these.", null, 200, Files));
+        var content = JsonNode.Parse(handler.Body!)!["messages"]![1]!["content"]!.AsArray();
+        Assert.Equal(["file", "image_url", "text"], content.Select(p => p!["type"]!.GetValue<string>()));
+        Assert.Equal("data:application/pdf;base64," + Convert.ToBase64String("%PDF-1.4"u8.ToArray()), content[0]!["file"]!["file_data"]!.GetValue<string>());
+        Assert.StartsWith("data:image/jpeg;base64,", content[1]!["image_url"]!["url"]!.GetValue<string>());
+        Assert.Equal("Check these.", content[2]!["text"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Gemini_sends_files_as_inline_data_parts_before_the_text()
+    {
+        var handler = new Handler(HttpStatusCode.OK, GeminiOk);
+        await new AiClient(new HttpClient(handler)).SendAsync(Gemini(), new AiCall("x", "Check these.", null, 200, Files));
+        var parts = JsonNode.Parse(handler.Body!)!["contents"]![0]!["parts"]!.AsArray();
+        Assert.Equal(3, parts.Count);
+        Assert.Equal(("application/pdf", "image/jpeg"), (parts[0]!["inlineData"]!["mimeType"]!.GetValue<string>(), parts[1]!["inlineData"]!["mimeType"]!.GetValue<string>()));
+        Assert.Equal(Convert.ToBase64String([0xFF, 0xD8, 0xFF]), parts[1]!["inlineData"]!["data"]!.GetValue<string>());
+        Assert.Equal("Check these.", parts[2]!["text"]!.GetValue<string>());
+    }
 }

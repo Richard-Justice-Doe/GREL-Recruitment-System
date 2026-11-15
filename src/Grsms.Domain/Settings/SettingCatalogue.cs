@@ -104,7 +104,7 @@ public static class SettingCatalogue
 
     /// <summary>The features that are built (and so have a switch); more are added as docs/36 §8 progresses.</summary>
     public static readonly IReadOnlyList<Ai.AiFeature> AiFeaturesBuilt = [Ai.AiFeature.JobDescription, Ai.AiFeature.Advert, Ai.AiFeature.InterviewQuestions, Ai.AiFeature.ExecutiveSummary,
-        Ai.AiFeature.InterviewSummary, Ai.AiFeature.CvSummary, Ai.AiFeature.CvReading, Ai.AiFeature.OnboardingAssistant, Ai.AiFeature.KnowledgeAnswer];
+        Ai.AiFeature.InterviewSummary, Ai.AiFeature.CvSummary, Ai.AiFeature.CvReading, Ai.AiFeature.OnboardingAssistant, Ai.AiFeature.KnowledgeAnswer, Ai.AiFeature.DocumentCheck];
 
     /// <summary>Groups shown on their own page rather than on the System settings screen.</summary>
     public static readonly IReadOnlySet<string> OwnPageGroups = new HashSet<string> { Letters, LetterSignatureGroup, AiService, AiFeaturesGroup };

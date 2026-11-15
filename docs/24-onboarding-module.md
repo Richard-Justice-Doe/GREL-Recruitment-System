@@ -115,6 +115,16 @@ Documents arrive one by one; you are emailed once the new employee has provided 
 
 These remarks don't decide anything: you still verify or reject. **Reports → Document checks** lists them for all onboardings in progress.
 
+**AI check (optional, 15 November 2026).** When the Super Admin has switched on *Document type check* in *AI settings & usage*, documents with a picture or PDF get a **Check with AI** button, for whoever verifies documents.
+* The file (up to two files, at most 5 MB each) is sent to the AI service with the document type expected.
+* The answer appears as a note under the document, for staff only:
+  * *looks like a Ghana Card, readable*;
+  * *may be hard to read* (blurred, cut off, glare);
+  * *does not look like a Ghana Card; it looks like a bank statement*.
+* A new file makes the note **out of date**, so check again.
+* It never verifies or rejects: you still compare with the original.
+* Because ID images leave GREL, the switch stays off until GREL's data-protection sign-off is in place.
+
 ### Activation and induction
 When the onboarding is **Ready for activation**, the *Next step* panel shows the **departmental induction areas** (the defaults already ticked) and the **staff number** box. Click **Activate the employee**: the account becomes a staff account (Employee role added, Candidate role removed, staff number, department and site set), the probation starts, the personnel file is filled, and each ticked area's tasks are added to the checklist, given to the area's owner and due a week later. The new employee (template *Onboarding: staff account active*), the task owners and the HOD are emailed.
 

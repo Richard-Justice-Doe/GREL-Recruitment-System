@@ -57,7 +57,7 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
                 Model = c.Model,
                 MaxTokens = call.MaxOutputTokens,
                 System = call.Instructions,
-                Messages = [new UserMessageParam { Content = call.Input }],
+                Messages = [new UserMessageParam { Content = AnthropicContent(call) }],
             };
             if (call.Schema is not null)
                 request = request with
@@ -93,7 +93,7 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
         {
             ["messages"] = new JsonArray(
                 new JsonObject { ["role"] = "system", ["content"] = call.Instructions },
-                new JsonObject { ["role"] = "user", ["content"] = call.Input }),
+                new JsonObject { ["role"] = "user", ["content"] = OpenAiContent(call) }),
             ["max_completion_tokens"] = call.MaxOutputTokens
         };
         if (!azure) body["model"] = c.Model;
@@ -136,7 +136,7 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
         var body = new JsonObject
         {
             ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = call.Instructions }) },
-            ["contents"] = new JsonArray(new JsonObject { ["role"] = "user", ["parts"] = new JsonArray(new JsonObject { ["text"] = call.Input }) }),
+            ["contents"] = new JsonArray(new JsonObject { ["role"] = "user", ["parts"] = GeminiParts(call) }),
             ["generationConfig"] = generation
         };
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{GeminiBaseUrl}{Uri.EscapeDataString(model)}:generateContent")
@@ -163,6 +163,42 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
             usage?["promptTokenCount"]?.GetValue<int>() ?? 0,
             (usage?["candidatesTokenCount"]?.GetValue<int>() ?? 0) + (usage?["thoughtsTokenCount"]?.GetValue<int>() ?? 0), // thinking is billed as output
             json?["modelVersion"]?.GetValue<string>() ?? model);
+    }
+
+    // ===================================================================== Files with the input (docs/36 AI-8)
+    // The files come first and the text after, as each provider recommends for questions about a picture or document.
+
+    private static List<ContentBlockParam> AnthropicContent(AiCall call)
+    {
+        if (call.Files is not { Count: > 0 } files) return [new TextBlockParam { Text = call.Input }]; // the same as plain text
+        var blocks = new List<ContentBlockParam>();
+        foreach (var f in files)
+            blocks.Add(f.IsPdf
+                ? new DocumentBlockParam { Source = new Base64PdfSource { Data = f.Base64 } }
+                : new ImageBlockParam { Source = new Base64ImageSource { Data = f.Base64, MediaType = f.MediaType == AiFile.Png ? MediaType.ImagePng : MediaType.ImageJpeg } });
+        blocks.Add(new TextBlockParam { Text = call.Input });
+        return blocks;
+    }
+
+    private static JsonNode OpenAiContent(AiCall call)
+    {
+        if (call.Files is not { Count: > 0 } files) return JsonValue.Create(call.Input)!;
+        var parts = new JsonArray();
+        foreach (var f in files)
+            parts.Add(f.IsPdf
+                ? new JsonObject { ["type"] = "file", ["file"] = new JsonObject { ["filename"] = f.FileName, ["file_data"] = $"data:{f.MediaType};base64,{f.Base64}" } }
+                : new JsonObject { ["type"] = "image_url", ["image_url"] = new JsonObject { ["url"] = $"data:{f.MediaType};base64,{f.Base64}", ["detail"] = "high" } });
+        parts.Add(new JsonObject { ["type"] = "text", ["text"] = call.Input });
+        return parts;
+    }
+
+    private static JsonArray GeminiParts(AiCall call)
+    {
+        var parts = new JsonArray();
+        foreach (var f in call.Files ?? [])
+            parts.Add(new JsonObject { ["inlineData"] = new JsonObject { ["mimeType"] = f.MediaType, ["data"] = f.Base64 } });
+        parts.Add(new JsonObject { ["text"] = call.Input });
+        return parts;
     }
 
     // ===================================================================== Shared HTTP

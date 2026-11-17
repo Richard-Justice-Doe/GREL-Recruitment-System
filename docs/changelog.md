@@ -4,6 +4,36 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 17 November 2026: AI drafts the "Description of the post" on the recruitment request
+
+Requested by the user: "AI is supposed to generate the job description here" (QF-81-11, section 3). This was planned in [docs/36](36-ai-hr-platform-plan.md), phase 3, but until now only the vacancy form had the button.
+
+**What changed**
+* **Draft the description with AI** panel above the formatted editor in section 3. It appears only when the AI feature *Job description drafts* is switched on.
+* **What it uses:**
+  * the position title, department and engagement type already on the form;
+  * an optional grade, level and main responsibilities typed in the panel.
+* **What it fills:** the formatted editor, under headings: Job purpose, Main duties and responsibilities, Requirements, Competencies and Key performance indicators. The requester edits the text and saves as usual; nothing is saved by the AI.
+* **Another version** asks for a fresh draft.
+* **Missing details:** if the department or position title is missing, the panel says which section to fill first.
+* **Who can use it:** the same people who can raise a request. No personal data is sent.
+
+**Files**
+* `Application/Ai/AiWriters.cs`: `JobDescriptionDraft.DescriptionHtml()`. The AI's text is HTML-encoded.
+* `Web/Controllers/AiController.cs`: `RequestDescription`.
+* `Views/RecruitmentRequests/Form.cshtml`: the panel.
+* `wwwroot/js/rich-text-editor.js`: the editor reloads when its hidden field changes.
+
+**Checked:** a new web test in `AiWritersWebTests` covers:
+* the panel, when the feature is on;
+* the department and title messages;
+* the formatted HTML, with the AI text encoded;
+* no personal data in the prompt.
+
+The full suite passes (315).
+
+---
+
 ## 17 November 2026: reopening a cancelled onboarding or induction
 
 Requested by the user: "if an induction is being cancelled it needs to be reactivated".

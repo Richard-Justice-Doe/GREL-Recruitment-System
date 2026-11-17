@@ -70,6 +70,35 @@ public sealed record JobDescriptionDraft(
         Section("Skills matrix:", SkillsMatrix.Select(s => $"{s.Skill}: {s.Level} ({(s.Essential ? "essential" : "desirable")})"));
         return sb.ToString().TrimEnd();
     }
+
+    /// <summary>
+    /// 17 Nov 2026: the same draft as formatted text for the recruitment request's "Description of the post" editor (QF-81-11):
+    /// headings and bulleted lists, every piece of text HTML-encoded (the request's sanitiser also cleans it when saved).
+    /// </summary>
+    public string DescriptionHtml()
+    {
+        static string E(string s) => System.Net.WebUtility.HtmlEncode(s.Trim());
+        var sb = new StringBuilder();
+        sb.Append("<h3>Job purpose</h3><p>").Append(E(Purpose)).Append("</p>");
+        void List(string title, IEnumerable<string> lines)
+        {
+            var list = lines.Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+            if (list.Count == 0) return;
+            sb.Append("<h3>").Append(E(title)).Append("</h3><ul>");
+            foreach (var l in list) sb.Append("<li>").Append(E(l)).Append("</li>");
+            sb.Append("</ul>");
+        }
+        List("Main duties and responsibilities", Duties);
+        List("Requirements", new[]
+        {
+            $"Education: {(MinimumEducation == EducationLevel.None ? "no minimum" : EnumText.Label(MinimumEducation))}{(string.IsNullOrWhiteSpace(FieldOfStudy) ? "" : $" in {FieldOfStudy}")}",
+            MinYearsExperience > 0 ? $"Experience: at least {MinYearsExperience} year{(MinYearsExperience == 1 ? "" : "s")}" : "Experience: no minimum"
+        }.Concat(EssentialSkills.Select(s => $"Essential skill: {s}")).Concat(EssentialCertifications.Select(c => $"Required certification: {c}"))
+         .Concat(DesirableSkills.Select(s => $"Desirable skill: {s}")));
+        List("Competencies", Competencies);
+        List("Key performance indicators", Kpis);
+        return sb.ToString();
+    }
 }
 
 /// <summary>

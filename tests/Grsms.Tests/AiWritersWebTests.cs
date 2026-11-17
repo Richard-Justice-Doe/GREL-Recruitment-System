@@ -53,6 +53,57 @@ public class AiWritersWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWeb
 
     private static JsonElement Json(string body) => JsonDocument.Parse(body).RootElement;
 
+    /// <summary>17 Nov 2026: "Description of the post" on QF-81-11 is drafted by the same AI writer as the vacancy form.</summary>
+    [Fact]
+    public async Task Staff_raising_a_request_draft_the_description_of_the_post_with_ai_into_the_formatted_editor()
+    {
+        await UserAsync("ai.raiser@grel.test", Roles.Employee);
+        var staff = await SignedInAsync("ai.raiser@grel.test");
+        const string form = "/RecruitmentRequests/Create";
+        await SettingsAsync(new()
+        {
+            [SettingCatalogue.AiEnabled] = "true", [SettingCatalogue.AiProviderKey] = "Anthropic", [SettingCatalogue.AiApiKey] = "sk-test",
+            [SettingCatalogue.AiFeatureKey(AiFeature.JobDescription)] = "true"
+        });
+        try
+        {
+            var page = await staff.GetStringAsync(form);
+            Assert.Contains("Draft the description with AI", page);
+            Assert.Contains("data-ai-collect=\"PositionTitle,DepartmentId,EmploymentType\"", page);
+
+            // The department and the position title are needed first.
+            var noDept = Json(await (await staff.PostFormAsync(form, "/Ai/RequestDescription", new() { ["positionTitle"] = "Safety Officer" })).Content.ReadAsStringAsync());
+            Assert.Equal("Choose the department first (section 1).", noDept.GetProperty("problem").GetString());
+            var noTitle = Json(await (await staff.PostFormAsync(form, "/Ai/RequestDescription", new() { ["departmentId"] = "32" })).Content.ReadAsStringAsync());
+            Assert.Equal("Enter the position title first (section 2).", noTitle.GetProperty("problem").GetString());
+
+            factory.Ai.Reply = _ => new AiReply("""
+                {"purpose":"Keeps people <safe>.","duties":["Inspect sites","Investigate incidents"],"minimum_education":"Diploma","field_of_study":"Occupational safety",
+                 "min_years_experience":3,"essential_skills":["Risk assessment"],"desirable_skills":[],"essential_certifications":["NEBOSH IGC"],
+                 "desirable_certifications":[],"competencies":["Integrity"],"kpis":["Lost-time injury rate"],"skills_matrix":[]}
+                """, 500, 400, "claude-sonnet-5-5");
+            var r = Json(await (await staff.PostFormAsync(form, "/Ai/RequestDescription", new()
+            {
+                ["positionTitle"] = "Safety Officer", ["departmentId"] = "32", ["employmentType"] = "Permanent", ["requestId"] = "0", ["level"] = "Experienced"
+            })).Content.ReadAsStringAsync());
+            Assert.True(r.GetProperty("ok").GetBoolean());
+            Assert.Equal("Medium", r.GetProperty("confidence").GetString());
+            var html = r.GetProperty("fields").GetProperty("PostDescription").GetString()!;
+            Assert.StartsWith("<h3>Job purpose</h3><p>Keeps people &lt;safe&gt;.</p>", html); // the AI's text is encoded
+            Assert.Contains("<h3>Main duties and responsibilities</h3><ul><li>Inspect sites</li>", html);
+            Assert.Contains("<li>Education: Diploma in Occupational safety</li>", html);
+            Assert.Contains("<li>Required certification: NEBOSH IGC</li>", html);
+            Assert.Contains("<h3>Key performance indicators</h3>", html);
+            var call = factory.Ai.Calls[^1].Call;
+            Assert.Contains("Safety Officer", call.Input);
+            Assert.DoesNotContain("ai.raiser", call.Input);
+        }
+        finally
+        {
+            await SettingsAsync(new() { [SettingCatalogue.AiEnabled] = "false", [SettingCatalogue.AiFeatureKey(AiFeature.JobDescription)] = "false" });
+        }
+    }
+
     [Fact]
     public async Task Recruiter_drafts_a_job_description_and_advert_versions_with_ai_then_saves_them_the_usual_way()
     {

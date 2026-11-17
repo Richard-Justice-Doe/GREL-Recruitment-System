@@ -104,6 +104,9 @@
         editor.addEventListener("drop", function (e) { e.preventDefault(); });
 
         editor.addEventListener("input", sync);
+        // 17 Nov 2026: text put into the field by the page (the "Draft with AI" panel fires "change") is shown in the editor.
+        // It comes from GRSMS (encoded text in fixed tags) and the server sanitises it again when the form is saved.
+        source.addEventListener("change", function () { editor.innerHTML = source.value || ""; sync(); });
         editor.addEventListener("keyup", refreshButtons);
         editor.addEventListener("mouseup", refreshButtons);
         var form = root.closest("form");

@@ -22,6 +22,15 @@ public static class ProbationWorkflow
     public const int FirstAssessmentMonths = 3;
     public const int MaxExtensionMonths = 3;
 
+    /// <summary>17 Nov 2026: the initial meeting's date may be from two weeks before the start up to today (it records a meeting held).</summary>
+    public const int MeetingDaysBeforeStart = 14;
+
+    /// <summary>The dates the initial meeting may have been held on; Earliest &gt; Latest means none yet.</summary>
+    public static (DateOnly Earliest, DateOnly Latest) MeetingDateWindow(DateOnly start, DateOnly today) => (start.AddDays(-MeetingDaysBeforeStart), today);
+
+    /// <summary>The last due date an objective may have: the end of the probation plus the longest extension.</summary>
+    public static DateOnly LatestObjectiveDue(DateOnly end) => end.AddMonths(MaxExtensionMonths);
+
     /// <summary>How early (days before the due date) an assessment may be recorded.</summary>
     public const int AssessmentWindowDays = 14;
 

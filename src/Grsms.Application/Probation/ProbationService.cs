@@ -237,12 +237,16 @@ public class ProbationService(
         var objectives = form.Objectives.Where(o => !o.IsEmpty).ToList();
         var plan = form.DevelopmentPlan.Where(d => !d.IsEmpty).ToList();
         var errors = new List<string>();
-        if (form.MeetingDate is not { } date || date < p.StartDate.AddDays(-14) || date > Today) errors.Add("Enter the date of the meeting (not in the future).");
+        var (earliest, latest) = ProbationWorkflow.MeetingDateWindow(p.StartDate, Today);
+        if (form.MeetingDate is not { } date || date < earliest || date > latest)
+            errors.Add(earliest > latest
+                ? $"The meeting can be recorded from {earliest:d MMM yyyy} (two weeks before the start on {p.StartDate:d MMM yyyy}): record it on the day it is held."
+                : $"Enter the date the meeting was held: between {earliest:d MMM yyyy} and today ({latest:d MMM yyyy}).");
         if (objectives.Count == 0) errors.Add("Agree at least one objective.");
         if (objectives.Any(o => string.IsNullOrWhiteSpace(o.Objective) || string.IsNullOrWhiteSpace(o.SuccessIndicators)))
             errors.Add("Give each objective and how success will be measured (success indicators).");
-        if (objectives.Any(o => o.DueDate is { } d && (d < p.StartDate || d > p.EndDate.AddMonths(ProbationWorkflow.MaxExtensionMonths))))
-            errors.Add("Objectives must be due within the probation.");
+        if (objectives.Any(o => o.DueDate is { } d && (d < p.StartDate || d > ProbationWorkflow.LatestObjectiveDue(p.EndDate))))
+            errors.Add($"Objectives must be due between the start ({p.StartDate:d MMM yyyy}) and {ProbationWorkflow.LatestObjectiveDue(p.EndDate):d MMM yyyy}.");
         if (plan.Any(d => string.IsNullOrWhiteSpace(d.TrainingNeed) && string.IsNullOrWhiteSpace(d.DevelopmentNeed)))
             errors.Add("Give each line of the development plan a training or a development need.");
         if (objectives.Count > 20 || plan.Count > 20) errors.Add("List at most 20 objectives and 20 development plan lines.");

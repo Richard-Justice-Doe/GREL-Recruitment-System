@@ -81,8 +81,35 @@
                 <div class="card-body p-4">
                     <h2 id="initial-meeting" class="h6 text-uppercase text-body-secondary mb-3">Initial meeting <span class="fw-normal">(due @Model.InitialMeetingDueDate.ToString("dd MMM"))</span></h2>
                     <form asp-action="InitialMeeting" asp-route-id="@Model.Id" method="post">
+                        @{
+                            // 17 Nov 2026: the dates the meeting may have been held on (from two weeks before the start up to today).
+                            var (meetFrom, meetTo) = ProbationWorkflow.MeetingDateWindow(Model.StartDate, today);
+                            var meetDefault = Model.InitialMeetingDate ?? (today < meetFrom ? meetFrom : today);
+                            var dueTo = ProbationWorkflow.LatestObjectiveDue(Model.EndDate);
+                        }
                         <label class="form-label small" for="MeetingDate">Date of the meeting</label>
-                        <input id="MeetingDate" name="MeetingDate" type="date" class="form-control form-control-sm mb-2" value="@(Model.InitialMeetingDate ?? today).ToString("yyyy-MM-dd")" required />
+                        <input id="MeetingDate" name="MeetingDate" type="date" class="form-control form-control-sm" value="@meetDefault.ToString("yyyy-MM-dd")"
+                               min="@meetFrom.ToString("yyyy-MM-dd")" max="@meetTo.ToString("yyyy-MM-dd")" required aria-describedby="meeting-date-help" />
+                        <div id="meeting-date-help" class="form-text mb-2">
+                            @if (meetFrom > meetTo)
+                            {
+                                <span class="text-warning-emphasis"><i class="fa-solid fa-circle-info me-1"></i>The employee starts on @Model.StartDate.ToString("d MMM yyyy"). Hold the meeting between then and @Model.InitialMeetingDueDate.ToString("d MMM yyyy"), and record it on that day (it can be recorded from @meetFrom.ToString("d MMM yyyy")).</span>
+                            }
+                            else
+                            {
+                                <text>The day the meeting was held: from @meetFrom.ToString("d MMM yyyy") to today. Due by @Model.InitialMeetingDueDate.ToString("d MMM yyyy").</text>
+                            }
+                        </div>
+                        @* 17 Nov 2026: AI suggestions for the objectives (with due dates) and the development plan, from the job (js/probation-ai.js). *@
+                        @if (ViewBag.AiPlanOn is true)
+                        {
+                            <div class="ai-panel mb-3" data-probation-ai="@Url.Action("ProbationPlan", "Ai", new { id = Model.Id })">
+                                <div class="ai-panel-title"><i class="fa-solid fa-wand-magic-sparkles"></i>Suggest objectives and dates with AI <span class="badge rounded-pill badge-soft-primary">AI</span></div>
+                                <p class="small text-body-secondary mb-2">Drafts objectives (each with a due date between @Model.StartDate.ToString("d MMM yyyy") and @Model.EndDate.ToString("d MMM yyyy")) and a development plan from the job. Edit them before signing.</p>
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-probation-ai-run><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Suggest</button>
+                                <span class="small ms-2" data-probation-ai-status aria-live="polite"></span>
+                            </div>
+                        }
 
                         <div data-repeater class="mb-3">
                             <p class="small fw-semibold mb-1">Objectives</p>
@@ -94,7 +121,8 @@
                                         <input name="Objectives[@key].Objective" class="form-control form-control-sm mb-1" maxlength="500" value="@r.Objective" placeholder="Objective" aria-label="Objective" />
                                         <input name="Objectives[@key].SuccessIndicators" class="form-control form-control-sm mb-1" maxlength="1000" value="@r.SuccessIndicators" placeholder="Success indicators" aria-label="Success indicators" />
                                         <div class="d-flex gap-2">
-                                            <input name="Objectives[@key].DueDate" type="date" class="form-control form-control-sm" value="@r.DueDate?.ToString("yyyy-MM-dd")" aria-label="Due date" />
+                                            <input name="Objectives[@key].DueDate" type="date" class="form-control form-control-sm" value="@r.DueDate?.ToString("yyyy-MM-dd")" aria-label="Due date"
+                                                   min="@Model.StartDate.ToString("yyyy-MM-dd")" max="@dueTo.ToString("yyyy-MM-dd")" title="Between @Model.StartDate.ToString("d MMM yyyy") and @dueTo.ToString("d MMM yyyy")" />
                                             <button type="button" class="btn btn-sm btn-link text-danger p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
                                         </div>
                                     </div>
@@ -239,4 +267,5 @@
 
 @section Scripts {
     <script src="~/js/repeater.js" asp-append-version="true"></script>
+    <script src="~/js/probation-ai.js" asp-append-version="true"></script>
 }

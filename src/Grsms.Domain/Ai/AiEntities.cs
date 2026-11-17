@@ -28,7 +28,8 @@ public enum AiFeature
     [Display(Name = "Onboarding assistant")] OnboardingAssistant,
     [Display(Name = "Knowledge base answers")] KnowledgeAnswer,
     [Display(Name = "Document type check")] DocumentCheck,
-    [Display(Name = "Connection test")] ConnectionTest
+    [Display(Name = "Connection test")] ConnectionTest,
+    [Display(Name = "Probation objectives")] ProbationPlan // 17 Nov 2026
 }
 
 public static class AiFeatures
@@ -55,6 +56,7 @@ public static class AiFeatures
         AiFeature.OnboardingAssistant => "The person's question and their own onboarding status (documents, steps, dates).",
         AiFeature.KnowledgeAnswer => "The question and the matching sections of GREL's policy documents.",
         AiFeature.DocumentCheck => "Images of uploaded ID documents and certificates.",
+        AiFeature.ProbationPlan => "The job title, department, job description, requirements and the probation dates. No personal data.",
         _ => "A short test message."
     };
 }

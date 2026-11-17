@@ -290,4 +290,54 @@ public class ProbationServiceTests : OnboardingTestBase
         Assert.Contains("Open personnel files", hidden.Kpis.Single().Hint);
         Assert.Single((await Report(ReportKeys.Probation)).Table.Rows); // the HOD's own department
     }
+
+    /// <summary>17 Nov 2026: the meeting date window is named in the error, and AI suggestions always fall inside the probation.</summary>
+    [Fact]
+    public async Task Meeting_dates_are_explained_and_ai_suggested_due_dates_stay_inside_the_probation()
+    {
+        await ActivatedAsync();
+        var p = await ProbationAsync();
+        AsHod();
+        var future = Meeting(_hod);
+        future.MeetingDate = Today.AddDays(3);
+        Assert.Contains((await RunProbation(s => s.RecordInitialMeetingAsync(p.Id, future))).Errors,
+            e => e.StartsWith($"Enter the date the meeting was held: between {p.StartDate.AddDays(-14):d MMM yyyy} and today"));
+        var late = Meeting(_hod);
+        late.Objectives[0].DueDate = p.EndDate.AddMonths(4);
+        Assert.Contains((await RunProbation(s => s.RecordInitialMeetingAsync(p.Id, late))).Errors, e => e.StartsWith("Objectives must be due between the start"));
+
+        // AI suggestions: off by default; then months turned into dates within the probation (month 0 → month 1, 99 → the end).
+        using (var scope = _db.NewScope())
+            Assert.False(scope.ServiceProvider.GetRequiredService<Grsms.Application.Ai.ProbationPlanDrafter>().IsOn);
+        using (var scope = _db.NewScope())
+            await scope.ServiceProvider.GetRequiredService<Grsms.Application.Settings.ISettingsStore>().SaveAsync(new Dictionary<string, string?>
+            {
+                [Grsms.Domain.Settings.SettingCatalogue.AiEnabled] = "true", [Grsms.Domain.Settings.SettingCatalogue.AiApiKey] = "k",
+                [Grsms.Domain.Settings.SettingCatalogue.AiFeatureKey(Grsms.Domain.Ai.AiFeature.ProbationPlan)] = "true"
+            });
+        _db.Ai.Reply = _ => new Grsms.Application.Ai.AiReply("""
+            {"objectives":[{"objective":"Learn the line","success_indicators":"Runs it unsupervised","due_month":0},
+                           {"objective":"Own the shift report","success_indicators":"On time every week","due_month":3},
+                           {"objective":"Lead a safety talk","success_indicators":"One talk given","due_month":99}],
+             "development_plan":[{"training_need":"Lock-out / tag-out","development_need":"","by_month":1}]}
+            """, 500, 200, "m");
+
+        AsRecruiter(); // not the Head of Department
+        using (var scope = _db.NewScope())
+            Assert.False((await scope.ServiceProvider.GetRequiredService<Grsms.Application.Ai.ProbationPlanDrafter>().SuggestAsync(p.Id)).Succeeded);
+        AsHod();
+        Grsms.Application.Ai.ProbationPlanSuggestion s;
+        using (var scope = _db.NewScope())
+            s = (await scope.ServiceProvider.GetRequiredService<Grsms.Application.Ai.ProbationPlanDrafter>().SuggestAsync(p.Id)).Value!;
+        Assert.Equal([p.StartDate.AddMonths(1), p.StartDate.AddMonths(3), p.EndDate], s.Objectives.Select(o => o.DueDate));
+        Assert.StartsWith("By month 1 (", s.DevelopmentPlan[0].Timeline);
+        var call = _db.Ai.Calls.Last().Call;
+        Assert.Contains("Probation length: 6 months", call.Input);
+        Assert.DoesNotContain("Ama", call.Input); // no personal data
+
+        // The suggestions pass the form's own checks.
+        var form = Meeting(_hod);
+        form.Objectives = s.Objectives.Select(o => new ObjectiveRow { Objective = o.Objective, SuccessIndicators = o.SuccessIndicators, DueDate = o.DueDate }).ToList();
+        Assert.True((await RunProbation(x => x.RecordInitialMeetingAsync(p.Id, form))).Succeeded);
+    }
 }

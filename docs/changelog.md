@@ -4,6 +4,22 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 17 November 2026: probation initial meeting, date help and AI suggestions
+
+Requested by the user: the meeting form said "Enter the date of the meeting (not in the future)" without saying which dates work, and AI should suggest dates.
+
+* **Meeting date:** the picker only offers the allowed dates, from two weeks before the start up to today. It is pre-filled with a valid date. A hint states the window. When the employee hasn't started yet, the hint explains when the meeting can be recorded. The errors name the dates: "Enter the date the meeting was held: between 29 Nov 2026 and today (…)", or "The meeting can be recorded from …".
+* **Objective due dates:** the picker is limited to the start up to the end of the probation plus the 3-month maximum extension, and the error names both dates.
+* **Suggest objectives and dates with AI** on the form (new switch *Probation objectives* in AI settings; no personal data):
+  * drafts 3–5 objectives with success indicators and 2–4 development plan lines from the job (title, department, description, requirements);
+  * the model picks a month for each, and GRSMS turns it into a date inside the probation (not before the first week, not after the end), so every suggestion passes the form's checks;
+  * development lines get "By month 2 (13 Feb 2027)";
+  * only the Head of Department recording the meeting may ask, and the suggestions only fill the form (edit, then sign).
+* **Files:** `ProbationWorkflow.MeetingDateWindow` and `LatestObjectiveDue`, `Application/Ai/AiWriters.cs` (`ProbationPlanDrafter`), `AiController.ProbationPlan`, `wwwroot/js/probation-ai.js`. No database change.
+* 307 tests pass.
+
+---
+
 ## 17 November 2026: employee directory and profile workspace
 
 Requested by the user: a modern employee directory and profile, as in Workday, BambooHR and SuccessFactors. It builds on the Phase 28 employee module and reuses its data. Guide: [docs/31](31-employees.md).

@@ -88,6 +88,20 @@ public class AiController(JobDescriptionDrafter jobDescriptions, AdvertWriter ad
             sections, fields));
     }
 
+    /// <summary>17 Nov 2026: suggested probation objectives (with due dates inside the probation) and development plan, from the job.</summary>
+    [HttpPost]
+    public async Task<IActionResult> ProbationPlan(int id, [FromServices] ProbationPlanDrafter drafter, CancellationToken ct)
+    {
+        var r = await drafter.SuggestAsync(id, ct);
+        if (!r.Succeeded) return Json(new { ok = false, problem = r.Problem });
+        return Json(new
+        {
+            ok = true,
+            objectives = r.Value!.Objectives.Select(o => new { objective = o.Objective, successIndicators = o.SuccessIndicators, dueDate = o.DueDate.ToString("yyyy-MM-dd") }),
+            plan = r.Value.DevelopmentPlan.Select(d => new { trainingNeed = d.TrainingNeed, developmentNeed = d.DevelopmentNeed, timeline = d.Timeline })
+        });
+    }
+
     /// <summary>The onboarding assistant's answer (docs/36 AI-6): plain text and up to three buttons whose URLs come from GRSMS.</summary>
     public sealed record ChatResponse(bool Ok, string? Problem, string? Answer, IReadOnlyList<AssistantAction> Actions);
 

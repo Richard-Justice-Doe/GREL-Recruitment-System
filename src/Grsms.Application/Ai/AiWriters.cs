@@ -171,3 +171,68 @@ public class AdvertWriter(AiGateway ai, Vacancies.IVacancyRepository vacancies, 
         return sb.ToString().TrimEnd();
     }
 }
+
+// ===================================================================== 17 Nov 2026: probation objectives and development plan
+
+public sealed record DraftObjective(string Objective, string SuccessIndicators, int DueMonth);
+public sealed record DraftDevelopmentLine(string TrainingNeed, string DevelopmentNeed, int ByMonth);
+public sealed record ProbationPlanDraft(List<DraftObjective> Objectives, List<DraftDevelopmentLine> DevelopmentPlan);
+
+/// <summary>A suggestion as the form takes it: the due dates already worked out and inside the probation.</summary>
+public sealed record SuggestedObjective(string Objective, string SuccessIndicators, DateOnly DueDate);
+public sealed record SuggestedDevelopmentLine(string TrainingNeed, string DevelopmentNeed, string Timeline);
+public sealed record ProbationPlanSuggestion(IReadOnlyList<SuggestedObjective> Objectives, IReadOnlyList<SuggestedDevelopmentLine> DevelopmentPlan);
+
+/// <summary>
+/// 17 November 2026: suggests the initial meeting's objectives (each with a due date) and development plan from the JOB (title,
+/// department, description, requirements) and the probation's length. No personal data is sent. The model chooses a month for each
+/// objective; GRSMS turns it into a date inside the probation (never before the first week, never after its end), so the
+/// suggestions always pass the form's checks. Only the person who may record the meeting (the Head of Department) may ask; the
+/// suggestions only fill the form, which they edit and sign as before.
+/// </summary>
+public class ProbationPlanDrafter(AiGateway ai, Probation.ProbationService probations, Common.Interfaces.IRepository<Domain.Onboarding.OnboardingRecord> onboardings,
+    Vacancies.IVacancyRepository vacancies)
+{
+    public const string Version = "probation-plan-1";
+    public bool IsOn => ai.IsOn(AiFeature.ProbationPlan);
+
+    private const string Instructions = AiPrompts.Company + AiPrompts.DataOnly +
+        "A Head of Department is agreeing a new employee's probation objectives and development plan at the initial meeting. From the " +
+        "job described, suggest 3 to 5 objectives that a competent new hire in this job can reach during the probation: specific, " +
+        "observable and realistic for the level, building up over the months (learning the role first, then doing it independently). For " +
+        "each give success_indicators (how it will be measured, one or two sentences) and due_month: the month of the probation by which " +
+        "it should be met (1 to the probation length). Then suggest 2 to 4 development plan lines: a training_need (a course, induction, " +
+        "certification or on-the-job training) and/or a development_need (a skill or behaviour), each with by_month. Use GREL's context " +
+        "(estates, factories, offices; safety matters). Do not mention pay or anything personal.";
+
+    public async Task<AiResult<ProbationPlanSuggestion>> SuggestAsync(int probationId, CancellationToken ct = default)
+    {
+        var p = await probations.GetAsync(probationId, ct);
+        if (p is null || !p.CanRecordInitialMeeting) return AiResult<ProbationPlanSuggestion>.Fail("Only the Head of Department recording the initial meeting can ask for suggestions.");
+        var onboarding = await onboardings.GetByIdAsync(p.OnboardingRecordId, ct);
+        var v = onboarding is null ? null : await vacancies.GetWithDetailsAsync(onboarding.VacancyId, ct);
+        var months = Math.Max(1, (p.EndDate.Year - p.StartDate.Year) * 12 + p.EndDate.Month - p.StartDate.Month);
+        var input = AiPrompts.Details(("Job title", p.JobTitle), ("Department", p.DepartmentName),
+            ("Job description", v?.JobDescription), ("Requirements", v is null ? null : AdvertWriter.RequirementsText(v)),
+            ("Probation length", $"{months} months"));
+
+        var r = await ai.RunAsync<ProbationPlanDraft>(AiFeature.ProbationPlan, Version, Instructions, input, ("ProbationRecord", p.Id),
+            useCache: false, maxOutputTokens: 3000, ct: ct);
+        if (!r.Succeeded) return AiResult<ProbationPlanSuggestion>.Fail(r.Problem!, r.LogId);
+
+        DateOnly DueFor(int month)
+        {
+            var d = p.StartDate.AddMonths(Math.Clamp(month, 1, months));
+            var first = p.StartDate.AddDays(7);
+            return d < first ? first : d > p.EndDate ? p.EndDate : d;
+        }
+        var objectives = (r.Value!.Objectives ?? []).Where(o => !string.IsNullOrWhiteSpace(o.Objective)).Take(8)
+            .Select(o => new SuggestedObjective(Clip(o.Objective, 500), Clip(o.SuccessIndicators, 1000), DueFor(o.DueMonth))).ToList();
+        var plan = (r.Value.DevelopmentPlan ?? []).Where(d => !string.IsNullOrWhiteSpace(d.TrainingNeed) || !string.IsNullOrWhiteSpace(d.DevelopmentNeed)).Take(8)
+            .Select(d => new SuggestedDevelopmentLine(Clip(d.TrainingNeed, 500), Clip(d.DevelopmentNeed, 500),
+                $"By month {Math.Clamp(d.ByMonth, 1, months)} ({DueFor(d.ByMonth):d MMM yyyy})")).ToList();
+        return new AiResult<ProbationPlanSuggestion>(new ProbationPlanSuggestion(objectives, plan), null, LogId: r.LogId);
+    }
+
+    private static string Clip(string? s, int max) => (s ?? "").Trim() is var t && t.Length > max ? t[..max] : (s ?? "").Trim();
+}

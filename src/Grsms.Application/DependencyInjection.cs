@@ -97,6 +97,7 @@ public static class DependencyInjection
         services.AddScoped<Employees.EmployeeService>();
         services.AddScoped<Employees.EmployeePhotoService>(); // 17 Nov 2026: employee directory
         services.AddScoped<Employees.ProfileCompletionService>();
+        services.AddScoped<Celebrations.CelebrationService>(); // 17 Nov 2026
         services.AddScoped<Employees.GradeService>();
         services.AddScoped<Employees.ContractAlertService>(); // docs/34: contract expiry alerts (daily job)
 

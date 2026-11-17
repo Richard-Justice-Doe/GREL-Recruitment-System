@@ -1,0 +1,38 @@
+@* 17 Nov 2026: HR's celebration settings (holders of "Manage employees"). *@
+@model List<(Grsms.Domain.Settings.SettingDefinition Definition, string? Value)>
+@{
+    ViewData["Title"] = "Celebration settings";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Celebration settings</h1>
+        <p>What GRSMS celebrates and how it announces it. An employee who does not want to be celebrated can be opted out on their profile.</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>Celebrations</a>
+</div>
+
+<form method="post" class="card glass">
+    <div class="card-body p-4">
+        @foreach (var (d, value) in Model)
+        {
+            var id = "s-" + d.Key.Replace(':', '-');
+            <div class="mb-3">
+                @if (d.Kind == Grsms.Domain.Settings.SettingKind.Switch)
+                {
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="@id" name="@d.Key" value="true" checked="@(value == "true")" />
+                        <label class="form-check-label fw-semibold" for="@id">@d.Label</label>
+                    </div>
+                }
+                else
+                {
+                    <label class="form-label fw-semibold" for="@id">@d.Label</label>
+                    <input id="@id" name="@d.Key" type="number" min="@d.Min" max="@d.Max" value="@value" class="form-control" style="max-width: 8rem" />
+                }
+                <div class="form-text">@d.Help</div>
+            </div>
+        }
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+    </div>
+</form>

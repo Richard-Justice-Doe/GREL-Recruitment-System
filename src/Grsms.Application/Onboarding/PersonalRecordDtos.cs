@@ -147,6 +147,9 @@ public interface IPersonalRecordRepository : IRepository<EmployeePersonalRecord>
 
     /// <summary>17 Nov 2026 (employee profile completion): what each personal record contains, without the personal data itself.</summary>
     Task<IReadOnlyList<PersonalRecordSummary>> SummariesAsync(IReadOnlyCollection<int> onboardingIds, CancellationToken ct = default);
+
+    /// <summary>17 Nov 2026 (celebrations): the date of birth per onboarding, for those that have one.</summary>
+    Task<IReadOnlyDictionary<int, DateOnly>> BirthDatesAsync(IReadOnlyCollection<int> onboardingIds, CancellationToken ct = default);
 }
 
 /// <summary>17 Nov 2026: which parts of a personal record are filled in (for the employee's profile completion; no personal data).</summary>

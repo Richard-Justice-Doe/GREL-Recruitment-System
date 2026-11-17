@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using System.Text.Json
 @inject IAuthorizationService Auth
+@inject CelebrationService Celebrations
 @model Grsms.Web.Models.EmployeeProfileViewModel
 @{
     var e = Model.Employee;
@@ -25,6 +26,7 @@
         _ => null
     };
     var firstFix = c.Missing.Select(m => FixUrl(m.Fix)).FirstOrDefault(u => u is not null);
+    var celebrate = await Celebrations.ForProfileAsync(e.Id, today); // 17 Nov 2026: birthday and work anniversary
     string Mask(string? acc) => string.IsNullOrWhiteSpace(acc) ? "—" : acc.Length <= 4 ? acc : new string('•', acc.Length - 4) + acc[^4..];
 }
 
@@ -79,7 +81,22 @@
                     <div><dt>Reporting to</dt><dd>@(x.Team.Manager?.Name ?? "—")@(x.Team.ManagerIsHod ? " (Head of Department)" : "")</dd></div>
                     <div><dt>Email</dt><dd class="text-break">@if (e.Email is not null) { <a href="mailto:@e.Email">@e.Email</a> } else { <text>—</text> }</dd></div>
                     <div><dt>Phone</dt><dd>@if (e.Phone is not null) { <a href="tel:@e.Phone">@e.Phone</a> } else { <text>—</text> }</dd></div>
+                    @if (celebrate is { } cel)
+                    {
+                        <div><dt>Birthday</dt><dd>@(cel.NextBirthday is { } nb ? $"{nb:d MMMM} · in {cel.DaysToBirthday} day{(cel.DaysToBirthday == 1 ? "" : "s")}" : "Not in GRSMS")@(cel.DaysToBirthday == 0 ? " 🎂" : "")</dd></div>
+                        <div><dt>Next work anniversary</dt><dd>@cel.NextAnniversary.ToString("d MMM yyyy") · @cel.AnniversaryYears year@(cel.AnniversaryYears == 1 ? "" : "s")</dd></div>
+                    }
                 </dl>
+                @if (celebrate is { } celebration && e.CanManage)
+                {
+                    @* 17 Nov 2026: HR records the employee's wish not to have their birthday or work anniversary shown or announced. *@
+                    <form asp-controller="Celebrations" asp-action="OptOut" method="post" class="small mt-2">
+                        <input type="hidden" name="employeeId" value="@e.Id" />
+                        <input type="hidden" name="optOut" value="@(celebration.OptedOut ? "false" : "true")" />
+                        @if (celebration.OptedOut) { <span class="text-body-secondary"><i class="fa-solid fa-eye-slash me-1"></i>Not shown in celebrations, at their request.</span> }
+                        <button type="submit" class="btn btn-link btn-sm p-0 ms-1">@(celebration.OptedOut ? "Celebrate again" : "Don't celebrate (at their request)")</button>
+                    </form>
+                }
             </div>
             <div class="profile-completion">
                 <div class="small text-body-secondary">Profile</div>

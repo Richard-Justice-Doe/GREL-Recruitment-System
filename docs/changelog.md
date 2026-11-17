@@ -4,6 +4,36 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 17 November 2026: celebrations, birthdays and work anniversaries
+
+Requested by the user: birthdays and service anniversaries visible across GREL, with automatic announcements. Guide: [docs/40](40-celebrations.md).
+
+* **No manual entry:**
+  * birthdays come from the date of birth in the onboarding personal record (day and month only, never the year or age; 29 February → 28 February);
+  * anniversaries come from the date joined (1, 5, 10, 15 … highlighted).
+* **Home widget:** today's celebrations and the next days, with photos or initials.
+* **Action Center line:** "🎂 Birthdays today: 3 · 🎉 Work anniversaries today: 2 · View celebrations".
+* **Celebrations page:** a banner (light confetti, off for reduced motion), a card per person, and colleagues' messages (one-click wishes or their own, up to 280 characters, on the day and 3 days after) that HR can hide or show again. Then the next 7 days.
+* **Calendar** by month, with department and site filters.
+* **Profile:** "Birthday: 15 November · in 45 days", the next work anniversary, and HR's *Don't celebrate (at their request)*.
+* **Morning announcement** (scheduled job, once a day from the configured hour):
+  * one notification to every member of staff (or only the person's department) listing the day's celebrations, and one email if switched on;
+  * a personal greeting to each person celebrated.
+* **HR's settings** (*Manage employees*): birthdays, anniversaries, notifications, emails, department only, messages, the hour.
+* **Not included:**
+  * photos in emails (they need a sign-in, so the page shows them);
+  * birthdays of staff hired before GRSMS, who have no date of birth in GRSMS until self-service (Phase 29); their anniversaries are celebrated.
+* **Database:** `database/39_celebrations.sql`.
+* **Tests:**
+  * dates and 29 February;
+  * visibility, opt-out and department-only;
+  * the once-a-day announcement with greetings and email;
+  * messages and moderation;
+  * the pages, widget, Action Center line and settings through the site.
+  312 tests pass.
+
+---
+
 ## 17 November 2026: probation initial meeting, date help and AI suggestions
 
 Requested by the user: the meeting form said "Enter the date of the meeting (not in the future)" without saying which dates work, and AI should suggest dates.

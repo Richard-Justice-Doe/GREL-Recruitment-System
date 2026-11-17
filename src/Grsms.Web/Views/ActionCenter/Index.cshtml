@@ -19,6 +19,7 @@
         <p>Everything waiting for you, most urgent first, and what you have recently done. Deadlines follow the workflow targets in System settings.</p>
     </div>
 </div>
+<partial name="_CelebrationsToday" model='"summary"' /> @* 17 Nov 2026 *@
 
 <div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Filter by priority">
     <a asp-action="Index" class="btn btn-sm @(filter is null ? "btn-primary" : "btn-outline-secondary")">All <span class="badge text-bg-light ms-1">@Model.Items.Count</span></a>

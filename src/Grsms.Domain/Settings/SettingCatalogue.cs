@@ -84,6 +84,16 @@ public static class SettingCatalogue
     /// Super Admin switches AI on, chooses the provider and enters a key; each feature then has its own switch
     /// (<see cref="AiFeatureKey"/>, group <see cref="AiFeaturesGroup"/>).
     /// </summary>
+    // ---------------------------------------------------------------- 17 Nov 2026: celebrations (birthdays and work anniversaries), HR's own page
+    public const string CelebrationsGroup = "Celebrations";
+    public const string CelebrateBirthdays = "Celebrations:Birthdays";
+    public const string CelebrateAnniversaries = "Celebrations:Anniversaries";
+    public const string CelebrationNotifications = "Celebrations:Notifications";
+    public const string CelebrationEmails = "Celebrations:Emails";
+    public const string CelebrationDepartmentOnly = "Celebrations:DepartmentOnly";
+    public const string CelebrationMessages = "Celebrations:Messages";
+    public const string CelebrationFromHourGmt = "Celebrations:FromHourGmt";
+
     public const string AiService = "AI service";
     public const string AiFeaturesGroup = "AI features";
     public const string AiEnabled = "Ai:Enabled";
@@ -107,7 +117,7 @@ public static class SettingCatalogue
         Ai.AiFeature.InterviewSummary, Ai.AiFeature.CvSummary, Ai.AiFeature.CvReading, Ai.AiFeature.OnboardingAssistant, Ai.AiFeature.KnowledgeAnswer, Ai.AiFeature.DocumentCheck, Ai.AiFeature.ProbationPlan];
 
     /// <summary>Groups shown on their own page rather than on the System settings screen.</summary>
-    public static readonly IReadOnlySet<string> OwnPageGroups = new HashSet<string> { Letters, LetterSignatureGroup, AiService, AiFeaturesGroup };
+    public static readonly IReadOnlySet<string> OwnPageGroups = new HashSet<string> { Letters, LetterSignatureGroup, AiService, AiFeaturesGroup, CelebrationsGroup };
 
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
@@ -173,6 +183,13 @@ public static class SettingCatalogue
         new(LetterSignatoryTitle, Letters, "Signatory's title", "e.g. Human Resources Manager.", SettingKind.Text, MaxLength: 150),
         new(LetterSignatureFile, LetterSignatureGroup, "Signature image", "Stored file name of the uploaded signature.", SettingKind.Text, MaxLength: 300),
 
+        new(CelebrateBirthdays, CelebrationsGroup, "Celebrate birthdays", "Show today's and upcoming birthdays (day and month only, never the year or age).", SettingKind.Switch, "true"),
+        new(CelebrateAnniversaries, CelebrationsGroup, "Celebrate work anniversaries", "Years of service from the date joined (1, 2, … with 5, 10, 15 … highlighted).", SettingKind.Switch, "true"),
+        new(CelebrationNotifications, CelebrationsGroup, "In-app notification each morning", "One notification to every member of staff on days with a celebration, and a greeting to the person celebrated.", SettingKind.Switch, "true"),
+        new(CelebrationEmails, CelebrationsGroup, "Email announcement each morning", "One email to every member of staff on days with a celebration.", SettingKind.Switch, "false"),
+        new(CelebrationDepartmentOnly, CelebrationsGroup, "Department only", "Announce a celebration to the person's own department only (off: the whole company).", SettingKind.Switch, "false"),
+        new(CelebrationMessages, CelebrationsGroup, "Colleagues can leave messages", "Short messages under each celebration (HR can hide any message).", SettingKind.Switch, "true"),
+        new(CelebrationFromHourGmt, CelebrationsGroup, "Send from (hour, GMT)", "The hour of the morning the announcements go out.", SettingKind.Number, "7", Min: 0, Max: 23),
         new(AiEnabled, AiService, "Use AI", "The main switch. Off = no AI anywhere, whatever the feature switches say.", SettingKind.Switch, "false"),
         new(AiProviderKey, AiService, "Provider", "Anthropic (Claude), OpenAI, Azure OpenAI or Google Gemini.", SettingKind.Text, "Anthropic", MaxLength: 30),
         new(AiApiKey, AiService, "API key", "The provider's key. Stored encrypted; never shown again.", SettingKind.Secret, MaxLength: 500),

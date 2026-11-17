@@ -114,6 +114,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<VacancyInterviewQuestion> VacancyInterviewQuestions => Set<VacancyInterviewQuestion>(); // docs/36 AI-2
     public DbSet<Domain.Knowledge.KnowledgeDocument> KnowledgeDocuments => Set<Domain.Knowledge.KnowledgeDocument>(); // docs/36 AI-7
     public DbSet<Domain.Knowledge.KnowledgeSection> KnowledgeSections => Set<Domain.Knowledge.KnowledgeSection>();
+    public DbSet<Domain.Celebrations.CelebrationMessage> CelebrationMessages => Set<Domain.Celebrations.CelebrationMessage>(); // 17 Nov 2026
 
     /// <summary>
     /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and

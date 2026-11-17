@@ -1,0 +1,13 @@
+@* 17 Nov 2026: a celebrated colleague's photo (served to all staff through Celebrations/Photo), or their initials. *@
+@model (Celebrant C, string Size)
+@{
+    var colour = Math.Abs(Model.C.Name.Aggregate(17, (h, ch) => unchecked(h * 31 + ch))) % 8;
+}
+@if (Model.C.HasPhoto)
+{
+    <img class="emp-avatar emp-avatar-@Model.Size" src="@Url.Action("Photo", "Celebrations", new { id = Model.C.EmployeeId })" alt="Photo of @Model.C.Name" loading="lazy" />
+}
+else
+{
+    <span class="emp-avatar emp-avatar-@Model.Size emp-avatar-c@(colour)" role="img" aria-label="@Model.C.Name">@Grsms.Application.Employees.EmployeePhotoService.Initials(Model.C.Name)</span>
+}

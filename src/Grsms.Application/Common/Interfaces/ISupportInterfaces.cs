@@ -71,6 +71,9 @@ public interface IAppLinks
     /// <summary>An onboarding (checklist, appointment letter, first day) for staff.</summary>
     string Onboarding(int id);
 
+    /// <summary>17 Nov 2026: the celebrations page (birthdays and work anniversaries).</summary>
+    string Celebrations();
+
     /// <summary>Phase 21: a probation (staff page).</summary>
     string Probation(int id);
 

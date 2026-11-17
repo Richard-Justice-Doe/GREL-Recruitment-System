@@ -30,4 +30,9 @@ public class PersonalRecordRepository(ApplicationDbContext context)
                 r.SsnitNumber != null && r.SsnitNumber != "", r.MobileNumber != null && r.MobileNumber != "", r.Qualification != null && r.Qualification != "",
                 r.DeclaredAt != null, r.EmergencyContacts.Count, r.BankAccounts.Count))
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyDictionary<int, DateOnly>> BirthDatesAsync(IReadOnlyCollection<int> onboardingIds, CancellationToken ct = default) =>
+        onboardingIds.Count == 0 ? new Dictionary<int, DateOnly>() : await Db.EmployeePersonalRecords.AsNoTracking()
+            .Where(r => onboardingIds.Contains(r.OnboardingRecordId) && r.DateOfBirth != null)
+            .ToDictionaryAsync(r => r.OnboardingRecordId, r => r.DateOfBirth!.Value, ct);
 }

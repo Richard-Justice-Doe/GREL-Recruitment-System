@@ -1,0 +1,115 @@
+@* 17 Nov 2026: today's birthdays and work anniversaries, colleagues' messages under each, and the next seven days. *@
+@model CelebrationsDto
+@{
+    ViewData["Title"] = "Celebrations";
+    var feed = (Dictionary<(int, CelebrationKind), IReadOnlyList<CelebrationMessageDto>>)ViewBag.Feed;
+    bool canManage = ViewBag.CanManage;
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+}
+
+<div class="page-header">
+    <div>
+        <h1>Celebrations</h1>
+        <p>Birthdays and work anniversaries at GREL@(Model.DepartmentOnly ? " in your department" : ""). Only the day and month of a birthday are shown.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="Calendar" class="btn btn-outline-secondary"><i class="fa-regular fa-calendar me-1"></i>Calendar</a>
+        @if (canManage) { <a asp-action="Settings" class="btn btn-outline-secondary"><i class="fa-solid fa-gear me-1"></i>Settings</a> }
+    </div>
+</div>
+
+@if (!Model.BirthdaysOn && !Model.AnniversariesOn)
+{
+    <div class="dash-card dash-empty"><i class="fa-solid fa-cake-candles d-block"></i>Celebrations are switched off.</div>
+}
+else
+{
+    <section class="celebrate-banner mb-4 @(Model.Today.Count > 0 ? "has-today" : "")" aria-label="Today">
+        <div class="celebrate-confetti" aria-hidden="true"></div>
+        <h2 class="h4 mb-1">@(Model.Today.Count > 0 ? "🎉 Today we celebrate" : "No celebrations today")</h2>
+        <p class="mb-0">@today.ToString("dddd d MMMM yyyy")@(Model.Today.Count > 0 ? $": {Model.BirthdaysToday} birthday{(Model.BirthdaysToday == 1 ? "" : "s")}, {Model.AnniversariesToday} work anniversar{(Model.AnniversariesToday == 1 ? "y" : "ies")}" : "")</p>
+    </section>
+
+    @if (Model.Today.Count > 0)
+    {
+        <div class="row g-3 mb-4">
+            @foreach (var c in Model.Today)
+            {
+                var messages = feed.GetValueOrDefault((c.EmployeeId, c.Kind)) ?? [];
+                <div class="col-lg-6">
+                    <article class="card glass h-100 celebrate-card is-@c.Kind.ToString().ToLowerInvariant()" id="c-@c.EmployeeId-@c.Kind">
+                        <div class="card-body p-4">
+                            <div class="d-flex gap-3 align-items-center mb-3">
+                                <partial name="_CelebrantAvatar" model='(c, "md")' />
+                                <div class="min-w-0">
+                                    <div class="celebrate-kind">@(c.Kind == CelebrationKind.Birthday ? "🎂 Happy Birthday!" : c.Milestone ? $"🎉 {c.Years} Year{(c.Years == 1 ? "" : "s")} Anniversary" : $"🎉 {c.Years} years of service")</div>
+                                    <h3 class="h5 mb-0">@c.Name</h3>
+                                    <div class="small text-body-secondary">@c.PositionTitle · @c.DepartmentName · @c.SiteName</div>
+                                </div>
+                            </div>
+                            <p class="small mb-3">
+                                @if (c.Kind == CelebrationKind.Birthday) { <text>Join us in wishing @c.Name a happy birthday and a successful year filled with happiness, good health and success.</text> }
+                                else { <text>Thank you, @c.Name, for @c.Years year@(c.Years == 1 ? "" : "s") at GREL!</text> }
+                            </p>
+                            <ul class="celebrate-messages list-unstyled mb-2">
+                                @foreach (var m in messages)
+                                {
+                                    <li class="@(m.IsHidden ? "is-hidden" : "")">
+                                        <span class="fw-semibold">@m.AuthorName:</span> @m.Text
+                                        @if (m.IsHidden) { <span class="badge rounded-pill badge-soft-secondary ms-1">Hidden</span> }
+                                        @if (canManage)
+                                        {
+                                            <form asp-action="Hide" asp-route-id="@m.Id" method="post" class="d-inline">
+                                                <input type="hidden" name="hidden" value="@(m.IsHidden ? "false" : "true")" />
+                                                <button type="submit" class="btn btn-link btn-sm p-0 ms-1">@(m.IsHidden ? "Show" : "Hide")</button>
+                                            </form>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                            @if (Model.MessagesOn && !messages.Any(m => m.Mine))
+                            {
+                                <form asp-action="Post" method="post" class="celebrate-post">
+                                    <input type="hidden" name="employeeId" value="@c.EmployeeId" />
+                                    <input type="hidden" name="kind" value="@c.Kind" />
+                                    <div class="d-flex flex-wrap gap-1 mb-2">
+                                        @foreach (var quick in c.Kind == CelebrationKind.Birthday ? new[] { "Happy Birthday! 🎂", "Best wishes! 🎉", "Have a great day! 🎈" } : new[] { "Congratulations! 🎉", "Well done and thank you! 👏", "Here's to many more! 🥂" })
+                                        {
+                                            <button type="submit" name="text" value="@quick" class="btn btn-sm btn-outline-secondary">@quick</button>
+                                        }
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <input name="text" class="form-control" maxlength="280" placeholder="Or write your own message" aria-label="Your message" />
+                                        <button type="submit" class="btn btn-outline-primary"><i class="fa-solid fa-paper-plane me-1"></i>Send</button>
+                                    </div>
+                                </form>
+                            }
+                        </div>
+                    </article>
+                </div>
+            }
+        </div>
+    }
+
+    <h2 class="h6 text-uppercase text-body-secondary mb-2">Coming up (next @CelebrationService.UpcomingDays days)</h2>
+    @if (Model.Upcoming.Count == 0)
+    {
+        <p class="text-body-secondary">Nothing in the next week.</p>
+    }
+    else
+    {
+        <ul class="celebrate-upcoming list-unstyled">
+            @foreach (var c in Model.Upcoming)
+            {
+                <li>
+                    <span class="celebrate-date">@c.Date.ToString("d MMM")</span>
+                    <partial name="_CelebrantAvatar" model='(c, "sm")' />
+                    <span class="min-w-0">
+                        <span class="fw-semibold">@c.Name</span>
+                        <span class="small text-body-secondary">· @c.DepartmentName · @(c.Kind == CelebrationKind.Birthday ? "🎂 Birthday" : $"🎉 {c.Years} year{(c.Years == 1 ? "" : "s")} of service")</span>
+                    </span>
+                </li>
+            }
+        </ul>
+    }
+}

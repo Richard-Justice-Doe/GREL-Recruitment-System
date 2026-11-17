@@ -74,6 +74,22 @@ public class EmployeePhotoService(
     {
         var e = await employees.GetByIdAsync(employeeId, ct);
         if (e is null || !await MaySeeAsync(e, ct)) return null;
+        return await PhotoOfAsync(e, ct);
+    }
+
+    /// <summary>
+    /// 17 Nov 2026: the photo on a birthday or anniversary card, which every member of staff sees: current employees who have not
+    /// opted out of celebrations only. The caller checks the viewer is staff.
+    /// </summary>
+    public async Task<FileDownload?> OpenForCelebrationAsync(int employeeId, CancellationToken ct = default)
+    {
+        var e = await employees.GetByIdAsync(employeeId, ct);
+        if (e is null || e.Status == EmployeeStatus.Separated || e.CelebrationsOptOut || me.UserId is null || me.IsInRole(Roles.Candidate)) return null;
+        return await PhotoOfAsync(e, ct);
+    }
+
+    private async Task<FileDownload?> PhotoOfAsync(Employee e, CancellationToken ct)
+    {
         if (e.PhotoAttachmentId is { } pid) return await files.OpenAsync(AttachmentOwners.EmployeePhoto, e.Id, pid, ct);
         if (e.OnboardingRecordId is not { } oid) return null;
         var doc = (await documents.ListAsync(d => d.OnboardingRecordId == oid && d.DocumentTypeCode == OnboardingPhotoCode

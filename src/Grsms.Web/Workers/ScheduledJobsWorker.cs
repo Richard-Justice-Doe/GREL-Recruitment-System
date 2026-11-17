@@ -72,6 +72,18 @@ public class ScheduledJobsWorker(IServiceScopeFactory scopes, IConfiguration con
                 logger.LogError(ex, "Offer expiry failed; will retry in {Interval}", interval);
             }
 
+            try
+            {
+                // 17 Nov 2026: the morning birthday and work-anniversary announcements (once a day, from HR's chosen hour).
+                using var scope = scopes.CreateScope();
+                var told = await scope.ServiceProvider.GetRequiredService<Application.Celebrations.CelebrationService>().RunMorningAsync(today, stoppingToken);
+                if (told > 0) logger.LogInformation("Celebrations announced to {Count} members of staff", told);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Celebration announcements failed; will retry in {Interval}", interval);
+            }
+
             // Phase 10: reminders and survey invitations, only from the morning (GMT) so nobody is messaged at night;
             // each one is sent once, whatever the interval. Read notifications older than 6 months are removed.
             if (config.GetValue("Reminders:Enabled", true) && DateTime.UtcNow.Hour >= config.GetValue("Reminders:FromHourGmt", 7))

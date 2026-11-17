@@ -90,3 +90,19 @@ internal class KnowledgeSectionConfiguration : IEntityTypeConfiguration<Domain.K
         b.HasIndex(s => new { s.KnowledgeDocumentId, s.SortOrder });
     }
 }
+
+/// <summary>Table "CelebrationMessages" (17 Nov 2026): colleagues' messages under a birthday or work anniversary.</summary>
+internal class CelebrationMessageConfiguration : IEntityTypeConfiguration<Domain.Celebrations.CelebrationMessage>
+{
+    public void Configure(EntityTypeBuilder<Domain.Celebrations.CelebrationMessage> b)
+    {
+        b.ToTable("CelebrationMessages");
+        b.ConfigureBase();
+        b.Property(m => m.Kind).HasConversion<string>().HasMaxLength(20);
+        b.Property(m => m.AuthorUserId).HasMaxLength(450).IsRequired();
+        b.Property(m => m.AuthorName).HasMaxLength(256).IsRequired();
+        b.Property(m => m.Text).HasMaxLength(280).IsRequired();
+        b.Property(m => m.HiddenBy).HasMaxLength(256);
+        b.HasIndex(m => new { m.EmployeeId, m.Kind, m.Year });
+    }
+}

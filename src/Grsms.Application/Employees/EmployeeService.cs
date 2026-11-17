@@ -41,7 +41,9 @@ public class EmployeeService(
     IRepository<Domain.Applications.ApplicationActionEntry> applicationSteps,
     IRepository<Domain.Vacancies.Vacancy> vacancies,
     IRepository<OnboardingActionEntry> onboardingSteps,
-    IRepository<ProbationActionEntry> probationSteps)
+    IRepository<ProbationActionEntry> probationSteps,
+    EmployeePhotoService photos,
+    ProfileCompletionService completion)
 {
     private const string ConflictMessage = "Someone else updated this employee at the same moment. Please reload the page and try again.";
     public const int MaxImportRows = 2000;
@@ -65,9 +67,21 @@ public class EmployeeService(
         if (!MayView) return new PagedResult<EmployeeListItemDto>([], 1, filter.PageSize, 0);
         var page = await employees.SearchAsync(filter, await scope.VisibilityAsync(ct), ct);
         var (deptNames, siteNames, gradeNames) = await NamesAsync(ct);
+
+        // 17 Nov 2026 (directory): the manager (or the Head of Department acting as one), the photo and the profile completion,
+        // each worked out for the whole page at once.
+        var hods = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.HeadOfDepartmentUserId);
+        string? ManagerId(EmployeeRow e) => e.ReportsToUserId ?? (hods.GetValueOrDefault(e.DepartmentId) is { } h && h != e.UserId ? h : null);
+        var managerNames = await users.GetDisplayNamesAsync(page.Items.Select(ManagerId).OfType<string>().Distinct(), ct);
+        var withPhoto = await photos.WithPhotoAsync(page.Items.Select(e => (e.Id, e.PhotoAttachmentId, e.OnboardingRecordId)).ToList(), ct);
+        var completions = await completion.ForAsync(page.Items.Select(e =>
+            new CompletionInput(e.Id, e.UserId, e.OnboardingRecordId, e.GradeId, e.ReportsToUserId, e.DepartmentId, withPhoto.Contains(e.Id))).ToList(), ct);
+
         return new PagedResult<EmployeeListItemDto>(page.Items.Select(e => new EmployeeListItemDto(e.Id, e.EmployeeNumber, e.Name, e.PositionTitle,
                 deptNames.GetValueOrDefault(e.DepartmentId, ""), siteNames.GetValueOrDefault(e.SiteId, ""),
-                e.GradeId is { } g ? gradeNames.GetValueOrDefault(g) : null, e.EmploymentType, e.Status, e.HireDate)).ToList(),
+                e.GradeId is { } g ? gradeNames.GetValueOrDefault(g) : null, e.EmploymentType, e.Status, e.HireDate,
+                ManagerId(e) is { } m ? managerNames.GetValueOrDefault(m) : null, withPhoto.Contains(e.Id), completions.GetValueOrDefault(e.Id),
+                e.ContractEndDate)).ToList(),
             page.Page, page.PageSize, page.TotalCount);
     }
 
@@ -210,6 +224,41 @@ public class EmployeeService(
         foreach (var e in people.Where(e => !placed.Contains(e.UserId)).OrderBy(e => names.GetValueOrDefault(e.UserId, "")))
             if (!placed.Contains(e.UserId)) roots.Add(Node(e));
         return roots;
+    }
+
+    /// <summary>
+    /// 17 November 2026 (employee profile, E4): what the profile page adds to <see cref="GetAsync"/>: the photo, the profile
+    /// completion and pending actions, the team (manager and direct reports) and the latest probation. Same visibility.
+    /// </summary>
+    public async Task<EmployeeProfileExtras?> ProfileAsync(int id, CancellationToken ct = default)
+    {
+        if (await employees.GetByIdAsync(id, ct) is not { } e || !(await VisibleAsync(ct))(e)) return null;
+        var today = Today;
+        var dept = await departments.GetByIdAsync(e.DepartmentId, ct);
+        var hod = dept?.HeadOfDepartmentUserId;
+        var managerUserId = e.ReportsToUserId ?? (hod is not null && hod != e.UserId ? hod : null);
+
+        // Direct reports: people whose line manager is this employee; a Head of Department also leads the department's people
+        // who have no line manager of their own.
+        var reports = (await employees.ListAsync(x => x.Status != EmployeeStatus.Separated && x.UserId != e.UserId &&
+            (x.ReportsToUserId == e.UserId || (hod == e.UserId && x.DepartmentId == e.DepartmentId && x.ReportsToUserId == null)), ct)).ToList();
+        var manager = managerUserId is null ? null : (await employees.ListAsync(x => x.UserId == managerUserId, ct)).FirstOrDefault();
+        var withPhoto = await photos.WithPhotoAsync(reports.Append(e).Concat(manager is null ? [] : [manager])
+            .Select(x => (x.Id, x.PhotoAttachmentId, x.OnboardingRecordId)).DistinctBy(x => x.Id).ToList(), ct);
+        var names = await users.GetDisplayNamesAsync(reports.Select(r => r.UserId).Append(managerUserId).OfType<string>().Distinct(), ct);
+        TeamMember Member(Employee x) => new(x.Id, names.GetValueOrDefault(x.UserId, x.EmployeeNumber), x.PositionTitle, withPhoto.Contains(x.Id));
+
+        var completionOf = (await completion.ForAsync([new CompletionInput(e.Id, e.UserId, e.OnboardingRecordId, e.GradeId, e.ReportsToUserId, e.DepartmentId,
+            withPhoto.Contains(e.Id))], ct))[e.Id];
+        var alerts = await completion.AlertsAsync(e, completionOf, today, ct);
+        var probation = (await probations.ListAsync(p => p.EmployeeUserId == e.UserId, ct)).OrderByDescending(p => p.Id).FirstOrDefault();
+
+        return new EmployeeProfileExtras(withPhoto.Contains(e.Id), completionOf, alerts,
+            new EmployeeTeamDto(
+                managerUserId is null ? null : manager is not null ? Member(manager) : new TeamMember(null, names.GetValueOrDefault(managerUserId, "Line manager"), null, false),
+                e.ReportsToUserId is null && managerUserId is not null,
+                reports.OrderBy(r => names.GetValueOrDefault(r.UserId, r.EmployeeNumber)).Select(Member).ToList()),
+            probation is null ? null : new ProbationSummaryDto(probation.Id, probation.Number, probation.Status, probation.StartDate, probation.EndDate));
     }
 
     /// <summary>The employee record of a user account, if any (for links from other pages).</summary>

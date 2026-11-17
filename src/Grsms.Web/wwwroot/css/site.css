@@ -1115,3 +1115,50 @@ details[open] > summary > .doc-chevron { transform: rotate(180deg); }
 .journey-tasks li.is-done > i { color: var(--grsms-brand); }
 .journey-tasks li.is-skipped { color: var(--bs-secondary-color); }
 .journey-all > summary { cursor: pointer; color: var(--grsms-current); }
+
+/* 17 Nov 2026: employee directory and profile workspace (Views/Employees). Avatars: a photo, or initials on one of eight colours. */
+.emp-avatar { display: inline-grid; place-items: center; border-radius: 50%; object-fit: cover; flex: none; font-weight: 800; color: #fff; letter-spacing: 0.02em;
+    background: var(--bs-secondary-bg); box-shadow: 0 0 0 3px var(--bs-body-bg), 0 0 0 4px var(--bs-border-color); }
+.emp-avatar-sm { width: 2.4rem; height: 2.4rem; font-size: 0.85rem; }
+.emp-avatar-md { width: 4.2rem; height: 4.2rem; font-size: 1.35rem; }
+.emp-avatar-xl { width: 8.5rem; height: 8.5rem; font-size: 2.6rem; }
+.emp-avatar-c0 { background: #2f6fdf; } .emp-avatar-c1 { background: #3cb54a; } .emp-avatar-c2 { background: #8e44ad; } .emp-avatar-c3 { background: #d35400; }
+.emp-avatar-c4 { background: #16a085; } .emp-avatar-c5 { background: #c0392b; } .emp-avatar-c6 { background: #2c3e50; } .emp-avatar-c7 { background: #b7950b; }
+.min-w-0 { min-width: 0; }
+.emp-card { transition: transform 0.12s, box-shadow 0.12s; }
+.emp-card:hover { transform: translateY(-2px); box-shadow: 0 0.5rem 1.4rem rgba(0, 0, 0, 0.12); }
+.emp-card.is-left { opacity: 0.7; }
+.emp-card.is-probation { box-shadow: inset 0 3px 0 #e0a100; }
+.emp-facts { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.75rem; }
+.emp-facts dt { font-weight: 500; color: var(--bs-secondary-color); }
+.emp-facts dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.emp-progress { height: 0.4rem; }
+.profile-hero .profile-name { font-size: 1.6rem; font-weight: 800; }
+.profile-role { font-size: 1.1rem; font-weight: 700; }
+.profile-facts { display: flex; flex-wrap: wrap; gap: 0.6rem 1.8rem; }
+.profile-facts dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bs-secondary-color); font-weight: 600; }
+.profile-facts dd { margin: 0; font-weight: 600; }
+.profile-completion { width: 12rem; padding: 0.9rem 1rem; border-radius: 1rem; border: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+.profile-completion-n { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+.profile-photo-edit > summary { cursor: pointer; color: var(--grsms-current, var(--grsms-brand)); list-style: none; }
+.profile-photo-edit { max-width: 12rem; }
+.profile-alert { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.3rem 0; }
+.profile-alert.is-danger > i { color: #d93f45; }
+.profile-alert.is-warning > i { color: #e0a100; }
+.profile-alert.is-info > i { color: var(--bs-secondary-color); }
+.profile-docs > li { padding: 0.6rem 0; border-bottom: 1px solid var(--bs-border-color); }
+.org-view { display: flex; flex-direction: column; align-items: center; }
+.org-person { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.85rem; border: 1px solid var(--bs-border-color); border-radius: 0.8rem;
+    background: var(--bs-body-bg); text-decoration: none; color: inherit; min-width: 14rem; }
+.org-person.is-me { border-color: var(--grsms-current, var(--grsms-brand)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--grsms-current, var(--grsms-brand)) 18%, transparent); }
+.org-arrow { color: var(--bs-secondary-color); padding: 0.35rem 0; }
+.org-reports { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; }
+.emp-timeline { list-style: none; padding: 0 0 0 1.2rem; margin: 0; border-left: 2px solid var(--bs-border-color); }
+.emp-tl-item { position: relative; padding: 0.35rem 0 0.75rem 0.5rem; }
+.emp-tl-item::before { content: ""; position: absolute; left: -1.62rem; top: 0.65rem; width: 0.8rem; height: 0.8rem; border-radius: 50%; background: var(--bs-secondary-color); border: 2px solid var(--bs-body-bg); }
+.emp-tl-item.tl-recruitment::before { background: #2f6fdf; }
+.emp-tl-item.tl-onboarding::before { background: var(--grsms-brand); }
+.emp-tl-item.tl-probation::before { background: #e0a100; }
+.emp-tl-item.tl-job::before { background: #8e44ad; }
+@media (max-width: 575.98px) { .profile-completion { width: 100%; } .emp-avatar-xl { width: 6.5rem; height: 6.5rem; font-size: 2rem; } }
+@media print { .emp-report { box-shadow: none; border: 0; } .emp-avatar { box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }

@@ -25,14 +25,76 @@ The permissions are `employees.view`, `employees.manage` and `grades.manage` (Ro
 
 The record holds the **staff number**, **position**, **department**, **place of work (site)**, **grade**, **line manager**, **employment type** (and contract end date), the **date joined**, the **confirmation date** and the **status**. The name, email and phone come from the person's GRSMS account and their personal details from the Employee Personal Record: they are not copied.
 
-## The employee page
+## The employee directory (17 November 2026)
 
-* **Current job**, with a warning when a contract ends within 60 days or has ended.
-* **Job history**: one line per job, newest first, with why it changed and who recorded it. Lines are added, never changed.
-* **Employment**: date joined, length of service, confirmation, contact details and whether their account can sign in.
-* **Records**: links to the onboarding, the personnel file and the probation. Staff registered by HR show *Hired before GRSMS*.
+**Menu → Employees** shows **cards** by default; **List** switches to a table, and **Grid** switches back.
 
-**Line manager.** Taken from the vacancy's reporting manager at hire. When it is empty, the Head of Department acts as line manager; the page says so. Leave and performance (later phases) will use it.
+**Each card shows:**
+* the **photo**, or the person's initials on a colour;
+* name, staff number, status (*On probation*, *Active*, *Left GREL*) and, when not permanent, the employment type;
+* position, department, grade, site and **manager**;
+* the **profile completion** (e.g. *71% complete*) with a bar: green from 85%, amber from 60%, red below.
+
+Hover over the bar to see what is missing. **View profile** opens the profile. The **⋯** menu offers:
+* Edit employee (HR);
+* Documents, Leave, Performance and Training (the profile tabs);
+* Employee report.
+
+The tabs (current staff, on probation, active, left), the search and the department, site and grade filters work in both views.
+
+## The employee profile
+
+**The header shows:**
+* the large photo;
+* name and status;
+* employee ID, position, department and site;
+* date joined, years of service, *reporting to* (the line manager, or the Head of Department when none is set);
+* email and phone (both clickable).
+
+**Profile completion** (right of the header) shows the percentage, what is missing and **Complete profile**, which opens the first place to fix it. It counts seven parts:
+
+| Part | Complete when |
+|---|---|
+| Personal information | Date of birth, address, SSNIT number and mobile given, and the declaration signed (the onboarding's personal record) |
+| Emergency contact | At least one |
+| Bank information | At least one account |
+| Education | Highest qualification given |
+| Documents | Every required onboarding document verified; for staff hired before GRSMS, at least one document in the personnel file |
+| Employment details | A grade and a line manager (or a Head of Department) |
+| Photo | Uploaded, or the onboarding passport photograph verified |
+
+Staff hired before GRSMS have no personal record yet, so the first four parts show *Not in GRSMS yet*. Employee self-service (docs/30, Phase 29) will collect them.
+
+**Pending actions:**
+* what is missing (parts with the same reason make one line);
+* a contract that has ended or ends within 30 days (red first), or within 90 days;
+* a probation that has ended without a decision, ends within 30 days, or whose initial meeting is overdue;
+* overdue onboarding tasks.
+
+Each has a **Fix** link where one exists.
+
+**Photo:** *Add photo* or *Change photo* under the picture (HR only, JPEG or PNG, up to 3 MB); *Remove photo* goes back to initials. Earlier photos are kept as history.
+* Without an uploaded photo, the passport-size photograph from onboarding is used, once verified.
+* Photos are shown to whoever may open the employee's record, and to the employee.
+
+**Tabs** (the page remembers the last one):
+
+| Tab | Shows |
+|---|---|
+| Personal | Date of birth and age, address, home town, mobile, email, SSNIT, qualification, next of kin, emergency contacts, bank account (only the last 4 digits). HR only (onboarding.view). Nationality is not recorded in GRSMS. Marital status shows *Married* when a spouse is given, otherwise *Not recorded*. |
+| Employment | Employee number, position, department, site, grade, manager, date joined, contract, confirmation, sign-in; links to the onboarding, personnel file and probation; the job history |
+| Documents | The new-hire documents with their status and **Preview** (PDF, pictures, Word, inside the page) and Download; the personnel file for the rest. HR only. |
+| Onboarding | The 9-stage onboarding journey (docs/39) |
+| Performance | The probation (period, status, link to its objectives and assessments). Annual appraisals come with Phase 32. |
+| Training | The induction's progress. Training records come with Phase 29. |
+| Leave | Leave comes with Phase 30. |
+| Organisation | Manager → this employee → direct reports, with photos, and a link to the department's organisation chart |
+| Timeline | The whole story, newest first: applications, onboarding, probation and job changes |
+| Audit trail | The record's changes (who, when, which fields) and a link to the full trail. For people who may read the audit trail. |
+
+**Employee report:** a one-page summary to print or save as PDF, with the letterhead, photo, employment, personal summary (HR only), job history and what is outstanding.
+
+**Line manager.** Taken from the vacancy's reporting manager at hire. When it is empty, the Head of Department acts as line manager, and the page says so. Leave and performance (later phases) will use it.
 
 ## Registering existing staff
 

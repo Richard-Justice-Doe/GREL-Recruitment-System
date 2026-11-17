@@ -22,4 +22,12 @@ public class PersonalRecordRepository(ApplicationDbContext context)
 
     public async Task<IReadOnlyList<EmployeePersonalRecord>> ListWithBeneficiariesAsync(CancellationToken ct = default) =>
         await Db.EmployeePersonalRecords.AsNoTracking().Include(r => r.Beneficiaries).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<PersonalRecordSummary>> SummariesAsync(IReadOnlyCollection<int> onboardingIds, CancellationToken ct = default) =>
+        onboardingIds.Count == 0 ? [] : await Db.EmployeePersonalRecords.AsNoTracking()
+            .Where(r => onboardingIds.Contains(r.OnboardingRecordId))
+            .Select(r => new PersonalRecordSummary(r.OnboardingRecordId, r.DateOfBirth != null, r.ResidentialAddress != null && r.ResidentialAddress != "",
+                r.SsnitNumber != null && r.SsnitNumber != "", r.MobileNumber != null && r.MobileNumber != "", r.Qualification != null && r.Qualification != "",
+                r.DeclaredAt != null, r.EmergencyContacts.Count, r.BankAccounts.Count))
+            .ToListAsync(ct);
 }

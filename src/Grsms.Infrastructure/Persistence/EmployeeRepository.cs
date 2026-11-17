@@ -42,7 +42,7 @@ public class EmployeeRepository(ApplicationDbContext context) : Repository<Emplo
         var items = await rows.OrderBy(x => x.FullName).ThenBy(x => x.e.EmployeeNumber)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(x => new EmployeeRow(x.e.Id, x.e.EmployeeNumber, x.FullName, x.e.PositionTitle, x.e.DepartmentId, x.e.SiteId, x.e.GradeId,
-                x.e.EmploymentType, x.e.Status, x.e.HireDate))
+                x.e.EmploymentType, x.e.Status, x.e.HireDate, x.e.UserId, x.e.ReportsToUserId, x.e.OnboardingRecordId, x.e.PhotoAttachmentId, x.e.ContractEndDate))
             .ToListAsync(ct);
         return new PagedResult<EmployeeRow>(items, page, pageSize, total);
     }

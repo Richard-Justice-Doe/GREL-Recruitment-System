@@ -1272,6 +1272,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<int?>("OnboardingRecordId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("PhotoAttachmentId")
+                        .HasColumnType("int");
+
                     b.Property<string>("PositionTitle")
                         .IsRequired()
                         .HasMaxLength(150)

@@ -671,6 +671,7 @@ New tables only; no existing table changed. Script `28_phase28_employee_master_r
 | `35_ai_insights.sql` | docs/36 AI-5 | Creates **AiInsights** (AI summaries kept with their record: `Feature`, `RecordType` + `RecordId`, `Content` JSON, `PromptVersion`, `GeneratedByUserId`; index on record and feature). No existing table changes. 13 November 2026. Not yet run on MySQL. |
 | `36_scorecard_comments_panel_changes.sql` | docs/37 C1 | Adds `Comment` (up to 1,000, optional) to **ScorecardRatings**; creates **InterviewPanelChanges** (replacements, substitutes and re-invitations: original and replacement member, reason, who and when). 13 November 2026. Not yet run on MySQL. |
 | `37_knowledge_base.sql` | docs/36 AI-7 | Creates **KnowledgeDocuments** (title, owner, version, effective date, audience, active, current file, sections and characters read, read problem) and **KnowledgeSections** (heading and text of each searchable piece, deleted with the document). 14 November 2026. Not yet run on MySQL; the app applies it at start-up. |
+| `38_employee_photo.sql` | Employee directory | Adds `PhotoAttachmentId` (optional) to **Employees**: the profile photo, stored as an attachment of owner type `EmployeePhoto`. 17 November 2026. Not yet run on MySQL; the app applies it at start-up. |
 | `15_phase15_ats_engine.sql` | 15 | ATS columns on JobApplications (existing rows get `AtsDecision` = `None`), VacancyKnockoutQuestions, JobApplicationKnockoutAnswers, AtsSettings. The new permission `ats.configure` is added by GRSMS at start-up. |
 
 Each script:

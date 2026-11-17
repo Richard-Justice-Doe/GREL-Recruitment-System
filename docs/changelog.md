@@ -4,6 +4,45 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 17 November 2026: employee directory and profile workspace
+
+Requested by the user: a modern employee directory and profile, as in Workday, BambooHR and SuccessFactors. It builds on the Phase 28 employee module and reuses its data. Guide: [docs/31](31-employees.md).
+
+* **Directory** (*Menu → Employees*): **Grid** cards (default) or a **List**.
+  * Each card shows the photo or initials, name, number, status, employment type, position, department, grade, site, manager and **profile completion** (% and bar).
+  * Each card has *View profile* and a menu: edit, documents, leave, performance, training, report.
+  * Tabs, search and filters work in both views.
+* **Profile workspace:**
+  * a header with a large photo and the key facts (joined, years of service, reporting to, email, phone);
+  * the **profile completion** (seven parts) with what is missing and *Complete profile*;
+  * **pending actions** (missing parts; contract ended or ending in 30 or 90 days; probation decision overdue, ending in 30 days or initial meeting overdue; overdue onboarding tasks);
+  * tabs: **Personal, Employment, Documents** (preview in the page), **Onboarding** (the 9-stage journey), **Performance** (probation), **Training, Leave, Organisation** (manager → employee → direct reports), **Timeline, Audit trail**;
+  * a printable **Employee report**.
+* **Photos:**
+  * HR uploads, replaces or removes them (JPEG/PNG, up to 3 MB, the usual upload checks; earlier photos kept);
+  * the verified onboarding passport photograph is used when none was uploaded;
+  * same visibility as the record;
+  * served with a private one-hour cache.
+* **Not invented:**
+  * Leave (Phase 30), appraisals (Phase 32) and training records (Phase 29) are planned modules not built yet, so those tabs say which phase brings them; Performance shows the probation.
+  * Nationality isn't recorded in GRSMS, so the profile says so. Marital status shows *Married* when a spouse is given, otherwise *Not recorded*.
+* **Who sees what:** personal details and documents for HR only (onboarding.view); the audit trail for people who may read it (audit.view).
+* **Files:**
+  * `Application/Employees/EmployeePhotoService.cs`, `ProfileCompletionService.cs`;
+  * `EmployeeService.ProfileAsync` (team, probation);
+  * `IPersonalRecordRepository.SummariesAsync` (what a record contains, without the data);
+  * `Web/Models/EmployeeProfileViewModel.cs`;
+  * the views `Employees/Index`, `Details`, `Report`, `_EmployeeAvatar`;
+  * styles in `site.css`.
+* **Database:** `database/38_employee_photo.sql` (`Employees.PhotoAttachmentId`).
+* **Tests:**
+  * photos: HR only, pictures only, visibility, removal, the onboarding fallback;
+  * completion and alerts after a full onboarding, and for staff hired before GRSMS;
+  * the directory, list, profile, report and photo upload through the pages.
+  306 tests pass.
+
+---
+
 ## 15 November 2026: guided workflow (G1–G4)
 
 Requested by the user: a new user should see at once where a process is, what is done and pending, who acts, who approves next, how long it has waited and what comes next. Much of this was already built by docs/37 CR5; these steps fill the gaps. Guide: [docs/39](39-guided-workflow.md).

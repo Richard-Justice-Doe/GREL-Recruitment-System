@@ -64,7 +64,10 @@ public enum AttachmentCategory
     [Display(Name = "Personnel file document")] PersonnelFileDocument,
 
     // docs/36 AI-7: a policy or procedure in the knowledge base
-    [Display(Name = "Knowledge-base document")] KnowledgeDocument
+    [Display(Name = "Knowledge-base document")] KnowledgeDocument,
+
+    // 17 Nov 2026: an employee's profile photo
+    [Display(Name = "Employee photo")] EmployeePhoto
 }
 
 /// <summary>The values used in <see cref="Attachment.OwnerType"/>.</summary>
@@ -89,4 +92,7 @@ public static class AttachmentOwners
 
     /// <summary>docs/36 AI-7: the file of a knowledge-base document (OwnerId = KnowledgeDocuments.Id; older versions stay as history).</summary>
     public const string KnowledgeDocument = "KnowledgeDocument";
+
+    /// <summary>17 Nov 2026: an employee's profile photo (OwnerId = Employees.Id; earlier photos stay as history).</summary>
+    public const string EmployeePhoto = "EmployeePhoto";
 }

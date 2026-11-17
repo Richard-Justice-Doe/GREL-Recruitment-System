@@ -89,7 +89,7 @@
                         }
                         <label class="form-label small" for="MeetingDate">Date of the meeting</label>
                         <input id="MeetingDate" name="MeetingDate" type="date" class="form-control form-control-sm" value="@meetDefault.ToString("yyyy-MM-dd")"
-                               min="@meetFrom.ToString("yyyy-MM-dd")" max="@meetTo.ToString("yyyy-MM-dd")" required aria-describedby="meeting-date-help" />
+                               min="@(meetFrom > meetTo ? null : meetFrom.ToString("yyyy-MM-dd"))" max="@(meetFrom > meetTo ? null : meetTo.ToString("yyyy-MM-dd"))" required aria-describedby="meeting-date-help" />
                         <div id="meeting-date-help" class="form-text mb-2">
                             @if (meetFrom > meetTo)
                             {
@@ -165,7 +165,7 @@
                         <label class="form-label small" for="SignatureName">Sign: type your full name</label>
                         <div class="input-group input-group-sm">
                             <input id="SignatureName" name="SignatureName" class="form-control" maxlength="200" required />
-                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-signature me-1"></i>Save and sign</button>
+                            <button type="submit" class="btn btn-primary" disabled="@(meetFrom > meetTo)" title="@(meetFrom > meetTo ? $"Available from {meetFrom:d MMM yyyy}" : null)"><i class="fa-solid fa-signature me-1"></i>Save and sign</button>
                         </div>
                         <div class="form-text">The employee is then asked to sign in their portal (My probation).</div>
                     </form>

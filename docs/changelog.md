@@ -4,6 +4,20 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 17 November 2026: reopening a cancelled onboarding or induction
+
+Requested by the user: "if an induction is being cancelled it needs to be reactivated".
+* **Reopen onboarding** on a cancelled onboarding (RO, `onboarding.manage`, a reason required).
+* It returns to the stage it was in when cancelled: *Induction in progress* for an induction cancelled after activation. Before activation, the stage is worked out again from the facts.
+* Nothing is lost: cancelling only set the status, so the letter, documents, tasks and induction carry on.
+* **History:** *Reopened after cancellation* on the onboarding, and *Onboarding reopened* on the application.
+* **Emails:** the new employee and the Heads of Department.
+* **Why this is the only way back:** a new onboarding can never be started for the same application.
+* `OnboardingService.ReopenAsync`, `OnboardingController.Reopen`, the form on the onboarding page. No database change.
+* 314 tests pass.
+
+---
+
 ## 17 November 2026: celebrations, birthdays and work anniversaries
 
 Requested by the user: birthdays and service anniversaries visible across GREL, with automatic announcements. Guide: [docs/40](40-celebrations.md).

@@ -319,6 +319,7 @@ public class OnboardingService(
             Documents = hr ? await documentService.GetForHrAsync(snap, ct) : null,
             PersonalRecordSigned = hr ? snap.PersonalRecordSigned : null,
             CanManage = manage,
+            CanReopen = MayManage && !own && o.Status == OnboardingStatus.Cancelled,
             CanEditStartDate = manage && !o.LetterAcknowledged,
             CanIssueLetter = manage && OnboardingWorkflow.LetterMayBeIssued(o.Status) && !o.LetterAcknowledged,
             CanRequestCorrection = MayVerify && !own && OnboardingWorkflow.BeforeActivation(o.Status),
@@ -791,6 +792,45 @@ public class OnboardingService(
                 await mailer.ToUserAsync(hod, $"Onboarding {o.Number} cancelled",
                     $"The onboarding of <b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}) was cancelled: {WorkflowMailer.Enc(reason)}",
                     links.Onboarding(o.Id), "Open the onboarding", ct);
+        return saved;
+    }
+
+    /// <summary>
+    /// 17 November 2026: reopens a cancelled onboarding (e.g. it was cancelled by mistake, or the new employee reported after all).
+    /// It goes back to the stage it was in when cancelled; before activation the stage is then worked out again from the documents,
+    /// letter and personal record, as usual. Everything kept while it was cancelled (letter, documents, tasks, induction) carries on.
+    /// Needs a reason; the history, the application, the new employee and the Heads of Department are told.
+    /// </summary>
+    public async Task<Result> ReopenAsync(int id, string? reason, CancellationToken ct = default)
+    {
+        if (!MayManage) return Result.Failure("Only a Recruitment Officer can do this.");
+        var o = await onboardings.GetByIdAsync(id, ct);
+        if (o is null) return Result.Failure("Onboarding not found.");
+        if (o.EmployeeUserId == MyId) return Result.Failure("This is your own appointment.");
+        if (o.Status != OnboardingStatus.Cancelled) return Result.Failure("Only a cancelled onboarding can be reopened.");
+        reason = Clean(reason);
+        if (reason is null || reason.Length < 5) return Result.Failure("Give the reason for reopening (e.g. cancelled by mistake, or the new employee reported after all).");
+        if (reason.Length > 2000) return Result.Failure("Keep the reason under 2,000 characters.");
+
+        var cancelled = (await history.ListAsync(a => a.OnboardingRecordId == o.Id && a.Action == OnboardingAction.Cancelled, ct))
+            .OrderByDescending(a => a.ActionAt).ThenByDescending(a => a.Id).FirstOrDefault();
+        var back = cancelled?.FromStatus is { } from && from != OnboardingStatus.Cancelled ? from : OnboardingStatus.Draft;
+        var app = (await applications.GetWithHistoryAsync(o.JobApplicationId, ct))!;
+        var now = DateTime.UtcNow;
+        o.CancelReason = null;
+        o.RecordStep(OnboardingAction.Reopened, back, MyId, scope.UserName, reason, now);
+        app.RecordStep(ApplicationAction.OnboardingReopened, app.Status, MyId, scope.UserName, reason, now);
+        var saved = await SaveAsync(ct);
+        if (!saved.Succeeded) return saved;
+        if (OnboardingWorkflow.BeforeActivation(o.Status)) await progress.RefreshAsync(o.Id, ct);
+
+        await mailer.ToUserAsync(o.EmployeeUserId, "Your onboarding at GREL has been reopened",
+            $"Your onboarding for <b>{WorkflowMailer.Enc(o.JobTitle)}</b> is open again. Please sign in to see what is still to do.",
+            links.MyApplication(o.JobApplicationId), "Open my onboarding", ct);
+        foreach (var hod in await HodsAsync(o, ct))
+            await mailer.ToUserAsync(hod, $"Onboarding {o.Number} reopened",
+                $"The onboarding of <b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}) was reopened: {WorkflowMailer.Enc(reason)}",
+                links.Onboarding(o.Id), "Open the onboarding", ct);
         return saved;
     }
 

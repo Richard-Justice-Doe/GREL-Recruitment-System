@@ -54,7 +54,8 @@ public enum OnboardingAction
     [Display(Name = "Cancelled")] Cancelled,
     [Display(Name = "Correction requested")] CorrectionRequested,
     [Display(Name = "Document requirements changed")] RequirementsChanged,
-    [Display(Name = "Document deadline extended")] DeadlineExtended // Phase 27 stage C (12 November 2026)
+    [Display(Name = "Document deadline extended")] DeadlineExtended, // Phase 27 stage C (12 November 2026)
+    [Display(Name = "Reopened after cancellation")] Reopened // 17 November 2026
 }
 
 /// <summary>Who an onboarding task belongs to.</summary>

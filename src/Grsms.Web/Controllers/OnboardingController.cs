@@ -219,6 +219,11 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
 
     [HttpPost]
     [Authorize(Policy = Policies.ManageOnboarding)]
+    public Task<IActionResult> Reopen(int id, string? reason, CancellationToken ct) => // 17 Nov 2026
+        Act(id, () => onboarding.ReopenAsync(id, reason, ct), "Onboarding reopened. The new employee and the Heads of Department have been told.");
+
+    [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
     public Task<IActionResult> Cancel(int id, string? reason, CancellationToken ct) =>
         Act(id, () => onboarding.CancelAsync(id, reason, ct), "Onboarding cancelled.");
 

@@ -114,6 +114,7 @@ public enum ApplicationAction
     [Display(Name = "Appointment letter signed")] LetterSigned,
     [Display(Name = "Onboarding completed")] OnboardingCompleted,
     [Display(Name = "Onboarding cancelled")] OnboardingCancelled,
+    [Display(Name = "Onboarding reopened")] OnboardingReopened, // 17 November 2026
 
     // Phase 15: ATS screening (never shown to the applicant)
     [Display(Name = "Automatically rejected by the ATS")] AtsRejected,

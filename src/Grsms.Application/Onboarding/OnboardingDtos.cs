@@ -75,6 +75,9 @@ public record OnboardingDetailsDto
 
     /// <summary>The RO (onboarding.manage): change first-day details, notes and the checklist; cancel.</summary>
     public bool CanManage { get; init; }
+
+    /// <summary>17 Nov 2026: a cancelled onboarding may be reopened (onboarding.manage).</summary>
+    public bool CanReopen { get; init; }
     public bool CanEditStartDate { get; init; }
     public bool CanIssueLetter { get; init; }
 

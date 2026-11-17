@@ -18,7 +18,7 @@ Onboarding starts when the Recruitment Officer clicks **Click to proceed to onbo
  1. Letter being ──► 2. Awaiting the ◄──────► 3. Awaiting document ──────► 4. Ready for ──activate──► 5. Induction in ──close──► ✅ Completed
     prepared            new employee            verification                 activation               progress
    (uploads already open)     ▲ a document rejected, a correction asked, the record changed ┘
- (any stage before Completed) ── cancel ──► ❌ Cancelled
+(any stage before Completed) ── cancel ──► ❌ Cancelled ── reopen (with a reason) ──► back to the stage it was in
 ```
 
 Stages 1 to 4 are **worked out automatically** after every upload, verification, rejection or signature:
@@ -185,6 +185,13 @@ An onboarding completed before personnel files existed shows **Open the personne
 
 ### Notes and cancelling
 **HR notes** are for HR only (never shown to the new employee). **Cancel onboarding** (the RO) needs a reason and works at any stage before Completed.
+
+**Reopening (17 November 2026).** A cancelled onboarding, including an induction cancelled after activation, can be reopened by the RO.
+* Open it and give the reason (e.g. *cancelled by mistake*, *the new employee reported after all*), then click **Reopen onboarding**.
+* It goes back to the stage it was in when cancelled. Before activation, the stage is then worked out again from the documents, letter and personal record.
+* Everything kept while it was cancelled carries on: letter, documents, tasks and induction.
+* The history shows *Reopened after cancellation* with the reason. The new employee and the Heads of Department are emailed.
+* A new onboarding can never be started for the same application, so reopening is the way back.
 
 ---
 

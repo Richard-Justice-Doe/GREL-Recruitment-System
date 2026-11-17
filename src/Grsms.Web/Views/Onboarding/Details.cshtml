@@ -57,7 +57,19 @@ Notice: one month's notice on either side, after confirmation.
 
 @if (Model.Status == OnboardingStatus.Cancelled)
 {
-    <div class="alert alert-secondary">Cancelled: @Model.CancelReason</div>
+    <div class="alert alert-secondary">
+        <div><strong>Cancelled:</strong> @Model.CancelReason</div>
+        @if (Model.CanReopen)
+        {
+            @* 17 Nov 2026: a cancelled onboarding can be reopened; it returns to the stage it was in. *@
+            <form asp-action="Reopen" asp-route-id="@Model.Id" method="post" class="mt-2">
+                <div class="input-group input-group-sm">
+                    <input name="reason" class="form-control" maxlength="2000" required placeholder="Why reopen? (e.g. cancelled by mistake, the new employee reported after all)" aria-label="Reason for reopening" />
+                    <button type="submit" class="btn btn-primary" data-confirm="Reopen this onboarding? It goes back to the stage it was in, and the new employee is told."><i class="fa-solid fa-rotate-left me-1"></i>Reopen onboarding</button>
+                </div>
+            </form>
+        }
+    </div>
 }
 
 @* docs/37 CR5: the whole journey (who acts next, since when); the onboarding steps follow below. *@

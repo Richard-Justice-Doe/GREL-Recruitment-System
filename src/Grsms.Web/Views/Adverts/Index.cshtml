@@ -1,7 +1,7 @@
 @* Job adverts list with tabs:
      Published    - running now, ending soonest first (with how many external channels are still to post)
-     Scheduled    - approved, waiting for their start date, starting soonest first
-     In review    - waiting for the HR Manager's review or the IT Manager's approval (11 Nov 2026, docs/29 change 2)
+     Scheduled    - published, waiting for their start date, starting soonest first
+     Earlier review - only while adverts sent for the HR / IT review before 17 Nov 2026 remain (the RO publishes them now)
      Drafts       - being prepared, or returned for correction
      Closed       - closed or rejected
      All          - every advert, newest first, with a status filter
@@ -32,11 +32,11 @@
     {
         ("live", "Published", counts.Live, "text-bg-success"),
         ("scheduled", "Scheduled", counts.Scheduled, "text-bg-warning"),
-        ("review", "In review", counts.InReview, "text-bg-info"),
+        ("review", "Earlier review", counts.InReview, "text-bg-info"),
         ("draft", "Drafts", counts.Draft, "text-bg-secondary"),
         ("closed", "Closed", null, ""),
         ("all", "All", null, ""),
-    };
+    }.Where(t => t.Key != "review" || counts.InReview > 0 || f.Tab is "review" or "hr" or "it").ToArray();
 }
 
 <partial name="_VacanciesAndAdvertsTabs" />
@@ -55,16 +55,16 @@
 {
     <div class="alert alert-info small">
         <i class="fa-solid fa-circle-info me-1"></i>
-        <strong>@counts.ChannelsToPost</strong> external channel@(counts.ChannelsToPost == 1 ? "" : "s") on published adverts still to post by the IT Manager.
+        <strong>@counts.ChannelsToPost</strong> external channel@(counts.ChannelsToPost == 1 ? "" : "s") on published adverts still to post.
         Open the advert, copy the ready-made text into the site or send it to the newspaper, then record the link.
     </div>
 }
 @if (counts.InReview > 0 && f.Tab != "review")
 {
     <div class="alert alert-light small">
-        <i class="fa-solid fa-hourglass-half me-1"></i>
-        <a asp-action="Index" asp-route-tab="hr">@counts.AwaitingHr awaiting the HR review</a> ·
-        <a asp-action="Index" asp-route-tab="it">@counts.AwaitingIt awaiting IT approval</a>
+        <i class="fa-solid fa-circle-info me-1"></i>
+        <a asp-action="Index" asp-route-tab="review">@counts.InReview advert@(counts.InReview == 1 ? " was" : "s were") sent for review under the earlier workflow</a>.
+        No review is needed any more: open @(counts.InReview == 1 ? "it" : "them") and publish.
     </div>
 }
 
@@ -139,7 +139,7 @@
                             }
                             else
                             {
-                                <span>No adverts here. Adverts appear once the Recruitment Officer writes them and the HR Manager has reviewed them.</span>
+                                <span>No adverts here. Adverts appear once the Recruitment Officer writes and publishes them.</span>
                             }
                         </td>
                     </tr>

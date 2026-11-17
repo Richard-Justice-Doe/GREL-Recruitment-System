@@ -88,6 +88,9 @@ public class ActionCenterService(
     public ActionItem Rate(DashboardTaskDto t, DateTime now)
     {
         var today = DateOnly.FromDateTime(now);
+        // 17 Nov 2026: a request the MD has approved is the Recruitment Officer's next job, always high priority.
+        if (t.Target == DashboardTaskTarget.NewVacancyForRequest)
+            return new ActionItem(t, ActionPriority.High, ProcessHealth.None, null, null, "Approved by the Managing Director: create the vacancy");
         var key = TargetKeyFor(t);
         int? target = key is null ? null : settings.GetInt(key);
         var waited = OnboardingWorkflow.WorkingDaysBetween(DateOnly.FromDateTime(t.Since), today);

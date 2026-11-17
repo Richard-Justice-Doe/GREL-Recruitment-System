@@ -171,16 +171,7 @@ public record AdvertDetailsDto
     // ---- What the current user may do
     public bool CanEdit { get; init; }
 
-    /// <summary>Saving changes takes the published advert offline and sends it back for review.</summary>
-    public bool EditTakesOffline { get; init; }
-
-    /// <summary>Send it for the HR review (the author).</summary>
-    public bool CanSubmit { get; init; }
-
-    /// <summary>The HR review: approve it for the IT Manager.</summary>
-    public bool CanHrApprove { get; init; }
-
-    /// <summary>The IT approval, which publishes it (now or on its start date).</summary>
+    /// <summary>17 Nov 2026: publish it (now or on its start date), with no review: the Recruitment Officer (or IT Manager).</summary>
     public bool CanPublish { get; init; }
 
     public bool CanReturn { get; init; }
@@ -196,7 +187,7 @@ public record AdvertDetailsDto
     /// <summary>Record an external channel as taken down (the IT Manager, also after the advert closed or went offline).</summary>
     public bool CanRecordRemoval { get; init; }
 
-    /// <summary>Why the advert cannot be sent for review or published right now (e.g. the vacancy is not published), if so.</summary>
+    /// <summary>Why the advert cannot be published right now (e.g. the vacancy is not published), if so.</summary>
     public string? PublishBlockedReason { get; init; }
 }
 

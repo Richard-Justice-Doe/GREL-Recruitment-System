@@ -4,6 +4,69 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 17 November 2026: job request approval simplified; nothing is approved after the Managing Director
+
+Requested by the user: "revise job request approval workflow". There were approvals after the MD's: the HR Manager approved the vacancy, and the HR Manager reviewed and the IT Manager approved each advert. They caused delays and duplicated responsibility.
+
+**The new flow**
+
+Department request → Department Head approval → **Recruitment Officer review** → **Managing Director approval (the last)** → Recruitment Officer creates the vacancy → Recruitment Officer creates and publishes the advert → applications → screening → interview → selection → offer → onboarding.
+
+**What changed**
+
+*The request (QF-81-11)*
+* **Stage 2 is now the Recruitment Officer review** (it was the HR Manager review). This reuses the RO stage the system already had.
+  * To approve, the RO ticks three checks: **Request verified**, **Vacancy details validated** and **Requirements confirmed**. The checks are recorded in the history.
+  * The RO who approves becomes the request's **Recruitment Officer**, the process owner after the MD.
+  * A request raised by the HOD goes straight to this review.
+* **After the MD approves:**
+  * the status is **Approved for recruitment**;
+  * the RO gets **"Job request approved"**: *The Managing Director has approved the requisition. Your next action is to create the vacancy and publish the job advertisement.*;
+  * the HR Manager is no longer asked or emailed.
+* **The request page shows the hand-over.** It says *No further approvals are required*, the **process owner** (Recruitment Officer, by name) and the next action. The process guide now runs:
+  * ✅ Department Head approval → ✅ Recruitment Officer review → ✅ Managing Director approval → 🔵 Vacancy creation → ⚪ Advertisement → ⚪ Candidate applications → Selection and hiring → Positions filled;
+  * owner, next action and *Once done, the next step is*;
+  * no approver after the MD.
+* **RO dashboard and Action Center:** **Create the vacancy**, *approved by the Managing Director*, always **High** priority.
+
+*Vacancies and adverts*
+* **The RO publishes the vacancy** (**Publish the vacancy**) with no HR Manager approval. The history records *Published by the Recruitment Officer*. The HOD is emailed, with *Next: create and publish the job advertisement*.
+* **The RO publishes the advert** (**Publish now** / **Schedule the advert**) with no HR review or IT approval.
+  * Editing a published advert keeps it published; the history records *Edited while published*.
+  * The RO can record external channels as posted or taken down.
+  * The IT Manager can still take an advert offline.
+
+*Supporting changes*
+* Role and permission descriptions, the request stepper, the settings labels for the old targets and the vacancy reminder (now sent to the RO: "publish it") are updated.
+
+**Records already in progress (nothing historical changes)**
+* **Requests at the HR Manager review** finish there and then go to the MD. The status is shown as *HR Manager review (earlier workflow)*.
+* **Vacancies pending HR approval** can be published by the RO. The HR Manager can still approve or return them.
+* **Adverts awaiting HR review or IT approval** are listed under **Earlier review**. The RO can publish them now, and their reviewer can still return or reject them.
+* All history entries are kept. Statuses are stored as text, so nothing is migrated: no database script.
+
+**Files**
+* Domain:
+  * `RecruitmentWorkflow`, `RecruitmentEnums` (labels);
+  * `VacancyWorkflow` (`CanPublish`), `VacancyEnums` (`PublishedByRecruiter`);
+  * `AdvertWorkflow` (`CanPublish`), `AdvertEnums` (`EditedWhilePublished`);
+  * `Roles`, `Permissions`, `SettingCatalogue`.
+* Application:
+  * `RecruitmentRequestService` (routing, checks, owner, notifications) and `ReviewDecisionDto` (the three checks);
+  * `VacancyService.PublishAsync` (replaces `SubmitAsync`);
+  * `AdvertService.PublishAsync` (`SubmitAsync` and `HrApproveAsync` removed; edits stay live; RO records channels; `MyWorkAsync`);
+  * `ProcessGuideService` (new journey), `ActionCenterService`, `DashboardService`, `ReminderService`.
+* Web:
+  * `VacanciesController.Publish`, `AdvertsController` (`Submit` and `HrApprove` removed; `Publish` and channels open to the RO);
+  * views: RecruitmentRequests/Details and _WorkflowStepper, Vacancies/Details and Form, Adverts/Details, Form and Index, Roles/Index.
+* Guides: [08](08-recruitment-requests.md), [09](09-vacancies.md), [13](13-job-adverts.md) and [39](39-guided-workflow.md).
+
+**Checked:** request, vacancy, advert, process guide and Action Center tests are rewritten for the new rules, and the earlier-workflow cases (HR review, pending vacancy, adverts in review) are still tested. The full suite passes (316).
+
+**This replaces earlier decisions:** the HR Manager stage of 5 Nov 2026 (Phase 17), the HR Manager vacancy approval (Phase 3), and the HR review / IT approval of adverts (11 Nov 2026, docs/29 change 2).
+
+---
+
 ## 17 November 2026: AI drafts the "Description of the post" on the recruitment request
 
 Requested by the user: "AI is supposed to generate the job description here" (QF-81-11, section 3). This was planned in [docs/36](36-ai-hr-platform-plan.md), phase 3, but until now only the vacancy form had the button.

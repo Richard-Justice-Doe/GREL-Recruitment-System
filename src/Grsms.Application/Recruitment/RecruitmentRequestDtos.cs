@@ -292,6 +292,16 @@ public class ReviewDecisionDto
     [Required]
     public RecruitmentRequestStatus? ExpectedStatus { get; set; }
 
+    // 17 Nov 2026: the Recruitment Officer review. All three are needed to approve at that stage (recorded in the history).
+
+    /// <summary>The request is complete and genuine (department, purpose, justification, documents).</summary>
+    public bool RequestVerified { get; set; }
+
+    /// <summary>The vacancy details are valid (position, number, engagement type, site, start date).</summary>
+    public bool VacancyDetailsValidated { get; set; }
+
+    /// <summary>The requirements (education, experience, certificates, licence) are confirmed.</summary>
+    public bool RequirementsConfirmed { get; set; }
 }
 
 /// <summary>

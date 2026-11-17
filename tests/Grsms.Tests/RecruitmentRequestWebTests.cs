@@ -46,7 +46,7 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task Staff_member_raises_the_form_then_hod_hr_manager_and_md_approve()
+    public async Task Staff_member_raises_the_form_then_hod_recruitment_officer_and_md_approve()
     {
         // Factory TBU (seeded department 32, Operations division): a staff member and their HOD.
         await UserAsync("qa.staff@grel.test", 32, Roles.Employee);
@@ -119,19 +119,24 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
 
         // ---- Submit: it waits for the Head of Department
         Assert.Equal(HttpStatusCode.Redirect, (await staff.PostFormAsync(detailsUrl, $"/RecruitmentRequests/Submit/{id}", new())).StatusCode);
-        Assert.Contains("Department Head review", await staff.GetStringAsync(detailsUrl));
+        Assert.Contains("Department Head approval", await staff.GetStringAsync(detailsUrl));
 
         // ---- Three approvals
         await ApproveAsync("qa.hod@grel.test", id, "DepartmentHeadReview", extra: null);
-        await ApproveAsync("qa.hrm@grel.test", id, "HrApproval");
+        await ApproveAsync("qa.ro@grel.test", id, "RecruitmentReview");
         await ApproveAsync("qa.md@grel.test", id, "MdApproval", extra: null);
 
         page = await staff.GetStringAsync(detailsUrl);
-        Assert.Contains("Fully approved", page);
+        Assert.Contains("Approved for recruitment", page);
+        Assert.Contains("No further approvals are required", page);
+        Assert.Contains("Process owner: <b>Recruitment Officer (qa.ro)</b>", page);
 
         // ---- A Recruitment Officer is offered the conversion into a vacancy
         var ro = await SignedInAsync("qa.ro@grel.test");
-        Assert.Contains("Convert into a job vacancy", await ro.GetStringAsync(detailsUrl));
+        var roPage = await ro.GetStringAsync(detailsUrl);
+        Assert.Contains("Create the vacancy", roPage);
+        Assert.Contains("Vacancy creation", roPage);   // the process guide: the current step after the MD
+        Assert.Contains("Advertisement", roPage);
 
         // ---- The job description downloads intact for an approver
         var md = await SignedInAsync("qa.md@grel.test");
@@ -161,6 +166,12 @@ public class RecruitmentRequestWebTests(GrsmsWebFactory factory) : IClassFixture
         Assert.Contains($"/RecruitmentRequests/Details/{id}", await client.GetStringAsync("/RecruitmentRequests?tab=awaiting"));
 
         var fields = new Dictionary<string, string> { ["Decision"] = "Approve", ["ExpectedStatus"] = stage };
+        if (stage == "RecruitmentReview")
+        {
+            // 17 Nov 2026: the Recruitment Officer review shows three checks, all needed to approve.
+            Assert.Contains("Request verified", await client.GetStringAsync($"/RecruitmentRequests/Details/{id}"));
+            fields["RequestVerified"] = fields["VacancyDetailsValidated"] = fields["RequirementsConfirmed"] = "true";
+        }
         if (extra is { } e) fields[e.Key] = e.Value;
         var result = await client.PostFormAsync($"/RecruitmentRequests/Details/{id}", $"/RecruitmentRequests/Decide/{id}", fields);
 

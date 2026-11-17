@@ -114,8 +114,8 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
         return SubmitAsCurrentUserAsync(Form());
     }
 
-    /// <summary>Submitted, then approved by the HOD: waiting for the HR Manager (stage 2).</summary>
-    private async Task<int> AtHrStageAsync()
+    /// <summary>Submitted, then approved by the HOD: waiting for the Recruitment Officer review (stage 2, since 17 Nov 2026).</summary>
+    private async Task<int> AtRoStageAsync()
     {
         var id = await SubmittedRequestAsync();
         AsHod();
@@ -123,11 +123,15 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
         return id;
     }
 
+    private void AsRo1() => As(_ro1, Roles.RecruitmentOfficer);
+
+    /// <param name="checks">The Recruitment Officer review's three confirmations (only used at that stage).</param>
     private Task<Result> Decide(int id, ReviewDecision decision, RecruitmentRequestStatus expected,
-        string? comments = null) =>
+        string? comments = null, bool checks = true) =>
         Run(s => s.DecideAsync(id, new ReviewDecisionDto
         {
-            Decision = decision, ExpectedStatus = expected, Comments = comments
+            Decision = decision, ExpectedStatus = expected, Comments = comments,
+            RequestVerified = checks, VacancyDetailsValidated = checks, RequirementsConfirmed = checks
         }));
 
     private Task<RecruitmentRequestDetailsDto?> Details(int id) => Run(s => s.GetDetailsAsync(id));
@@ -273,7 +277,7 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Full_approval_path_department_head_then_hr_manager_then_md()
+    public async Task Full_approval_path_department_head_then_recruitment_officer_then_md_and_nothing_after()
     {
         var id = await SubmittedRequestAsync();
         var submitted = (await Details(id))!;
@@ -281,54 +285,81 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
         Assert.NotNull(submitted.DateRequested);
         Assert.Contains("hod", submitted.WaitingFor);
         Assert.Contains(_db.SentEmails(), m => m.Contains("hod@grel.test") && m.Contains("needs your review"));
-        Assert.DoesNotContain(_db.SentEmails(), m => m.Contains("ro1@grel.test")); // no Recruitment Officer stage any more
 
         // Stage 1: the Head of the department.
         AsHod();
         Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.DepartmentHeadReview)).Succeeded);
-        Assert.Contains(_db.SentEmails(), m => m.Contains("hrm@grel.test") && m.Contains("needs your approval"));
+        Assert.Equal(RecruitmentRequestStatus.RecruitmentReview, (await Details(id))!.Status);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("ro1@grel.test") && m.Contains("needs your review") && m.Contains("validate the vacancy details"));
         // G4: the requester is told what was completed, the next step and who is responsible.
         using (var scope = _db.NewScope())
         {
             var bell = await scope.ServiceProvider.GetRequiredService<Grsms.Infrastructure.Persistence.ApplicationDbContext>().Notifications
                 .Where(n => n.UserId == _staff).Select(n => n.Body).ToArrayAsync();
-            Assert.Contains(bell, b => b != null && b.Contains("completed. Next step:") && b.Contains("Responsible: HR Manager."));
+            Assert.Contains(bell, b => b != null && b.Contains("completed. Next step:") && b.Contains("Responsible: Recruitment Officer."));
         }
 
-        // Stage 2: the HR Manager approves; no budget confirmation is needed (11 Nov 2026, docs/29 change 1).
+        // Stage 2 (17 Nov 2026): the Recruitment Officer review. The HR Manager no longer decides; all three checks are needed.
         As(_hrm, Roles.HrManager);
-        Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.HrApproval)).Succeeded);
+        Assert.False((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview)).Succeeded);
+        AsRo1();
+        Assert.Equal(1, await Run(s => s.CountAwaitingMeAsync()));
+        var noChecks = await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview, checks: false);
+        Assert.False(noChecks.Succeeded);
+        Assert.Contains(noChecks.Errors, e => e.Contains("Tick all three checks"));
+        Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview, comments: "Grade confirmed.")).Succeeded);
+        var reviewed = (await Details(id))!;
+        Assert.Equal(RecruitmentRequestStatus.MdApproval, reviewed.Status);
+        Assert.Equal("ro1", reviewed.AssignedRecruiterName); // the reviewer owns the process after the MD
+        Assert.Equal("Request verified; vacancy details validated; requirements confirmed. Grade confirmed.", reviewed.History[^1].Comments);
+        Assert.Contains(_db.SentEmails(), m => m.Contains("md@grel.test") && m.Contains("needs your approval"));
 
-        // Stage 3: the Managing Director gives final approval.
+        // Stage 3: the Managing Director: the last approval.
         As(_md, Roles.ManagingDirector);
         Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.MdApproval, comments: "Go ahead")).Succeeded);
 
         AsStaff();
         var done = (await Details(id))!;
         Assert.Equal(RecruitmentRequestStatus.Approved, done.Status);
+        Assert.Equal("Approved for recruitment", EnumText.Label(done.Status));
         Assert.NotNull(done.ApprovedAt);
         Assert.False(done.BudgetValidated); // no longer recorded
         Assert.Equal(
             [WorkflowAction.Created, WorkflowAction.Submitted, WorkflowAction.Approved, WorkflowAction.Approved, WorkflowAction.Approved],
             done.History.Select(h => h.Action));
-        Assert.Contains(_db.SentEmails(), m => m.Contains("staff@grel.test") && m.Contains("approved"));
-        Assert.Contains(_db.SentEmails(), m => m.Contains("ro1@grel.test") && m.Contains("convert it into a vacancy"));
         Assert.False(done.CanCancel); // final
+        Assert.Contains(_db.SentEmails(), m => m.Contains("staff@grel.test") && m.Contains("approved for recruitment"));
+
+        // The Recruitment Officer who reviewed it is told to create the vacancy; nobody is asked for another approval.
+        var mails = _db.SentEmails();
+        Assert.Contains(mails, m => m.Contains("ro1@grel.test") && m.Contains("Job request approved"));
+        using (var scope = _db.NewScope())
+        {
+            var roBell = await scope.ServiceProvider.GetRequiredService<Grsms.Infrastructure.Persistence.ApplicationDbContext>().Notifications
+                .Where(n => n.UserId == _ro1).Select(n => n.Body).ToArrayAsync();
+            Assert.Contains(roBell, b => b != null && b.Contains("Your next action is to create the vacancy and publish the job advertisement"));
+        }
+        Assert.DoesNotContain(mails, m => m.Contains("ro2@grel.test") && m.Contains("Job request approved"));
+        Assert.DoesNotContain(mails, m => m.Contains("hrm@grel.test"));
+        AsRo1();
+        Assert.True((await Details(id))!.CanCreateVacancy);
+        Assert.Equal(0, await Run(s => s.CountAwaitingMeAsync()));
     }
 
     [Fact]
-    public async Task A_request_raised_by_the_hod_is_signed_off_by_them_and_goes_straight_to_hr()
+    public async Task A_request_raised_by_the_hod_is_signed_off_by_them_and_goes_straight_to_the_recruitment_officer()
     {
         AsHod();
         var id = await SubmitAsCurrentUserAsync(Form());
 
         var d = (await Details(id))!;
-        Assert.Equal(RecruitmentRequestStatus.HrApproval, d.Status);
+        Assert.Equal(RecruitmentRequestStatus.RecruitmentReview, d.Status);
         var signOff = d.History.Last();
         Assert.Equal(WorkflowAction.Approved, signOff.Action);
         Assert.Equal(RecruitmentRequestStatus.DepartmentHeadReview, signOff.FromStatus);
         Assert.Contains("signed off by the Head of Department", signOff.Comments);
-        Assert.Contains(_db.SentEmails(), m => m.Contains("hrm@grel.test") && m.Contains("needs your review"));
+        Assert.Contains(_db.SentEmails(), m => m.Contains("ro1@grel.test") && m.Contains("needs your review"));
+        Assert.DoesNotContain(_db.SentEmails(), m => m.Contains("hrm@grel.test"));
     }
 
     [Fact]
@@ -340,7 +371,7 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
         Assert.False((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.DepartmentHeadReview)).Succeeded);
         Assert.Equal(0, await Run(s => s.CountAwaitingMeAsync()));
 
-        As(_hrm, Roles.HrManager); // HR acts only after the HOD
+        AsRo1(); // the Recruitment Officer acts only after the HOD
         Assert.False((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.DepartmentHeadReview)).Succeeded);
 
         AsHod();
@@ -351,18 +382,17 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
     [Fact]
     public async Task Only_the_stage_role_can_decide_and_stale_pages_are_refused()
     {
-        var id = await AtHrStageAsync();
+        var id = await AtRoStageAsync();
 
-        As(_md, Roles.ManagingDirector); // MD tries to act at the HR stage
-        Assert.False((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.HrApproval)).Succeeded);
+        As(_md, Roles.ManagingDirector); // MD tries to act at the Recruitment Officer stage
+        Assert.False((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview)).Succeeded);
 
-        As(_hrm, Roles.HrManager);
-        Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.HrApproval)).Succeeded);
+        AsRo1();
+        Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview)).Succeeded);
 
-        // A second HR Manager still has the old page open and clicks Approve again.
-        var hrm2 = await _db.CreateUserAsync("hrm2@grel.test", 1, Roles.HrManager);
-        As(hrm2, Roles.HrManager);
-        var stale = await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.HrApproval);
+        // A second Recruitment Officer still has the old page open and clicks Approve again.
+        As(_ro2, Roles.RecruitmentOfficer);
+        var stale = await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview);
         Assert.False(stale.Succeeded);
         Assert.Contains(stale.Errors, e => e.Contains("already moved on"));
     }
@@ -370,26 +400,26 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
     [Fact]
     public async Task Nobody_can_approve_their_own_request()
     {
-        // This HOD is also an HR Manager: their own request skips stage 1 but another HR Manager must do stage 2.
-        var hodHr = await _db.CreateUserAsync("dual@grel.test", Apm, Roles.HeadOfDepartment, Roles.HrManager);
-        As(hodHr, Roles.HeadOfDepartment, Roles.HrManager);
+        // This HOD is also a Recruitment Officer: their own request skips stage 1 but another Recruitment Officer must do stage 2.
+        var hodRo = await _db.CreateUserAsync("dual@grel.test", Apm, Roles.HeadOfDepartment, Roles.RecruitmentOfficer);
+        As(hodRo, Roles.HeadOfDepartment, Roles.RecruitmentOfficer);
         var id = await SubmitAsCurrentUserAsync(Form());
 
-        var own = await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.HrApproval);
+        var own = await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview);
         Assert.False(own.Succeeded);
         Assert.Equal(0, await Run(s => s.CountAwaitingMeAsync()));   // not in their own "awaiting" list
         Assert.NotNull((await Details(id))!.DecisionBlockedReason);
 
-        As(_hrm, Roles.HrManager);
+        AsRo1();
         Assert.Equal(1, await Run(s => s.CountAwaitingMeAsync()));
     }
 
     [Fact]
     public async Task Returned_requests_can_be_corrected_and_resubmitted_and_start_again_at_stage_one()
     {
-        var id = await AtHrStageAsync();
-        As(_hrm, Roles.HrManager);
-        await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.HrApproval);
+        var id = await AtRoStageAsync();
+        AsRo1();
+        await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview);
 
         As(_md, Roles.ManagingDirector);
         Assert.False((await Decide(id, ReviewDecision.Return, RecruitmentRequestStatus.MdApproval)).Succeeded); // comment required
@@ -420,18 +450,19 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
         foreach (var (stage, actor) in new[]
                  {
                      (RecruitmentRequestStatus.DepartmentHeadReview, (Action)AsHod),
-                     (RecruitmentRequestStatus.HrApproval, () => As(_hrm, Roles.HrManager)),
+                     (RecruitmentRequestStatus.RecruitmentReview, AsRo1),
                  })
         {
-            var returnId = stage == RecruitmentRequestStatus.DepartmentHeadReview ? await SubmittedRequestAsync() : await AtHrStageAsync();
+            var returnId = stage == RecruitmentRequestStatus.DepartmentHeadReview ? await SubmittedRequestAsync() : await AtRoStageAsync();
             actor();
-            Assert.True((await Decide(returnId, ReviewDecision.Return, stage, comments: "Please correct the dates.")).Succeeded);
+            // Returning or rejecting does not need the three checks.
+            Assert.True((await Decide(returnId, ReviewDecision.Return, stage, comments: "Please correct the dates.", checks: false)).Succeeded);
             AsStaff();
             Assert.Equal(RecruitmentRequestStatus.Returned, (await Details(returnId))!.Status);
 
-            var rejectId = stage == RecruitmentRequestStatus.DepartmentHeadReview ? await SubmittedRequestAsync() : await AtHrStageAsync();
+            var rejectId = stage == RecruitmentRequestStatus.DepartmentHeadReview ? await SubmittedRequestAsync() : await AtRoStageAsync();
             actor();
-            Assert.True((await Decide(rejectId, ReviewDecision.Reject, stage, comments: "Not in this year's plan.")).Succeeded);
+            Assert.True((await Decide(rejectId, ReviewDecision.Reject, stage, comments: "Not in this year's plan.", checks: false)).Succeeded);
             AsStaff();
             Assert.Equal(RecruitmentRequestStatus.Rejected, (await Details(rejectId))!.Status);
         }
@@ -467,21 +498,22 @@ public class RecruitmentRequestServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Requests_at_the_earlier_recruitment_review_stage_can_still_be_finished()
+    public async Task Requests_at_the_earlier_hr_manager_review_stage_can_still_be_finished_and_go_to_the_md()
     {
         AsHod();
         var id = (await Run(s => s.CreateAsync(Form()))).Value;
         using (var scope = _db.NewScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IRecruitmentRequestRepository>();
-            (await repo.GetByIdAsync(id))!.Status = RecruitmentRequestStatus.RecruitmentReview;
+            (await repo.GetByIdAsync(id))!.Status = RecruitmentRequestStatus.HrApproval;
             await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync();
         }
 
-        As(_ro1, Roles.RecruitmentOfficer);
+        As(_hrm, Roles.HrManager);
         Assert.Equal(1, await Run(s => s.CountAwaitingMeAsync()));
-        Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.RecruitmentReview)).Succeeded);
-        Assert.Equal(RecruitmentRequestStatus.HrApproval, (await Details(id))!.Status);
+        Assert.True((await Decide(id, ReviewDecision.Approve, RecruitmentRequestStatus.HrApproval)).Succeeded);
+        Assert.Equal(RecruitmentRequestStatus.MdApproval, (await Details(id))!.Status);
+        Assert.Equal("HR Manager review (earlier workflow)", EnumText.Label(RecruitmentRequestStatus.HrApproval));
     }
 
     // ------------------------------------------------------------------ visibility and documents

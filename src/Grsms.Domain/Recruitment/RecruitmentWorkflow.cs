@@ -3,21 +3,25 @@ using Grsms.Domain.Security;
 namespace Grsms.Domain.Recruitment;
 
 /// <summary>
-/// The rules of the recruitment request workflow (form QF-81-11), in one place:
+/// The rules of the recruitment request workflow (form QF-81-11), in one place. Since 17 November 2026:
 ///
-///   Draft ──submit──► 1. Department Head review ──approve──► 2. HR Manager review ──approve──► 3. MD approval ──approve──► Approved
-///     ▲                         │                                  │                               │
-///     └──── Returned ◄──────────┴────── return for correction ─────┴───────────────────────────────┘
+///   Draft ──submit──► 1. Department Head approval ──approve──► 2. Recruitment Officer review ──approve──► 3. MD approval ──approve──► Approved for recruitment
+///     ▲                         │                                  │                                     │
+///     └──── Returned ◄──────────┴────── return for correction ─────┴─────────────────────────────────────┘
 ///                               └────── reject ──► Rejected (final)
 ///
 ///   * A request is raised by a department staff member (or the HOD) for their own department.
 ///   * Stage 1 is decided by the Head of THAT department; stages 2 and 3 by the role in <see cref="ApproverRole"/>.
 ///     When the HOD raises the request themselves, their submission is their stage-1 sign-off and the request goes
-///     straight to the HR Manager.
+///     straight to the Recruitment Officer review.
+///   * At stage 2 the Recruitment Officer verifies the request, validates the vacancy details and confirms the requirements
+///     (three confirmations), and becomes the request's Recruitment Officer (process owner after the MD's approval).
 ///   * "Return for correction" sends the request back to the requester, who edits and resubmits it.
 ///     Resubmitting starts again at stage 1.
 ///   * The requester can cancel the request at any point before a final decision.
-///   * Only after the MD's final approval may recruitment begin (a vacancy is created from the request).
+///   * The MD's approval is the LAST approval: the request is approved for recruitment and the Recruitment Officer creates and
+///     publishes the vacancy and the advert without any further approval.
+///   * Requests already at "HR Manager review" (the workflow until 17 Nov 2026) are still decided there and then go to the MD.
 ///
 /// Changing the workflow (e.g. adding a stage) means changing only this class and the
 /// <see cref="RecruitmentRequestStatus"/> list.
@@ -28,11 +32,11 @@ public static class RecruitmentWorkflow
     public static readonly IReadOnlyList<RecruitmentRequestStatus> ApprovalStages =
     [
         RecruitmentRequestStatus.DepartmentHeadReview,
-        RecruitmentRequestStatus.HrApproval,
+        RecruitmentRequestStatus.RecruitmentReview,
         RecruitmentRequestStatus.MdApproval
     ];
 
-    /// <summary>Every status that waits for somebody's decision, including the earlier workflow's Recruitment review.</summary>
+    /// <summary>Every status that waits for somebody's decision, including the earlier workflow's HR Manager review.</summary>
     public static readonly IReadOnlyList<RecruitmentRequestStatus> DecisionStages =
     [
         RecruitmentRequestStatus.DepartmentHeadReview,
@@ -64,8 +68,8 @@ public static class RecruitmentWorkflow
     /// <summary>The stage's name as used in emails and messages.</summary>
     public static string StageName(RecruitmentRequestStatus status) => status switch
     {
-        RecruitmentRequestStatus.DepartmentHeadReview => "Department Head review",
-        RecruitmentRequestStatus.RecruitmentReview => "Recruitment review",
+        RecruitmentRequestStatus.DepartmentHeadReview => "Department Head approval",
+        RecruitmentRequestStatus.RecruitmentReview => "Recruitment Officer review",
         RecruitmentRequestStatus.HrApproval => "HR Manager review",
         RecruitmentRequestStatus.MdApproval => "MD approval",
         _ => status.ToString()
@@ -74,8 +78,9 @@ public static class RecruitmentWorkflow
     /// <summary>Where the request goes when the current stage approves it.</summary>
     public static RecruitmentRequestStatus NextAfterApproval(RecruitmentRequestStatus status) => status switch
     {
-        RecruitmentRequestStatus.DepartmentHeadReview => RecruitmentRequestStatus.HrApproval,
-        RecruitmentRequestStatus.RecruitmentReview => RecruitmentRequestStatus.HrApproval,
+        RecruitmentRequestStatus.DepartmentHeadReview => RecruitmentRequestStatus.RecruitmentReview,
+        RecruitmentRequestStatus.RecruitmentReview => RecruitmentRequestStatus.MdApproval,
+        // Requests already at the HR Manager review on 17 Nov 2026 finish there and go on to the MD.
         RecruitmentRequestStatus.HrApproval => RecruitmentRequestStatus.MdApproval,
         RecruitmentRequestStatus.MdApproval => RecruitmentRequestStatus.Approved,
         _ => throw new InvalidOperationException($"A request in status {status} cannot be approved.")

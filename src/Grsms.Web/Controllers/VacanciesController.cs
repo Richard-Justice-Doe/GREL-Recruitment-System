@@ -67,7 +67,7 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
             var result = await service.CreateAsync(form, ct);
             if (result.Succeeded)
             {
-                Success("Vacancy saved as a draft. Check it, then click 'Submit for approval'.");
+                Success("Vacancy saved as a draft. Check it, then click 'Publish the vacancy': no approval is needed.");
                 return RedirectToAction(nameof(Details), new { id = result.Value });
             }
             AddErrors(result);
@@ -123,8 +123,8 @@ public class VacanciesController(VacancyService service, Application.Adverts.Adv
     }
 
     [HttpPost]
-    public Task<IActionResult> Submit(int id, CancellationToken ct) =>
-        Act(id, () => service.SubmitAsync(id, ct), "Submitted. The HR Managers have been notified.");
+    public Task<IActionResult> Publish(int id, CancellationToken ct) =>
+        Act(id, () => service.PublishAsync(id, ct), "Vacancy published. Next: create and publish the job advertisement.");
 
     [HttpPost]
     public async Task<IActionResult> Decide(int id, VacancyDecisionDto form, CancellationToken ct)

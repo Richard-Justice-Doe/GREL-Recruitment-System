@@ -114,14 +114,23 @@ public class VacancyServiceTests : IAsyncLifetime
         return result.Value;
     }
 
-    /// <summary>A vacancy submitted by RO1 and approved by HR Manager 1.</summary>
+    /// <summary>A vacancy published by RO1 (17 Nov 2026: no approval after the MD's).</summary>
     private async Task<int> PublishedAsync()
     {
         var id = await DraftAsync();
-        Assert.True((await Run(s => s.SubmitAsync(id))).Succeeded);
-        As(_hrm1, Roles.HrManager);
-        Assert.True((await Run(s => s.DecideAsync(id, new VacancyDecisionDto { Decision = VacancyDecision.Approve, ExpectedStatus = VacancyStatus.PendingApproval }))).Succeeded);
+        AsRecruiter();
+        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
         return id;
+    }
+
+    /// <summary>A vacancy submitted to the HR Manager under the earlier workflow (before 17 Nov 2026), by <paramref name="submitter"/>.</summary>
+    private async Task MakePendingAsync(int id, string submitter)
+    {
+        using var scope = _db.NewScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var v = await db.Vacancies.Include(x => x.Actions).SingleAsync(x => x.Id == id);
+        v.RecordStep(VacancyAction.Submitted, VacancyStatus.PendingApproval, submitter, submitter, null, DateTime.UtcNow);
+        await db.SaveChangesAsync();
     }
 
     private Task<VacancyDetailsDto?> Details(int id) => Run(s => s.GetDetailsAsync(id));
@@ -211,32 +220,46 @@ public class VacancyServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Submit_then_hr_approval_publishes_and_notifies()
+    public async Task Recruitment_officer_publishes_the_vacancy_without_any_approval()
     {
         var id = await DraftAsync();
-        Assert.True((await Run(s => s.SubmitAsync(id))).Succeeded);
-        Assert.Equal(VacancyStatus.PendingApproval, (await Details(id))!.Status);
-        Assert.Contains(_db.SentEmails(), m => m.Contains("hrm1@grel.test") && m.Contains("needs your approval"));
+        Assert.True((await Details(id))!.CanPublish);
 
-        // A Recruitment Officer cannot approve.
-        Assert.False((await Run(s => s.DecideAsync(id, new VacancyDecisionDto { Decision = VacancyDecision.Approve, ExpectedStatus = VacancyStatus.PendingApproval }))).Succeeded);
-
+        // 17 Nov 2026: the HR Manager no longer approves vacancies, so cannot publish them either.
         As(_hrm1, Roles.HrManager);
-        Assert.True((await Run(s => s.DecideAsync(id, new VacancyDecisionDto { Decision = VacancyDecision.Approve, ExpectedStatus = VacancyStatus.PendingApproval }))).Succeeded);
+        Assert.False((await Details(id))!.CanPublish);
+        Assert.False((await Run(s => s.PublishAsync(id))).Succeeded);
 
+        AsRecruiter();
+        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
         var v = (await Details(id))!;
         Assert.Equal(VacancyStatus.Published, v.Status);
         Assert.True(v.IsOpenForApplications);
         Assert.NotNull(v.PublishedAt);
-        Assert.Contains(_db.SentEmails(), m => m.Contains("hod@grel.test") && m.Contains("published"));
+        Assert.Equal(VacancyAction.PublishedByRecruiter, v.History[^1].Action);
+        Assert.DoesNotContain(v.History, h => h.Action == VacancyAction.Submitted || h.ToStatus == VacancyStatus.PendingApproval);
+        Assert.DoesNotContain(_db.SentEmails(), m => m.Contains("hrm1@grel.test") && m.Contains("needs your approval"));
+        Assert.Contains(_db.SentEmails(), m => m.Contains("hod@grel.test") && m.Contains("published") && m.Contains("Create and publish the job advertisement"));
         Assert.Equal(1, (await Run(s => s.CountsAsync())).Open);
+        Assert.False((await Run(s => s.PublishAsync(id))).Succeeded); // already published
+    }
+
+    [Fact]
+    public async Task A_vacancy_left_pending_from_the_earlier_workflow_can_be_published_by_the_recruitment_officer()
+    {
+        var id = await DraftAsync();
+        await MakePendingAsync(id, _ro1);
+        AsRecruiter();
+        Assert.True((await Details(id))!.CanPublish);
+        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
+        Assert.Equal(VacancyStatus.Published, (await Details(id))!.Status);
     }
 
     [Fact]
     public async Task Returned_vacancies_go_back_to_draft_with_the_comments()
     {
         var id = await DraftAsync();
-        await Run(s => s.SubmitAsync(id));
+        await MakePendingAsync(id, _ro1); // earlier workflow: the HR Manager can still return it
 
         As(_hrm1, Roles.HrManager);
         Assert.False((await Run(s => s.DecideAsync(id, new VacancyDecisionDto { Decision = VacancyDecision.Return, ExpectedStatus = VacancyStatus.PendingApproval }))).Succeeded);
@@ -249,8 +272,8 @@ public class VacancyServiceTests : IAsyncLifetime
         var v = (await Details(id))!;
         Assert.Equal(VacancyStatus.Draft, v.Status);
         Assert.Equal("Salary band is too high.", v.ReturnComments);
-        Assert.True(v.CanEdit && v.CanSubmit);
-        Assert.True((await Run(s => s.SubmitAsync(id))).Succeeded);
+        Assert.True(v.CanEdit && v.CanPublish);
+        Assert.True((await Run(s => s.PublishAsync(id))).Succeeded);
     }
 
     [Fact]
@@ -260,7 +283,7 @@ public class VacancyServiceTests : IAsyncLifetime
         var dual = await _db.CreateUserAsync("dual@grel.test", 1, Roles.RecruitmentOfficer, Roles.HrManager);
         As(dual, Roles.RecruitmentOfficer, Roles.HrManager);
         var id = (await Run(s => s.CreateAsync(Form(requestId)))).Value;
-        await Run(s => s.SubmitAsync(id));
+        await MakePendingAsync(id, dual); // earlier workflow
 
         var approve = new VacancyDecisionDto { Decision = VacancyDecision.Approve, ExpectedStatus = VacancyStatus.PendingApproval };
         Assert.False((await Run(s => s.DecideAsync(id, approve))).Succeeded);

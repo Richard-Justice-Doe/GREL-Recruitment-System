@@ -70,8 +70,8 @@ public sealed record ProcessGuideDto(
 
 /// <summary>
 /// 13 November 2026 (docs/37 CR5, step C2): the process guide shown at the top of every record page. Two journeys:
-///   * <b>Requisition</b> (request and vacancy pages): request submitted → HOD review → HR Manager review → MD approval →
-///     vacancy prepared → vacancy approved → advertised → applications → selection → positions filled;
+///   * <b>Requisition</b> (request and vacancy pages): request submitted → HOD approval → Recruitment Officer review → MD approval
+///     (the last approval, 17 Nov 2026) → vacancy creation → advertisement → candidate applications → selection → positions filled;
 ///   * <b>Candidate</b> (application, interview, hiring case and onboarding pages): applied → screening → interview →
 ///     hire approval → offer → onboarding → employee.
 /// Everything is worked out from the records' existing statuses and histories: no workflow data of its own. For the current
@@ -167,27 +167,27 @@ public class ProcessGuideService(
         var stopped = r.Status is RecruitmentRequestStatus.Rejected or RecruitmentRequestStatus.Cancelled;
         var reqStep = stopped ? Order(rHistory.LastOrDefault()?.FromStatus ?? RecruitmentRequestStatus.Draft) : Order(r.Status);
 
-        // Steps after the approved request: 5 vacancy prepared, 6 vacancy approved, 7 advertised, 8 applications, 9 selection, 10 filled.
+        // 17 Nov 2026: the MD's approval is the last approval. After it, the Recruitment Officer owns the process:
+        // 4 vacancy creation (created and published), 5 advertisement, 6 candidate applications, 7 selection, 8 filled.
         var liveAdvert = ads.Where(a => a.Status is AdvertStatus.Live or AdvertStatus.Closed).OrderBy(a => a.PublishedAt).FirstOrDefault();
         int step;
         if (reqStep < 4) step = reqStep;
-        else if (v is null || v.Status == VacancyStatus.Draft) step = 4;
-        else if (v.Status == VacancyStatus.PendingApproval) step = 5;
-        else if (v.Status == VacancyStatus.Published && liveAdvert is null) step = 6;
-        else if (v.Status == VacancyStatus.Published) step = 7;
-        else if (filled < v.NumberOfPositions && v.Status != VacancyStatus.Archived) step = 8;
-        else step = 9;
+        else if (v is null || v.Status is VacancyStatus.Draft or VacancyStatus.PendingApproval) step = 4;
+        else if (v.Status == VacancyStatus.Published && liveAdvert is null) step = 5;
+        else if (v.Status == VacancyStatus.Published) step = 6;
+        else if (filled < v.NumberOfPositions && v.Status != VacancyStatus.Archived) step = 7;
+        else step = 8;
         var finished = v is not null && filled >= v.NumberOfPositions;
 
         string[] labels =
         [
-            "Request submitted", "Head of Department review", "HR Manager review", "MD approval", "Vacancy prepared", "Vacancy approved",
-            "Advertised", "Applications", "Selection and hiring", "Positions filled"
+            "Request submitted", "Department Head approval", "Recruitment Officer review", "Managing Director approval", "Vacancy creation",
+            "Advertisement", "Candidate applications", "Selection and hiring", "Positions filled"
         ];
         DateTime?[] doneAt =
         [
-            r.DateRequested, Left(RecruitmentRequestStatus.DepartmentHeadReview), Left(RecruitmentRequestStatus.HrApproval) ?? Left(RecruitmentRequestStatus.RecruitmentReview),
-            r.ApprovedAt ?? Left(RecruitmentRequestStatus.MdApproval), VLeft(VacancyStatus.Draft), v?.PublishedAt, liveAdvert?.PublishedAt, v?.ClosedAt, null, null
+            r.DateRequested, Left(RecruitmentRequestStatus.DepartmentHeadReview), Left(RecruitmentRequestStatus.RecruitmentReview) ?? Left(RecruitmentRequestStatus.HrApproval),
+            r.ApprovedAt ?? Left(RecruitmentRequestStatus.MdApproval), v?.PublishedAt, liveAdvert?.PublishedAt, v?.ClosedAt, null, null
         ];
         // Stage 0 is "request submitted": current while in draft or returned, done once submitted.
         var stages = labels.Select((label, i) => new ProcessStage(label,
@@ -207,6 +207,8 @@ public class ProcessGuideService(
             return Guide(title, stages, "All positions are filled.", "No one", [], null, null, null, last, finished: true);
 
         var hods = await NamesAsync([(await departments.GetByIdAsync(r.DepartmentId, ct))?.HeadOfDepartmentUserId], ct);
+        var owner = await NamesAsync([v?.RecruiterUserId ?? r.AssignedRecruiterUserId], ct);
+        const string noApproval = " No further approval is needed: the Recruitment Officer owns the process.";
         switch (step)
         {
             case 0:
@@ -214,45 +216,40 @@ public class ProcessGuideService(
                     "The requester", await NamesAsync([r.RequestedByUserId], ct), Join(hods) is { Length: > 0 } h ? $"Head of Department: {h}" : "Head of Department",
                     r.StatusChangedAt, null, last);
             case 1:
-                return Guide(title, stages, "Waiting for the Head of Department's review.", "Head of Department", hods,
+                return Guide(title, stages, "Waiting for the Head of Department's approval.", "Head of Department", hods,
                     $"Head of Department{(hods.Count == 0 ? "" : $": {Join(hods)}")}", r.StatusChangedAt, SettingCatalogue.TargetHodReview, last);
+            case 2 when r.Status == RecruitmentRequestStatus.HrApproval:
+            {
+                // A request that reached the HR Manager review before 17 Nov 2026 finishes there.
+                var hrm = await NamesInRoleAsync(Roles.HrManager, ct);
+                return Guide(title, stages, "Waiting for the HR Manager's review (earlier workflow), then the Managing Director.", "HR Manager", hrm,
+                    $"HR Manager{(hrm.Count == 0 ? "" : $": {Join(hrm)}")}", r.StatusChangedAt, SettingCatalogue.TargetHrApproval, last);
+            }
             case 2:
             {
-                var hrm = await NamesInRoleAsync(Roles.HrManager, ct);
-                return Guide(title, stages, "Waiting for the HR Manager's approval.", "HR Manager", hrm, $"HR Manager{(hrm.Count == 0 ? "" : $": {Join(hrm)}")}",
-                    r.StatusChangedAt, SettingCatalogue.TargetHrApproval, last);
+                var ros = await NamesInRoleAsync(Roles.RecruitmentOfficer, ct);
+                return Guide(title, stages, "Waiting for the Recruitment Officer to verify the request, validate the vacancy details and confirm the requirements.",
+                    "Recruitment Officer", ros, $"Recruitment Officer{(ros.Count == 0 ? "" : $": {Join(ros)}")}", r.StatusChangedAt, SettingCatalogue.TargetHrApproval, last);
             }
             case 3:
             {
                 var md = await NamesInRoleAsync(Roles.ManagingDirector, ct);
-                return Guide(title, stages, "Waiting for the Managing Director's approval.", "Managing Director", md,
+                return Guide(title, stages, "Waiting for the Managing Director's approval, the last approval.", "Managing Director", md,
                     $"Managing Director{(md.Count == 0 ? "" : $": {Join(md)}")}", r.StatusChangedAt, SettingCatalogue.TargetMdApproval, last);
             }
             case 4:
-            {
-                var ro = await NamesAsync([v?.RecruiterUserId ?? r.AssignedRecruiterUserId], ct);
-                return Guide(title, stages, v is null ? "Convert the approved request into a vacancy." : "Complete the vacancy and submit it for approval.",
-                    "Recruitment Officer", ro, "HR Manager (vacancy approval)", v?.StatusChangedAt ?? r.ApprovedAt ?? r.StatusChangedAt, null, last);
-            }
+                return Guide(title, stages,
+                    (v is null ? "Create the vacancy." : v.Status == VacancyStatus.Draft ? "Complete the vacancy and publish it." : "Publish the vacancy.") + noApproval,
+                    "Recruitment Officer", owner, null, v?.StatusChangedAt ?? r.ApprovedAt ?? r.StatusChangedAt, null, last);
             case 5:
             {
-                var hrm = await NamesInRoleAsync(VacancyWorkflow.ApproverRole, ct);
-                return Guide(title, stages, "Waiting for the HR Manager to approve the vacancy.", "HR Manager", hrm,
-                    $"HR Manager{(hrm.Count == 0 ? "" : $": {Join(hrm)}")}", v!.StatusChangedAt, SettingCatalogue.TargetVacancyApproval, last);
+                var draft = ads.Where(a => AdvertWorkflow.CanPublish(a.Status)).OrderByDescending(a => a.Id).FirstOrDefault();
+                var next = ads.Any(a => a.Status == AdvertStatus.Scheduled) ? "An advert is scheduled; it goes live on its start date."
+                    : draft is not null ? $"Publish advert {draft.AdvertNumber}." + noApproval
+                    : "Create the job advertisement and publish it." + noApproval;
+                return Guide(title, stages, next, "Recruitment Officer", await NamesAsync([v!.RecruiterUserId], ct), null, v.PublishedAt, null, last);
             }
             case 6:
-            {
-                var inReview = ads.Where(a => a.Status is AdvertStatus.AwaitingHrReview or AdvertStatus.AwaitingItApproval).OrderByDescending(a => a.Id).FirstOrDefault();
-                if (inReview?.Status == AdvertStatus.AwaitingHrReview)
-                    return Guide(title, stages, $"Advert {inReview.AdvertNumber} is waiting for the HR Manager's review.", "HR Manager",
-                        await NamesInRoleAsync(Roles.HrManager, ct), "HR Manager, then IT Manager", inReview.SubmittedAt, SettingCatalogue.TargetAdvertReview, last);
-                if (inReview?.Status == AdvertStatus.AwaitingItApproval)
-                    return Guide(title, stages, $"Advert {inReview.AdvertNumber} is waiting for the IT Manager's approval.", "IT Manager",
-                        await NamesInRoleAsync(Roles.ItManager, ct), "IT Manager", inReview.HrReviewedAt ?? inReview.SubmittedAt, SettingCatalogue.TargetAdvertReview, last);
-                return Guide(title, stages, ads.Any(a => a.Status == AdvertStatus.Scheduled) ? "An advert is scheduled; it goes live on its start date." : "Create the job advert and send it for review.",
-                    "Recruitment Officer", await NamesAsync([v!.RecruiterUserId], ct), "HR Manager, then IT Manager", v.PublishedAt, null, last);
-            }
-            case 7:
                 return Guide(title, stages, $"Receiving applications until {v!.ClosingDate:d MMMM yyyy}; screen them as they arrive.", "Recruitment Officer",
                     await NamesAsync([v.RecruiterUserId], ct), null, liveAdvert?.PublishedAt ?? v.PublishedAt, null, last, due: v.ClosingDate);
             default:

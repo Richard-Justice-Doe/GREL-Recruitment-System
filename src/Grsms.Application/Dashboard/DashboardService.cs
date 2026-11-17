@@ -120,7 +120,8 @@ public class DashboardService(
         var shownMonth = month is { } m ? new DateOnly(m.Year, m.Month, 1) : new DateOnly(today.Year, today.Month, 1);
         if (access.Vacancies)
         {
-            // Tasks: vacancies to approve (HR Manager), approved requests needing a vacancy and my draft vacancies (recruiters).
+            // Tasks: vacancies still waiting from the earlier approval step (HR Manager), approved requests needing a vacancy and my draft
+            // vacancies (recruiters). Since 17 Nov 2026 the Recruitment Officer publishes vacancies without approval.
             if (scope.IsInRole(Roles.HrManager))
             {
                 var pending = await vacancyService.SearchAsync(new VacancyFilter { Tab = "pending", PageSize = taskLimit }, ct);
@@ -135,13 +136,13 @@ public class DashboardService(
                 var needVacancy = await vacancyService.GetApprovedRequestsWithoutVacancyAsync(ct);
                 taskTotal += needVacancy.Count;
                 tasks.AddRange(needVacancy.Select(r => new DashboardTaskDto(DashboardTaskTarget.NewVacancyForRequest, r.Id,
-                    r.PositionTitle, r.RequestNumber, "Convert into a vacancy", r.AssignedRecruiterName ?? "Any Recruitment Officer",
+                    r.PositionTitle, r.RequestNumber, "Create the vacancy (approved by the Managing Director, no further approval needed)", r.AssignedRecruiterName ?? "Any Recruitment Officer",
                     RecruitmentRequestStatus.Approved, r.ApprovedAt ?? now)));
 
                 var drafts = await vacancies.ListAsync(x => x.RecruiterUserId == uid && x.Status == VacancyStatus.Draft, ct);
                 taskTotal += drafts.Count;
                 tasks.AddRange(drafts.Select(x => new DashboardTaskDto(DashboardTaskTarget.Vacancy, x.Id, x.JobTitle,
-                    x.VacancyNumber, "Finish and submit for approval", "You", x.Status, x.StatusChangedAt)));
+                    x.VacancyNumber, "Finish and publish the vacancy", "You", x.Status, x.StatusChangedAt)));
             }
 
             // Closing-date calendar for the chosen month: open vacancies, plus ones that already closed that month.
@@ -316,11 +317,11 @@ public class DashboardService(
         };
     }
 
-    /// <summary>How far a request has come: submitted (Department Head review) 25%, HR 50%, MD 75%, approved 100%.</summary>
+    /// <summary>How far a request has come: submitted (Department Head approval) 25%, Recruitment Officer review 50%, MD 75%, approved 100%.</summary>
     public static int ProgressPercent(RecruitmentRequestStatus status) => status switch
     {
-        RecruitmentRequestStatus.DepartmentHeadReview or RecruitmentRequestStatus.RecruitmentReview => 25,
-        RecruitmentRequestStatus.HrApproval => 50,
+        RecruitmentRequestStatus.DepartmentHeadReview => 25,
+        RecruitmentRequestStatus.RecruitmentReview or RecruitmentRequestStatus.HrApproval => 50,
         RecruitmentRequestStatus.MdApproval => 75,
         RecruitmentRequestStatus.Approved => 100,
         _ => 0

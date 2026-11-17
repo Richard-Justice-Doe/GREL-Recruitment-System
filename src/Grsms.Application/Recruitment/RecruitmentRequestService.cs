@@ -22,13 +22,15 @@ namespace Grsms.Application.Recruitment;
 ///                                      Returned.
 ///   * Stage 1, Department Head review: the Head of the request's department. If the HOD raised the request, submitting
 ///                                      it is their sign-off and the request goes straight to stage 2.
-///   * Stages 2 and 3                 : the role in <see cref="RecruitmentWorkflow.ApproverRole"/> (HR Manager, then MD).
+///   * Stages 2 and 3                 : the role in <see cref="RecruitmentWorkflow.ApproverRole"/> (Recruitment Officer, then MD).
+///                                      The MD's approval is the last one (17 Nov 2026): the request is approved for recruitment
+///                                      and the Recruitment Officer who reviewed it owns the process from there.
 ///   * Nobody decides on a request they raised.
 ///   * See a request                  : its requester; the HOD of its department; and everyone holding
 ///                                      "See all departments" (Recruitment Officers, HR Manager, MD, HR Administrator, ...).
 ///
 /// Workflow participants are found automatically from the request's department (HOD) and the role holders
-/// (HR Manager, MD), so nobody has to pick approvers by hand.
+/// (Recruitment Officers, MD), so nobody has to pick approvers by hand.
 /// </summary>
 public class RecruitmentRequestService(
     IRecruitmentRequestRepository requests,
@@ -263,7 +265,7 @@ public class RecruitmentRequestService(
 
     /// <summary>
     /// Sends a Draft (or Returned) request into the workflow, to stage 1 (Department Head review). When the requester heads
-    /// the department, their submission is the stage-1 sign-off and the request goes on to the HR Manager.
+    /// the department, their submission is the stage-1 sign-off and the request goes on to the Recruitment Officer review.
     /// A job description must be attached first.
     /// </summary>
     public async Task<Result> SubmitAsync(int id, CancellationToken ct = default)
@@ -294,17 +296,17 @@ public class RecruitmentRequestService(
 
         r.RecordStep(action, RecruitmentRequestStatus.DepartmentHeadReview, MyId, MyName, null, now);
         if (requesterIsHead)
-            r.RecordStep(WorkflowAction.Approved, RecruitmentRequestStatus.HrApproval, MyId, MyName,
-                "Department Head review: signed off by the Head of Department, who raised this request.", now);
+            r.RecordStep(WorkflowAction.Approved, RecruitmentRequestStatus.RecruitmentReview, MyId, MyName,
+                "Department Head approval: signed off by the Head of Department, who raised this request.", now);
 
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return saved;
 
         var verb = action == WorkflowAction.Resubmitted ? "resubmitted" : "submitted";
         if (requesterIsHead)
-            await NotifyRoleAsync(Roles.HrManager, r,
+            await NotifyRoleAsync(Roles.RecruitmentOfficer, r,
                 $"Recruitment request {r.RequestNumber} needs your review",
-                $"{Enc(MyName)}, Head of {Enc(dept.Name)}, has {verb} a recruitment request for <b>{Enc(r.PositionTitle)}</b>. It is waiting for the HR Manager review.", ct);
+                $"{Enc(MyName)}, Head of {Enc(dept.Name)}, has {verb} a recruitment request for <b>{Enc(r.PositionTitle)}</b>. Please verify the request, validate the vacancy details and confirm the requirements, then approve it for the Managing Director, return it for correction or reject it.", ct);
         else
             await NotifyUserAsync(dept.HeadOfDepartmentUserId, r,
                 $"Recruitment request {r.RequestNumber} needs your review",
@@ -340,8 +342,18 @@ public class RecruitmentRequestService(
         switch (dto.Decision)
         {
             case ReviewDecision.Approve:
-                // 11 Nov 2026 (docs/29, change 1): budget approval is not required for the HR Manager to approve; the budget
-                // approval document is an optional upload. BudgetValidated is kept only for requests approved before then.
+                // 11 Nov 2026 (docs/29, change 1): budget approval is not required to approve; the budget approval document is an
+                // optional upload. BudgetValidated is kept only for requests approved before then.
+                if (stage == RecruitmentRequestStatus.RecruitmentReview)
+                {
+                    // 17 Nov 2026: the Recruitment Officer review: three confirmations, recorded with the decision. The reviewer
+                    // becomes the request's Recruitment Officer, who owns the process once the MD approves.
+                    if (!dto.RequestVerified || !dto.VacancyDetailsValidated || !dto.RequirementsConfirmed)
+                        return Result.Failure("Tick all three checks before approving: request verified, vacancy details validated and requirements confirmed.");
+                    comments = "Request verified; vacancy details validated; requirements confirmed." + (comments is null ? "" : $" {comments}");
+                    if (comments.Length > 2000) comments = comments[..2000];
+                    r.AssignedRecruiterUserId = MyId;
+                }
                 var next = RecruitmentWorkflow.NextAfterApproval(stage);
                 if (next == RecruitmentRequestStatus.Approved) r.ApprovedAt = now;
                 r.RecordStep(WorkflowAction.Approved, next, MyId, MyName, comments, now);
@@ -573,10 +585,13 @@ public class RecruitmentRequestService(
 
         switch (r.Status)
         {
-            case RecruitmentRequestStatus.HrApproval or RecruitmentRequestStatus.MdApproval:
+            case RecruitmentRequestStatus.RecruitmentReview or RecruitmentRequestStatus.HrApproval or RecruitmentRequestStatus.MdApproval:
                 await NotifyRoleAsync(RecruitmentWorkflow.ApproverRole(r.Status)!, r,
-                    $"Recruitment request {r.RequestNumber} needs your approval",
-                    $"The request for <b>{Enc(r.PositionTitle)}</b> passed {stageName} and is waiting for your decision.{commentHtml}", ct);
+                    r.Status == RecruitmentRequestStatus.RecruitmentReview ? $"Recruitment request {r.RequestNumber} needs your review" : $"Recruitment request {r.RequestNumber} needs your approval",
+                    $"The request for <b>{Enc(r.PositionTitle)}</b> passed {stageName} and is waiting for your decision.{commentHtml}" +
+                    (r.Status == RecruitmentRequestStatus.RecruitmentReview
+                        ? "<p>Please verify the request, validate the vacancy details and confirm the requirements, then approve it for the Managing Director, return it for correction or reject it.</p>"
+                        : ""), ct);
                 await NotifyUserAsync(r.RequestedByUserId, r,
                     $"{r.RequestNumber} passed {stageName}",
                     $"Your request for <b>{Enc(r.PositionTitle)}</b> passed {stageName} and moved to the next approval.{commentHtml}" +
@@ -584,13 +599,20 @@ public class RecruitmentRequestService(
                 break;
 
             case RecruitmentRequestStatus.Approved:
-                var body = $"The request for <b>{Enc(r.PositionTitle)}</b> has received final approval from the Managing Director. Recruitment can now begin.{commentHtml}" +
-                    WorkflowMailer.NextStep("Final approval completed", "Vacancy preparation", "Recruitment Officer");
-                await NotifyUserAsync(r.RequestedByUserId, r, $"{r.RequestNumber} approved", body, ct);
-                if (hodId is not null && hodId != r.RequestedByUserId) await NotifyUserAsync(hodId, r, $"{r.RequestNumber} approved", body, ct);
-                await NotifyRoleAsync(Roles.HrManager, r, $"{r.RequestNumber} approved", body, ct);
-                await NotifyRoleAsync(Roles.RecruitmentOfficer, r, $"{r.RequestNumber} approved: please convert it into a vacancy",
-                    body + "<p>Open the request and click <b>Convert into a job vacancy</b>.</p>", ct);
+                // 17 Nov 2026: the MD's approval is the last one. The Recruitment Officer owns the process from here: no HR Manager,
+                // HR Director or administrator approval follows.
+                var body = $"The request for <b>{Enc(r.PositionTitle)}</b> has been approved by the Managing Director and is approved for recruitment. No further approval is needed.{commentHtml}" +
+                    WorkflowMailer.NextStep("Managing Director approval completed", "Create the vacancy, then the job advertisement", "Recruitment Officer");
+                await NotifyUserAsync(r.RequestedByUserId, r, $"{r.RequestNumber} approved for recruitment", body, ct);
+                if (hodId is not null && hodId != r.RequestedByUserId) await NotifyUserAsync(hodId, r, $"{r.RequestNumber} approved for recruitment", body, ct);
+                var roHtml = $"<p><b>Job request approved.</b> The Managing Director has approved the requisition for <b>{Enc(r.PositionTitle)}</b>.</p>" +
+                    "<p>Your next action is to create the vacancy and publish the job advertisement. No further approval is required: you own the process from here.</p>" +
+                    commentHtml + WorkflowMailer.NextStep("Managing Director approval completed", "Create the vacancy", "Recruitment Officer") +
+                    "<p>Open the request and click <b>Create the vacancy</b>.</p>";
+                if (r.AssignedRecruiterUserId is not null)
+                    await NotifyUserAsync(r.AssignedRecruiterUserId, r, $"Job request approved: {r.RequestNumber}, create the vacancy", roHtml, ct);
+                else
+                    await NotifyRoleAsync(Roles.RecruitmentOfficer, r, $"Job request approved: {r.RequestNumber}, create the vacancy", roHtml, ct);
                 break;
 
             case RecruitmentRequestStatus.Returned:

@@ -166,10 +166,10 @@ public static class SettingCatalogue
             SettingKind.Switch, "true"),
 
         new(TargetHodReview, Targets, "Head of Department review of a request", "Working days from submission to the HOD's decision.", SettingKind.Number, "2", Min: 1, Max: 60),
-        new(TargetHrApproval, Targets, "HR Manager review of a request", "Working days the request waits for the HR Manager.", SettingKind.Number, "2", Min: 1, Max: 60),
+        new(TargetHrApproval, Targets, "Recruitment Officer review of a request", "Working days the request waits for the Recruitment Officer review (or, for older requests, the HR Manager).", SettingKind.Number, "2", Min: 1, Max: 60),
         new(TargetMdApproval, Targets, "MD approval of a request", "Working days the request waits for the Managing Director.", SettingKind.Number, "3", Min: 1, Max: 60),
-        new(TargetVacancyApproval, Targets, "Vacancy approval", "Working days a vacancy waits for the HR Manager's approval.", SettingKind.Number, "2", Min: 1, Max: 60),
-        new(TargetAdvertReview, Targets, "Advert review", "Working days an advert waits at each review (HR review, then IT approval).", SettingKind.Number, "2", Min: 1, Max: 60),
+        new(TargetVacancyApproval, Targets, "Vacancy approval (earlier workflow)", "Only for vacancies submitted before 17 Nov 2026: working days they wait for the HR Manager. New vacancies are published by the Recruitment Officer.", SettingKind.Number, "2", Min: 1, Max: 60),
+        new(TargetAdvertReview, Targets, "Advert review (earlier workflow)", "Only for adverts sent for review before 17 Nov 2026: working days they wait at each review. New adverts are published by the Recruitment Officer.", SettingKind.Number, "2", Min: 1, Max: 60),
         new(TargetOfferAnswer, Targets, "Candidate's answer to an offer", "Working days from sending the offer to the candidate's answer.", SettingKind.Number, "5", Min: 1, Max: 60),
         new(TargetDocumentVerification, Targets, "Verification of a new-hire document", "Working days from upload to the Recruitment Officer's decision.", SettingKind.Number, "3", Min: 1, Max: 60),
 

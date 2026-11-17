@@ -125,30 +125,45 @@ public class ProcessGuideTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_request_at_hr_review_names_the_hr_managers_its_target_and_the_last_action()
+    public async Task A_request_at_the_recruitment_officer_review_names_the_recruitment_officers_its_target_and_the_last_action()
     {
-        var r = await RequestAsync(RecruitmentRequestStatus.HrApproval, DateTime.UtcNow.AddDays(-14));
+        var r = await RequestAsync(RecruitmentRequestStatus.RecruitmentReview, DateTime.UtcNow.AddDays(-14));
         var g = (await Run(s => s.ForRequestAsync(r.Id)))!;
+        Assert.Equal(["Request submitted", "Department Head approval", "Recruitment Officer review", "Managing Director approval", "Vacancy creation",
+                      "Advertisement", "Candidate applications", "Selection and hiring", "Positions filled"], g.Stages.Select(s => s.Label));
         Assert.Equal([StageState.Done, StageState.Done, StageState.Current, StageState.Upcoming], g.Stages.Take(4).Select(s => s.State));
-        Assert.Equal("Waiting for the HR Manager's approval.", g.NextAction);
-        Assert.Equal("HR Manager", g.Owner);
-        Assert.Contains("p.hrm", g.OwnerNames.Single());
-        Assert.StartsWith("HR Manager", g.NextApprover);
+        Assert.StartsWith("Waiting for the Recruitment Officer to verify the request", g.NextAction);
+        Assert.Equal("Recruitment Officer", g.Owner);
+        Assert.Contains("p.ro", g.OwnerNames.Single());
+        Assert.StartsWith("Recruitment Officer", g.NextApprover);
+        Assert.Equal("Managing Director approval", g.AfterThis);
         Assert.Equal(2, g.TargetWorkingDays); // System settings default
         Assert.Equal(ProcessHealth.Overdue, g.Health);
         Assert.NotNull(g.DueDate);
         Assert.Equal("Kwesi Hod", g.LastAction!.Who);
         Assert.Contains("14 days", g.PendingFor(DateTime.UtcNow));
+
+        // A request left at the HR Manager review (before 17 Nov 2026) still names the HR Manager.
+        var old = await RequestAsync(RecruitmentRequestStatus.HrApproval, DateTime.UtcNow.AddDays(-1));
+        var og = (await Run(s => s.ForRequestAsync(old.Id)))!;
+        Assert.Equal("HR Manager", og.Owner);
+        Assert.Contains("p.hrm", og.OwnerNames.Single());
+        Assert.Equal(StageState.Current, og.Stages[2].State);
     }
 
     [Fact]
-    public async Task An_approved_request_moves_on_to_the_vacancy_and_a_rejected_one_stops()
+    public async Task After_the_md_approves_the_recruitment_officer_owns_the_process_with_no_further_approval_and_a_rejected_request_stops()
     {
         var r = await RequestAsync(RecruitmentRequestStatus.Approved, DateTime.UtcNow.AddHours(-3));
         var g = (await Run(s => s.ForRequestAsync(r.Id)))!;
-        Assert.Equal(StageState.Current, g.Stages[4].State);
-        Assert.Equal("Convert the approved request into a vacancy.", g.NextAction);
+        Assert.Equal([StageState.Done, StageState.Done, StageState.Done, StageState.Done, StageState.Current, StageState.Upcoming, StageState.Upcoming],
+            g.Stages.Take(7).Select(s => s.State));
+        Assert.Equal("Vacancy creation", g.Stages[4].Label);
+        Assert.Equal("Create the vacancy. No further approval is needed: the Recruitment Officer owns the process.", g.NextAction);
         Assert.Equal("Recruitment Officer", g.Owner);
+        Assert.Contains("p.ro", g.OwnerNames.Single());
+        Assert.Null(g.NextApprover);
+        Assert.Equal("Advertisement", g.AfterThis);
 
         var rejected = await RequestAsync(RecruitmentRequestStatus.Rejected, DateTime.UtcNow);
         var stopped = (await Run(s => s.ForRequestAsync(rejected.Id)))!;

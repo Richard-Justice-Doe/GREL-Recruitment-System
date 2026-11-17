@@ -17,7 +17,7 @@ public record PermissionInfo(string Name, string Group, string Label, string Des
 /// Roles &amp; permissions screen. Changes take effect within a minute, without anyone signing out.
 ///
 /// Rules that are NOT permissions, on purpose (they are segregation of duties, so no setting may switch them off):
-///   * Who acts at each workflow step (the HOD raises, the HR Manager approves, the MD gives final approval, ...) stays
+///   * Who acts at each workflow step (the HOD approves, the Recruitment Officer reviews, the MD gives the last approval, ...) stays
 ///     tied to the role, as written in each workflow class.
 ///   * The Super Admin always holds every permission. Permissions marked <see cref="PermissionInfo.SuperAdminOnly"/>
 ///     can never be given to another role.
@@ -140,14 +140,14 @@ public static class Permissions
             "Create and submit new recruitment requests for their department."),
         new(ViewVacancies, "Recruitment", "Open vacancies", "See vacancies and their history."),
         new(ViewAdverts, "Recruitment", "Open job adverts", "See job adverts and where they are posted."),
-        new(ReviewAdvertsHr, "Job adverts", "Review job adverts (HR)",
-            "Check a job advert sent in by the Recruitment Officer: approve it for the IT Manager, or reject it."),
-        new(ReviewAdvertsIt, "Job adverts", "Review job adverts (IT)",
-            "See the job adverts waiting for IT approval and reject one."),
-        new(PublishAdverts, "Job adverts", "Approve and publish job adverts",
-            "Give the final approval of a job advert the HR Manager has reviewed, which publishes it (now or on its start date), and record where it is posted."),
+        new(ReviewAdvertsHr, "Job adverts", "Review job adverts (HR, earlier workflow)",
+            "Only for adverts sent for the HR review before 17 Nov 2026: reject one. New adverts are published by the Recruitment Officer with no review."),
+        new(ReviewAdvertsIt, "Job adverts", "Review job adverts (IT, earlier workflow)",
+            "Only for adverts waiting for IT approval since before 17 Nov 2026: reject one."),
+        new(PublishAdverts, "Job adverts", "Publish job adverts and record postings",
+            "Publish a job advert (now or on its start date) and record where it is posted. Recruitment Officers and HR Managers do this for adverts without this permission."),
         new(ReturnAdverts, "Job adverts", "Return job adverts for correction",
-            "Send a job advert under review back to the Recruitment Officer with the changes needed."),
+            "Send a job advert left in the earlier review back to the Recruitment Officer with the changes needed."),
         new(UnpublishAdverts, "Job adverts", "Take job adverts offline",
             "Take a published or scheduled job advert offline and send it back to the Recruitment Officer for correction."),
         new(ViewApplications, "Recruitment", "Open applications",
@@ -217,7 +217,7 @@ public static class Permissions
             ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding, ViewProbation, DecideProbation,
             ReviewAdvertsHr, ReturnAdverts, ViewEmployees, ManageEmployees, ManageGrades, ViewExecutiveDashboard, ManageKnowledge
         ],
-        // 11 Nov 2026 (docs/29 change 2): approves, publishes and takes down job adverts after the HR Manager's review.
+        // 11 Nov 2026 (docs/29 change 2); since 17 Nov 2026 adverts need no IT approval: records postings and takes adverts offline.
         [Roles.ItManager] = [ViewAdverts, SeeAllDepartments, ReviewAdvertsIt, PublishAdverts, ReturnAdverts, UnpublishAdverts],
         [Roles.ManagingDirector] =
             [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewEmployees, ViewExecutiveDashboard],

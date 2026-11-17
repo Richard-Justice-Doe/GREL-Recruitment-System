@@ -35,7 +35,7 @@ public static class Roles
     /// <summary>Recruitment Officer: manages vacancies, candidates, adverts and interview schedules.</summary>
     public const string RecruitmentOfficer = "Recruitment Officer";
 
-    /// <summary>HR Manager: approves requests (no budget confirmation since 11 Nov 2026), reviews job adverts, views onboarding.</summary>
+    /// <summary>HR Manager: no longer approves requests, vacancies or adverts (17 Nov 2026); authorises shortlists, views onboarding.</summary>
     public const string HrManager = "HR Manager";
 
     /// <summary>
@@ -96,10 +96,10 @@ public static class Roles
         SuperAdmin => "Full access to the whole system. Creates privileged accounts and sets permissions.",
         Admin => "System administrator: manages all user accounts except Admins and Super Admins, organisation data and the audit trail; sees settings read-only.",
         HrAdministrator => "Maintains departments, divisions, units and sites, and everyday staff accounts.",
-        HrManager => "Approves requests and vacancies, reviews job adverts, authorises shortlists and hiring decisions.",
-        ItManager => "Gives the final approval of job adverts, publishes them and records where they are posted.",
-        ManagingDirector => "Final approval of recruitment requests and hires.",
-        RecruitmentOfficer => "Runs vacancies, adverts, screening, interviews and offers.",
+        HrManager => "Authorises shortlists and hiring decisions and can write job adverts. Since 17 Nov 2026 requests, vacancies and adverts need no HR Manager approval.",
+        ItManager => "Records where job adverts are posted and can take a published advert offline (adverts need no IT approval since 17 Nov 2026).",
+        ManagingDirector => "Gives the last approval of recruitment requests; after it the Recruitment Officer needs no further approval.",
+        RecruitmentOfficer => "Reviews recruitment requests (stage 2), then creates and publishes vacancies and adverts and runs screening, interviews and offers.",
         HeadOfDepartment => "Reviews (stage 1) and raises recruitment requests for their department, and takes part in selection.",
         PanelMember => "Sits on interview panels and completes scorecards.",
         Employee => "GREL staff member: sees internal vacancies, applies internally and fills in recruitment requests for their department.",

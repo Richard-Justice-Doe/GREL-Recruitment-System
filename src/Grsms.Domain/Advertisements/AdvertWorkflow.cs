@@ -4,34 +4,33 @@ using Grsms.Domain.Vacancies;
 namespace Grsms.Domain.Advertisements;
 
 /// <summary>
-/// The rules of a job advert's life cycle, in one place. Since 11 November 2026 (docs/29 change 2) every advert is
-/// reviewed by the HR Manager and approved by the IT Manager before it is published:
+/// The rules of a job advert's life cycle, in one place. Since 17 November 2026 the Managing Director's approval of the request
+/// is the last approval: the Recruitment Officer creates, edits, publishes, schedules and closes adverts with no review.
 ///
-///   Draft / Returned for correction ──submit (RO)──► Awaiting HR review
-///   Awaiting HR review   ──approve (HR Manager)──► Awaiting IT approval     ──return──► Returned for correction   ──reject──► Rejected (final)
-///   Awaiting IT approval ──approve (IT Manager)──► Published (start today)  ──return──► Returned for correction   ──reject──► Rejected (final)
-///                                              or Scheduled (start later) ──start date reached (automatic)──► Published
+///   Draft / Returned for correction ──publish (RO)──► Published (start today)
+///                                                  or Scheduled (start later) ──start date reached (automatic)──► Published
 ///   Scheduled            ──cancel schedule (RO)──► Draft
-///   Published / Scheduled ──take offline (IT)──► Returned for correction;  ──edited by the RO──► Awaiting HR review (offline)
+///   Published / Scheduled ──edited by the RO──► stays published, with the new text (no review)
+///   Published / Scheduled ──take offline (IT)──► Returned for correction
 ///   Published / Scheduled ──end date passes / vacancy closes / close──► Closed
 ///   Any advert ──clone──► new Draft          (Published is stored as "Live", so existing data and the careers pages are unchanged)
 ///
-///   * Recruitment Officers (and HR Managers) write adverts and send them for review (<see cref="AuthorRoles"/>).
-///   * The review steps are permissions: adverts.review.hr, adverts.review.it, adverts.publish, adverts.return, adverts.unpublish.
-///   * Editing a published or scheduled advert takes it offline and sends it back through both reviews.
-///   * Only the IT Manager (adverts.publish) records external channels as posted or removed.
-///   * An advert can only be sent for review or published while its vacancy is Published (approval complete) and still open.
+///   * Recruitment Officers (and HR Managers) write and publish adverts (<see cref="AuthorRoles"/>), and record external channels
+///     as posted or removed (so can the IT Manager).
+///   * Adverts sent for review before 17 Nov 2026 (Awaiting HR review / Awaiting IT approval) can be published by the Recruitment
+///     Officer straight away; the reviewers can still return or reject them.
+///   * An advert can only be published while its vacancy is Published and still open.
 ///   * Internal vacancies may only be advertised on the internal portal.
 /// </summary>
 public static class AdvertWorkflow
 {
-    /// <summary>Roles that write, submit, close and clone adverts.</summary>
+    /// <summary>Roles that write, publish, close and clone adverts.</summary>
     public static readonly IReadOnlyList<string> AuthorRoles = [Roles.RecruitmentOfficer, Roles.HrManager];
 
     /// <summary>Channels GRSMS publishes by itself when the advert goes live.</summary>
     public static readonly IReadOnlyList<AdvertChannel> AutomaticChannels = [AdvertChannel.InternalPortal, AdvertChannel.CompanyWebsite];
 
-    /// <summary>The steps under review (HR, then IT).</summary>
+    /// <summary>The review steps of the earlier workflow (HR, then IT); no new advert enters them.</summary>
     public static readonly IReadOnlyList<AdvertStatus> InReview = [AdvertStatus.AwaitingHrReview, AdvertStatus.AwaitingItApproval];
 
     public static bool IsAutomatic(AdvertChannel c) => AutomaticChannels.Contains(c);
@@ -43,11 +42,11 @@ public static class AdvertWorkflow
     /// <summary>Published (live) or scheduled: approved and on its way to, or on, the channels.</summary>
     public static bool IsPublished(AdvertStatus s) => s is AdvertStatus.Live or AdvertStatus.Scheduled;
 
-    /// <summary>The author may change it: a draft, a returned advert, or (taking it offline) a published one.</summary>
-    public static bool IsEditable(AdvertStatus s) => s is AdvertStatus.Draft or AdvertStatus.ReturnedForCorrection || IsPublished(s);
+    /// <summary>The author may change it: a draft, a returned one, one still in an earlier review, or a published one (it stays published).</summary>
+    public static bool IsEditable(AdvertStatus s) => CanPublish(s) || IsPublished(s);
 
-    /// <summary>The author may send it for the HR review.</summary>
-    public static bool CanSubmit(AdvertStatus s) => s is AdvertStatus.Draft or AdvertStatus.ReturnedForCorrection;
+    /// <summary>The author may publish it (no review since 17 Nov 2026), including one left in an earlier review step.</summary>
+    public static bool CanPublish(AdvertStatus s) => s is AdvertStatus.Draft or AdvertStatus.ReturnedForCorrection || InReview.Contains(s);
 
     public static bool CanUnschedule(AdvertStatus s) => s == AdvertStatus.Scheduled;
     public static bool CanClose(AdvertStatus s) => IsPublished(s);

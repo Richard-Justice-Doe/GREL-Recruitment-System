@@ -33,7 +33,7 @@ The aim: a new user with no training can see, on every record:
 
 ## 2. The two journeys
 
-**Requisition** (request and vacancy pages): request submitted → Head of Department review → HR Manager review → MD approval → vacancy prepared → vacancy approved → advertised → applications → selection and hiring → positions filled.
+**Requisition** (request and vacancy pages), since 17 Nov 2026: request submitted → Department Head approval → Recruitment Officer review → Managing Director approval (the last approval) → vacancy creation → advertisement → candidate applications → selection and hiring → positions filled. After the MD, the owner is the Recruitment Officer and no step names an approver.
 
 **Candidate** (application, interview, hiring case pages): applied → screening → interview → hire approval → offer → onboarding → employee. The panel members accept or decline their invitation. A decline notifies the Recruitment Officer at once, and they choose a replacement (Wave 1, docs/37 C1).
 
@@ -76,7 +76,7 @@ On the new employee's pages it appears as **"Welcome to your onboarding journey"
 ## 5. Notifications
 
 * **Every workflow email has a bell notification.**
-* **Handovers carry a "next step" block:** *✅ Department approval completed. Next step: HR Manager review. Responsible: HR Manager.* This applies to:
+* **Handovers carry a "next step" block:** *✅ Department Head approval completed. Next step: Recruitment Officer review. Responsible: Recruitment Officer.* This applies to:
   * request approvals (to the requester);
   * the vacancy published;
   * the advert live;

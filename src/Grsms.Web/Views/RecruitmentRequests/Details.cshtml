@@ -99,11 +99,11 @@ else
                     <dt>Submitted on</dt><dd>@(Model.DateRequested?.ToString("dd MMM yyyy") ?? "Not submitted yet")</dd>
                     @if (Model.AssignedRecruiterName is not null)
                     {
-                        <dt>Assigned recruiter</dt><dd>@Model.AssignedRecruiterName</dd>
+                        <dt>Recruitment Officer</dt><dd>@Model.AssignedRecruiterName</dd>
                     }
                     @if (Model.ApprovedAt is not null)
                     {
-                        <dt>Final approval</dt><dd>@Model.ApprovedAt.Value.ToString("dd MMM yyyy HH:mm")</dd>
+                        <dt>Approved by the MD</dt><dd>@Model.ApprovedAt.Value.ToString("dd MMM yyyy HH:mm")</dd>
                     }
                 </dl>
 
@@ -240,6 +240,26 @@ else
                         <input type="hidden" name="ExpectedStatus" value="@Model.Status" />
 
                         @* 11 Nov 2026 (docs/29, change 1): the HR Manager no longer confirms the budget to approve. *@
+                        @if (Model.Status == RecruitmentRequestStatus.RecruitmentReview)
+                        {
+                            @* 17 Nov 2026: the Recruitment Officer review: three checks before the request goes to the MD. *@
+                            <fieldset class="mb-3">
+                                <legend class="form-label small fw-semibold mb-1">Your checks (all three are needed to approve)</legend>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="RequestVerified" name="RequestVerified" value="true" />
+                                    <label class="form-check-label small" for="RequestVerified">Request verified: department, purpose, justification and documents</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="VacancyDetailsValidated" name="VacancyDetailsValidated" value="true" />
+                                    <label class="form-check-label small" for="VacancyDetailsValidated">Vacancy details validated: position, number, engagement type, site and start date</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="RequirementsConfirmed" name="RequirementsConfirmed" value="true" />
+                                    <label class="form-check-label small" for="RequirementsConfirmed">Requirements confirmed: education, experience, certificates and licence</label>
+                                </div>
+                                <div class="form-text">Approving sends the request to the Managing Director, and you become its Recruitment Officer.</div>
+                            </fieldset>
+                        }
 
                         <div class="mb-3">
                             <label for="Comments" class="form-label small">Comments <span class="text-body-secondary">(required to return or reject)</span></label>
@@ -270,8 +290,13 @@ else
 
         @if (Model.Status == RecruitmentRequestStatus.Approved)
         {
+            @* 17 Nov 2026: the MD's approval is the last one; the Recruitment Officer owns the process from here. *@
             <div class="alert alert-success small">
-                <i class="fa-solid fa-circle-check me-1"></i>Fully approved: recruitment may begin.
+                <div><i class="fa-solid fa-circle-check me-1"></i><b>Approved for recruitment</b> by the Managing Director. No further approvals are required.</div>
+                <div class="mt-1">
+                    Process owner: <b>Recruitment Officer@(Model.AssignedRecruiterName is null ? "" : $" ({Model.AssignedRecruiterName})")</b>.
+                    @(Model.VacancyId is null ? "Next action: create the vacancy; after that, create and publish the job advertisement." : "The Recruitment Officer creates and publishes the job advertisement, then moves on to the candidates.")
+                </div>
                 @if (Model.VacancyId is int vacancyId)
                 {
                     <span>
@@ -282,14 +307,14 @@ else
                 {
                     <div class="mt-2">
                         <a asp-controller="Vacancies" asp-action="Create" asp-route-requestId="@Model.Id" class="btn btn-sm btn-success">
-                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Convert into a job vacancy
+                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Create the vacancy
                         </a>
-                        <div class="mt-1">The vacancy is filled in from this request; you add the requisition details (owner, closing date, internal or external).</div>
+                        <div class="mt-1">The vacancy is filled in from this request; you add the requisition details (owner, closing date, internal or external) and publish it yourself: no approval is needed.</div>
                     </div>
                 }
                 else
                 {
-                    <span>Waiting for a Recruitment Officer to convert it into a job vacancy.</span>
+                    <span>Waiting for the Recruitment Officer to create the vacancy.</span>
                 }
             </div>
         }

@@ -33,10 +33,10 @@ public class ActionCenterWebTests(GrsmsWebFactory factory) : IClassFixture<Grsms
     }
 
     [Fact]
-    public async Task An_hr_manager_sees_an_overdue_approval_as_high_priority_and_the_request_page_shows_the_guide()
+    public async Task A_recruitment_officer_sees_an_overdue_review_and_an_approved_request_to_turn_into_a_vacancy_as_high_priority()
     {
         var hod = await UserAsync("ac.hod@grel.test", 32, Roles.HeadOfDepartment);
-        await UserAsync("ac.hrm@grel.test", 1, Roles.HrManager);
+        await UserAsync("ac.ro@grel.test", 1, Roles.RecruitmentOfficer);
         await UserAsync("ac.cand@mail.test", null, Roles.Candidate);
         int requestId;
         using (var scope = factory.Services.CreateScope())
@@ -46,15 +46,23 @@ public class ActionCenterWebTests(GrsmsWebFactory factory) : IClassFixture<Grsms
             {
                 RequestNumber = "RR-AC-2026-0001", DivisionId = 2, DepartmentId = 32, SiteId = 5, PositionTitle = "Field Supervisor", NumberOfPositions = 1,
                 EmploymentType = EmploymentType.Permanent, VacancyReason = VacancyReason.NewPosition, Justification = "Needed.", BudgetCode = "AC",
-                EstimatedAnnualCost = 1, RequestedByUserId = hod, Status = RecruitmentRequestStatus.HrApproval,
+                EstimatedAnnualCost = 1, RequestedByUserId = hod, Status = RecruitmentRequestStatus.RecruitmentReview,
                 StatusChangedAt = DateTime.UtcNow.AddDays(-10), DateRequested = DateTime.UtcNow.AddDays(-12)
             };
             db.RecruitmentRequests.Add(r);
+            // 17 Nov 2026: approved by the MD, so the Recruitment Officer creates the vacancy: always high priority.
+            db.RecruitmentRequests.Add(new RecruitmentRequest
+            {
+                RequestNumber = "RR-AC-2026-0002", DivisionId = 2, DepartmentId = 32, SiteId = 5, PositionTitle = "Weighbridge Clerk", NumberOfPositions = 1,
+                EmploymentType = EmploymentType.Permanent, VacancyReason = VacancyReason.NewPosition, Justification = "Needed.", BudgetCode = "AC",
+                EstimatedAnnualCost = 1, RequestedByUserId = hod, Status = RecruitmentRequestStatus.Approved,
+                StatusChangedAt = DateTime.UtcNow, ApprovedAt = DateTime.UtcNow, DateRequested = DateTime.UtcNow.AddDays(-3)
+            });
             await db.SaveChangesAsync();
             requestId = r.Id;
         }
 
-        var hrm = await SignedInAsync("ac.hrm@grel.test");
+        var hrm = await SignedInAsync("ac.ro@grel.test");
         Assert.Contains("/ActionCenter", await hrm.GetStringAsync("/"));
         var page = await hrm.GetStringAsync("/ActionCenter");
         Assert.Contains("Field Supervisor", page);
@@ -64,10 +72,14 @@ public class ActionCenterWebTests(GrsmsWebFactory factory) : IClassFixture<Grsms
         Assert.Contains("Completed in the last 14 days", page);
         Assert.Contains("Field Supervisor", await hrm.GetStringAsync("/ActionCenter?priority=High"));
         Assert.DoesNotContain("Field Supervisor", await hrm.GetStringAsync("/ActionCenter?priority=Low"));
+        var high = await hrm.GetStringAsync("/ActionCenter?priority=High");
+        Assert.Contains("Weighbridge Clerk", high);
+        Assert.Contains("Approved by the Managing Director: create the vacancy", high);
 
         var request = await hrm.GetStringAsync($"/RecruitmentRequests/Details/{requestId}");
         Assert.Contains("process-timeline", request);
-        Assert.Contains("Waiting for the HR Manager&#x27;s approval.", request);
+        Assert.Contains("Waiting for the Recruitment Officer to verify the request", request);
+        Assert.Contains("RequestVerified", request); // the three checks on the decision form
         Assert.Contains("Overdue", request);
 
         var candidate = await SignedInAsync("ac.cand@mail.test");

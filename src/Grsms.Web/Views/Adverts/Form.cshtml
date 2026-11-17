@@ -25,7 +25,7 @@
     {
         <div class="alert alert-warning small">
             <i class="fa-solid fa-triangle-exclamation me-1"></i><strong>This advert is published.</strong>
-            Saving changes takes it offline and sends it back to the HR Manager and the IT Manager for approval.
+            Saved changes show straight away: no approval is needed.
         </div>
     }
     @if (Model.ReviewComment is not null && !Model.TakesOffline)
@@ -45,7 +45,7 @@
                     </div>
                     @if (Adverts.IsOn)
                     {
-                        @* docs/36 AI-1b: four versions from the vacancy; the person edits them; the advert still goes through HR review and IT approval. *@
+                        @* docs/36 AI-1b: four versions from the vacancy; the person edits them; the Recruitment Officer publishes it (no review since 17 Nov 2026). *@
                         <div class="ai-panel mb-3" data-ai-endpoint="@Url.Action("AdvertVersions", "Ai")" data-ai-collect="VacancyId,Title">
                             <div class="ai-panel-title"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i>Write the advert with AI</div>
                             <p class="small text-body-secondary mb-2">Writes the careers-portal text, a job-board and newspaper version, an internal notice for staff and a LinkedIn post from the vacancy's description and requirements. The requirements are kept exactly as approved.</p>
@@ -103,7 +103,7 @@
                         <label asp-for="StartDate" class="form-label"></label>
                         <input asp-for="StartDate" type="date" class="form-control" min="@today.ToString("yyyy-MM-dd")"
                                value="@Model.StartDate?.ToString("yyyy-MM-dd")" />
-                        <div class="form-text">Today = live as soon as the IT Manager approves it. A later date = scheduled; it goes live by itself that day.</div>
+                        <div class="form-text">Today = live as soon as you publish it. A later date = scheduled; it goes live by itself that day.</div>
                         <span asp-validation-for="StartDate" class="text-danger small"></span>
                     </div>
                     <div>
@@ -132,7 +132,7 @@
                                    checked="@Model.Channels.Contains(c)" disabled="@(!allowed)" />
                             <label class="form-check-label @(allowed ? "" : "text-body-secondary")" for="ch-@c">
                                 @c.DisplayName()
-                                <span class="small text-body-secondary">· @(auto ? "published automatically" : "copy-ready text, posted by the IT Manager")</span>
+                                <span class="small text-body-secondary">· @(auto ? "published automatically" : "copy-ready text, posted by hand")</span>
                             </label>
                         </div>
                     }

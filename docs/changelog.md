@@ -4,6 +4,22 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 22 November 2026: security assessment (docs/41)
+
+Requested by the user: a complete security assessment of the application and codebase.
+
+**Result:** overall score 78/100, with no critical findings and four high findings:
+1. the audit trail exposes personal data to Admin and HR Administrator;
+2. no MFA for privileged accounts;
+3. no real virus scanning of uploads;
+4. backups are unencrypted, include the key ring and can be downloaded through the app.
+
+The report also has the role matrix, the database, file, endpoint and infrastructure reviews, attack simulations, compliance scores and a remediation plan with sample code: [docs/41](41-security-assessment.md).
+
+No code was changed; fixes wait for the user's go-ahead.
+
+---
+
 ## 22 November 2026: clean printouts (employee report starts at the GREL logo)
 
 Reported by the user with a screenshot of the printed employee report. The printout had several problems:

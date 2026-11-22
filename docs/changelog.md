@@ -4,6 +4,25 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 22 November 2026: clean printouts (employee report starts at the GREL logo)
+
+Reported by the user with a screenshot of the printed employee report. The printout had several problems:
+* the app's top bar (page title, notification bell, settings, the HR Manager's name);
+* a strip of the sidebar;
+* the browser's date and title line;
+* faint grey text, because it was printed from dark mode.
+
+**What changed**
+* **Every page, when printed or saved as PDF:** no sidebar, top bar, footer or messages, on a white background.
+* **Always light colours when printing:** the theme switches to light for the print and back afterwards. The saved choice is unchanged.
+* **The employee report has no page margin.** The browser therefore prints no date, title or address line, and the page starts at the GREL letterhead. The report keeps its own 12–14 mm padding.
+
+**Files:** `wwwroot/css/site.css` (print rules, `@page emp-report`), `wwwroot/js/site.js` (light colours for printing), [docs/31](31-employees.md).
+
+**Checked:** the report was printed to PDF with headless Chrome. It starts at the logo, with no app bar and no browser header. The full suite passes (318).
+
+---
+
 ## 22 November 2026: each employee uploads their own profile picture
 
 Requested by the user: "each employee should be able to upload their own profile picture". Until now only HR could.

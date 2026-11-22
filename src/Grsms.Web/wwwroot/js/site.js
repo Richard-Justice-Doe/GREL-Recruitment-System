@@ -37,6 +37,18 @@
         });
     }
 
+    // 22 Nov 2026: print (and "Save as PDF") always in light colours, so dark-mode text is not printed faint on white paper.
+    // The saved theme is not changed: it comes back after printing.
+    var themeBeforePrint = null;
+    window.addEventListener("beforeprint", function () {
+        themeBeforePrint = document.documentElement.getAttribute("data-bs-theme");
+        document.documentElement.setAttribute("data-bs-theme", "light");
+    });
+    window.addEventListener("afterprint", function () {
+        if (themeBeforePrint) document.documentElement.setAttribute("data-bs-theme", themeBeforePrint);
+        themeBeforePrint = null;
+    });
+
     document.addEventListener("DOMContentLoaded", function () {
         setTheme(document.documentElement.getAttribute("data-bs-theme") || "light");
 

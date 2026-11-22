@@ -93,7 +93,7 @@ Each has a **Fix** link where one exists.
 | Timeline | The whole story, newest first: applications, onboarding, probation and job changes |
 | Audit trail | The record's changes (who, when, which fields) and a link to the full trail. For people who may read the audit trail. |
 
-**Employee report:** a one-page summary to print or save as PDF, with the letterhead, photo, employment, personal summary (HR only), job history and what is outstanding.
+**Employee report:** a one-page summary to print or save as PDF, with the letterhead, photo, employment, personal summary (HR only), job history and what is outstanding. The printout starts with the GREL letterhead: no menu, notification bell, account name or browser date/title line, and always in light colours (even in dark mode).
 
 **Line manager.** Taken from the vacancy's reporting manager at hire. When it is empty, the Head of Department acts as line manager, and the page says so. Leave and performance (later phases) will use it.
 

@@ -1196,3 +1196,15 @@ details[open] > summary > .doc-chevron { transform: rotate(180deg); }
 .cal-num { font-weight: 700; margin-bottom: 0.15rem; }
 .cal-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 575.98px) { .cal-day { min-height: 3.2rem; } .cal-name { display: none; } }
+
+/* 22 Nov 2026: printing (and "Save as PDF") shows the page only: no sidebar, top bar (notifications, settings, account), footer or
+   messages, on white. The employee report also has no browser margin, so the browser prints no date, title or address line and
+   the page starts with the GREL letterhead. */
+@media print {
+    .sidebar, .sidebar-backdrop, .topbar, .app-footer, .app-content > .alert { display: none !important; }
+    html, body, .app-shell, .app-main { background: #fff !important; min-height: 0 !important; display: block !important; }
+    .app-content { padding: 0 !important; max-width: none !important; }
+    .emp-report { page: emp-report; }
+    .emp-report > .card-body { padding: 12mm 14mm !important; }
+}
+@page emp-report { size: A4; margin: 0; }

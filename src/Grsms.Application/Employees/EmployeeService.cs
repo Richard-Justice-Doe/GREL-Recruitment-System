@@ -292,7 +292,8 @@ public class EmployeeService(
             EmployeeNumber = form.EmployeeNumber, UserId = account.Value!, PositionTitle = form.PositionTitle, DepartmentId = form.DepartmentId!.Value,
             SiteId = form.SiteId!.Value, GradeId = form.GradeId, ReportsToUserId = form.ReportsToUserId, EmploymentType = form.EmploymentType,
             ContractEndDate = form.ContractEndDate, HireDate = form.HireDate!.Value, Status = form.Status,
-            ConfirmationDate = form.Status == EmployeeStatus.Active ? form.ConfirmationDate : null, StatusChangedAt = now
+            ConfirmationDate = form.Status == EmployeeStatus.Active ? form.ConfirmationDate : null, StatusChangedAt = now,
+            DateOfBirth = form.DateOfBirth
         };
         e.Assignments.Add(new EmployeeAssignment
         {
@@ -339,6 +340,7 @@ public class EmployeeService(
         }
         if (form.Status == EmployeeStatus.Separated) errors.Add("Register current staff only.");
         if (form.ConfirmationDate is { } c && (c > Today || (form.HireDate is { } h && c < h))) errors.Add("The confirmation date must be between the date joined and today.");
+        if (form.DateOfBirth is { } dob && Celebrations.CelebrationService.CheckDateOfBirth(dob, Today) is { } dobProblem) errors.Add(dobProblem);
         return errors;
     }
 
@@ -422,14 +424,14 @@ public class EmployeeService(
 
     /// <summary>The columns of the import file, in the order of the template.</summary>
     public static readonly string[] ImportColumns =
-        ["StaffNumber", "FullName", "Email", "Phone", "Position", "Department", "Site", "Grade", "EmploymentType", "HireDate", "Status", "ConfirmationDate", "ReportsToEmail", "ContractEndDate"];
+        ["StaffNumber", "FullName", "Email", "Phone", "Position", "Department", "Site", "Grade", "EmploymentType", "HireDate", "Status", "ConfirmationDate", "ReportsToEmail", "ContractEndDate", "DateOfBirth"];
 
     private static readonly string[] RequiredColumns = ["StaffNumber", "FullName", "Email", "Position", "Department", "Site", "HireDate"];
 
     /// <summary>A template with the header row and one example line.</summary>
     public static string ImportTemplate() =>
         string.Join(",", ImportColumns) + "\r\n" +
-        "GREL-0456,Kwame Boateng,k.boateng@grel.com.gh,0244000000,HR Officer,Human Resources,Head Office,,Permanent,2019-03-01,Active,2019-09-01,,\r\n";
+        "GREL-0456,Kwame Boateng,k.boateng@grel.com.gh,0244000000,HR Officer,Human Resources,Head Office,,Permanent,2019-03-01,Active,2019-09-01,,,1988-06-14\r\n";
 
     /// <summary>
     /// Imports existing staff from a CSV file (UTF-8, comma-separated, header row first). Every row is checked first; if any
@@ -499,7 +501,8 @@ public class EmployeeService(
             {
                 EmployeeNumber = C("StaffNumber"), FullName = C("FullName"), Email = C("Email"), Phone = C("Phone"), PositionTitle = C("Position"),
                 DepartmentId = dept?.Id, SiteId = site?.Id, GradeId = grade?.Id, EmploymentType = type, HireDate = Date("HireDate"), Status = status,
-                ConfirmationDate = Date("ConfirmationDate"), ContractEndDate = Date("ContractEndDate"), ReportsToUserId = managerId
+                ConfirmationDate = Date("ConfirmationDate"), ContractEndDate = Date("ContractEndDate"), ReportsToUserId = managerId,
+                DateOfBirth = Date("DateOfBirth")
             };
             Normalize(form);
             if (form.HireDate is null && C("HireDate").Length == 0) rowErrors.Add("HireDate is empty");

@@ -29,6 +29,7 @@ public class CelebrationsController(CelebrationService celebrations, EmployeePho
         var feed = new Dictionary<(int, CelebrationKind), IReadOnlyList<CelebrationMessageDto>>();
         foreach (var c in model.Today) feed[(c.EmployeeId, c.Kind)] = await celebrations.MessagesAsync(c.EmployeeId, c.Kind, c.Date.Year, ct);
         ViewBag.Feed = feed;
+        ViewBag.Mine = await celebrations.MineAsync(ct); // 22 Nov 2026: "Add your birthday"
         ViewBag.CanManage = (await auth.AuthorizeAsync(User, Policies.ManageEmployees)).Succeeded;
         return View(model);
     }
@@ -65,6 +66,21 @@ public class CelebrationsController(CelebrationService celebrations, EmployeePho
     [Authorize(Policy = Policies.ManageEmployees)]
     public Task<IActionResult> Hide(int id, bool hidden, CancellationToken ct) =>
         RunAsync(() => celebrations.SetHiddenAsync(id, hidden, ct), hidden ? "Message hidden." : "Message shown again.", () => RedirectToAction(nameof(Index)));
+
+    /// <summary>22 Nov 2026: the employee adds (or removes) their own date of birth, for birthdays.</summary>
+    [HttpPost]
+    public Task<IActionResult> MyBirthday(DateOnly? dateOfBirth, CancellationToken ct) =>
+        RunAsync(() => celebrations.SetMineAsync(dateOfBirth, ct),
+            dateOfBirth is null ? "Your birthday was removed." : "Thank you: colleagues will see your birthday (the day and month only).",
+            () => RedirectToAction(nameof(Index)));
+
+    /// <summary>22 Nov 2026: HR enters an employee's date of birth when there is no personal record (from the employee profile).</summary>
+    [HttpPost]
+    [Authorize(Policy = Policies.ManageEmployees)]
+    public Task<IActionResult> Birthday(int employeeId, DateOnly? dateOfBirth, CancellationToken ct) =>
+        RunAsync(() => celebrations.SetForAsync(employeeId, dateOfBirth, ct),
+            dateOfBirth is null ? "Date of birth removed." : "Date of birth saved. Their birthday now shows in celebrations.",
+            () => RedirectToAction("Details", "Employees", new { id = employeeId }));
 
     /// <summary>HR records that the employee does not want their celebrations shown (from the employee profile).</summary>
     [HttpPost]

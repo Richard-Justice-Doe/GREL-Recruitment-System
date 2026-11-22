@@ -44,6 +44,44 @@ public class CelebrationTests : OnboardingTestBase
         return (ama, kofi);
     }
 
+    /// <summary>22 Nov 2026: staff without a personal record (Kofi, registered by hand) add their own birthday, or HR does.</summary>
+    [Fact]
+    public async Task Staff_without_a_personal_record_add_their_birthday_or_hr_does_and_every_colleague_sees_it()
+    {
+        var (ama, kofi) = await PeopleAsync();
+        As(_staff, Roles.Employee);
+        Assert.Equal([ama], (await Run(s => s.OverviewAsync(Today))).Today.Where(c => c.Kind == CelebrationKind.Birthday).Select(c => c.EmployeeId));
+        Assert.False((await Run(s => s.MineAsync())).IsEmployee); // the clerk has no employee record: nothing to add
+        Assert.False((await Run(s => s.SetMineAsync(Today.AddYears(-30)))).Succeeded);
+
+        // Kofi has no birthday in GRSMS; he adds his own (a sensible date only).
+        As(_itHod, Roles.HeadOfDepartment);
+        Assert.Equal(new MyBirthday(true, false, null), await Run(s => s.MineAsync()));
+        Assert.Contains("15 years", (await Run(s => s.SetMineAsync(Today.AddYears(-3)))).Errors.Single());
+        Assert.False((await Run(s => s.SetMineAsync(Today.AddYears(-101)))).Succeeded);
+        Assert.True((await Run(s => s.SetMineAsync(Today.AddYears(-40)))).Succeeded);
+        Assert.Equal(Today.AddYears(-40), (await Run(s => s.MineAsync())).DateOfBirth);
+
+        // Every colleague now sees it, company-wide, without the year.
+        As(_staff, Roles.Employee);
+        var birthdays = (await Run(s => s.OverviewAsync(Today))).Today.Where(c => c.Kind == CelebrationKind.Birthday).ToList();
+        Assert.Equal([ama, kofi], birthdays.Select(c => c.EmployeeId).Order());
+        Assert.All(birthdays, c => Assert.Null(c.Years));
+        var profile = (await Run(s => s.ForProfileAsync(kofi, Today)))!;
+        Assert.Equal((Today, 0, (DateOnly?)Today.AddYears(-40), false), (profile.NextBirthday!.Value, profile.DaysToBirthday!.Value, profile.EnteredDateOfBirth, profile.FromPersonalRecord));
+
+        // Only HR sets someone else's; a date of birth from the personal record cannot be changed here.
+        Assert.False((await Run(s => s.SetForAsync(kofi, null))).Succeeded);
+        AsHrManager();
+        Assert.True((await Run(s => s.ForProfileAsync(ama, Today)))!.FromPersonalRecord);
+        Assert.Contains("personal record", (await Run(s => s.SetForAsync(ama, Today.AddYears(-30)))).Errors.Single());
+        Assert.True((await Run(s => s.SetForAsync(kofi, null))).Succeeded);
+        Assert.DoesNotContain((await Run(s => s.OverviewAsync(Today))).Today, c => c.EmployeeId == kofi && c.Kind == CelebrationKind.Birthday);
+        As(_candidate, Roles.Employee); // Ama: her birthday comes from her personal record
+        Assert.True((await Run(s => s.MineAsync())).FromPersonalRecord);
+        Assert.False((await Run(s => s.SetMineAsync(Today.AddYears(-30)))).Succeeded);
+    }
+
     [Fact]
     public void Dates_fall_on_the_right_day_and_29_february_moves_to_the_28th()
     {

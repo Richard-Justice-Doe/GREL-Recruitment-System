@@ -96,6 +96,20 @@
                         @if (celebration.OptedOut) { <span class="text-body-secondary"><i class="fa-solid fa-eye-slash me-1"></i>Not shown in celebrations, at their request.</span> }
                         <button type="submit" class="btn btn-link btn-sm p-0 ms-1">@(celebration.OptedOut ? "Celebrate again" : "Don't celebrate (at their request)")</button>
                     </form>
+                    @* 22 Nov 2026: staff without a personal record (imported or registered by hand): HR enters the date of birth for birthdays. *@
+                    @if (!celebration.FromPersonalRecord)
+                    {
+                        <form asp-controller="Celebrations" asp-action="Birthday" method="post" class="d-flex flex-wrap gap-2 align-items-end small mt-2">
+                            <input type="hidden" name="employeeId" value="@e.Id" />
+                            <div>
+                                <label for="emp-dob" class="form-label small mb-1">Date of birth (for birthdays)</label>
+                                <input id="emp-dob" name="dateOfBirth" type="date" class="form-control form-control-sm"
+                                       min="@today.AddYears(-100).AddDays(1).ToString("yyyy-MM-dd")" max="@today.AddYears(-15).ToString("yyyy-MM-dd")"
+                                       value="@celebration.EnteredDateOfBirth?.ToString("yyyy-MM-dd")" />
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Save date of birth</button>
+                        </form>
+                    }
                 }
             </div>
             <div class="profile-completion">

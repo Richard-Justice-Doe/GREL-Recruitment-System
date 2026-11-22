@@ -26,7 +26,14 @@ public sealed record Celebrant(int EmployeeId, string UserId, string Name, strin
 }
 
 /// <summary>The profile's "Birthday: 15 November, in 45 days" and next work anniversary.</summary>
-public sealed record ProfileCelebrations(DateOnly? NextBirthday, int? DaysToBirthday, DateOnly NextAnniversary, int AnniversaryYears, int DaysToAnniversary, bool OptedOut);
+/// <param name="EnteredDateOfBirth">22 Nov 2026: the date of birth entered by HR or the employee (staff without a personal record).</param>
+/// <param name="FromPersonalRecord">The birthday comes from the onboarding personal record, so it is not entered here.</param>
+public sealed record ProfileCelebrations(DateOnly? NextBirthday, int? DaysToBirthday, DateOnly NextAnniversary, int AnniversaryYears, int DaysToAnniversary, bool OptedOut,
+    DateOnly? EnteredDateOfBirth = null, bool FromPersonalRecord = false);
+
+/// <summary>22 Nov 2026: the signed-in employee's own birthday, for "Add your birthday" on the celebrations page.</summary>
+/// <param name="IsEmployee">The person has an employee record (otherwise there is nothing to add).</param>
+public sealed record MyBirthday(bool IsEmployee, bool FromPersonalRecord, DateOnly? DateOfBirth);
 
 public sealed record CelebrationMessageDto(int Id, string AuthorName, string Text, DateTime At, bool IsHidden, bool Mine);
 
@@ -94,8 +101,9 @@ public class CelebrationService(
         var names = await users.GetDisplayNamesAsync(list.Select(e => e.UserId).Distinct(), ct);
         var births = await personalRecords.BirthDatesAsync(list.Select(e => e.OnboardingRecordId).OfType<int>().ToList(), ct);
         var withPhoto = await photos.WithPhotoAsync(list.Select(e => (e.Id, e.PhotoAttachmentId, e.OnboardingRecordId)).ToList(), ct);
+        // The personal record's date of birth wins; otherwise the one HR or the employee entered (22 Nov 2026).
         return list.Select(e => (e, names.GetValueOrDefault(e.UserId, e.EmployeeNumber),
-            e.OnboardingRecordId is { } ob && births.TryGetValue(ob, out var b) ? b : (DateOnly?)null, withPhoto.Contains(e.Id))).ToList();
+            e.OnboardingRecordId is { } ob && births.TryGetValue(ob, out var b) ? b : e.DateOfBirth, withPhoto.Contains(e.Id))).ToList();
     }
 
     /// <summary>Every celebration between two dates (inclusive), oldest first.</summary>
@@ -158,17 +166,67 @@ public class CelebrationService(
         var anniversary = NextOccurrence(e.HireDate, today);
         if (anniversary.Year == e.HireDate.Year) anniversary = InYear(e.HireDate, today.Year + 1); // the first one is a year after joining
         return new ProfileCelebrations(birthday?.Birthday, birthday?.DaysUntil, anniversary, anniversary.Year - e.HireDate.Year,
-            anniversary.DayNumber - today.DayNumber, e.CelebrationsOptOut);
+            anniversary.DayNumber - today.DayNumber, e.CelebrationsOptOut, e.DateOfBirth, await RecordBirthAsync(e, ct) is not null);
     }
 
     /// <summary>For the employee profile: the birthday (day and month) and how far away it is; null without a date of birth.</summary>
     public async Task<(DateOnly Birthday, int DaysUntil)?> BirthdayOfAsync(Employee e, DateOnly today, CancellationToken ct = default)
     {
-        if (e.OnboardingRecordId is not { } ob) return null;
-        if (!(await personalRecords.BirthDatesAsync([ob], ct)).TryGetValue(ob, out var birth)) return null;
+        if ((await RecordBirthAsync(e, ct) ?? e.DateOfBirth) is not { } birth) return null;
         var next = NextOccurrence(birth, today);
         return (next, next.DayNumber - today.DayNumber);
     }
+
+    /// <summary>The date of birth in the employee's onboarding personal record, if any.</summary>
+    private async Task<DateOnly?> RecordBirthAsync(Employee e, CancellationToken ct) =>
+        e.OnboardingRecordId is { } ob && (await personalRecords.BirthDatesAsync([ob], ct)).TryGetValue(ob, out var birth) ? birth : null;
+
+    // ===================================================================== Entering a date of birth (22 Nov 2026)
+
+    /// <summary>The signed-in member of staff's own birthday, for "Add your birthday".</summary>
+    public async Task<MyBirthday> MineAsync(CancellationToken ct = default)
+    {
+        if (!IsStaff) return new(false, false, null);
+        var e = (await employees.ListAsync(x => x.UserId == me.UserId && x.Status != EmployeeStatus.Separated, ct)).FirstOrDefault();
+        if (e is null) return new(false, false, null);
+        var record = await RecordBirthAsync(e, ct);
+        return new(true, record is not null, record ?? e.DateOfBirth);
+    }
+
+    /// <summary>The employee enters (or clears) their own date of birth.</summary>
+    public async Task<Result> SetMineAsync(DateOnly? dateOfBirth, CancellationToken ct = default)
+    {
+        if (!IsStaff) return Result.Failure("Only GREL staff have a birthday in celebrations.");
+        var found = (await employees.ListAsync(x => x.UserId == me.UserId && x.Status != EmployeeStatus.Separated, ct)).FirstOrDefault();
+        if (found is null || await employees.GetByIdAsync(found.Id, ct) is not { } e) return Result.Failure("You have no employee record yet. Ask HR to register you.");
+        return await SetAsync(e, dateOfBirth, ct);
+    }
+
+    /// <summary>HR enters (or clears) an employee's date of birth.</summary>
+    public async Task<Result> SetForAsync(int employeeId, DateOnly? dateOfBirth, CancellationToken ct = default)
+    {
+        if (!me.HasPermission(Permissions.ManageEmployees)) return Result.Failure("Only HR can change this.");
+        var e = await employees.GetByIdAsync(employeeId, ct);
+        if (e is null) return Result.Failure("Employee not found.");
+        return await SetAsync(e, dateOfBirth, ct);
+    }
+
+    private async Task<Result> SetAsync(Employee e, DateOnly? dateOfBirth, CancellationToken ct)
+    {
+        if (await RecordBirthAsync(e, ct) is not null)
+            return Result.Failure("The date of birth comes from the personal record completed during onboarding, so it cannot be changed here.");
+        if (dateOfBirth is { } dob && CheckDateOfBirth(dob, DateOnly.FromDateTime(DateTime.UtcNow)) is { } problem) return Result.Failure(problem);
+        e.DateOfBirth = dateOfBirth;
+        e.Version = Guid.NewGuid();
+        await unitOfWork.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
+    /// <summary>A sensible date of birth for a member of staff: in the past, 15 to 100 years ago. Null when it is fine.</summary>
+    public static string? CheckDateOfBirth(DateOnly dob, DateOnly today) =>
+        dob > today.AddYears(-15) ? "The date of birth must be at least 15 years ago."
+        : dob < today.AddYears(-100) ? "The date of birth must be less than 100 years ago."
+        : null;
 
     // ===================================================================== Messages
 

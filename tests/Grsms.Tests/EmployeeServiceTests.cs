@@ -255,6 +255,10 @@ public class EmployeeServiceTests : OnboardingTestBase
         Assert.Contains("appears twice", result.Errors[1]);
         Assert.Equal(0, await Db(db => db.Employees.CountAsync()));
 
+        // 22 Nov 2026: a date of birth must be sensible.
+        var young = "StaffNumber,FullName,Email,Position,Department,Site,HireDate,DateOfBirth\r\n" +
+                    $"GREL-0209,Kojo Ansah,k.ansah@grel.test,Clerk,APM,HQ,2020-01-01,{Today.AddYears(-5):yyyy-MM-dd}\r\n";
+        Assert.Contains("at least 15 years ago", Assert.Single((await RunEmployees(s => s.ImportAsync(Csv(young)))).Errors));
         Assert.Contains("missing: Site", Assert.Single((await RunEmployees(s => s.ImportAsync(Csv("StaffNumber,FullName,Email,Position,Department,HireDate\r\nA,B,c@d.e,P,APM,2020-01-01")))).Errors));
     }
 
@@ -263,9 +267,9 @@ public class EmployeeServiceTests : OnboardingTestBase
     {
         AsHrManager();
         var apm = await Db(db => db.Departments.Where(d => d.Id == Apm).Select(d => d.Name).SingleAsync());
-        var csv = "Staff Number,Full Name,Email,Phone,Position,Department,Site,Grade,Employment Type,Hire Date,Status,Confirmation Date,Reports To Email,Contract End Date\n" +
-                  $"GREL-0301,Akosua Darko,a.darko@grel.test,,Field Officer,\"{apm}\",HQ,,Contract,2023-01-09,On probation,,k.owusu@grel.test,2027-01-08\n" +
-                  $"GREL-0302,\"Kofi Owusu, Jr\",k.owusu@grel.test,0244000002,Estate Manager,{apm},HQ,,,2015-07-01,Active,2016-01-01,hod@grel.test,\n";
+        var csv = "Staff Number,Full Name,Email,Phone,Position,Department,Site,Grade,Employment Type,Hire Date,Status,Confirmation Date,Reports To Email,Contract End Date,Date Of Birth\n" +
+                  $"GREL-0301,Akosua Darko,a.darko@grel.test,,Field Officer,\"{apm}\",HQ,,Contract,2023-01-09,On probation,,k.owusu@grel.test,2027-01-08,14/06/1990\n" +
+                  $"GREL-0302,\"Kofi Owusu, Jr\",k.owusu@grel.test,0244000002,Estate Manager,{apm},HQ,,,2015-07-01,Active,2016-01-01,hod@grel.test,,\n";
         var result = await RunEmployees(s => s.ImportAsync(Csv(csv)));
         Assert.True(result.Succeeded, string.Join(" | ", result.Errors));
         Assert.Equal(2, result.Imported);
@@ -276,6 +280,7 @@ public class EmployeeServiceTests : OnboardingTestBase
             (akosua.EmploymentType, akosua.Status, akosua.ContractEndDate, akosua.ReportsToUserId));
         Assert.Equal(kofi.UserId, Assert.Single(await HistoryAsync(akosua.Id)).ReportsToUserId);
         Assert.Equal((_hod, EmployeeStatus.Active), (kofi.ReportsToUserId, kofi.Status));
+        Assert.Equal(((DateOnly?)new DateOnly(1990, 6, 14), (DateOnly?)null), (akosua.DateOfBirth, kofi.DateOfBirth)); // 22 Nov 2026: optional, for birthdays
         Assert.Equal("Kofi Owusu, Jr", await Db(db => db.Users.Where(u => u.Id == kofi.UserId).Select(u => u.FullName).SingleAsync()));
 
         // The list: HR sees both; the search finds by name.

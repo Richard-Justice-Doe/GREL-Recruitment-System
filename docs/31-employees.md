@@ -117,6 +117,7 @@ Every row is checked first. **If any row is wrong, nothing is imported** and the
 * Dates: `2019-03-01` or `01/03/2019`.
 * EmploymentType: Permanent (default), Contract, Temporary, Casual, Internship, National Service. Status: Active (default) or On probation.
 * ReportsToEmail: the line manager's email: someone already in GRSMS or another person in the same file.
+* DateOfBirth (optional, 22 Nov 2026): for birthdays in celebrations; colleagues see only the day and month. It must be 15 to 100 years ago. The **Register existing employee** form has the same optional field.
 * At most 2,000 employees and 2 MB per file.
 
 ## Updating job details

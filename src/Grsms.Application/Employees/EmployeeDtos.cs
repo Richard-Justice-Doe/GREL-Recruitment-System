@@ -132,6 +132,10 @@ public class RegisterEmployeeForm
 
     [Display(Name = "Confirmation date", Description = "When their appointment was confirmed, if known.")]
     public DateOnly? ConfirmationDate { get; set; }
+
+    /// <summary>22 Nov 2026: optional; used for birthdays (only the day and month are shown).</summary>
+    [Display(Name = "Date of birth", Description = "Optional. Only the day and month are shown, in celebrations.")]
+    public DateOnly? DateOfBirth { get; set; }
 }
 
 /// <summary>Updating an employee's job details: adds a job history line from the effective date.</summary>

@@ -37,7 +37,7 @@ public class CelebrationWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsW
     [Fact]
     public async Task Staff_see_todays_anniversary_leave_a_message_and_hr_changes_the_settings()
     {
-        var (_, kofiId) = await UserAsync("cw.kofi@grel.test", "Kofi Boateng", Roles.Employee);
+        var (kofiClient, kofiId) = await UserAsync("cw.kofi@grel.test", "Kofi Boateng", Roles.Employee);
         int kofi;
         using (var scope = factory.Services.CreateScope())
         {
@@ -72,6 +72,18 @@ public class CelebrationWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsW
             ["Celebrations:Birthdays"] = "true", ["Celebrations:Notifications"] = "true", ["Celebrations:Messages"] = "true", ["Celebrations:FromHourGmt"] = "7"
         })).StatusCode);
         Assert.DoesNotContain("Kofi Boateng", await staff.GetStringAsync("/Celebrations"));
+
+        // 22 Nov 2026: Kofi (registered by hand, no personal record) adds his birthday; every colleague sees it. HR can enter it too.
+        Assert.Contains("Add your birthday", await kofiClient.GetStringAsync("/Celebrations"));
+        Assert.DoesNotContain("Add your birthday", await staff.GetStringAsync("/Celebrations")); // no employee record
+        var dob = DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-40);
+        Assert.Equal(HttpStatusCode.Redirect, (await kofiClient.PostFormAsync("/Celebrations", "/Celebrations/MyBirthday",
+            new() { ["dateOfBirth"] = dob.ToString("yyyy-MM-dd") })).StatusCode);
+        var withBirthday = await kofiClient.GetStringAsync("/Celebrations");
+        Assert.DoesNotContain("Add your birthday", withBirthday);
+        Assert.Contains($"Your birthday: <b>{dob:d MMMM}</b>", withBirthday);
+        Assert.Contains("Kofi Boateng", await staff.GetStringAsync("/Celebrations"));
+        Assert.Contains("Save date of birth", await hr.GetStringAsync($"/Employees/Details/{kofi}"));
 
         // Candidates can't open it.
         var (candidate, _) = await UserAsync("cw.cand@mail.test", "Kwame Cand", Roles.Candidate);

@@ -60,6 +60,12 @@
                             <label for="ConfirmationDate" class="form-label">Confirmation date <span class="text-body-secondary">(if known)</span></label>
                             <input id="ConfirmationDate" name="ConfirmationDate" type="date" class="form-control" value="@Model.ConfirmationDate?.ToString("yyyy-MM-dd")" />
                         </div>
+                        @* 22 Nov 2026: for birthdays; only the day and month are ever shown. *@
+                        <div class="col-md-6">
+                            <label for="DateOfBirth" class="form-label">Date of birth <span class="text-body-secondary">(optional)</span></label>
+                            <input id="DateOfBirth" name="DateOfBirth" type="date" class="form-control" value="@Model.DateOfBirth?.ToString("yyyy-MM-dd")" />
+                            <div class="form-text">Used for birthdays: colleagues see only the day and month.</div>
+                        </div>
                     </div>
                 </div>
             </div>

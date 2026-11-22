@@ -6,11 +6,15 @@ Added 17 November 2026. GRSMS celebrates birthdays and work anniversaries withou
 
 | | From | Shown |
 |---|---|---|
-| **Birthday** | The date of birth in the employee's personal record (collected during onboarding) | Day and month only, never the year or age. 29 February is celebrated on 28 February in other years. |
+| **Birthday** | The date of birth in the employee's personal record (collected during onboarding). For staff without one (imported or registered by hand): the date of birth entered by the employee or by HR (since 22 Nov 2026) | Day and month only, never the year or age. 29 February is celebrated on 28 February in other years. |
 | **Work anniversary** | The date joined, on the employee record | 1, 2, 3 … years of service. 1, 5, 10, 15 … years are highlighted as milestones. |
 
 * Only current employees are celebrated.
-* **Staff hired before GRSMS have no date of birth in GRSMS yet.** Their work anniversaries are celebrated; their birthdays will be once employee self-service (docs/30, Phase 29) collects the date.
+* **Staff hired before GRSMS** (imported or registered by hand) have no personal record. Since 22 November 2026 their birthday can be added:
+  * **by the employee:** the Celebrations page shows **Add your birthday** to anyone with an employee record and no birthday in GRSMS. They enter their date of birth and click **Save**, and can **Change** or **Remove** it later;
+  * **by HR:** on the employee's profile, **Date of birth (for birthdays)** → **Save date of birth** (empty it to remove), or when registering them, or with the optional **DateOfBirth** column of the CSV import.
+
+  The date must be 15 to 100 years ago. A date of birth from the onboarding personal record always wins and cannot be changed this way. Every colleague then sees the birthday (day and month only), company-wide, unless HR has chosen **Department only**.
 * **Opting out:** an employee who doesn't want to be celebrated tells HR. HR clicks *Don't celebrate (at their request)* on the employee's profile, and *Celebrate again* to undo it.
 
 ## What staff see

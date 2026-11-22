@@ -4,6 +4,48 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 22 November 2026: every employee's birthday can be in celebrations
+
+Requested by the user: "every employee should be able to see the employees' birthday".
+
+**What was already true:** every member of staff sees everyone's birthday, company-wide, unless HR switches on **Department only**.
+
+**The gap:** a birthday came only from the onboarding personal record. Staff imported or registered by hand had no date of birth, so they never appeared.
+
+**Who can add it** (the user chose HR and the employee):
+* **The employee:** the Celebrations page shows **Add your birthday** when GRSMS has none for them. They can **Change** or **Remove** it later. If it comes from their personal record, it is shown and can't be changed there.
+* **HR:**
+  * **Date of birth (for birthdays)** on the employee profile;
+  * an optional **Date of birth** on **Register existing employee**;
+  * an optional **DateOfBirth** column in the CSV import (the template has an example).
+
+**Rules:**
+* The date must be 15 to 100 years ago.
+* The personal record's date of birth always wins.
+* Colleagues still see only the day and month.
+
+**Files:**
+* Domain: `Employee.DateOfBirth`.
+* Application:
+  * `CelebrationService`: personal record, then the entered date; `MineAsync`, `SetMineAsync`, `SetForAsync`, `CheckDateOfBirth`; `ProfileCelebrations` and `MyBirthday`;
+  * `RegisterEmployeeForm.DateOfBirth`;
+  * `EmployeeService` (registration, validation, import column and template).
+* Web:
+  * `CelebrationsController.MyBirthday` and `.Birthday`;
+  * views Celebrations/Index and Employees/Details, Register and Import.
+* Database: migration `EmployeeDateOfBirth`, **script `database/40_employee_date_of_birth.sql`**.
+* Guides: [docs/40](40-celebrations.md) and [docs/31](31-employees.md).
+
+**Checked:** new service tests cover:
+* the employee adds their own birthday and colleagues see it;
+* the date checks;
+* HR sets and clears it;
+* a personal-record date can't be changed.
+
+There is also an import test for the column and a bad date, and the web test covers the "Add your birthday" card and HR's field. The full suite passes (317).
+
+---
+
 ## 22 November 2026: role descriptions match the approvals
 
 Requested by the user after reviewing the list of approval processes. Some role descriptions still claimed approvals that no longer exist.

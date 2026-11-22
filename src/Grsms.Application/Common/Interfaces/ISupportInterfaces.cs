@@ -29,9 +29,11 @@ public interface IFileStorage
 /// <summary>The answer of a virus scan.</summary>
 /// <param name="Clean">False = the file must be refused.</param>
 /// <param name="Threat">What was found (shown to the uploader), when not clean.</param>
-public record VirusScanResult(bool Clean, string? Threat = null)
+/// <param name="Unavailable">22 Nov 2026 (docs/41, H3): the scanner could not be reached, so the file is refused (fail closed).</param>
+public record VirusScanResult(bool Clean, string? Threat = null, bool Unavailable = false)
 {
     public static readonly VirusScanResult Passed = new(true);
+    public static readonly VirusScanResult NotAvailable = new(false, null, true);
 }
 
 /// <summary>

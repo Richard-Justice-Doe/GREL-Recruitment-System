@@ -38,6 +38,10 @@ public static class SettingCatalogue
     public const string AzureTenant = "AzureAd:TenantId";
     public const string AzureClient = "AzureAd:ClientId";
     public const string AzureSecret = "AzureAd:ClientSecret";
+
+    // 22 Nov 2026 (docs/41, H2): two-step sign-in
+    public const string SignInSecurity = "Sign-in security";
+    public const string RequireTwoStep = "Security:RequireTwoStepForPrivileged";
     public const string VacancyClosingDays = "Workflow:VacancyClosingDays";
     public const string OfferReplyMaxDays = "Workflow:OfferReplyMaxDays";
 
@@ -137,6 +141,9 @@ public static class SettingCatalogue
         new(SmtpUser, Smtp, "SMTP user name", "If the server needs a login.", SettingKind.Text, MaxLength: 256),
         new(SmtpPassword, Smtp, "SMTP password", "Stored encrypted. Leave empty to keep the current one.", SettingKind.Secret, MaxLength: 300),
 
+        new(RequireTwoStep, SignInSecurity, "Require two-step sign-in for privileged staff",
+            "Super Admins, Admins, HR Administrators, HR Managers and Recruitment Officers must confirm each password sign-in with a code from an authenticator app (Microsoft Authenticator, Google Authenticator …). Microsoft 365 sign-in uses Microsoft's own check.",
+            SettingKind.Switch, "true"),
         new(AzureTenant, Microsoft365, "Directory (tenant) ID", "From the GRSMS app registration in Microsoft Entra.", SettingKind.Text, MaxLength: 100),
         new(AzureClient, Microsoft365, "Application (client) ID", "From the same app registration.", SettingKind.Text, MaxLength: 100),
         new(AzureSecret, Microsoft365, "Client secret", "Stored encrypted. Leave empty to keep the current one. Renew it in Entra before it expires.",

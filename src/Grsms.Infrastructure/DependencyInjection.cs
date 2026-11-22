@@ -77,7 +77,11 @@ public static class DependencyInjection
         services.Configure<StorageOptions>(config.GetSection("Storage"));
         services.Configure<UploadOptions>(config.GetSection("Uploads"));
         services.AddSingleton<IFileStorage, LocalFileStorage>();
-        services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>(); // Phase 27: placeholder, every file passes
+        // 22 Nov 2026 (docs/41, H3): ClamAV when Antivirus:Host is set (production: the "clamav" container), failing closed;
+        // the placeholder (every file passes) only when no scanner is configured (development, tests).
+        services.Configure<Storage.AntivirusOptions>(config.GetSection("Antivirus"));
+        if (!string.IsNullOrWhiteSpace(config["Antivirus:Host"])) services.AddSingleton<IVirusScanner, Storage.ClamAvScanner>();
+        else services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>();
         services.AddSingleton<IPdfRenderer, Documents.ChromiumPdfRenderer>(); // 13 Nov 2026: PDF letters through headless Chromium
         services.AddSingleton<IDocumentHtmlPreview, Documents.DocxHtmlPreview>(); // docs/37 CR4: Word preview
         services.AddSingleton<Application.Ai.IAiClient>(_ => new Ai.AiClient()); // docs/36: AI providers (Anthropic, OpenAI, Azure OpenAI)

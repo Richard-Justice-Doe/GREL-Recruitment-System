@@ -126,6 +126,18 @@
                                     <button type="submit" class="btn btn-sm btn-outline-warning" title="Unlock"><i class="fa-solid fa-unlock"></i></button>
                                 </form>
                             }
+                            @if (u.TwoStepEnabled && !u.IsCandidate)
+                            {
+                                @* 22 Nov 2026 (docs/41, H2): lost or new phone: they set up two-step sign-in again at their next sign-in. *@
+                                <form asp-action="ResetTwoStep" asp-route-id="@u.Id" method="post" class="d-inline">
+                                    <input type="hidden" name="candidates" value="@showCandidates" />
+                                    <input type="hidden" name="returnUrl" value="@thisPage" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Reset two-step sign-in (lost phone)"
+                                            data-confirm="Reset @u.FullName's two-step sign-in? Their authenticator app stops working and they set it up again at their next sign-in.">
+                                        <i class="fa-solid fa-mobile-screen"></i><span class="visually-hidden">Reset two-step sign-in</span>
+                                    </button>
+                                </form>
+                            }
                             @if (canChange)
                             {
                                 <form asp-action="SetActive" asp-route-id="@u.Id" method="post" class="d-inline">

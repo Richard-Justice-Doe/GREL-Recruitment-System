@@ -4,6 +4,65 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 22 November 2026: the four High security findings fixed (docs/41 H1–H4)
+
+Requested by the user after the security assessment: "fix them". The score goes from 78 to about 88 / 100.
+
+**H1: the audit trail no longer exposes personal data.**
+* For the personal record and everything in it, the audit trail records which field changed and who changed it, but writes `(personal data)` / `(changed)` instead of the value. "Everything in it" covers bank accounts, spouse, children, dependants, emergency contacts, beneficiaries and the signed declaration's snapshot, plus an employee's date of birth.
+* Existing audit rows are cleaned by migration `AuditPersonalDataRedaction` (**script `database/41_audit_personal_data_redaction.sql`**; MySQL JSON functions, safe to re-run).
+
+**H2: two-step sign-in (MFA).**
+* **Required roles:** Super Admin, Admin, HR Administrator, HR Manager and Recruitment Officer must confirm every password sign-in with a 6-digit code from an authenticator app. The rule is in System settings → Sign-in security, on by default.
+* **First use:** at their next sign-in they are sent to **Two-step sign-in**:
+  1. scan the QR code (or type the key);
+  2. confirm with a code;
+  3. get 10 single-use recovery codes, shown once.
+* **Other staff** can turn it on from the account menu.
+* **Wrong codes** count towards the 5-attempt lockout and are audited.
+* **Lost phone:** a recovery code, or an administrator resets it on **Users**. For privileged accounts only a Super Admin can, and never for their own account.
+* **Microsoft 365** sign-ins rely on Microsoft's own MFA.
+* **Sessions:** the 5-minute security re-check keeps the "two-step done" mark, so people aren't asked again.
+
+**H3: virus scanning.**
+* A **ClamAV** container scans every upload before it is stored: CVs, certificates, new-hire documents, photos and the letter signature.
+* An infected file is refused with the virus name.
+* **Fail closed:** if the scanner can't be reached, the upload is refused with "try again in a few minutes".
+* Without `Antivirus:Host` (development, tests) the placeholder stays.
+
+**H4: encrypted backups.**
+* The backup service has its own image (MySQL tools + GnuPG) and encrypts each archive with GREL's **backup public key**, placed in `deploy/backup-key/`. The private key stays offline.
+* The data-protection keys now have their own archive.
+* The Backups screen downloads **only encrypted** database dumps, and shows a red warning while backups are unencrypted.
+* Without a key, backups are still made (unencrypted) with a warning, rather than stopping.
+
+**Files**
+* *H1:* `Infrastructure/Persistence/AuditSaveChangesInterceptor.cs` and the new migration.
+* *H2:*
+  * `Domain/Security/Roles.cs` (`TwoStepRequired`), `Domain/Settings/SettingCatalogue.cs`, `Domain/Auditing/AuditLog.cs` (actions);
+  * `Web/Security/TwoStepRequiredFilter.cs`, `Program.cs`;
+  * `Web/Controllers/AccountController.cs`, `Web/Models/AccountViewModels.cs`, views Account/LoginWith2fa and TwoStep;
+  * `UsersController` / `UserAdminService.ResetTwoStepAsync` and Users/Index;
+  * the account menu; QRCoder 1.6.0 (MIT).
+* *H3:* `Infrastructure/Storage/ClamAvScanner.cs`, `DependencyInjection.cs`, `VirusScanResult.Unavailable`, `AttachmentService`, `LetterSettingsService`.
+* *H4:* `deploy/backup.sh`, the new `deploy/backup.Dockerfile`, `deploy/backup-key/`, `docker-compose.prod.yml` (clamav, backup build, key mount), `BackupStore`, Backups/Index.
+* *Guides:* [docs/21](21-production-deployment.md) (encrypted backups, decrypt and restore, virus scanning, two-step sign-in, go-live checklist), [docs/04](04-security-and-roles.md), [docs/41](41-security-assessment.md).
+
+**Checked:** 325 tests pass, 9 of them new:
+* audit rows contain no personal values;
+* two-step sign-in through the real pages: forced set-up, wrong and right codes, single-use recovery codes, audit rows;
+* the admin reset rules;
+* ClamAV against a fake scanner: clean, infected, unreachable, error;
+* an upload refused while the scanner is down;
+* backups list and download only encrypted dumps.
+
+Outside the tests:
+* the GnuPG commands in `backup.sh` were run with a test key and decrypted back;
+* the compose file passes `docker compose config`;
+* the ClamAV and backup images were **not** run here (Docker isn't running on this PC). Check them on the server with the go-live checklist items in docs/21.
+
+---
+
 ## 22 November 2026: security assessment (docs/41)
 
 Requested by the user: a complete security assessment of the application and codebase.

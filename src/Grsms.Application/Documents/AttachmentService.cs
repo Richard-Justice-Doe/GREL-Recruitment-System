@@ -116,6 +116,8 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
         {
             buffer.Position = 0;
             var scan = await scanner.ScanAsync(buffer, safeName, ct);
+            if (scan.Unavailable)
+                return Result.Failure<int>($"'{safeName}' could not be checked for viruses right now, so it was not saved. Please try again in a few minutes.");
             if (!scan.Clean)
                 return Result.Failure<int>($"'{safeName}' was refused by the virus scan{(scan.Threat is null ? "" : $" ({scan.Threat})")}. Please upload a clean copy.");
         }

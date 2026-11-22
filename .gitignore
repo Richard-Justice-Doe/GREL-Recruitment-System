@@ -502,3 +502,8 @@ _removed-for-review/
 
 # Phase 16: the Backups screen's views (the Visual Studio rule "Backup*/" above would hide them)
 !src/Grsms.Web/Views/Backups/
+
+# 22 Nov 2026 (docs/41 H4): the backup public key lives only on the server (deploy/backup-key/*.asc)
+deploy/backup-key/*.asc
+!deploy/backup-key/
+!deploy/backup-key/README.txt

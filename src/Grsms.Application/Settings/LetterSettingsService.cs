@@ -64,6 +64,7 @@ public class LetterSettingsService(ISettingsStore store, SystemSettingsService s
 
         buffer.Position = 0;
         var scan = await scanner.ScanAsync(buffer, fileName, ct);
+        if (scan.Unavailable) return Result.Failure("The file could not be checked for viruses right now. Please try again in a few minutes.");
         if (!scan.Clean) return Result.Failure($"The file was refused by the virus scanner{(scan.Threat is null ? "" : $": {scan.Threat}")}.");
 
         buffer.Position = 0;

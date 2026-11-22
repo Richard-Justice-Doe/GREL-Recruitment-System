@@ -64,6 +64,13 @@ public static class Roles
     public static readonly IReadOnlyList<string> Staff = All.Where(r => r != Candidate).ToList();
 
     /// <summary>
+    /// 22 Nov 2026 (docs/41, H2): roles that can see every employee's personal data or change the system. They must use
+    /// two-step sign-in (an authenticator app) when signing in with a password, unless the Super Admin switches the rule off
+    /// (System settings → Sign-in security). Microsoft 365 sign-in relies on Microsoft's own two-step check.
+    /// </summary>
+    public static readonly IReadOnlyList<string> TwoStepRequired = [SuperAdmin, Admin, HrAdministrator, HrManager, RecruitmentOfficer];
+
+    /// <summary>
     /// Phase 14: the only roles an HR Administrator may give or take away. Every other role (built-in or custom) can
     /// only be assigned by a Super Admin, and accounts holding one can only be edited by a Super Admin, so nobody can
     /// raise their own (or a colleague's) access.

@@ -80,30 +80,87 @@ The `backup` container makes, every night after 01:00 GMT (`BACKUP_HOUR_GMT`):
 
 | File | Contains |
 |---|---|
-| `grsms-db-YYYYMMDD-HHMM.sql.gz` | the whole database (consistent snapshot, no downtime) |
-| `grsms-files-YYYYMMDD-HHMM.tar.gz` | uploaded documents (CVs, certificates, job descriptions), the **data-protection keys**, saved emails |
+| `grsms-db-YYYYMMDD-HHMM.sql.gz.gpg` | the whole database (consistent snapshot, no downtime) |
+| `grsms-files-YYYYMMDD-HHMM.tar.gz.gpg` | uploaded documents (CVs, certificates, job descriptions) and saved emails |
+| `grsms-keys-YYYYMMDD-HHMM.tar.gz.gpg` | the **data-protection keys** (sign-in cookies, emailed links, encrypted settings), on their own since 22 Nov 2026 |
 
-They go to `deploy/backups/` (`BACKUP_FOLDER`) and are kept for 30 days (`BACKUP_KEEP_DAYS`).
+They go to `deploy/backups/` (`BACKUP_FOLDER`) and are kept for 30 days (`BACKUP_KEEP_DAYS`). The `.gpg` ending means the file is encrypted (below). Without a backup key the files are made without `.gpg`, **unencrypted**.
 
-**Copy them off the server every day** (GREL's backup system, another server or cloud storage). A backup that lives only on the server is lost with it. The files archive contains the keys that protect sign-in cookies and emailed links, so treat backups as confidential.
+**Copy them off the server every day** (GREL's backup system, another server or cloud storage). A backup that lives only on the server is lost with it.
 
 Take one at any time:
 ```bash
 docker compose -f docker-compose.prod.yml exec backup bash /backup.sh now
 ```
 
-**From GRSMS (Phase 16):** a Super Admin sees the backups on **Management → Backups**, can press **Back up now**, and can download a database dump. The `web` container sees the backup folder at `/app/backups` (`Backups__Folder`). For *Back up now*, GRSMS writes `requests/backup-request` there. The backup service creates that `requests` folder at start-up, owned by the app's non-root user (uid 1654), and checks it every 30 seconds. The *files and keys* archive can't be downloaded through the web. Restoring stays the procedure below. See [23 System settings → Backups](23-system-settings.md#3-backups).
+**From GRSMS (Phase 16):**
+* A Super Admin sees the backups on **Management → Backups**, can press **Back up now**, and can download an **encrypted** database dump.
+* **Plain (unencrypted) dumps, the files archive and the keys archive cannot be downloaded through the web.** IT copies them on the server.
+* How it works on the server:
+  * The `web` container sees the backup folder at `/app/backups` (`Backups__Folder`).
+  * For *Back up now*, GRSMS writes `requests/backup-request` there.
+  * The backup service creates that `requests` folder at start-up, owned by the app's non-root user (uid 1654), and checks it every 30 seconds.
+* Restoring stays the procedure below. See [23 System settings → Backups](23-system-settings.md#3-backups).
+
+### Encrypted backups (22 Nov 2026, docs/41 H4)
+
+Backups hold every candidate's and employee's personal data. They are encrypted with GREL's **backup public key**, so a stolen backup file is unreadable. Only the matching **private key** opens it, and it never goes on this server.
+
+**Once, on an IT workstation (not the server):**
+```bash
+gpg --quick-gen-key "GREL GRSMS backups <it@grel.com.gh>" rsa4096 encr never   # choose a strong passphrase
+gpg --armor --export "GREL GRSMS backups" > grsms-backup-public.asc            # the PUBLIC key: goes on the server
+gpg --armor --export-secret-keys "GREL GRSMS backups" > grsms-backup-PRIVATE.asc  # keep OFFLINE (safe, password manager)
+```
+
+**On the server:**
+1. Copy `grsms-backup-public.asc` into `deploy/backup-key/`.
+2. Restart the backup service: `docker compose -f docker-compose.prod.yml up -d --build backup`.
+3. Its log should say `backups are ENCRYPTED for GREL's backup key …` (`docker compose -f docker-compose.prod.yml logs backup`).
+
+Until a key is there, the backup service still makes backups, unencrypted. It warns in its log, and **Management → Backups** shows a red warning.
+
+**Store at least two copies of the private key and its passphrase offline** (e.g. GREL's safe and the IT password manager). Without them no backup can be restored.
 
 ### Restoring
+On the machine that holds the private key, decrypt the files first:
+```bash
+gpg --output grsms-db-20261104-0100.sql.gz    --decrypt grsms-db-20261104-0100.sql.gz.gpg
+gpg --output grsms-files-20261104-0100.tar.gz --decrypt grsms-files-20261104-0100.tar.gz.gpg
+gpg --output grsms-keys-20261104-0100.tar.gz  --decrypt grsms-keys-20261104-0100.tar.gz.gpg
+```
+Then copy the decrypted files into `deploy/backups/` on the server you restore to, and run:
 ```bash
 docker compose -f docker-compose.prod.yml stop web
 # Database
 gunzip -c backups/grsms-db-20261104-0100.sql.gz | docker compose -f docker-compose.prod.yml exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" grsms'
-# Files (uploads and keys)
-docker run --rm -v grsms_app-data:/data -v "$PWD/backups:/backups" alpine sh -c "rm -rf /data/* && tar -xzf /backups/grsms-files-20261104-0100.tar.gz -C /data"
+# Files (uploads), then the keys
+docker run --rm -v grsms_app-data:/data -v "$PWD/backups:/backups" alpine sh -c "rm -rf /data/* && tar -xzf /backups/grsms-files-20261104-0100.tar.gz -C /data && tar -xzf /backups/grsms-keys-20261104-0100.tar.gz -C /data"
 docker compose -f docker-compose.prod.yml start web
 ```
-**Test a restore at least every three months**, on a separate machine or under another project name (`-p grsms-restoretest`).
+Delete the decrypted copies afterwards (`shred -u backups/*.gz`). **Test a restore at least every three months**, on a separate machine or under another project name (`-p grsms-restoretest`).
+
+Backups made before 22 Nov 2026 are single `grsms-files-…` archives that include the keys, and are not encrypted. Restore them as before, and delete them once newer encrypted backups exist.
+
+### Virus scanning of uploads (22 Nov 2026, docs/41 H3)
+
+The `clamav` container scans every uploaded file (CVs, certificates, new-hire documents, letter signatures) before GRSMS stores it. It downloads new virus signatures by itself several times a day.
+* **Size:** it needs about **2 GB of memory**. Allow for this on the server.
+* **Start-up:** after a start it takes a few minutes to load the signatures. During that time, and whenever it is down, **uploads are refused** with "could not be checked for viruses right now … try again in a few minutes". Files are never let through unscanned.
+* **An infected file** is refused with the virus name and never stored; the app log records it.
+* **Check it:** `docker compose -f docker-compose.prod.yml logs clamav` should show `clamd` ready.
+* **Test it:** upload the harmless [EICAR test file](https://www.eicar.org/download-anti-malware-testfile/) renamed `eicar.pdf`. It must be refused.
+
+### Two-step sign-in (22 Nov 2026, docs/41 H2)
+
+Super Admins, Admins, HR Administrators, HR Managers and Recruitment Officers who sign in with a password must use an authenticator app.
+* **First time:** after the update, the first password sign-in sends them to **Two-step sign-in**. They scan the QR code, type the code, and save their 10 recovery codes. Microsoft 365 sign-in is not affected; GREL IT should require MFA for it in Microsoft Entra (Conditional Access).
+* **Lost phone:** the person uses a recovery code. Otherwise an administrator presses the phone button on **Users**; for privileged accounts only a Super Admin can do this.
+* **The Super Admin:** keep their recovery codes in the safe with the backup key. If the only Super Admin loses both phone and codes, IT clears it in the database:
+  ```bash
+  docker compose -f docker-compose.prod.yml exec db sh -c "mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" grsms -e \"UPDATE AspNetUsers SET TwoFactorEnabled=0 WHERE Email='admin@grel.com.gh';\""
+  ```
+* **Switching it off:** a Super Admin can do so under **System settings → Sign-in security** (not advised).
 
 ## 6. Monitoring
 
@@ -148,6 +205,9 @@ docker compose -f docker-compose.prod.yml start web
 
 **Operations**
 - [ ] First nightly backup present in `deploy/backups`; copied off the server; one **test restore** done
+- [ ] Backup public key in `deploy/backup-key/`; backup log says "ENCRYPTED"; private key and passphrase stored offline in two places (docs/41 H4)
+- [ ] `clamav` running; the EICAR test file is refused on upload (docs/41 H3)
+- [ ] Super Admin has set up two-step sign-in and stored the recovery codes offline (docs/41 H2)
 - [ ] `/health` added to the uptime monitor
 - [ ] Someone named to check the log and backups weekly
 - [ ] One full journey done on the live system with test data (request → vacancy → advert → application → shortlist → interview → offer → onboarding), then the test records removed or marked

@@ -7,7 +7,18 @@
 
 **Method:** source review, dependency scan (`dotnet list package --vulnerable`) and configuration review. Attacks were checked against the code paths and the existing automated tests; no live penetration test was run against a deployed server.
 
-**Status:** findings only. Nothing in this document has been changed in the code yet (see §10 for the plan).
+**Status (updated 22 Nov 2026):** the four **High** findings are **fixed**, as below. The Medium and Low items remain in the plan (§12).
+
+| # | Finding | Fixed by |
+|---|---|---|
+| H1 | Audit trail exposed personal data | The audit trail records *which* personal field changed, never its value (`(personal data)` / `(changed)`). Covers the personal record and everything in it (bank accounts, family, next of kin, emergency contacts, beneficiaries, the signed declaration's snapshot) and an employee's date of birth. Existing audit rows were cleaned by migration `AuditPersonalDataRedaction` (script `database/41_audit_personal_data_redaction.sql`). |
+| H2 | No MFA | **Two-step sign-in** with an authenticator app (QR code set-up, 10 single-use recovery codes). It is **required** for Super Admin, Admin, HR Administrator, HR Manager and Recruitment Officer password sign-ins (System settings → Sign-in security, on by default) and optional for everyone else. Wrong codes count towards lockout and are audited. Administrators can reset a lost phone (privileged accounts: Super Admin only; never one's own). Microsoft 365 sign-in relies on Microsoft's MFA. |
+| H3 | No virus scanning | **ClamAV** container; every upload is scanned before it is stored. **Fails closed**: if the scanner is down, the upload is refused with "try again in a few minutes". |
+| H4 | Unencrypted backups with keys, downloadable | Backups are **encrypted with GREL's backup public key** (GnuPG; the private key stays offline). The data-protection keys are in a separate archive. Only *encrypted* database dumps can be downloaded through the app; the Backups screen warns in red while no key is configured. |
+
+**Score after these fixes: about 88 / 100.** The data-protection score rises from 62 to about 74. The remaining gaps are personal-data encryption in the database (M1) and retention and erasure (M2).
+
+Server steps for GREL IT: [docs/21 §5](21-production-deployment.md#encrypted-backups-22-nov-2026-docs41-h4).
 
 > **Modules named in the brief that GRSMS does not have.** Leave management, performance management (appraisals) and payroll are planned but not built (docs/30, Phases 29–32). There is therefore no "payroll configuration" to protect today. The controls below must be applied to them when they are built.
 

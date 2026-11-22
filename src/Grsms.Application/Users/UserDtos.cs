@@ -14,7 +14,8 @@ public record UserListItemDto(
     bool IsActive,
     bool IsLockedOut,
     bool IsCandidate,
-    DateTime? LastSignInAt);
+    DateTime? LastSignInAt,
+    bool TwoStepEnabled = false); // 22 Nov 2026 (docs/41, H2)
 
 /// <summary>The staff-account create/edit form used by the HR Administrator.</summary>
 public class UserFormDto

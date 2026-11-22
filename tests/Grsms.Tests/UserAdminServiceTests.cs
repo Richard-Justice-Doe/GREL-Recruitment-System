@@ -39,6 +39,50 @@ public class UserAdminServiceTests : IDisposable
         return result.Value!;
     }
 
+    /// <summary>22 Nov 2026 (docs/41, H2): resetting someone's two-step sign-in (lost phone).</summary>
+    [Fact]
+    public async Task Two_step_reset_needs_a_super_admin_for_privileged_accounts_and_never_for_ones_own()
+    {
+        var hrm = await CreateAsync("hrm2fa@grel.test", Roles.HrManager);
+        var clerk = await CreateAsync("clerk2fa@grel.test", Roles.Employee);
+        async Task TurnOnAsync(string id)
+        {
+            using var scope = _db.NewScope();
+            var users = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Grsms.Infrastructure.Identity.ApplicationUser>>();
+            var u = (await users.FindByIdAsync(id))!;
+            await users.ResetAuthenticatorKeyAsync(u);
+            await users.SetTwoFactorEnabledAsync(u, true);
+        }
+        async Task<Grsms.Application.Common.Result> ResetAsync(string id)
+        {
+            using var scope = _db.NewScope();
+            return await scope.ServiceProvider.GetRequiredService<IUserAdminService>().ResetTwoStepAsync(id);
+        }
+        async Task<bool> OnAsync(string id) => await Db(db => db.Users.Where(u => u.Id == id).Select(u => u.TwoFactorEnabled).SingleAsync());
+        await TurnOnAsync(hrm);
+        await TurnOnAsync(clerk);
+
+        // An HR Administrator may reset an everyday account, not an HR Manager's.
+        _db.CurrentUser.SignInAs("hradmin-id", "HR Admin", Roles.HrAdministrator);
+        Assert.Contains("only a Super Admin", (await ResetAsync(hrm)).Errors.Single());
+        Assert.True((await ResetAsync(clerk)).Succeeded);
+        Assert.False(await OnAsync(clerk));
+        Assert.Contains("not set up", (await ResetAsync(clerk)).Errors.Single());
+
+        // Nobody resets their own; a Super Admin resets the HR Manager's.
+        _db.CurrentUser.SignInAs(hrm, "HR Manager", Roles.HrManager, Roles.SuperAdmin);
+        Assert.Contains("your own", (await ResetAsync(hrm)).Errors.Single());
+        _db.CurrentUser.SignInAs("super-id", "Super Admin", Roles.SuperAdmin);
+        Assert.True((await ResetAsync(hrm)).Succeeded);
+        Assert.False(await OnAsync(hrm));
+    }
+
+    private async Task<T> Db<T>(Func<ApplicationDbContext, Task<T>> work)
+    {
+        using var scope = _db.NewScope();
+        return await work(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>());
+    }
+
     [Fact]
     public async Task New_staff_account_gets_roles_must_change_password_and_audit_rows()
     {

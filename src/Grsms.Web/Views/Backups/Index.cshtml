@@ -1,4 +1,4 @@
-@* Phase 16: Backups (Super Admin). Lists what the backup service made; "Back up now"; download a database dump.
+@* Phase 16: Backups (Super Admin). Lists what the backup service made; "Back up now"; download an ENCRYPTED database dump (docs/41 H4).
    Restoring is deliberately not here: it replaces live data and is done on the server (docs/21-production-deployment.md). *@
 @using Grsms.Application.Settings
 @model BackupOverviewDto
@@ -31,6 +31,15 @@
 }
 else
 {
+    @* 22 Nov 2026 (docs/41, H4) *@
+    @if (latest is { Encrypted: false })
+    {
+        <div class="alert alert-danger">
+            <i class="fa-solid fa-lock-open me-1"></i><strong>Backups are not encrypted.</strong> Anyone who gets a copy of a backup can read all
+            recruitment and personal data. GREL IT: put GREL's backup public key (a <code>.asc</code> file) in <code>deploy/backup-key/</code> on the server and restart
+            the backup service (docs/21-production-deployment.md, "Encrypted backups"). Until then, database dumps cannot be downloaded here.
+        </div>
+    }
     <div class="row g-3 mb-3">
         <div class="col-md-4">
             <div class="ats-tile h-100">
@@ -85,13 +94,13 @@ else
                             <td class="text-end">@Size(f.SizeBytes)</td>
                             <td class="small text-nowrap">@f.CreatedAt.ToString("dd MMM yyyy HH:mm") GMT</td>
                             <td class="text-end">
-                                @if (f.Kind == "Database")
+                                @if (f.Downloadable)
                                 {
                                     <a asp-action="Download" asp-route-id="@f.Name" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-download me-1"></i>Download</a>
                                 }
                                 else
                                 {
-                                    <span class="small text-body-secondary" title="This archive holds the server's encryption keys, so it is copied by IT on the server, not through the web.">On the server only</span>
+                                    <span class="small text-body-secondary" title="@(f.Kind == "Database" ? "Not encrypted, so it never leaves the server through the web: IT copies it." : "Copied by IT on the server, not through the web.")">On the server only</span>
                                 }
                             </td>
                         </tr>

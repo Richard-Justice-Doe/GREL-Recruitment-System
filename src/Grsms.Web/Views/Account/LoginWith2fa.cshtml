@@ -1,0 +1,41 @@
+@* 22 Nov 2026 (docs/41, H2): the second step of signing in: the 6-digit code from the authenticator app, or a recovery code. *@
+@model LoginWith2faViewModel
+@{
+    ViewData["Title"] = "Two-step sign-in";
+    Layout = "_AuthLayout";
+}
+
+<h1 class="h4 mb-1"><i class="fa-solid fa-shield-halved text-primary me-2"></i>Two-step sign-in</h1>
+<p class="text-body-secondary mb-4">
+    @(Model.UseRecoveryCode
+        ? "Type one of the recovery codes you saved when you set up two-step sign-in. Each code works once."
+        : "Open the authenticator app on your phone and type the 6-digit code it shows for GREL GRSMS.")
+</p>
+
+<form asp-action="LoginWith2fa" method="post" novalidate>
+    <input type="hidden" asp-for="RememberMe" />
+    <input type="hidden" asp-for="ReturnUrl" />
+    <input type="hidden" asp-for="UseRecoveryCode" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+    <div class="mb-4">
+        <label asp-for="Code" class="form-label">@(Model.UseRecoveryCode ? "Recovery code" : "6-digit code")</label>
+        <input asp-for="Code" class="form-control form-control-lg text-center" autocomplete="one-time-code" autofocus
+               inputmode="@(Model.UseRecoveryCode ? "text" : "numeric")" placeholder="@(Model.UseRecoveryCode ? "xxxxx-xxxxx" : "123 456")" />
+        <span asp-validation-for="Code" class="text-danger small"></span>
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Continue</button>
+</form>
+
+<p class="text-center small mt-4 mb-0">
+    @if (Model.UseRecoveryCode)
+    {
+        <a asp-action="LoginWith2fa" asp-route-rememberMe="@Model.RememberMe" asp-route-returnUrl="@Model.ReturnUrl">Use the authenticator app instead</a>
+    }
+    else
+    {
+        <text>Lost your phone? </text><a asp-action="LoginWith2fa" asp-route-rememberMe="@Model.RememberMe" asp-route-returnUrl="@Model.ReturnUrl" asp-route-recovery="true">Use a recovery code</a>
+    }
+    · <a asp-action="Login">Back to sign in</a>
+</p>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

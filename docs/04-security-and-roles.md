@@ -207,6 +207,9 @@ The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each 
 |---|---|
 | **Password policy** | At least 10 characters with upper case, lower case, a digit and a symbol, and at least 4 different characters |
 | **Account lockout** | 5 wrong passwords lock the account for 15 minutes. A Super Admin or HR Administrator can unlock it early on the Users screen. |
+| **Two-step sign-in** (22 Nov 2026, docs/41 H2) | An authenticator-app code after the password, **required** for Super Admin, Admin, HR Administrator, HR Manager and Recruitment Officer (System settings → Sign-in security), optional for others (account menu → *Two-step sign-in*). 10 single-use recovery codes; wrong codes count towards the lockout. A lost phone is reset on the Users screen (privileged accounts: Super Admin only). Microsoft 365 sign-in uses Microsoft's own MFA. |
+| **Virus scanning** (22 Nov 2026, docs/41 H3) | Every upload is scanned by ClamAV before it is stored; if the scanner is down, uploads are refused (fail closed). |
+| **Audit trail and personal data** (22 Nov 2026, docs/41 H1) | Changes to the personal record (bank, SSNIT, family, next of kin, date of birth …) are audited as *(personal data) / (changed)*, never with the values. |
 | **Session timeout** | Signed out after 20 minutes without activity (`Security:SessionTimeoutMinutes`) |
 | **Forced password change** | Accounts created or reset by an administrator must choose a new password at their next sign-in |
 | **Deactivated accounts** | Cannot sign in by password or Microsoft 365. An existing session ends within 5 minutes. |

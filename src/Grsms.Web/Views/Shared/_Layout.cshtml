@@ -109,6 +109,11 @@
                         }
                         <li><a class="dropdown-item" asp-controller="MyAuditTrail" asp-action="Index"><i class="fa-solid fa-clock-rotate-left me-2"></i>My audit trail</a></li>
                         <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword"><i class="fa-solid fa-key me-2"></i>Change password</a></li>
+                        @if (!User.IsInRole(Roles.Candidate))
+                        {
+                            @* 22 Nov 2026 (docs/41, H2) *@
+                            <li><a class="dropdown-item" asp-controller="Account" asp-action="TwoStep"><i class="fa-solid fa-shield-halved me-2"></i>Two-step sign-in</a></li>
+                        }
                         <li>
                             <form asp-controller="Account" asp-action="Logout" method="post">
                                 <button type="submit" class="dropdown-item"><i class="fa-solid fa-right-from-bracket me-2"></i>Sign out</button>

@@ -89,4 +89,10 @@ public interface IUserAdminService
 
     /// <summary>Clears a lockout caused by too many wrong passwords.</summary>
     Task<Result> UnlockAsync(string id, CancellationToken ct = default);
+
+    /// <summary>
+    /// 22 Nov 2026 (docs/41, H2): turns off a person's two-step sign-in (lost or new phone) so they set it up again at their next
+    /// sign-in. Not for one's own account; for privileged accounts only a Super Admin.
+    /// </summary>
+    Task<Result> ResetTwoStepAsync(string id, CancellationToken ct = default);
 }

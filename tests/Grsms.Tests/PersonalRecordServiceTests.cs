@@ -83,6 +83,31 @@ public class PersonalRecordServiceTests : OnboardingTestBase
     }
 
     [Fact]
+    public async Task The_audit_trail_records_personal_record_changes_without_the_personal_values()
+    {
+        // docs/41 H1: audit readers (Admin, HR Administrator) must not see bank, SSNIT, religion or family details.
+        var (_, app) = await LetterSignedAsync();
+        As(_candidate, Roles.Candidate);
+        Assert.True((await RunRecord(s => s.SaveAsync(app, ValidRecord()))).Succeeded);
+        var changed = ValidRecord();
+        changed.SsnitNumber = "c999999999999";
+        changed.BankAccounts[0].AccountNumber = "2022220099999";
+        Assert.True((await RunRecord(s => s.SaveAsync(app, changed))).Succeeded);
+        Assert.True((await RunRecord(s => s.SignAsync(app, "Ama Mensah", true))).Succeeded);
+
+        var names = Grsms.Infrastructure.Persistence.AuditSaveChangesInterceptor.PersonalEntities.Select(t => t.Name).ToList();
+        var rows = await Db(db => db.AuditLogs.Where(a => names.Contains(a.EntityName!)).ToListAsync());
+        Assert.Contains(rows, a => a.EntityName == nameof(EmployeePersonalRecord));
+        Assert.Contains(rows, a => a.EntityName == nameof(EmployeeBankAccount));
+        Assert.Contains(rows, a => a.EntityName == nameof(EmployeeDeclaration));
+        var text = string.Join("\n", rows.Select(a => a.OldValues + " " + a.NewValues));
+        foreach (var secret in new[] { "c123456789012", "c999999999999", "1011130012345", "2022220099999", "Christian", "House 12, Anaji", "020 555 1234", "Esi Mensah" })
+            Assert.DoesNotContain(secret, text);
+        Assert.Contains("\"SsnitNumber\":\"(personal data)\"", text);
+        Assert.Contains("\"SsnitNumber\":\"(changed)\"", text); // the change itself is still recorded
+    }
+
+    [Fact]
     public async Task Signing_records_name_date_ip_and_a_frozen_copy_and_any_change_needs_a_new_signature()
     {
         var (id, app) = await LetterSignedAsync();

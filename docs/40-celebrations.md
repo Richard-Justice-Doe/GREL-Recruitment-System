@@ -20,6 +20,7 @@ Added 17 November 2026. GRSMS celebrates birthdays and work anniversaries withou
 ## What staff see
 
 * **Home:** a card with today's birthdays and anniversaries and the next few days, each with a photo or initials and the department.
+* **Your own photo:** each employee adds or changes it under **My photo** (account menu, or the button on the Celebrations page).
 * **Action Center:** *🎂 Birthdays today: 3 · 🎉 Work anniversaries today: 2 · View celebrations →*.
 * **Menu → Celebrations:**
   * a banner with gentle confetti (none when the device asks for reduced motion);

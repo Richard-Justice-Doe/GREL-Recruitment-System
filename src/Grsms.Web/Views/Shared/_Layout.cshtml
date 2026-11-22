@@ -101,6 +101,8 @@
                         @if (!User.IsInRole(Roles.Candidate))
                         {
                             @* Usability U1: a staff member's own job search and probation (they left the sidebar). *@
+                            @* 22 Nov 2026: the employee's own profile picture *@
+                            <li><a class="dropdown-item" asp-controller="MyPhoto" asp-action="Index"><i class="fa-regular fa-image me-2"></i>My photo</a></li>
                             <li><a class="dropdown-item" asp-controller="MyProbation" asp-action="Index"><i class="fa-solid fa-seedling me-2"></i>My probation</a></li>
                             <li><a class="dropdown-item" asp-controller="Careers" asp-action="Index"><i class="fa-solid fa-magnifying-glass me-2"></i>Job openings</a></li>
                             <li><a class="dropdown-item" asp-controller="MyApplications" asp-action="Index"><i class="fa-regular fa-paper-plane me-2"></i>My applications</a></li>

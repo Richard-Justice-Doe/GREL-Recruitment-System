@@ -73,7 +73,8 @@ Staff hired before GRSMS have no personal record yet, so the first four parts sh
 
 Each has a **Fix** link where one exists.
 
-**Photo:** *Add photo* or *Change photo* under the picture (HR only, JPEG or PNG, up to 3 MB); *Remove photo* goes back to initials. Earlier photos are kept as history.
+**Photo:** *Add photo* or *Change photo* under the picture (HR; JPEG or PNG, up to 3 MB); *Remove photo* goes back to initials. Earlier photos are kept as history.
+* **Each employee uploads their own** (22 Nov 2026): account menu → **My photo** (also a button on the Celebrations page). They can upload, replace or remove their own picture, with the same rules; they can never change a colleague's. Staff without an employee record are asked to have HR register them first.
 * Without an uploaded photo, the passport-size photograph from onboarding is used, once verified.
 * Photos are shown to whoever may open the employee's record, and to the employee.
 

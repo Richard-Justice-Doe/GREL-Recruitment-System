@@ -85,6 +85,22 @@ public class CelebrationWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsW
         Assert.Contains("Kofi Boateng", await staff.GetStringAsync("/Celebrations"));
         Assert.Contains("Save date of birth", await hr.GetStringAsync($"/Employees/Details/{kofi}"));
 
+        // 22 Nov 2026: Kofi uploads his own photo from "My photo" (in his account menu); colleagues see it on his celebration card.
+        Assert.Contains("/MyPhoto", await kofiClient.GetStringAsync("/"));
+        var myPhoto = await kofiClient.GetStringAsync("/MyPhoto");
+        Assert.Contains("Add your photo", myPhoto);
+        Assert.Equal(HttpStatusCode.NotFound, (await kofiClient.GetAsync("/MyPhoto/Photo")).StatusCode);
+        var token = System.Text.RegularExpressions.Regex.Match(myPhoto, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
+        var png = new ByteArrayContent(Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="));
+        png.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        var upload = new MultipartFormDataContent { { new StringContent(WebUtility.HtmlDecode(token)), "__RequestVerificationToken" }, { png, "photo", "kofi.png" } };
+        Assert.Equal(HttpStatusCode.Redirect, (await kofiClient.PostAsync("/MyPhoto/Upload", upload)).StatusCode);
+        Assert.Contains("Change your photo", await kofiClient.GetStringAsync("/MyPhoto"));
+        Assert.Equal("image/png", (await kofiClient.GetAsync("/MyPhoto/Photo")).Content.Headers.ContentType!.MediaType);
+        Assert.Equal("image/png", (await staff.GetAsync($"/Celebrations/Photo/{kofi}")).Content.Headers.ContentType!.MediaType);
+        Assert.Contains("You have no employee record yet", await staff.GetStringAsync("/MyPhoto")); // Akua has no employee record
+
         // Candidates can't open it.
         var (candidate, _) = await UserAsync("cw.cand@mail.test", "Kwame Cand", Roles.Candidate);
         Assert.Contains("/Account/AccessDenied", (await candidate.GetAsync("/Celebrations")).Headers.Location!.ToString());

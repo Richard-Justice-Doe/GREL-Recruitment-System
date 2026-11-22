@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Grsms.Tests;
 
 /// <summary>
-/// 17 November 2026 (employee directory and profile): photos (HR only, JPEG/PNG up to 3 MB, the verified onboarding photograph as
+/// 17 November 2026 (employee directory and profile): photos (HR, or the employee for their own since 22 Nov 2026; JPEG/PNG up to 3 MB, the verified onboarding photograph as
 /// a fallback, same visibility as the record), the profile completion from what GRSMS holds, the pending actions, and the team.
 /// </summary>
 public class EmployeeProfileTests : OnboardingTestBase
@@ -58,6 +58,31 @@ public class EmployeeProfileTests : OnboardingTestBase
         Assert.True((await Svc<Grsms.Application.Common.Result, EmployeePhotoService>(s => s.RemoveAsync(e.Id))).Succeeded);
         Assert.Null(await Svc<Grsms.Application.Documents.FileDownload?, EmployeePhotoService>(s => s.OpenAsync(e.Id)));
         Assert.Equal(("AM", "KO", "?"), (EmployeePhotoService.Initials("Ama Mensah"), EmployeePhotoService.Initials("Kofi"), EmployeePhotoService.Initials("  ")));
+    }
+
+    /// <summary>22 Nov 2026: each employee uploads, replaces and removes their own photo; never a colleague's.</summary>
+    [Fact]
+    public async Task An_employee_uploads_and_removes_their_own_photo_but_not_a_colleagues()
+    {
+        await ActivatedAsync();
+        var e = await EmployeeAsync();
+
+        As(_staff, Roles.Employee); // a colleague without an employee record
+        Assert.Null(await Svc<Grsms.Domain.Employees.Employee?, EmployeePhotoService>(s => s.MineAsync()));
+        Assert.Contains("your own photo", (await Svc<Grsms.Application.Common.Result, EmployeePhotoService>(s => s.UploadAsync(e.Id, "me.png", Png()))).Errors[0]);
+
+        As(_candidate, Roles.Employee); // Ama, the employee herself
+        Assert.Equal(e.Id, (await Svc<Grsms.Domain.Employees.Employee?, EmployeePhotoService>(s => s.MineAsync()))!.Id);
+        Assert.Contains("JPEG or PNG", (await Svc<Grsms.Application.Common.Result, EmployeePhotoService>(s => s.UploadAsync(e.Id, "cv.pdf", FakePdf()))).Errors[0]);
+        var up = await Svc<Grsms.Application.Common.Result, EmployeePhotoService>(s => s.UploadAsync(e.Id, "ama.png", Png()));
+        Assert.True(up.Succeeded, string.Join(" ", up.Errors));
+        Assert.NotNull((await EmployeeAsync()).PhotoAttachmentId);
+
+        As(_staff, Roles.Employee);
+        Assert.False((await Svc<Grsms.Application.Common.Result, EmployeePhotoService>(s => s.RemoveAsync(e.Id))).Succeeded);
+        As(_candidate, Roles.Employee);
+        Assert.True((await Svc<Grsms.Application.Common.Result, EmployeePhotoService>(s => s.RemoveAsync(e.Id))).Succeeded);
+        Assert.Null((await EmployeeAsync()).PhotoAttachmentId);
     }
 
     [Fact]

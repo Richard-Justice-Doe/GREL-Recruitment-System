@@ -17,6 +17,7 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <a asp-action="Calendar" class="btn btn-outline-secondary"><i class="fa-regular fa-calendar me-1"></i>Calendar</a>
+        @if (mine is { IsEmployee: true }) { <a asp-controller="MyPhoto" asp-action="Index" class="btn btn-outline-secondary"><i class="fa-regular fa-image me-1"></i>My photo</a> }
         @if (canManage) { <a asp-action="Settings" class="btn btn-outline-secondary"><i class="fa-solid fa-gear me-1"></i>Settings</a> }
     </div>
 </div>

@@ -11,7 +11,7 @@ namespace Grsms.Application.Employees;
 /// <summary>
 /// 17 November 2026 (employee directory, E1): employee photos.
 ///   * HR (employees.manage) uploads or replaces a photo (JPEG or PNG, at most 3 MB, the usual upload checks); earlier photos stay as
-///     history; removing it clears the link.
+///     history; removing it clears the link. Since 22 Nov 2026 each employee does the same for their own photo ("My photo").
 ///   * With no photo uploaded, the <b>passport-size photograph</b> the new employee uploaded during onboarding is used once the
 ///     Recruitment Officer has verified it.
 ///   * Photos are shown to whoever may open the employee's record (same visibility as <see cref="EmployeeService"/>) and to the
@@ -40,11 +40,26 @@ public class EmployeePhotoService(
         return v.SeeAll || v.HodDepartmentIds.Contains(e.DepartmentId);
     }
 
+    /// <summary>22 Nov 2026: HR changes anyone's photo; an employee changes their own.</summary>
+    private bool MayChange(Employee e) => me.HasPermission(Permissions.ManageEmployees) || (me.UserId is not null && e.UserId == me.UserId);
+
+    /// <summary>22 Nov 2026: the signed-in employee's record (current staff only), for "My photo"; null when they have none.</summary>
+    public async Task<Employee?> MineAsync(CancellationToken ct = default)
+    {
+        if (me.UserId is null || me.IsInRole(Roles.Candidate)) return null;
+        var found = (await employees.ListAsync(x => x.UserId == me.UserId && x.Status != EmployeeStatus.Separated, ct)).FirstOrDefault();
+        return found is null ? null : await employees.GetByIdAsync(found.Id, ct);
+    }
+
+    /// <summary>True when the employee has a photo to show (uploaded, or the verified onboarding photograph).</summary>
+    public async Task<bool> HasPhotoAsync(Employee e, CancellationToken ct = default) =>
+        (await WithPhotoAsync([(e.Id, e.PhotoAttachmentId, e.OnboardingRecordId)], ct)).Contains(e.Id);
+
     public async Task<Result> UploadAsync(int employeeId, string? fileName, Stream? content, CancellationToken ct = default)
     {
-        if (!me.HasPermission(Permissions.ManageEmployees)) return Result.Failure("Only HR can change employee photos.");
         var e = await employees.GetByIdAsync(employeeId, ct);
         if (e is null) return Result.Failure("Employee not found.");
+        if (!MayChange(e)) return Result.Failure("You can only change your own photo.");
         if (content is null || string.IsNullOrWhiteSpace(fileName)) return Result.Failure("Choose a photo (JPEG or PNG).");
         if (!IsImage(fileName)) return Result.Failure("The photo must be a JPEG or PNG picture.");
 
@@ -61,9 +76,9 @@ public class EmployeePhotoService(
 
     public async Task<Result> RemoveAsync(int employeeId, CancellationToken ct = default)
     {
-        if (!me.HasPermission(Permissions.ManageEmployees)) return Result.Failure("Only HR can change employee photos.");
         var e = await employees.GetByIdAsync(employeeId, ct);
         if (e is null) return Result.Failure("Employee not found.");
+        if (!MayChange(e)) return Result.Failure("You can only change your own photo.");
         e.PhotoAttachmentId = null; // the file stays as history
         await unitOfWork.SaveChangesAsync(ct);
         return Result.Success();

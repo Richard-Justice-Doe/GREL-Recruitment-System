@@ -1,0 +1,52 @@
+@* 22 Nov 2026: "My photo": the employee uploads, replaces or removes their own profile picture. *@
+@model Grsms.Web.Controllers.MyPhotoController.MyPhotoModel
+@{
+    ViewData["Title"] = "My photo";
+    var colour = Math.Abs(Model.Name.Aggregate(17, (h, c) => unchecked(h * 31 + c))) % 8;
+}
+
+<div class="page-header">
+    <div>
+        <h1>My photo</h1>
+        <p>Your profile picture in the employee directory, on your profile and on your birthday and work anniversary cards.</p>
+    </div>
+</div>
+
+@if (!Model.IsEmployee)
+{
+    <div class="dash-card dash-empty"><i class="fa-regular fa-id-badge d-block"></i>You have no employee record yet. Ask HR to register you, then add your photo here.</div>
+}
+else
+{
+    <div class="card glass" style="max-width: 34rem">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap gap-4 align-items-start">
+                <div class="text-center">
+                    @if (Model.HasPhoto)
+                    {
+                        <img class="emp-avatar emp-avatar-xl" src="@Url.Action("Photo", "MyPhoto", new { v = DateTime.UtcNow.Ticks })" alt="Your photo" />
+                    }
+                    else
+                    {
+                        <span class="emp-avatar emp-avatar-xl emp-avatar-c@(colour)" role="img" aria-label="@Model.Name">@Model.Initials</span>
+                    }
+                    <div class="small text-body-secondary mt-2">@(Model.HasPhoto ? (Model.Uploaded ? "Your photo" : "From your onboarding") : "No photo yet: your initials are shown")</div>
+                </div>
+                <div class="flex-grow-1" style="min-width: 14rem">
+                    <form asp-action="Upload" method="post" enctype="multipart/form-data">
+                        <label for="photo" class="form-label">@(Model.HasPhoto ? "Change your photo" : "Add your photo")</label>
+                        <input id="photo" type="file" name="photo" accept=".jpg,.jpeg,.png" class="form-control mb-2" required />
+                        <div class="form-text mb-3">JPEG or PNG, up to 3 MB. A clear, recent head-and-shoulders picture works best.</div>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload me-1"></i>Upload photo</button>
+                    </form>
+                    @if (Model.Uploaded)
+                    {
+                        <form asp-action="Remove" method="post" class="mt-3">
+                            <button type="submit" class="btn btn-link btn-sm p-0 text-danger" data-confirm="Remove your photo? Your initials will be shown instead.">Remove my photo</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}

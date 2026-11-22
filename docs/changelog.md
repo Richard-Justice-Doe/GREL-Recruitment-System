@@ -4,6 +4,34 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 22 November 2026: each employee uploads their own profile picture
+
+Requested by the user: "each employee should be able to upload their own profile picture". Until now only HR could.
+
+* **My photo** is a new page, reached from the account menu (and a button on the Celebrations page). The employee can:
+  * see their current picture (uploaded, or the verified onboarding photograph) or their initials;
+  * **Upload photo** to add or replace it;
+  * **Remove my photo** to go back to initials.
+* **Same rules as HR:** JPEG or PNG, at most 3 MB, the usual file checks, and earlier photos kept as history.
+* **Who can change what:** an employee can only ever change their own photo. HR can still change anyone's. Staff without an employee record are told to ask HR to register them.
+* **Where it shows:** the directory, the profile, the organisation chart and birthday and anniversary cards. Visibility rules are unchanged.
+
+**Files:**
+* `Application/Employees/EmployeePhotoService.cs`: the employee may change their own photo; `MineAsync`, `HasPhotoAsync`.
+* `Web/Controllers/MyPhotoController.cs`: Index, Photo, Upload, Remove.
+* Views: `Views/MyPhoto/Index.cshtml`; the account menu (`_Layout`) and the Celebrations button.
+* Guides: [docs/31](31-employees.md) and [docs/40](40-celebrations.md).
+
+No database change.
+
+**Checked:**
+* a new service test: an employee changes their own photo and can't change a colleague's;
+* the celebrations web test: an employee uploads through the page, sees it, and colleagues see it on the celebration card.
+
+The full suite passes (318).
+
+---
+
 ## 22 November 2026: every employee's birthday can be in celebrations
 
 Requested by the user: "every employee should be able to see the employees' birthday".

@@ -600,7 +600,10 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
             Assert.Contains(screen, adminPage);
         Assert.DoesNotContain("Backups", adminPage); // Super Admin only
         var panelClient = await SignedInAsync("m.panel@grel.test");
-        Assert.Contains("/Account/AccessDenied", (await panelClient.GetAsync("/Administration")).Headers.Location!.ToString()); // nothing to administer
+        // 22 Nov 2026 (docs/41 H2): nothing to administer except their own account: only "Two-step sign-in".
+        var panelAdmin = await panelClient.GetStringAsync("/Administration");
+        Assert.Contains("Two-step sign-in", panelAdmin);
+        Assert.DoesNotContain("Departments", panelAdmin);
     }
 
     /// <summary>docs/36 AI-6: the assistant shows only when switched on, answers the new employee and staff, and refuses other people's onboarding.</summary>

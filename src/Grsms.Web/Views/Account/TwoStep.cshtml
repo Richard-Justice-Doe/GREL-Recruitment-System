@@ -47,7 +47,7 @@
                     </div>
                     @if (Model.Required)
                     {
-                        <p class="small text-body-secondary mt-3 mb-0">Your role must use two-step sign-in. New phone? Ask an administrator to reset it, then set it up again.</p>
+                        <p class="small text-body-secondary mt-3 mb-0">Two-step sign-in is required for your account. New phone? Ask an administrator to reset it, then set it up again.</p>
                     }
                 </div>
             </div>
@@ -56,7 +56,7 @@
         {
             @if (Model.MustSetUp)
             {
-                <div class="alert alert-warning small"><i class="fa-solid fa-shield-halved me-1"></i>Your role handles staff personal data, so GRSMS asks you to set up two-step sign-in before you continue. It takes about two minutes.</div>
+                <div class="alert alert-warning small"><i class="fa-solid fa-shield-halved me-1"></i>Two-step sign-in is required for your account, so GRSMS asks you to set it up before you continue. It takes about two minutes.</div>
             }
             <div class="card glass mb-3">
                 <div class="card-body p-4">

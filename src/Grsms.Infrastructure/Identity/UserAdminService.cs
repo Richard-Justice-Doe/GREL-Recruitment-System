@@ -73,7 +73,8 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
                 u.LockoutEnd > now,
                 u.IsCandidate,
                 u.LastSignInAt,
-                u.TwoFactorEnabled))
+                u.TwoFactorEnabled,
+                u.RequireTwoStep))
             .ToList();
     }
 
@@ -105,7 +106,7 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
         var now = DateTimeOffset.UtcNow;
         var items = users.Select(u => new UserListItemDto(u.Id, u.FullName, u.Email ?? "", u.StaffNumber,
                 u.DepartmentId is int d ? deptNames.GetValueOrDefault(d) : null, u.SiteId is int s ? siteNames.GetValueOrDefault(s) : null,
-                rolesByUser[u.Id].OrderBy(r => r).ToList(), u.IsActive, u.LockoutEnd > now, u.IsCandidate, u.LastSignInAt, u.TwoFactorEnabled))
+                rolesByUser[u.Id].OrderBy(r => r).ToList(), u.IsActive, u.LockoutEnd > now, u.IsCandidate, u.LastSignInAt, u.TwoFactorEnabled, u.RequireTwoStep))
             .ToList();
         return new PagedResult<UserListItemDto>(items, page, pageSize, total);
     }
@@ -286,6 +287,18 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
         await userManager.SetTwoFactorEnabledAsync(user, false);
         await userManager.ResetAuthenticatorKeyAsync(user); // the old phone's codes stop working; also signs them out (new security stamp)
         return Result.Success();
+    }
+
+    public async Task<Result> SetTwoStepRequiredAsync(string id, bool required, CancellationToken ct = default)
+    {
+        if (!IsSuperAdmin) return Result.Failure("Only a Super Admin can require two-step sign-in for a person.");
+        var user = await userManager.FindByIdAsync(id);
+        if (user is null) return Result.Failure("User not found.");
+        if (user.IsCandidate) return Result.Failure("Two-step sign-in is for GREL staff accounts.");
+        if (user.RequireTwoStep == required) return Result.Success();
+        user.RequireTwoStep = required;
+        var result = await userManager.UpdateAsync(user); // audited as a change to the user; their sign-in picks it up within 5 minutes
+        return result.Succeeded ? Result.Success() : Result.Failure([.. result.Errors.Select(e => e.Description)]);
     }
 
     private static void Normalize(UserFormDto form)

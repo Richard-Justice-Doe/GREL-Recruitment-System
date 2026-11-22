@@ -70,6 +70,55 @@ public class TwoStepSignInWebTests(GrsmsWebFactory factory) : IClassFixture<Grsm
         Assert.Equal(SettingKind.Switch, setting.Kind);
     }
 
+    /// <summary>
+    /// With the company-wide rule off: every member of staff finds "Two-step sign-in" under Administration and can turn it on (and
+    /// off) for themselves; the Super Admin can require it for one person on the Users screen, who must then set it up.
+    /// </summary>
+    [Fact]
+    public async Task Staff_turn_it_on_themselves_from_administration_and_the_super_admin_can_require_it_for_one_person()
+    {
+        using (var scope = factory.Services.CreateScope()) // the company-wide rule is off (as by default), whatever ran before
+            await scope.ServiceProvider.GetRequiredService<ISettingsStore>().SaveAsync(new Dictionary<string, string?> { [SettingCatalogue.RequireTwoStep] = "false" });
+        await UserAsync("mfa.self@grel.test", Roles.Employee);
+        await UserAsync("mfa.req@grel.test", Roles.Employee);
+
+        // Anyone: Administration lists "Two-step sign-in"; nobody is forced while the rule is off.
+        var self = factory.NewClient();
+        await self.SignInAsync("mfa.self@grel.test", Password);
+        Assert.Equal(HttpStatusCode.OK, (await self.GetAsync("/")).StatusCode);
+        Assert.Contains("/Account/TwoStep", await self.GetStringAsync("/Administration"));
+        var page = await self.GetStringAsync("/Account/TwoStep");
+        Assert.DoesNotContain("required for your account", page);
+        var key = Regex.Match(page, "<code class=\"user-select-all\">([a-z0-9 ]+)</code>").Groups[1].Value;
+        Assert.Contains("Two-step sign-in is on", await (await self.PostFormAsync("/Account/TwoStep", "/Account/TwoStep", new() { ["code"] = Totp(key) })).Content.ReadAsStringAsync());
+        Assert.Contains("Turn off two-step sign-in", await self.GetStringAsync("/Account/TwoStep")); // their own choice: they may turn it off
+        Assert.Equal(HttpStatusCode.Redirect, (await self.PostFormAsync("/Account/TwoStep", "/Account/TurnOffTwoStep", new())).StatusCode);
+        Assert.Contains("Turn on two-step sign-in", await self.GetStringAsync("/Account/TwoStep"));
+
+        // The Super Admin requires it for one person on the Users screen.
+        var admin = factory.NewClient();
+        Assert.Equal(HttpStatusCode.Redirect, (await admin.SignInAsync(GrsmsWebFactory.AdminEmail, GrsmsWebFactory.AdminPassword)).StatusCode);
+        string reqId;
+        using (var scope = factory.Services.CreateScope())
+            reqId = (await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().FindByEmailAsync("mfa.req@grel.test"))!.Id;
+        var users = await admin.GetStringAsync("/Users?search=mfa.req");
+        Assert.Contains($"/Users/RequireTwoStep/{reqId}", users);
+        Assert.Equal(HttpStatusCode.Redirect, (await admin.PostFormAsync("/Users?search=mfa.req", $"/Users/RequireTwoStep/{reqId}", new() { ["required"] = "true" })).StatusCode);
+        Assert.Contains("2-step to set up", await admin.GetStringAsync("/Users?search=mfa.req"));
+
+        // That person is sent to set it up at their next sign-in and cannot turn it off.
+        var req = factory.NewClient();
+        await req.SignInAsync("mfa.req@grel.test", Password);
+        Assert.EndsWith("/Account/TwoStep", (await req.GetAsync("/")).Headers.Location!.ToString());
+        var setup = await req.GetStringAsync("/Account/TwoStep");
+        Assert.Contains("required for your account", setup);
+        var reqKey = Regex.Match(setup, "<code class=\"user-select-all\">([a-z0-9 ]+)</code>").Groups[1].Value;
+        await req.PostFormAsync("/Account/TwoStep", "/Account/TwoStep", new() { ["code"] = Totp(reqKey) });
+        Assert.Equal(HttpStatusCode.OK, (await req.GetAsync("/")).StatusCode);
+        Assert.DoesNotContain("Turn off two-step sign-in", await req.GetStringAsync("/Account/TwoStep"));
+        Assert.Contains("2-step</span>", await admin.GetStringAsync("/Users?search=mfa.req"));
+    }
+
     [Fact]
     public async Task Privileged_staff_set_up_two_step_sign_in_then_need_a_code_or_a_recovery_code_at_every_password_sign_in()
     {
@@ -89,7 +138,7 @@ public class TwoStepSignInWebTests(GrsmsWebFactory factory) : IClassFixture<Grsm
         foreach (var page in new[] { "/", "/Employees", "/Vacancies" })
             Assert.EndsWith("/Account/TwoStep", (await hrm.GetAsync(page)).Headers.Location!.ToString());
         var setup = await hrm.GetStringAsync("/Account/TwoStep");
-        Assert.Contains("set up two-step sign-in before you continue", setup);
+        Assert.Contains("required for your account", setup);
         Assert.Contains("data:image/png;base64,", setup); // the QR code
         var key = Regex.Match(setup, "<code class=\"user-select-all\">([a-z0-9 ]+)</code>").Groups[1].Value;
         Assert.NotEmpty(key);

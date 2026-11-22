@@ -95,4 +95,7 @@ public interface IUserAdminService
     /// sign-in. Not for one's own account; for privileged accounts only a Super Admin.
     /// </summary>
     Task<Result> ResetTwoStepAsync(string id, CancellationToken ct = default);
+
+    /// <summary>22 Nov 2026 (docs/41 H2): the Super Admin requires (or stops requiring) two-step sign-in for one person.</summary>
+    Task<Result> SetTwoStepRequiredAsync(string id, bool required, CancellationToken ct = default);
 }

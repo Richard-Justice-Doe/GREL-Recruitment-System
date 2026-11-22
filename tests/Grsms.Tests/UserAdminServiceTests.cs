@@ -77,6 +77,26 @@ public class UserAdminServiceTests : IDisposable
         Assert.False(await OnAsync(hrm));
     }
 
+    /// <summary>22 Nov 2026 (docs/41, H2): only the Super Admin requires two-step sign-in for a person; staff accounts only.</summary>
+    [Fact]
+    public async Task Only_a_super_admin_requires_two_step_sign_in_for_a_person()
+    {
+        var clerk = await CreateAsync("clerkreq@grel.test", Roles.Employee);
+        async Task<Grsms.Application.Common.Result> SetAsync(string id, bool on)
+        {
+            using var scope = _db.NewScope();
+            return await scope.ServiceProvider.GetRequiredService<IUserAdminService>().SetTwoStepRequiredAsync(id, on);
+        }
+
+        _db.CurrentUser.SignInAs("hradmin-id", "HR Admin", Roles.HrAdministrator);
+        Assert.Contains("Only a Super Admin", (await SetAsync(clerk, true)).Errors.Single());
+        _db.CurrentUser.SignInAs("super-id", "Super Admin", Roles.SuperAdmin);
+        Assert.True((await SetAsync(clerk, true)).Succeeded);
+        Assert.True(await Db(db => db.Users.Where(u => u.Id == clerk).Select(u => u.RequireTwoStep).SingleAsync()));
+        Assert.True((await SetAsync(clerk, false)).Succeeded);
+        Assert.False(await Db(db => db.Users.Where(u => u.Id == clerk).Select(u => u.RequireTwoStep).SingleAsync()));
+    }
+
     private async Task<T> Db<T>(Func<ApplicationDbContext, Task<T>> work)
     {
         using var scope = _db.NewScope();

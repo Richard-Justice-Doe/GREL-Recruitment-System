@@ -39,6 +39,12 @@ public class ApplicationUser : IdentityUser
     /// </summary>
     public bool MustChangePassword { get; set; }
 
+    /// <summary>
+    /// 22 Nov 2026 (docs/41 H2): the Super Admin requires two-step sign-in for this person (Users screen), whatever the
+    /// company-wide rule says. They are sent to set it up at their next sign-in and cannot turn it off.
+    /// </summary>
+    public bool RequireTwoStep { get; set; }
+
     /// <summary>When the account was created (UTC).</summary>
     public DateTime CreatedAt { get; set; }
 

@@ -20,10 +20,18 @@ public class TwoStepRequiredFilter(ISettingsStore settings) : IActionFilter
     /// <summary>The claim ASP.NET Identity writes on sign-in: "pwd" (password only) or "mfa" (password + code).</summary>
     public const string AmrClaim = "amr";
 
+    /// <summary>
+    /// True when this person must use two-step sign-in: the company-wide rule for privileged roles (System settings), or the
+    /// Super Admin requires it for them personally (Users screen; the "two_step_required" claim).
+    /// </summary>
+    public static bool RequiredFor(ClaimsPrincipal user, ISettingsStore settings) =>
+        (settings.GetBool(SettingCatalogue.RequireTwoStep) && Roles.TwoStepRequired.Any(user.IsInRole))
+        || user.HasClaim(AppClaimsPrincipalFactory.TwoStepRequiredClaim, "true");
+
+    /// <summary>True when the person must use it and this session has not passed the two-step check yet.</summary>
     public static bool Required(ClaimsPrincipal user, ISettingsStore settings) =>
         user.Identity?.IsAuthenticated == true
-        && settings.GetBool(SettingCatalogue.RequireTwoStep)
-        && Roles.TwoStepRequired.Any(user.IsInRole)
+        && RequiredFor(user, settings)
         && !user.HasClaim(AmrClaim, "mfa")
         && !user.HasClaim(c => c.Type == ClaimTypes.AuthenticationMethod); // signed in through Microsoft 365
 

@@ -36,7 +36,9 @@ public class AdministrationController(IAuthorizationService auth) : AppControlle
         (Policies.SystemSettings, new("System", "AI settings & usage", "AI provider, key, budget, feature switches and usage.", "fa-wand-magic-sparkles", "AiSettings", "Index")), // docs/36
         (Policies.Backups, new("System", "Backups", "See, start and download backups.", "fa-box-archive", "Backups", "Index")),
         (Policies.AuditTrail, new("Audit", "Audit monitor", "Sign-in problems and configuration changes at a glance.", "fa-shield-heart", "AuditMonitor", "Index")),
-        (Policies.AuditTrail, new("Audit", "Audit trail", "Every change and sign-in recorded by the system.", "fa-clock-rotate-left", "AuditLogs", "Index"))
+        (Policies.AuditTrail, new("Audit", "Audit trail", "Every change and sign-in recorded by the system.", "fa-clock-rotate-left", "AuditLogs", "Index")),
+        // 22 Nov 2026 (docs/41 H2): every member of staff turns two-step sign-in on (or off) for their own account here.
+        (Policies.Staff, new("Your account", "Two-step sign-in", "Protect your account with a code from an authenticator app on your phone.", "fa-shield-halved", "Account", "TwoStep"))
     ];
 
     /// <summary>

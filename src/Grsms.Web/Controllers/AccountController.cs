@@ -530,9 +530,9 @@ public class AccountController(
     {
         var user = await userManager.GetUserAsync(User);
         if (user is null) return RedirectToAction(nameof(Login));
-        if (TwoStepIsRequiredFor(User))
+        if (TwoStepIsRequiredFor(User, user))
         {
-            TempData["Error"] = "Your role must use two-step sign-in, so it cannot be turned off. If you changed phone, ask an administrator to reset it.";
+            TempData["Error"] = "Two-step sign-in is required for your account, so it cannot be turned off. If you changed phone, ask an administrator to reset it.";
             return RedirectToAction(nameof(TwoStep));
         }
         await userManager.SetTwoFactorEnabledAsync(user, false);
@@ -543,8 +543,9 @@ public class AccountController(
         return RedirectToAction(nameof(TwoStep));
     }
 
-    private bool TwoStepIsRequiredFor(ClaimsPrincipal principal) =>
-        settings.GetBool(Grsms.Domain.Settings.SettingCatalogue.RequireTwoStep) && Roles.TwoStepRequired.Any(principal.IsInRole);
+    /// <summary>The company-wide rule for the person's role, or the Super Admin requires it for them (read fresh from the account).</summary>
+    private bool TwoStepIsRequiredFor(ClaimsPrincipal principal, ApplicationUser user) =>
+        user.RequireTwoStep || TwoStepRequiredFilter.RequiredFor(principal, settings);
 
     private async Task<TwoStepViewModel> TwoStepModelAsync(ApplicationUser user, IReadOnlyList<string>? newCodes = null)
     {
@@ -552,8 +553,8 @@ public class AccountController(
         var model = new TwoStepViewModel
         {
             Enabled = enabled,
-            Required = TwoStepIsRequiredFor(User),
-            MustSetUp = !enabled && TwoStepRequiredFilter.Required(User, settings),
+            Required = TwoStepIsRequiredFor(User, user),
+            MustSetUp = !enabled && TwoStepIsRequiredFor(User, user),
             RecoveryCodesLeft = enabled ? await userManager.CountRecoveryCodesAsync(user) : 0,
             NewRecoveryCodes = newCodes
         };

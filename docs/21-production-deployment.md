@@ -153,12 +153,12 @@ The `clamav` container scans every uploaded file (CVs, certificates, new-hire do
 
 ### Two-step sign-in (22 Nov 2026, docs/41 H2)
 
-**Off until the Super Admin switches it on** (System settings → Sign-in security), because GRSMS is still being tested. Once it is on, Super Admins, Admins, HR Administrators, HR Managers and Recruitment Officers who sign in with a password must use an authenticator app. Anyone can also turn it on for themselves (account menu → *Two-step sign-in*).
+**Off until the Super Admin switches it on** (System settings → Sign-in security), because GRSMS is still being tested. Once it is on, Super Admins, Admins, HR Administrators, HR Managers and Recruitment Officers who sign in with a password must use an authenticator app. It can also be required for **one person**: the Super Admin clicks the shield button next to them on **Users** (green = required; the *2-step* badge shows who has set it up). And **every member of staff** can turn it on for themselves under **Administration → Your account → Two-step sign-in** (or the account menu).
 * **First time:** once the rule is on, their next password sign-in sends them to **Two-step sign-in**. They scan the QR code, type the code, and save their 10 recovery codes. Microsoft 365 sign-in is not affected; GREL IT should require MFA for it in Microsoft Entra (Conditional Access).
 * **Lost phone:** the person uses a recovery code. Otherwise an administrator presses the phone button on **Users**; for privileged accounts only a Super Admin can do this.
 * **The Super Admin:** keep their recovery codes in the safe with the backup key. If the only Super Admin loses both phone and codes, IT clears it in the database:
   ```bash
-  docker compose -f docker-compose.prod.yml exec db sh -c "mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" grsms -e \"UPDATE AspNetUsers SET TwoFactorEnabled=0 WHERE Email='admin@grel.com.gh';\""
+  docker compose -f docker-compose.prod.yml exec db sh -c "mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" grsms -e \"UPDATE Users SET TwoFactorEnabled=0, RequireTwoStep=0 WHERE Email='admin@grel.com.gh';\""
   ```
 * **Switching it on:** a Super Admin ticks **Require two-step sign-in for privileged staff** under **System settings → Sign-in security**. Do this before go-live; set up your own first (account menu → *Two-step sign-in*). Switching it off again is not advised once live.
 

@@ -4,6 +4,37 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 22 November 2026: two-step sign-in in Administration, and required per person by the Super Admin
+
+Requested by the user: "the two-step should be part of the administration, so that each user can enable it personally". The user chose both of the following.
+
+* **Every member of staff** finds **Two-step sign-in** on the Administration page, under the new section **Your account**, and can turn it on (and, unless it is required, off) for themselves. Staff with nothing else to administer now see Administration with just this item. It is still in the account menu too.
+* **The Super Admin requires it for chosen people:** on **Users**, the shield button next to a staff account. Green means required.
+  * That person is sent to set it up at their next sign-in (or within 5 minutes if already signed in), and cannot turn it off.
+  * Only the Super Admin sees the button; candidates are excluded.
+  * The change is recorded in the audit trail.
+* **Status badge on Users:** *2-step* (set up) or *2-step to set up* (required, not yet done).
+* **The company-wide rule** for privileged roles (System settings → Sign-in security) is unchanged and still off by default.
+* **Correction:** the emergency command in docs/21 now names the right table (`Users`, not `AspNetUsers`) and also clears the per-person requirement.
+
+**Files:**
+* `ApplicationUser.RequireTwoStep`: migration `UserRequireTwoStep`, **script `database/42_user_require_two_step.sql`**.
+* The "two_step_required" sign-in claim (`AppSignInManager.cs`).
+* `TwoStepRequiredFilter.RequiredFor`.
+* `AccountController` (reads the flag fresh) and the TwoStep view wording.
+* `UserAdminService.SetTwoStepRequiredAsync`, `UsersController.RequireTwoStep`, Users/Index (button and badges).
+* `AdministrationController` ("Your account").
+* Docs [21](21-production-deployment.md) and [04](04-security-and-roles.md).
+
+**Checked:** new tests cover:
+* staff turn it on and off themselves from Administration;
+* the Super Admin requires it for one person through the Users page, who is then forced to set it up and can't turn it off;
+* only a Super Admin may set the requirement.
+
+The menu test now expects a panel member's Administration page to show only "Two-step sign-in". The full suite passes (328).
+
+---
+
 ## 22 November 2026: two-step sign-in is off until the Super Admin switches it on
 
 Requested by the user: "the authentication should be activated by the super admin only, because the software is in the test stage".

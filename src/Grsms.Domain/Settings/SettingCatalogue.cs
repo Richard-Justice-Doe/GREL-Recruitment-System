@@ -142,8 +142,8 @@ public static class SettingCatalogue
         new(SmtpPassword, Smtp, "SMTP password", "Stored encrypted. Leave empty to keep the current one.", SettingKind.Secret, MaxLength: 300),
 
         new(RequireTwoStep, SignInSecurity, "Require two-step sign-in for privileged staff",
-            "Super Admins, Admins, HR Administrators, HR Managers and Recruitment Officers must confirm each password sign-in with a code from an authenticator app (Microsoft Authenticator, Google Authenticator …). Microsoft 365 sign-in uses Microsoft's own check.",
-            SettingKind.Switch, "true"),
+            "Super Admins, Admins, HR Administrators, HR Managers and Recruitment Officers must confirm each password sign-in with a code from an authenticator app (Microsoft Authenticator, Google Authenticator …). Microsoft 365 sign-in uses Microsoft's own check. Off until the Super Admin switches it on (GRSMS is still being tested); turn it on before go-live.",
+            SettingKind.Switch, "false"),
         new(AzureTenant, Microsoft365, "Directory (tenant) ID", "From the GRSMS app registration in Microsoft Entra.", SettingKind.Text, MaxLength: 100),
         new(AzureClient, Microsoft365, "Application (client) ID", "From the same app registration.", SettingKind.Text, MaxLength: 100),
         new(AzureSecret, Microsoft365, "Client secret", "Stored encrypted. Leave empty to keep the current one. Renew it in Entra before it expires.",

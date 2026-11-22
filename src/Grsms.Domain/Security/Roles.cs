@@ -65,7 +65,7 @@ public static class Roles
 
     /// <summary>
     /// 22 Nov 2026 (docs/41, H2): roles that can see every employee's personal data or change the system. They must use
-    /// two-step sign-in (an authenticator app) when signing in with a password, unless the Super Admin switches the rule off
+    /// two-step sign-in (an authenticator app) when signing in with a password, once the Super Admin switches the rule on
     /// (System settings → Sign-in security). Microsoft 365 sign-in relies on Microsoft's own two-step check.
     /// </summary>
     public static readonly IReadOnlyList<string> TwoStepRequired = [SuperAdmin, Admin, HrAdministrator, HrManager, RecruitmentOfficer];

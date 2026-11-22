@@ -4,6 +4,24 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 22 November 2026: two-step sign-in is off until the Super Admin switches it on
+
+Requested by the user: "the authentication should be activated by the super admin only, because the software is in the test stage".
+
+* **System settings → Sign-in security → Require two-step sign-in for privileged staff** now defaults to **off**. Nobody is sent to set up two-step sign-in or asked for a code until a Super Admin ticks it. Only the Super Admin can change System settings.
+* People who have already set it up for themselves keep using their codes. While the rule is off they can also turn it off (account menu → *Two-step sign-in*).
+* **Before go-live:** switch it on (go-live checklist in docs/21).
+
+**Files:**
+* `Domain/Settings/SettingCatalogue.cs` (default "false", help text);
+* comments in `Roles.cs` and `TwoStepRequiredFilter.cs`;
+* a test that the default is off;
+* docs [21](21-production-deployment.md), [04](04-security-and-roles.md) and [41](41-security-assessment.md).
+
+The full suite passes (326).
+
+---
+
 ## 22 November 2026: the four High security findings fixed (docs/41 H1–H4)
 
 Requested by the user after the security assessment: "fix them". The score goes from 78 to about 88 / 100.

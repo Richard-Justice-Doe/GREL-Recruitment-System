@@ -13,7 +13,7 @@ namespace Grsms.Web.Security;
 /// two-step check (they have not set up an authenticator app yet) are sent to "Two-step sign-in" and cannot open any other page
 /// until they set it up. Once it is set up, every password sign-in asks for the code (ASP.NET Identity), and the session carries
 /// the "amr = mfa" claim. Microsoft 365 sign-ins (their cookie names the provider) rely on Microsoft's own check. The Account
-/// pages (set-up, sign out) are exempt, otherwise the user would be stuck. Switched off by System settings → Sign-in security.
+/// pages (set-up, sign out) are exempt, otherwise the user would be stuck. Only once the Super Admin switches it on (System settings → Sign-in security; off by default while GRSMS is tested).
 /// </summary>
 public class TwoStepRequiredFilter(ISettingsStore settings) : IActionFilter
 {

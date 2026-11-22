@@ -61,6 +61,15 @@ public class TwoStepSignInWebTests(GrsmsWebFactory factory) : IClassFixture<Grsm
         return [.. bytes];
     }
 
+    /// <summary>While GRSMS is being tested, nobody is asked for a code until the Super Admin switches the rule on.</summary>
+    [Fact]
+    public void Two_step_sign_in_is_off_until_the_super_admin_switches_it_on()
+    {
+        var setting = SettingCatalogue.Find(SettingCatalogue.RequireTwoStep)!;
+        Assert.Equal("false", setting.Default);
+        Assert.Equal(SettingKind.Switch, setting.Kind);
+    }
+
     [Fact]
     public async Task Privileged_staff_set_up_two_step_sign_in_then_need_a_code_or_a_recovery_code_at_every_password_sign_in()
     {

@@ -88,7 +88,7 @@ It never shows other people's records. Work the system does on its own inside so
 
 These are separation of duties, so no setting can switch them off:
 
-* **Who acts at each workflow step stays with the role:** the department raises (staff or HOD), the Head of that department reviews, the HR Manager approves, the MD gives final approval, the HOD gives their view on shortlists. A permission only opens the screen; the workflow decides what each person may do there. A Super Admin who wants to approve as the MD must also hold the Managing Director role, and the "not your own request" rules still apply.
+* **Who acts at each workflow step stays with the role:** the department raises (staff or HOD), the Head of that department approves, the Recruitment Officer reviews, the MD gives the last approval (17 Nov 2026), the HOD gives their view on shortlists, the Recruitment Officer approves hires (9 Nov 2026) and the HR Manager decides probations. A permission only opens the screen; the workflow decides what each person may do there. A Super Admin who wants to approve as the MD must also hold the Managing Director role, and the "not your own request" rules still apply.
 * **Only a Super Admin can give or remove any role other than Employee and Interview Panel Member.** That covers HR Manager, Recruitment Officer, Head of Department, HR Administrator, Managing Director, Super Admin and every custom role. Only a Super Admin can **edit, reset the password of, or deactivate** an account that holds one of them. Otherwise an HR Administrator could raise their own access, or take over an HR Manager's account by resetting its password. HR Administrators can still **unlock** any account, because that gives no new access.
 * **Permissions marked "Super Admin only"** (manage roles and permissions, create privileged accounts) can never be ticked for another role.
 * **Built-in roles** cannot be renamed or deleted, because the workflows check them by name.
@@ -184,18 +184,18 @@ The screen rules are defined once in `src/Grsms.Web/Security/Policies.cs` (each 
 | **Super Admin** (Phase 14) | Full access to the whole system. The only role that creates HR Managers, Recruitment Officers, HODs and other privileged accounts, and sets permissions. The first administrator account (`SeedAdmin`) is a Super Admin. |
 | **Admin** (5 November 2026) | System administrator: manages every user account except Admins and Super Admins, organisation data and the audit trail; sees Roles & permissions and ATS settings read-only. Cannot give privileged roles. |
 | **HR Administrator** | Maintains divisions, departments, units and sites, and everyday staff accounts (Employee, Interview Panel Member). Views the audit trail. |
-| **HR Manager** | Approves requests, reviews job adverts, views onboarding, activates employees, decides probations. |
-| **IT Manager** (11 November 2026) | Gives the final approval of job adverts after the HR review, which publishes them; returns, rejects or takes adverts offline; posts them on LinkedIn, Indeed, Jobberman and newspapers and records the links. Home page: adverts awaiting approval, scheduled, active, expired. |
-| **Managing Director** | Final vacancy and hiring approval, executive dashboard. |
-| **Recruitment Officer** | Manages vacancies, candidates, adverts and interview schedules, and communicates with candidates. |
+| **HR Manager** | Shortlists against the HOD's view (with a reason), views onboarding, activates employees, decides probations, can write job adverts. Approves no requests, vacancies, adverts or hires (9 and 17 Nov 2026). |
+| **IT Manager** (11 November 2026) | Since 17 November 2026 adverts need no IT approval. Takes adverts offline, can post them on LinkedIn, Indeed, Jobberman and newspapers and record the links, and returns or rejects adverts left in the earlier review. Home page: advert cards (scheduled, active, expired; "awaiting approval" counts only adverts left in the earlier review). |
+| **Managing Director** | The last approval of recruitment requests (after it, nothing else is approved), executive dashboard. |
+| **Recruitment Officer** | Reviews requests (stage 2) and owns the process after the MD: publishes vacancies and adverts, manages candidates and interviews, validates scores, approves hires, sends offers, verifies new-hire documents. |
 | **Head of Department** | Reviews (stage 1) and raises recruitment requests for their department, shortlists, sits on interviews. |
 | **Interview Panel Member** | Reviews interviews, completes scorecards. |
 | **Employee** | Views internal vacancies, applies internally, tracks applications, fills in recruitment requests (QF-81-11) for their department. |
 | **Candidate** | External job seeker: registers on the portal and applies. Cannot be given to staff. |
 
 ### Workflow controls (job adverts)
-* An advert can only be created, sent for review or published while its vacancy is **Published** (approval complete) and before its closing date; it never runs past that date.
-* Since 11 November 2026 every advert is reviewed by the **HR Manager** and then approved by the **IT Manager** before it is published. Nobody can skip a step: the recruiter cannot publish, the HR Manager cannot publish, the IT Manager cannot approve before the HR review. Editing a published advert takes it offline and sends it through both reviews again.
+* An advert can only be created or published while its vacancy is **Published** and before its closing date; it never runs past that date.
+* Since 17 November 2026 the **Recruitment Officer** publishes adverts with no HR review or IT approval (the 11 November review is removed). Editing a published advert keeps it published. Adverts left in the earlier review can be published by the RO, or returned or rejected by their reviewer.
 * Staff-only (internal) vacancies can only be advertised on the internal portal, so they never reach the public careers page.
 * The public careers page shows only adverts that are live today, on the company-website channel, for a vacancy that is still open. Internal-portal adverts are shown only to signed-in staff (never to candidates or anonymous visitors).
 * External channels (LinkedIn, Indeed, Jobberman, newspapers) are not connected to GRSMS: no passwords for those sites are stored. The IT Manager posts the copy-ready text and records the link.

@@ -35,7 +35,7 @@ public static class Roles
     /// <summary>Recruitment Officer: manages vacancies, candidates, adverts and interview schedules.</summary>
     public const string RecruitmentOfficer = "Recruitment Officer";
 
-    /// <summary>HR Manager: no longer approves requests, vacancies or adverts (17 Nov 2026); authorises shortlists, views onboarding.</summary>
+    /// <summary>HR Manager: no longer approves requests, vacancies, adverts (17 Nov 2026) or hires (9 Nov 2026); shortlist overrides, probation outcome, views onboarding.</summary>
     public const string HrManager = "HR Manager";
 
     /// <summary>
@@ -44,7 +44,7 @@ public static class Roles
     /// </summary>
     public const string ItManager = "IT Manager";
 
-    /// <summary>Managing Director: final approval of vacancies and hires, executive dashboard.</summary>
+    /// <summary>Managing Director: the last approval of recruitment requests (17 Nov 2026), executive dashboard. Hires need only the RO (9 Nov 2026).</summary>
     public const string ManagingDirector = "Managing Director";
 
     /// <summary>Interview panel member: reviews interviews and completes scorecards.</summary>
@@ -96,10 +96,10 @@ public static class Roles
         SuperAdmin => "Full access to the whole system. Creates privileged accounts and sets permissions.",
         Admin => "System administrator: manages all user accounts except Admins and Super Admins, organisation data and the audit trail; sees settings read-only.",
         HrAdministrator => "Maintains departments, divisions, units and sites, and everyday staff accounts.",
-        HrManager => "Authorises shortlists and hiring decisions and can write job adverts. Since 17 Nov 2026 requests, vacancies and adverts need no HR Manager approval.",
+        HrManager => "Shortlists against the HOD's view (with a reason), decides the outcome of probation and can write job adverts. Requests, vacancies, adverts and hires need no HR Manager approval.",
         ItManager => "Records where job adverts are posted and can take a published advert offline (adverts need no IT approval since 17 Nov 2026).",
         ManagingDirector => "Gives the last approval of recruitment requests; after it the Recruitment Officer needs no further approval.",
-        RecruitmentOfficer => "Reviews recruitment requests (stage 2), then creates and publishes vacancies and adverts and runs screening, interviews and offers.",
+        RecruitmentOfficer => "Reviews recruitment requests (stage 2), publishes vacancies and adverts, validates interview scores, approves hires, sends offers and verifies new-hire documents.",
         HeadOfDepartment => "Reviews (stage 1) and raises recruitment requests for their department, and takes part in selection.",
         PanelMember => "Sits on interview panels and completes scorecards.",
         Employee => "GREL staff member: sees internal vacancies, applies internally and fills in recruitment requests for their department.",

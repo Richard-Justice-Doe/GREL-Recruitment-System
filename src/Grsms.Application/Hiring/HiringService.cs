@@ -19,9 +19,9 @@ namespace Grsms.Application.Hiring;
 ///
 /// WHO MAY DO WHAT (every rule is checked here, on the server):
 ///   * Record checks, propose / withdraw a recommendation, send / withdraw an offer : Recruitment Officer or HR Manager.
-///   * Endorse or not                                                            : the department's Head of Department.
-///   * Approve / reject (HR stage)                                               : HR Manager (with a reason if the HOD did not endorse).
-///   * Approve / reject (final)                                                  : Managing Director.
+///   * Approve the hire (9 Nov 2026)                                             : the Recruitment Officer alone; the offer is drafted.
+///   * Older recommendations still in the earlier chain                         : endorse or not (the department's HOD), then
+///                                                                                 approve / reject (HR Manager, then Managing Director).
 ///   * Accept / decline an offer                                                 : the applicant, in their portal.
 /// Nobody acts on their own application, approves a recommendation they proposed, or approves at two stages.
 /// </summary>

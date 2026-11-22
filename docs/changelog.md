@@ -4,6 +4,23 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 22 November 2026: role descriptions match the approvals
+
+Requested by the user after reviewing the list of approval processes. Some role descriptions still claimed approvals that no longer exist.
+* **HR Manager:** no longer "authorises hiring decisions". The RO has approved hires alone since 9 Nov 2026. It now says what the role does decide: shortlisting against the HOD's view, and the probation outcome.
+* **Managing Director:** the last approval of recruitment requests (no longer "final vacancy and hiring approval").
+* **Recruitment Officer:** lists the request review, publishing vacancies and adverts, score validation, approving hires, offers and document verification.
+* **IT Manager:** no advert approval since 17 Nov 2026.
+
+Where:
+* the Roles & permissions screen (`Roles.Describe`);
+* code comments in `Roles.cs` and `HiringService.cs`;
+* [docs/04](04-security-and-roles.md): role table, workflow rules, advert controls.
+
+Text only; nothing about what people may do changed. The full suite passes (316).
+
+---
+
 ## 17 November 2026: job request approval simplified; nothing is approved after the Managing Director
 
 Requested by the user: "revise job request approval workflow". There were approvals after the MD's: the HR Manager approved the vacancy, and the HR Manager reviewed and the IT Manager approved each advert. They caused delays and duplicated responsibility.

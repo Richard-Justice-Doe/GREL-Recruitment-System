@@ -122,7 +122,7 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
             log.DurationMs = (int)watch.ElapsedMilliseconds;
             logger.LogWarning(ex, "AI {Feature}: {Message}", feature, ex.Message);
             var id = await LogAsync(log, AiOutcome.Failed, ex.Message, ct);
-            return AiResult<T>.Fail(ex.KeyRefused ? "The AI provider refused the API key. A Super Admin should check AI settings." : Unavailable, id);
+            return AiResult<T>.Fail(ex.KeyRefused ? $"The AI provider refused the API key. A Super Admin should check AI settings. (Provider said: {ex.Message})" : Unavailable, id);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {

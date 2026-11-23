@@ -73,7 +73,7 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
             var text = string.Concat(response.Content.Select(b => b.Value).OfType<TextBlock>().Select(t => t.Text));
             return new AiReply(text, (int)response.Usage.InputTokens, (int)response.Usage.OutputTokens, c.Model);
         }
-        catch (AnthropicUnauthorizedException ex) { throw new AiProviderException("The API key was refused.", keyRefused: true, ex); }
+        catch (AnthropicUnauthorizedException ex) { throw new AiProviderException($"The API key was refused: {Short(ex.Message)}", keyRefused: true, ex); }
         catch (AnthropicRateLimitException ex) { throw new AiProviderException("The provider's rate limit was reached.", inner: ex); }
         catch (Anthropic5xxException ex) { throw new AiProviderException("The provider had a service error.", inner: ex); }
         catch (AnthropicIOException ex) { throw new AiProviderException("The provider could not be reached.", inner: ex); }
@@ -224,10 +224,12 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
                 var message = ErrorMessage(text);
                 throw response.StatusCode switch
                 {
-                    HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new AiProviderException("The API key was refused.", keyRefused: true),
+                    // The provider's own reason is kept (e.g. "invalid x-api-key", "API key expired") so the Super Admin can see why.
+                    HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
+                        => new AiProviderException($"The API key was refused ({(int)response.StatusCode}){(message is null ? "" : $": {message}")}", keyRefused: true),
                     // Gemini answers a wrong key with 400 "API key not valid".
                     HttpStatusCode.BadRequest when message?.Contains("API key", StringComparison.OrdinalIgnoreCase) == true
-                        => new AiProviderException("The API key was refused.", keyRefused: true),
+                        => new AiProviderException($"The API key was refused: {message}", keyRefused: true),
                     HttpStatusCode.TooManyRequests => new AiProviderException("The provider's rate limit or quota was reached."),
                     >= HttpStatusCode.InternalServerError => new AiProviderException("The provider had a service error."),
                     _ => new AiProviderException($"The request was refused ({(int)response.StatusCode}){(message is null ? "" : $": {message}")}.")
@@ -238,6 +240,8 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
             catch (JsonException ex) { throw new AiProviderException("The provider's answer could not be read.", inner: ex); }
         }
     }
+
+    private static string Short(string m) => m.Length > 200 ? m[..200] : m;
 
     private static string? ErrorMessage(string body)
     {

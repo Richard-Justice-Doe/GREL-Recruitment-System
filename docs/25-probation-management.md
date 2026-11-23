@@ -15,6 +15,8 @@ Probation starts automatically when HR **activates** a new employee at the end o
 
 An assessment can be recorded from **14 days before** its due date. It can't be recorded before the employee has signed the initial meeting.
 
+**Initial meeting date (23 Nov 2026).** GRSMS suggests the date: the employee's first working day (Monday to Friday) from their start, or today once they have started, never after the due date. The date field starts on that suggestion, and any date from two weeks before the start up to the due date works, so the HOD can **schedule the meeting and save the objectives and plan before the employee starts**. The employee is emailed that the meeting is scheduled and can read the plan, but signs it only on or after the meeting day. A meeting held late can still be recorded up to today.
+
 ### The ratings
 Each assessment rates six areas on a five-point scale (*Outstanding, Very good, Good, Satisfactory, Unacceptable*):
 Application of skills, Quality of work, Productivity, Co-operation, Dependability, and **Ability to supervise** (only for roles that supervise; it may be left empty). Comments are required.

@@ -215,7 +215,8 @@ public class ProbationService(
             ConfirmationLetterNumber = confirmation?.LetterNumber,
             ConfirmationLetterDocumentId = confirmation?.PersonnelFileDocumentId,
             CanRecordInitialMeeting = isHod && !own && p.Status == ProbationStatus.InitialMeeting && p.EmployeeSignedAt is null,
-            CanSignAsEmployee = own && p.Status == ProbationStatus.InitialMeeting && p.HodSignedAt is not null && p.EmployeeSignedAt is null,
+            CanSignAsEmployee = own && p.Status == ProbationStatus.InitialMeeting && p.HodSignedAt is not null && p.EmployeeSignedAt is null
+                                && !(p.InitialMeetingDate > Today), // 23 Nov 2026: a scheduled meeting is signed on or after its day
             CanAssess = isHod && !own && assessBlocked is null,
             NextAssessment = ProbationWorkflow.CanBeAssessed(p.Status) ? NextKind(list) : null,
             AssessBlockedReason = isHod && !own && ProbationWorkflow.CanBeAssessed(p.Status) ? assessBlocked : null,
@@ -237,11 +238,10 @@ public class ProbationService(
         var objectives = form.Objectives.Where(o => !o.IsEmpty).ToList();
         var plan = form.DevelopmentPlan.Where(d => !d.IsEmpty).ToList();
         var errors = new List<string>();
-        var (earliest, latest) = ProbationWorkflow.MeetingDateWindow(p.StartDate, Today);
+        // 23 Nov 2026: the meeting may be scheduled ahead (up to the due date); the employee signs on or after that day.
+        var (earliest, latest) = ProbationWorkflow.MeetingDateWindow(p.StartDate, p.InitialMeetingDueDate, Today);
         if (form.MeetingDate is not { } date || date < earliest || date > latest)
-            errors.Add(earliest > latest
-                ? $"The meeting can be recorded from {earliest:d MMM yyyy} (two weeks before the start on {p.StartDate:d MMM yyyy}): record it on the day it is held."
-                : $"Enter the date the meeting was held: between {earliest:d MMM yyyy} and today ({latest:d MMM yyyy}).");
+            errors.Add($"Choose the meeting date between {earliest:d MMM yyyy} and {latest:d MMM yyyy} (suggested: {ProbationWorkflow.SuggestedMeetingDate(p.StartDate, p.InitialMeetingDueDate, Today):ddd d MMM yyyy}).");
         if (objectives.Count == 0) errors.Add("Agree at least one objective.");
         if (objectives.Any(o => string.IsNullOrWhiteSpace(o.Objective) || string.IsNullOrWhiteSpace(o.SuccessIndicators)))
             errors.Add("Give each objective and how success will be measured (success indicators).");
@@ -265,11 +265,14 @@ public class ProbationService(
         var now = DateTime.UtcNow;
         (p.HodSignedAt, p.HodSignatureName) = (now, signature);
         p.RecordStep(ProbationAction.InitialMeetingRecorded, ProbationStatus.InitialMeeting, MyId, scope.UserName,
-            $"{objectives.Count} objective(s); signed by the Head of Department" + (form.MeetingDate > p.InitialMeetingDueDate ? " (held after the 7-day deadline)" : ""), now);
+            $"{objectives.Count} objective(s); signed by the Head of Department" + (form.MeetingDate > p.InitialMeetingDueDate ? " (held after the 7-day deadline)"
+                : form.MeetingDate > Today ? $" (meeting scheduled for {form.MeetingDate:d MMM yyyy})" : ""), now);
         var saved = await SaveAsync(ct);
         if (saved.Succeeded)
-            await mailer.ToUserIncludingMeAsync(p.EmployeeUserId, "Please sign your probation objectives",
-                $"Your Head of Department has recorded your probation objectives and development plan. Please read and sign them.",
+            await mailer.ToUserIncludingMeAsync(p.EmployeeUserId, form.MeetingDate > Today ? "Your probation initial meeting is scheduled" : "Please sign your probation objectives",
+                form.MeetingDate > Today // 23 Nov 2026: scheduled ahead of the employee's start
+                    ? $"Your Head of Department has scheduled your probation initial meeting for <b>{form.MeetingDate:dddd d MMMM yyyy}</b> and prepared your objectives and development plan. You can read them now and sign them on or after the meeting day."
+                    : $"Your Head of Department has recorded your probation objectives and development plan. Please read and sign them.",
                 links.MyProbation(), "See my probation", ct);
         return saved;
     }
@@ -281,6 +284,8 @@ public class ProbationService(
         if (p is null || p.EmployeeUserId != me.UserId) return Result.Failure("Probation not found.");
         if (p.Status != ProbationStatus.InitialMeeting || p.HodSignedAt is null) return Result.Failure("There is nothing to sign yet.");
         if (p.EmployeeSignedAt is not null) return Result.Failure("You have already signed.");
+        if (p.InitialMeetingDate is { } meeting && meeting > Today)
+            return Result.Failure($"You can sign on or after your initial meeting on {meeting:dddd d MMMM yyyy}.");
         typedName = Clean(typedName);
         if (typedName is null || !SameName(typedName, p.EmployeeName)) return Result.Failure($"Type your full name ({p.EmployeeName}) to sign.");
 

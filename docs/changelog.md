@@ -4,6 +4,32 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 23 November 2026: GRSMS suggests the probation initial meeting date, and it can be scheduled ahead
+
+Requested by the user, with a screenshot: the employee starts on 13 Dec and the meeting is due by 20 Dec, but the form could only record meetings already held (no earlier than 29 Nov and no later than today, 23 Nov). So nothing could be saved yet. The user asked for a suggested date that works now, and chose to let the HOD schedule the meeting ahead.
+
+**What changed**
+* **Suggested date:** the employee's first working day from the start (Monday to Friday), or today once they have started, never after the due date. In the example, the start is Sunday 13 Dec, so the suggestion is **Monday 14 Dec**. It is shown under the field and pre-filled.
+* **Allowed dates:** from two weeks before the start **up to the due date** (or up to today if the meeting is late). The HOD can save the objectives and plan now as the planned meeting; *Save and sign* is no longer blocked before the window opens.
+* **The employee:**
+  * is emailed "Your probation initial meeting is scheduled" (with the date) and can read the plan;
+  * signs only **on or after the meeting day**; before that, the sign box isn't shown and signing is refused with the date.
+* **Labels:** the record reads *scheduled for …* until that day, then *held …*. The history note says *meeting scheduled for …*.
+
+**Files:**
+* `Domain/Probation/ProbationWorkflow.cs` (`MeetingDateWindow` with the due date, `SuggestedMeetingDate`);
+* `Application/Probation/ProbationService.cs` (date check and message, "can sign" flag, sign check, email, history note);
+* views Probation/Details and `_ProbationRecord`;
+* [docs/25](25-probation-management.md).
+
+**Checked:** new tests cover:
+* the suggestion (Sunday start → Monday; a weekday start → that day; already started → today; never after the due date; overdue → today) and the new window;
+* the HOD scheduling a future meeting, the employee unable to sign before it, and the email.
+
+The updated window test now refuses dates past the due date. The full suite passes (330).
+
+---
+
 ## 22 November 2026: two-step sign-in in Administration, and required per person by the Super Admin
 
 Requested by the user: "the two-step should be part of the administration, so that each user can enable it personally". The user chose both of the following.

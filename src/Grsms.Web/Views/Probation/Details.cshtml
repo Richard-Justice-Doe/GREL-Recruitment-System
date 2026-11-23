@@ -41,7 +41,7 @@
     <div class="card-body p-4">
         <dl class="details-grid small mb-0">
             <dt>Probation</dt><dd>@Model.StartDate.ToString("dd MMM yyyy") to <strong>@Model.EndDate.ToString("dd MMM yyyy")</strong>@(Model.ExtendedMonths > 0 ? $" (extended by {Model.ExtendedMonths} month(s))" : "")</dd>
-            <dt>Initial meeting</dt><dd>due @Model.InitialMeetingDueDate.ToString("dd MMM yyyy")@(Model.InitialMeetingDate is { } m ? $", held {m:dd MMM yyyy}" : Model.InitialMeetingDueDate < today ? " (overdue)" : "")</dd>
+            <dt>Initial meeting</dt><dd>due @Model.InitialMeetingDueDate.ToString("dd MMM yyyy")@(Model.InitialMeetingDate is { } m ? (m > today ? $", scheduled for {m:dd MMM yyyy}" : $", held {m:dd MMM yyyy}") : Model.InitialMeetingDueDate < today ? " (overdue)" : "")</dd>
             <dt>First assessment</dt><dd>due @Model.FirstAssessmentDueDate.ToString("dd MMM yyyy")@(Model.Assessments.Any(a => a.Kind == ProbationAssessmentKind.First) ? " (done)" : "")</dd>
             <dt>Final assessment</dt><dd>due @Model.EndDate.ToString("dd MMM yyyy")</dd>
             <dt>Head of Department</dt><dd>@(Model.HodName ?? "—")</dd>
@@ -82,22 +82,22 @@
                     <h2 id="initial-meeting" class="h6 text-uppercase text-body-secondary mb-3">Initial meeting <span class="fw-normal">(due @Model.InitialMeetingDueDate.ToString("dd MMM"))</span></h2>
                     <form asp-action="InitialMeeting" asp-route-id="@Model.Id" method="post">
                         @{
-                            // 17 Nov 2026: the dates the meeting may have been held on (from two weeks before the start up to today).
-                            var (meetFrom, meetTo) = ProbationWorkflow.MeetingDateWindow(Model.StartDate, today);
-                            var meetDefault = Model.InitialMeetingDate ?? (today < meetFrom ? meetFrom : today);
+                            // 23 Nov 2026: the meeting can be scheduled ahead (up to the due date) or recorded after it was held; GRSMS
+                            // suggests the first working day from the employee's start (or from today once they have started).
+                            var (meetFrom, meetTo) = ProbationWorkflow.MeetingDateWindow(Model.StartDate, Model.InitialMeetingDueDate, today);
+                            var suggested = ProbationWorkflow.SuggestedMeetingDate(Model.StartDate, Model.InitialMeetingDueDate, today);
+                            var meetDefault = Model.InitialMeetingDate ?? suggested;
                             var dueTo = ProbationWorkflow.LatestObjectiveDue(Model.EndDate);
                         }
                         <label class="form-label small" for="MeetingDate">Date of the meeting</label>
                         <input id="MeetingDate" name="MeetingDate" type="date" class="form-control form-control-sm" value="@meetDefault.ToString("yyyy-MM-dd")"
-                               min="@(meetFrom > meetTo ? null : meetFrom.ToString("yyyy-MM-dd"))" max="@(meetFrom > meetTo ? null : meetTo.ToString("yyyy-MM-dd"))" required aria-describedby="meeting-date-help" />
+                               min="@meetFrom.ToString("yyyy-MM-dd")" max="@meetTo.ToString("yyyy-MM-dd")" required aria-describedby="meeting-date-help" />
                         <div id="meeting-date-help" class="form-text mb-2">
-                            @if (meetFrom > meetTo)
+                            <i class="fa-solid fa-lightbulb text-warning me-1"></i><b>Suggested: @suggested.ToString("dddd d MMM yyyy")</b>@(suggested >= Model.StartDate && Model.StartDate >= today ? " (the employee's first working day)" : "").
+                            Any date from @meetFrom.ToString("d MMM") to @meetTo.ToString("d MMM yyyy") works; due by @Model.InitialMeetingDueDate.ToString("d MMM yyyy").
+                            @if (meetDefault > today)
                             {
-                                <span class="text-warning-emphasis"><i class="fa-solid fa-circle-info me-1"></i>The employee starts on @Model.StartDate.ToString("d MMM yyyy"). Hold the meeting between then and @Model.InitialMeetingDueDate.ToString("d MMM yyyy"), and record it on that day (it can be recorded from @meetFrom.ToString("d MMM yyyy")).</span>
-                            }
-                            else
-                            {
-                                <text>The day the meeting was held: from @meetFrom.ToString("d MMM yyyy") to today. Due by @Model.InitialMeetingDueDate.ToString("d MMM yyyy").</text>
+                                <span class="d-block mt-1">You can save the objectives and plan now as the planned meeting; the employee signs them on or after that day.</span>
                             }
                         </div>
                         @* 17 Nov 2026: AI suggestions for the objectives (with due dates) and the development plan, from the job (js/probation-ai.js). *@
@@ -165,7 +165,7 @@
                         <label class="form-label small" for="SignatureName">Sign: type your full name</label>
                         <div class="input-group input-group-sm">
                             <input id="SignatureName" name="SignatureName" class="form-control" maxlength="200" required />
-                            <button type="submit" class="btn btn-primary" disabled="@(meetFrom > meetTo)" title="@(meetFrom > meetTo ? $"Available from {meetFrom:d MMM yyyy}" : null)"><i class="fa-solid fa-signature me-1"></i>Save and sign</button>
+                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-signature me-1"></i>Save and sign</button>
                         </div>
                         <div class="form-text">The employee is then asked to sign in their portal (My probation).</div>
                     </form>

@@ -13,7 +13,15 @@
         }
         else
         {
-            <p class="small text-body-secondary">Initial meeting held @Model.InitialMeetingDate?.ToString("dd MMM yyyy")@(Model.InitialMeetingDate > Model.InitialMeetingDueDate ? " (after the 7-day deadline)" : "").</p>
+            @* 23 Nov 2026: a meeting can be scheduled ahead; the employee signs on or after its day. *@
+            @if (Model.InitialMeetingDate is { } planned && planned > DateOnly.FromDateTime(DateTime.UtcNow))
+            {
+                <p class="small text-body-secondary">Initial meeting scheduled for <b>@planned.ToString("dddd dd MMM yyyy")</b>. The employee signs these objectives on or after that day.</p>
+            }
+            else
+            {
+                <p class="small text-body-secondary">Initial meeting held @Model.InitialMeetingDate?.ToString("dd MMM yyyy")@(Model.InitialMeetingDate > Model.InitialMeetingDueDate ? " (after the 7-day deadline)" : "").</p>
+            }
             <table class="table table-sm small">
                 <thead><tr><th>Objective</th><th>Success indicators</th><th>Due</th></tr></thead>
                 <tbody>

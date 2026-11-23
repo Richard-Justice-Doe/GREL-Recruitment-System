@@ -291,6 +291,52 @@ public class ProbationServiceTests : OnboardingTestBase
         Assert.Single((await Report(ReportKeys.Probation)).Table.Rows); // the HOD's own department
     }
 
+    /// <summary>23 Nov 2026: the suggested date is the first working day from the start (or from today once started), never past the due date.</summary>
+    [Fact]
+    public void The_suggested_meeting_date_is_the_first_working_day_from_the_start()
+    {
+        var sunday = new DateOnly(2026, 12, 13); // the screenshot's case: starts Sunday 13 Dec, due 20 Dec
+        Assert.Equal(new DateOnly(2026, 12, 14), ProbationWorkflow.SuggestedMeetingDate(sunday, sunday.AddDays(7), new DateOnly(2026, 11, 23)));
+        var wednesday = new DateOnly(2026, 12, 16);
+        Assert.Equal(wednesday, ProbationWorkflow.SuggestedMeetingDate(wednesday, wednesday.AddDays(7), new DateOnly(2026, 11, 23))); // starts on a weekday: that day
+        Assert.Equal(wednesday, ProbationWorkflow.SuggestedMeetingDate(sunday, sunday.AddDays(7), wednesday));                         // already started: today
+        var saturday = new DateOnly(2026, 12, 19);
+        Assert.Equal(saturday, ProbationWorkflow.SuggestedMeetingDate(saturday, saturday, new DateOnly(2026, 11, 23)));                 // never past the due date
+        Assert.Equal(new DateOnly(2026, 12, 22), ProbationWorkflow.SuggestedMeetingDate(sunday, sunday.AddDays(7), new DateOnly(2026, 12, 22))); // overdue: today
+        Assert.Equal((new DateOnly(2026, 11, 29), new DateOnly(2026, 12, 20)), ProbationWorkflow.MeetingDateWindow(sunday, sunday.AddDays(7), new DateOnly(2026, 11, 23)));
+    }
+
+    /// <summary>23 Nov 2026: before the employee starts, the HOD schedules the meeting; the employee signs on or after that day.</summary>
+    [Fact]
+    public async Task The_hod_schedules_the_meeting_before_the_start_and_the_employee_signs_from_that_day()
+    {
+        await ActivatedAsync();
+        var p = await ProbationAsync();
+        var start = Today.AddDays(20);
+        await Db(async db =>
+        {
+            var r = await db.ProbationRecords.SingleAsync();
+            (r.StartDate, r.InitialMeetingDueDate) = (start, start.AddDays(7));
+            return await db.SaveChangesAsync();
+        });
+        var suggested = ProbationWorkflow.SuggestedMeetingDate(start, start.AddDays(7), Today);
+        Assert.True(suggested >= start && suggested <= start.AddDays(7));
+
+        AsHod();
+        var plan = Meeting(_hod);
+        plan.MeetingDate = suggested;
+        plan.Objectives[0].DueDate = start.AddMonths(3);
+        var r = await RunProbation(s => s.RecordInitialMeetingAsync(p.Id, plan));
+        Assert.True(r.Succeeded, string.Join(" ", r.Errors));
+
+        As(_candidate, Roles.Employee);
+        var mine = (await RunProbation(s => s.GetMineAsync())).Single();
+        Assert.False(mine.CanSignAsEmployee); // not before the meeting
+        Assert.Equal(suggested, mine.InitialMeetingDate);
+        Assert.Contains("on or after your initial meeting", (await RunProbation(s => s.SignAsEmployeeAsync(p.Id, "Ama Mensah"))).Errors.Single());
+        Assert.Contains(_db.SentEmails(), m => m.Contains("Your probation initial meeting is scheduled"));
+    }
+
     /// <summary>17 Nov 2026: the meeting date window is named in the error, and AI suggestions always fall inside the probation.</summary>
     [Fact]
     public async Task Meeting_dates_are_explained_and_ai_suggested_due_dates_stay_inside_the_probation()
@@ -298,10 +344,12 @@ public class ProbationServiceTests : OnboardingTestBase
         await ActivatedAsync();
         var p = await ProbationAsync();
         AsHod();
+        // 23 Nov 2026: past the due date (and today) is refused, naming the window and the suggested date.
         var future = Meeting(_hod);
-        future.MeetingDate = Today.AddDays(3);
+        var last = p.InitialMeetingDueDate > Today ? p.InitialMeetingDueDate : Today;
+        future.MeetingDate = last.AddDays(3);
         Assert.Contains((await RunProbation(s => s.RecordInitialMeetingAsync(p.Id, future))).Errors,
-            e => e.StartsWith($"Enter the date the meeting was held: between {p.StartDate.AddDays(-14):d MMM yyyy} and today"));
+            e => e.StartsWith($"Choose the meeting date between {p.StartDate.AddDays(-14):d MMM yyyy} and {last:d MMM yyyy} (suggested: "));
         var late = Meeting(_hod);
         late.Objectives[0].DueDate = p.EndDate.AddMonths(4);
         Assert.Contains((await RunProbation(s => s.RecordInitialMeetingAsync(p.Id, late))).Errors, e => e.StartsWith("Objectives must be due between the start"));

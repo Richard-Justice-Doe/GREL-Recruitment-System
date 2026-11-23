@@ -201,7 +201,7 @@ public static class SettingCatalogue
         new(AiProviderKey, AiService, "Provider", "Anthropic (Claude), OpenAI, Azure OpenAI or Google Gemini.", SettingKind.Text, "Anthropic", MaxLength: 30),
         new(AiApiKey, AiService, "API key", "The provider's key. Stored encrypted; never shown again.", SettingKind.Secret, MaxLength: 500),
         new(AiModel, AiService, "Model (or Azure deployment name)",
-            "Anthropic: e.g. claude-sonnet-5-5. OpenAI: the model name from your account. Azure OpenAI: the deployment name. Google Gemini: the model name from Google AI Studio, e.g. gemini-2.5-flash.", SettingKind.Text, MaxLength: 100),
+            "Anthropic: e.g. claude-sonnet-5-5. OpenAI: the model name from your account. Azure OpenAI: the deployment name. Google Gemini: copy the current model name from Google AI Studio (Google retires older models; its error message names the replacement).", SettingKind.Text, MaxLength: 100),
         new(AiAzureEndpoint, AiService, "Azure OpenAI endpoint", "Only for Azure OpenAI, e.g. https://grel-ai.openai.azure.com.", SettingKind.Text, MaxLength: 300),
         new(AiAzureApiVersion, AiService, "Azure OpenAI API version", "Only for Azure OpenAI.", SettingKind.Text, "2024-10-21", MaxLength: 30),
         new(AiTimeoutSeconds, AiService, "Wait at most (seconds)", "After this, the request is abandoned and the page says AI is unavailable.", SettingKind.Number, "60", Min: 5, Max: 300),

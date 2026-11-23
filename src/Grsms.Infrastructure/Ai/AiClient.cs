@@ -410,12 +410,14 @@ public sealed class AiClient : IAiClient
         catch (JsonException) { return null; } // an HTML error page from a proxy
     }
 
-    /// <summary>One line, at most 200 characters, without the closing full stop (the caller adds its own).</summary>
+    /// <summary>One line, at most 400 characters (cut at a word, marked "…"), without the closing full stop (the caller adds its own).</summary>
     private static string? Clean(string? m)
     {
         if (string.IsNullOrWhiteSpace(m)) return null;
         m = m.ReplaceLineEndings(" ").Trim().TrimEnd('.');
-        return m.Length > 200 ? m[..200] : m;
+        if (m.Length <= 400) return m;
+        var cut = m.LastIndexOf(' ', 400);
+        return m[..(cut > 300 ? cut : 400)] + "…";
     }
 
     private static string? Str(JsonNode? n) => n is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;

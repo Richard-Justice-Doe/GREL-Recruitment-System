@@ -62,7 +62,10 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
         TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver() // needed by the schema export
     };
 
-    public const string Unavailable = "AI is not available right now. You can write it yourself, or try again later.";
+    /// <summary>The AI log's Error column (AiConfigurations: 300); the page shows the full reason.</summary>
+    private const int MaxLogError = 300;
+
+    public const string Unavailable ="AI is not available right now. You can write it yourself, or try again later.";
 
     /// <summary>The main switch is on and a key is set (does not look at feature switches).</summary>
     public bool IsConfigured => settings.GetBool(SettingCatalogue.AiEnabled) && !string.IsNullOrWhiteSpace(settings.Get(SettingCatalogue.AiApiKey));
@@ -198,7 +201,7 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
     private async Task<int?> LogAsync(AiRequestLog log, AiOutcome outcome, string? error, CancellationToken ct)
     {
         log.Outcome = outcome;
-        log.Error = error is null ? null : error.Length > 300 ? error[..300] : error;
+        log.Error = error is null ? null : error.Length > MaxLogError ? error[..(MaxLogError - 1)] + "…" : error;
         try
         {
             return await store.AddAsync(log, ct);

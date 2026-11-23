@@ -51,7 +51,7 @@ public class AiAdminService(SystemSettingsService settings, ISettingsStore store
             if (!endpointOk) return Result.Failure("Azure OpenAI needs its endpoint, starting with https://.");
         }
         if (values.GetValueOrDefault(SettingCatalogue.AiModel)?.Trim() is { Length: > 0 } model && model.Any(char.IsWhiteSpace))
-            return Result.Failure("The model name has a space in it. Copy it exactly from the provider (e.g. gemini-2.5-flash).");
+            return Result.Failure("The model name has a space in it. Copy it exactly from the provider (e.g. claude-opus-5-5, or the name shown in Google AI Studio).");
         if (provider is nameof(AiProvider.OpenAI) or nameof(AiProvider.AzureOpenAI) or nameof(AiProvider.Gemini) && string.IsNullOrWhiteSpace(values.GetValueOrDefault(SettingCatalogue.AiModel)))
             return Result.Failure(provider switch
             {

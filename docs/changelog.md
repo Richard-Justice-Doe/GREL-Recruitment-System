@@ -46,7 +46,11 @@ Requested by the user after the AI kept failing on the server with Gemini (`gemi
 * an unexpected exception;
 * JSON with text around it.
 
-**Advice for GREL:** preview and "lite" models such as `gemini-3.1-flash-lite` are often overloaded. Use a stable model (e.g. `gemini-2.5-flash`) in AI settings for day-to-day work.
+**Advice for GREL:**
+* Preview models such as `gemini-3.1-flash-lite` are often overloaded.
+* Google also retires older models for new users: on 23 Nov 2026 it refused `gemini-2.5-flash-lite` with 404 and named `gemini-3.5-flash-lite` as the replacement.
+* Copy the current model name from Google AI Studio.
+* The provider's reason is now kept up to 400 characters on the page, cut at a word and marked "…" (300 in the AI log), so such advice is no longer cut off.
 
 ## 23 November 2026: GRSMS suggests the probation initial meeting date, and it can be scheduled ahead
 

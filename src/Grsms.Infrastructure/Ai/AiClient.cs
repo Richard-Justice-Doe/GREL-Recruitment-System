@@ -231,7 +231,9 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
                     HttpStatusCode.BadRequest when message?.Contains("API key", StringComparison.OrdinalIgnoreCase) == true
                         => new AiProviderException($"The API key was refused: {message}", keyRefused: true),
                     HttpStatusCode.TooManyRequests => new AiProviderException("The provider's rate limit or quota was reached."),
-                    >= HttpStatusCode.InternalServerError => new AiProviderException("The provider had a service error."),
+                    // Keep the provider's reason (e.g. Gemini 503 "The model is overloaded") so the AI log shows why.
+                    >= HttpStatusCode.InternalServerError
+                        => new AiProviderException($"The provider had a service error ({(int)response.StatusCode}){(message is null ? "" : $": {message}")}."),
                     _ => new AiProviderException($"The request was refused ({(int)response.StatusCode}){(message is null ? "" : $": {message}")}.")
                 };
             }

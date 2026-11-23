@@ -140,7 +140,9 @@ public sealed class AiClient : IAiClient
             var request = new MessageCreateParams
             {
                 Model = c.Model,
-                MaxTokens = call.MaxOutputTokens,
+                // Current Claude models always think first, within max_tokens: the same allowance as OpenAI and Gemini, so a short
+                // answer (the connection test asks for 200 tokens) is not cut off. Only tokens used are billed.
+                MaxTokens = call.MaxOutputTokens + ReasoningAllowance,
                 System = call.Instructions,
                 Messages = [new UserMessageParam { Content = AnthropicContent(call) }],
             };

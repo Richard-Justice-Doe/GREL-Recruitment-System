@@ -250,7 +250,9 @@ public sealed class AiClient(HttpClient? http = null) : IAiClient
         try
         {
             var m = JsonNode.Parse(body)?["error"]?["message"]?.GetValue<string>();
-            return m is null ? null : m.Length > 200 ? m[..200] : m;
+            if (m is null) return null;
+            m = m.Trim().TrimEnd('.'); // the caller adds its own full stop
+            return m.Length > 200 ? m[..200] : m;
         }
         catch (JsonException) { return null; }
     }

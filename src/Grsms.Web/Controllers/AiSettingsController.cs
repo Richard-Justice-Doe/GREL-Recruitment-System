@@ -53,6 +53,16 @@ public class AiSettingsController(AiAdminService ai) : AppController
     [Authorize(Policy = Policies.ManageSystemSettings)]
     public async Task<IActionResult> Test(CancellationToken ct)
     {
+        // 23 Nov 2026: the Test button is in the same form, so what is on the screen (e.g. a key just pasted) is saved first and
+        // then tested. Before, the typed key was ignored and the OLD saved key was tested, which looked like "key refused".
+        var saved = Request.HasFormContentType && Request.Form.ContainsKey(SettingCatalogue.AiProviderKey)
+            ? await ai.SaveServiceAsync(Form(SettingCatalogue.AiService), ct)
+            : Grsms.Application.Common.Result.Success(); // not sent from the settings form: test what is saved
+        if (!saved.Succeeded)
+        {
+            Fail(saved);
+            return RedirectToAction(nameof(Index));
+        }
         var result = await ai.TestAsync(ct);
         if (result.Succeeded) Success(result.Value!);
         else Fail(result);

@@ -20,6 +20,8 @@ Requested by the user after the AI kept failing on the server with Gemini (`gemi
   * request refused ("check the model name").
 * **Gemini's per-minute vs per-day limits:** both say "You exceeded your current quota". They are now told apart by the quota id in the error details. Per-minute is "busy" and retried; per-day is "quota".
 * **Reasoning models:** OpenAI GPT-5 / o-series think within the output limit, so a short request (the connection test: 200 tokens) came back empty. The same 8,192-token allowance Gemini already had is now added; only tokens used are billed. If an older model says the limit is above its maximum, the request is sent again with the feature's own limit.
+* **Entering the key on the admin page works first time:** before, "Test the connection" skipped saving the form, so a key pasted and tested straight away was ignored and the old saved key was tested; the button was also greyed out until a key was saved. It is now **"Save and test the connection"**: what is on the screen is saved first, then tested, and the button is always available. The ATS settings page now points to AI settings instead of a server setting (`Ats:Ai:ApiKey`).
+* **Claude models** always think before answering, within the output limit, so the same allowance is added for Anthropic as well.
 * **Nothing reaches the page as an error screen:** an unexpected exception during an AI call is logged and becomes "AI is not available right now".
 * **Answers:** JSON with a sentence before or after it is now accepted, as code fences already were.
 * **Smaller fixes:**

@@ -96,7 +96,7 @@ public class AtsService(
         s.RejectMissingRequiredCertification = form.RejectMissingRequiredCertification;
         s.RejectMissingRequiredSkill = form.RejectMissingRequiredSkill;
         if (form.UseAiReader && !ai.IsConfigured && !s.UseAiReader)
-            return Result.Failure("The Claude AI reader has no API key on this server (setting Ats:Ai:ApiKey). Ask IT to set it first.");
+            return Result.Failure("To read CVs with AI, go to Administration → AI settings & usage: enter the API key there, switch \"Use AI\" on, and switch on \"CV reading\" under AI features.");
         s.UseAiReader = form.UseAiReader;
 
         var errors = s.Validate();

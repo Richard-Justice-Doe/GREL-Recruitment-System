@@ -141,13 +141,13 @@
                 {
                     <div class="d-flex flex-wrap gap-2">
                         <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
-                        <button type="submit" formaction="@Url.Action("Test")" class="btn btn-outline-primary" @(keySet ? null : "disabled")><i class="fa-solid fa-plug-circle-check me-1"></i>Test the connection</button>
+                        <button type="submit" formaction="@Url.Action("Test")" class="btn btn-outline-primary"><i class="fa-solid fa-plug-circle-check me-1"></i>Save and test the connection</button>
                         @if (keySet)
                         {
                             <button type="submit" formaction="@Url.Action("ClearKey")" class="btn btn-outline-danger" data-confirm="Remove the saved API key? AI stops until a new one is entered."><i class="fa-solid fa-key me-1"></i>Remove key</button>
                         }
                     </div>
-                    <p class="small text-body-secondary mt-2 mb-0">Test uses the saved settings: save first. The key is encrypted and never shown again.</p>
+                    <p class="small text-body-secondary mt-2 mb-0">To add or change the key: paste it in "API key", make sure "Use AI" is on and the provider and model are right, then click "Save and test the connection". Leave "API key" empty to keep the saved key. The key is encrypted and never shown again.</p>
                 }
             </div>
         </form>

@@ -120,14 +120,22 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
         catch (AiProviderException ex)
         {
             log.DurationMs = (int)watch.ElapsedMilliseconds;
-            logger.LogWarning(ex, "AI {Feature}: {Message}", feature, ex.Message);
+            logger.LogWarning(ex, "AI {Feature} ({Provider} {Model}): {Message}", feature, connection.Provider, connection.Model, ex.Message);
             var id = await LogAsync(log, AiOutcome.Failed, ex.Message, ct);
-            return AiResult<T>.Fail(ex.KeyRefused ? $"The AI provider refused the API key. A Super Admin should check AI settings. (Provider said: {ex.Message})" : Unavailable, id);
+            return AiResult<T>.Fail(Explain(ex), id);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             log.DurationMs = (int)watch.ElapsedMilliseconds;
             var id = await LogAsync(log, AiOutcome.Failed, "Timed out", ct);
+            return AiResult<T>.Fail(Explain(new AiProviderException("Timed out.", AiFailure.Timeout)), id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Nothing may break the page: an unexpected problem (e.g. an odd answer the SDK can't read) is logged and explained.
+            log.DurationMs = (int)watch.ElapsedMilliseconds;
+            logger.LogError(ex, "AI {Feature}: unexpected failure", feature);
+            var id = await LogAsync(log, AiOutcome.Failed, $"Unexpected: {ex.GetType().Name}: {ex.Message}", ct);
             return AiResult<T>.Fail(Unavailable, id);
         }
 
@@ -148,6 +156,21 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
         return new AiResult<T>(value, null, LogId: logId);
     }
 
+    /// <summary>
+    /// 23 November 2026: what the person sees for each kind of failure: what happened (with the provider's own reason, which never
+    /// contains the key) and what to do. Everyone can still write the text themselves.
+    /// </summary>
+    public static string Explain(AiProviderException ex) => ex.Kind switch
+    {
+        AiFailure.KeyRefused => $"The AI provider refused the API key. A Super Admin should check AI settings. (Provider said: {ex.Message})",
+        AiFailure.Busy => $"The AI service is busy right now. Try again in a minute; if it keeps happening, a Super Admin can choose another model in AI settings. (Provider said: {ex.Message})",
+        AiFailure.Quota => $"The AI provider account's usage limit or credit is used up. A Super Admin should check the provider account (billing and quotas). (Provider said: {ex.Message})",
+        AiFailure.Timeout => "The AI service took too long to answer. Try again; if it keeps happening, a Super Admin can raise \"Wait at most\" or choose a faster model in AI settings.",
+        AiFailure.Unreachable => "The server could not reach the AI provider (internet connection, firewall or proxy). Ask IT to check that the server can reach the provider's website.",
+        AiFailure.BadRequest => $"The AI provider refused the request; a Super Admin should check the model name in AI settings. (Provider said: {ex.Message})",
+        _ => Unavailable
+    };
+
     /// <summary>The connection from the settings, or null when something needed is missing.</summary>
     public AiConnection? Connection()
     {
@@ -158,7 +181,8 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
         var endpoint = settings.Get(SettingCatalogue.AiAzureEndpoint)?.Trim();
         if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(model)) return null;
         if (provider == AiProvider.AzureOpenAI && (string.IsNullOrWhiteSpace(endpoint) || !Uri.TryCreate(endpoint, UriKind.Absolute, out _))) return null;
-        return new AiConnection(provider, key.Trim(), model, endpoint, settings.Get(SettingCatalogue.AiAzureApiVersion) ?? "2024-10-21",
+        var apiVersion = settings.Get(SettingCatalogue.AiAzureApiVersion)?.Trim();
+        return new AiConnection(provider, key.Trim(), model, endpoint, string.IsNullOrEmpty(apiVersion) ? "2024-10-21" : apiVersion,
             TimeSpan.FromSeconds(Math.Clamp(settings.GetInt(SettingCatalogue.AiTimeoutSeconds), 5, 300)));
     }
 
@@ -197,11 +221,21 @@ public class AiGateway(IAiClient client, IAiLogStore store, ISettingsStore setti
             var end = json.LastIndexOf("```", StringComparison.Ordinal);
             if (start > 0 && end > start) json = json[(start + 1)..end];
         }
+        if (TryDeserialize<T>(json) is { } value) return value;
+        // ...or put a sentence before or after it: try the outermost {...}.
+        var first = json.IndexOf('{');
+        var last = json.LastIndexOf('}');
+        var hasExtraText = first > 0 || last < json.Length - 1;
+        return first >= 0 && last > first && hasExtraText ? TryDeserialize<T>(json[first..(last + 1)]) : null;
+    }
+
+    private static T? TryDeserialize<T>(string json) where T : class
+    {
         try
         {
             return JsonSerializer.Deserialize<T>(json, Json);
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException or ArgumentException)
         {
             return null;
         }

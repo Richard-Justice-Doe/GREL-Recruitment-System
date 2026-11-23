@@ -26,6 +26,29 @@ public class AiClientTests
         }
     }
 
+    /// <summary>Answers each request with the next of the given responses (the last one repeats); a null status = network failure.</summary>
+    private sealed class Sequence(params (HttpStatusCode? Status, string Body)[] answers) : HttpMessageHandler
+    {
+        public readonly List<string> Bodies = [];
+        public Func<HttpResponseMessage, HttpResponseMessage>? Shape;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Bodies.Add(request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct));
+            var (status, body) = answers[Math.Min(Bodies.Count - 1, answers.Length - 1)];
+            if (status is null) throw new HttpRequestException("No such host is known.");
+            var response = new HttpResponseMessage(status.Value) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+            return Shape?.Invoke(response) ?? response;
+        }
+    }
+
+    /// <summary>A client that records the waits between attempts instead of waiting.</summary>
+    private static (AiClient Client, List<TimeSpan> Waits) Client(HttpMessageHandler handler)
+    {
+        var waits = new List<TimeSpan>();
+        return (new AiClient(new HttpClient(handler), (d, _) => { waits.Add(d); return Task.CompletedTask; }), waits);
+    }
+
     private static readonly JsonObject Schema = AiGateway.SchemaOf<AiAdminService.ConnectionCheck>();
 
     private static AiConnection Conn(AiProvider p) =>
@@ -47,7 +70,8 @@ public class AiClientTests
         Assert.Equal("Bearer sk-secret", handler.Request.Headers.Authorization!.ToString());
         var body = JsonNode.Parse(handler.Body!)!;
         Assert.Equal("gpt-test", body["model"]!.GetValue<string>());
-        Assert.Equal(200, body["max_completion_tokens"]!.GetValue<int>());
+        // Reasoning models (GPT-5, o-series) think within this limit, so the allowance is added (23 Nov 2026).
+        Assert.Equal(200 + AiClient.ReasoningAllowance, body["max_completion_tokens"]!.GetValue<int>());
         Assert.Equal("system", body["messages"]![0]!["role"]!.GetValue<string>());
         Assert.True(body["response_format"]!["json_schema"]!["strict"]!.GetValue<bool>());
     }
@@ -66,19 +90,118 @@ public class AiClientTests
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.Unauthorized, "{\"error\":{\"message\":\"Incorrect API key\"}}", "API key was refused", true)]
-    [InlineData(HttpStatusCode.TooManyRequests, "{}", "rate limit", false)]
-    [InlineData(HttpStatusCode.BadGateway, "{}", "service error", false)]
-    [InlineData(HttpStatusCode.BadRequest, "{\"error\":{\"message\":\"Unknown model\"}}", "Unknown model", false)]
-    [InlineData(HttpStatusCode.OK, "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"{\"}}]}", "too long", false)]
-    [InlineData(HttpStatusCode.OK, "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"refusal\":\"I can't help with that\"}}]}", "declined", false)]
-    public async Task Problems_are_reported_without_the_key(HttpStatusCode status, string body, string expected, bool keyRefused)
+    [InlineData(HttpStatusCode.Unauthorized, "{\"error\":{\"message\":\"Incorrect API key\"}}", "API key was refused (401): Incorrect API key", AiFailure.KeyRefused)]
+    [InlineData(HttpStatusCode.TooManyRequests, "{\"error\":{\"message\":\"Rate limit reached for gpt-test on requests per min (RPM)\"}}", "rate limit", AiFailure.Busy)]
+    [InlineData(HttpStatusCode.TooManyRequests, "{\"error\":{\"message\":\"You exceeded your current quota, please check your plan and billing details.\",\"code\":\"insufficient_quota\"}}", "quota or credit is used up", AiFailure.Quota)]
+    [InlineData(HttpStatusCode.BadGateway, "<html>Bad gateway</html>", "service error (502)", AiFailure.Busy)]
+    [InlineData(HttpStatusCode.NotFound, "{\"error\":{\"message\":\"The model gpt-x does not exist\"}}", "model was not found", AiFailure.BadRequest)]
+    [InlineData(HttpStatusCode.BadRequest, "{\"error\":{\"message\":\"Unknown model\"}}", "Unknown model", AiFailure.BadRequest)]
+    [InlineData(HttpStatusCode.OK, "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"{\"}}]}", "too long", AiFailure.Other)]
+    [InlineData(HttpStatusCode.OK, "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"refusal\":\"I can't help with that\"}}]}", "declined", AiFailure.Other)]
+    [InlineData(HttpStatusCode.OK, "{\"choices\":[]}", "no answer", AiFailure.Other)]
+    public async Task Problems_are_reported_with_their_kind_and_without_the_key(HttpStatusCode status, string body, string expected, AiFailure kind)
     {
         var ex = await Assert.ThrowsAsync<AiProviderException>(() =>
-            new AiClient(new HttpClient(new Handler(status, body))).SendAsync(Conn(AiProvider.OpenAI), new AiCall("x", "y", null)));
+            Client(new Handler(status, body)).Client.SendAsync(Conn(AiProvider.OpenAI), new AiCall("x", "y", null)));
         Assert.Contains(expected, ex.Message);
-        Assert.Equal(keyRefused, ex.KeyRefused);
+        Assert.Equal(kind, ex.Kind);
+        Assert.Equal(kind == AiFailure.KeyRefused, ex.KeyRefused);
         Assert.DoesNotContain("sk-secret", ex.Message);
+    }
+
+    // ===================================================================== Retries (23 November 2026)
+
+    private const string Overloaded = "{\"error\":{\"code\":503,\"message\":\"This model is currently experiencing high demand. Please try again later.\",\"status\":\"UNAVAILABLE\"}}";
+
+    [Fact]
+    public async Task A_busy_provider_is_tried_again_and_the_answer_is_used()
+    {
+        var handler = new Sequence((HttpStatusCode.ServiceUnavailable, Overloaded), (HttpStatusCode.OK, GeminiOk));
+        var (client, waits) = Client(handler);
+        var reply = await client.SendAsync(Gemini(), new AiCall("x", "y", Schema, 200));
+        Assert.Equal("{\"ok\":true,\"reply\":\"Hi\"}", reply.Text);
+        Assert.Equal(2, handler.Bodies.Count);
+        Assert.Equal([TimeSpan.FromSeconds(1)], waits);
+    }
+
+    [Fact]
+    public async Task A_provider_that_stays_busy_is_tried_three_times_then_reported_with_its_reason()
+    {
+        var handler = new Sequence((HttpStatusCode.ServiceUnavailable, Overloaded));
+        var (client, waits) = Client(handler);
+        var ex = await Assert.ThrowsAsync<AiProviderException>(() => client.SendAsync(Gemini(), new AiCall("x", "y", null)));
+        Assert.Equal(AiClient.MaxAttempts, handler.Bodies.Count);
+        Assert.Equal([TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3)], waits);
+        Assert.Equal(AiFailure.Busy, ex.Kind);
+        Assert.Equal("The provider had a service error (503): This model is currently experiencing high demand. Please try again later.", ex.Message);
+    }
+
+    [Fact]
+    public async Task The_wait_the_provider_asks_for_is_used_up_to_the_maximum()
+    {
+        var handler = new Sequence((HttpStatusCode.TooManyRequests, "{\"error\":{\"message\":\"Slow down\"}}"), (HttpStatusCode.OK, Ok))
+        {
+            Shape = r => { r.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(60)); return r; }
+        };
+        var (client, waits) = Client(handler);
+        await client.SendAsync(Conn(AiProvider.OpenAI), new AiCall("x", "y", null));
+        Assert.Equal([AiClient.MaxRetryWait], waits);
+    }
+
+    [Fact]
+    public async Task A_network_failure_is_tried_again_then_reported_as_unreachable()
+    {
+        var handler = new Sequence((null, ""));
+        var ex = await Assert.ThrowsAsync<AiProviderException>(() => Client(handler).Client.SendAsync(Conn(AiProvider.OpenAI), new AiCall("x", "y", null)));
+        Assert.Equal((AiClient.MaxAttempts, AiFailure.Unreachable), (handler.Bodies.Count, ex.Kind));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, "{\"error\":{\"message\":\"bad key\"}}")]
+    [InlineData(HttpStatusCode.NotFound, "{\"error\":{\"message\":\"no such model\"}}")]
+    [InlineData(HttpStatusCode.TooManyRequests, "{\"error\":{\"message\":\"You exceeded your current quota\",\"code\":\"insufficient_quota\"}}")]
+    public async Task Problems_that_waiting_cannot_fix_are_not_retried(HttpStatusCode status, string body)
+    {
+        var handler = new Sequence((status, body));
+        await Assert.ThrowsAsync<AiProviderException>(() => Client(handler).Client.SendAsync(Conn(AiProvider.OpenAI), new AiCall("x", "y", null)));
+        Assert.Single(handler.Bodies);
+    }
+
+    [Fact]
+    public async Task No_retry_is_made_when_the_time_allowed_would_run_out()
+    {
+        var handler = new Sequence((HttpStatusCode.ServiceUnavailable, Overloaded), (HttpStatusCode.OK, Ok));
+        var conn = Conn(AiProvider.OpenAI) with { Timeout = TimeSpan.FromMilliseconds(500) }; // shorter than the 1 s wait
+        var ex = await Assert.ThrowsAsync<AiProviderException>(() => Client(handler).Client.SendAsync(conn, new AiCall("x", "y", null)));
+        Assert.Equal((1, AiFailure.Busy), (handler.Bodies.Count, ex.Kind));
+    }
+
+    [Fact]
+    public async Task A_provider_that_does_not_answer_in_time_is_reported_as_a_timeout()
+    {
+        var conn = Conn(AiProvider.OpenAI) with { Timeout = TimeSpan.FromMilliseconds(100) };
+        var ex = await Assert.ThrowsAsync<AiProviderException>(() => Client(new Hang()).Client.SendAsync(conn, new AiCall("x", "y", null)));
+        Assert.Equal(AiFailure.Timeout, ex.Kind);
+    }
+
+    private sealed class Hang : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            throw new InvalidOperationException();
+        }
+    }
+
+    [Fact]
+    public async Task An_output_limit_above_the_models_maximum_is_sent_again_with_the_features_own_limit()
+    {
+        var handler = new Sequence(
+            (HttpStatusCode.BadRequest, "{\"error\":{\"message\":\"max_tokens is too large: 12192. This model supports at most 4096 completion tokens\"}}"),
+            (HttpStatusCode.OK, Ok));
+        await Client(handler).Client.SendAsync(Conn(AiProvider.OpenAI), new AiCall("x", "y", null, 4000));
+        Assert.Equal([4000 + AiClient.ReasoningAllowance, 4000],
+            handler.Bodies.Select(b => JsonNode.Parse(b)!["max_completion_tokens"]!.GetValue<int>()));
     }
 
     // ===================================================================== Google Gemini (14 November 2026)
@@ -114,21 +237,30 @@ public class AiClientTests
         Assert.Null(JsonNode.Parse(plain.Body!)!["generationConfig"]!["responseMimeType"]); // plain text asked
     }
 
+    // Gemini says "You exceeded your current quota" for per-minute limits too; the quota id in the details tells them apart.
+    private const string GeminiPerMinute = "{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details.\",\"status\":\"RESOURCE_EXHAUSTED\"," +
+        "\"details\":[{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"quotaId\":\"GenerateRequestsPerMinutePerProjectPerModel-FreeTier\"}]}]}}";
+    private const string GeminiPerDay = "{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details.\",\"status\":\"RESOURCE_EXHAUSTED\"," +
+        "\"details\":[{\"@type\":\"type.googleapis.com/google.rpc.QuotaFailure\",\"violations\":[{\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\"}]}]}}";
+
     [Theory]
-    [InlineData(HttpStatusCode.BadRequest, "{\"error\":{\"code\":400,\"message\":\"API key not valid. Please pass a valid API key.\",\"status\":\"INVALID_ARGUMENT\"}}", "API key was refused", true)]
-    [InlineData(HttpStatusCode.Forbidden, "{\"error\":{\"message\":\"Permission denied\"}}", "API key was refused", true)]
-    [InlineData(HttpStatusCode.TooManyRequests, "{\"error\":{\"message\":\"Quota exceeded\"}}", "rate limit", false)]
-    [InlineData(HttpStatusCode.NotFound, "{\"error\":{\"message\":\"models/gemini-x is not found\"}}", "not found", false)]
-    [InlineData(HttpStatusCode.OK, "{\"candidates\":[{\"finishReason\":\"MAX_TOKENS\",\"content\":{\"parts\":[{\"text\":\"{\"}]}}]}", "too long", false)]
-    [InlineData(HttpStatusCode.OK, "{\"candidates\":[{\"finishReason\":\"SAFETY\"}]}", "content filter", false)]
-    [InlineData(HttpStatusCode.OK, "{\"promptFeedback\":{\"blockReason\":\"SAFETY\"}}", "safety filter", false)]
-    [InlineData(HttpStatusCode.OK, "{\"candidates\":[]}", "no answer", false)]
-    public async Task Gemini_problems_are_reported_without_the_key(HttpStatusCode status, string body, string expected, bool keyRefused)
+    [InlineData(HttpStatusCode.BadRequest, "{\"error\":{\"code\":400,\"message\":\"API key not valid. Please pass a valid API key.\",\"status\":\"INVALID_ARGUMENT\"}}", "API key was refused", AiFailure.KeyRefused)]
+    [InlineData(HttpStatusCode.BadRequest, "{\"error\":{\"code\":400,\"message\":\"API key expired. Please renew the API key.\"}}", "API key expired", AiFailure.KeyRefused)]
+    [InlineData(HttpStatusCode.Forbidden, "{\"error\":{\"message\":\"Permission denied\"}}", "API key was refused", AiFailure.KeyRefused)]
+    [InlineData(HttpStatusCode.TooManyRequests, GeminiPerMinute, "rate limit", AiFailure.Busy)]
+    [InlineData(HttpStatusCode.TooManyRequests, GeminiPerDay, "quota or credit is used up", AiFailure.Quota)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, Overloaded, "high demand", AiFailure.Busy)]
+    [InlineData(HttpStatusCode.NotFound, "{\"error\":{\"message\":\"models/gemini-x is not found\"}}", "not found", AiFailure.BadRequest)]
+    [InlineData(HttpStatusCode.OK, "{\"candidates\":[{\"finishReason\":\"MAX_TOKENS\",\"content\":{\"parts\":[{\"text\":\"{\"}]}}]}", "too long", AiFailure.Other)]
+    [InlineData(HttpStatusCode.OK, "{\"candidates\":[{\"finishReason\":\"SAFETY\"}]}", "content filter", AiFailure.Other)]
+    [InlineData(HttpStatusCode.OK, "{\"promptFeedback\":{\"blockReason\":\"SAFETY\"}}", "safety filter", AiFailure.Other)]
+    [InlineData(HttpStatusCode.OK, "{\"candidates\":[]}", "no answer", AiFailure.Other)]
+    public async Task Gemini_problems_are_reported_with_their_kind_and_without_the_key(HttpStatusCode status, string body, string expected, AiFailure kind)
     {
         var ex = await Assert.ThrowsAsync<AiProviderException>(() =>
-            new AiClient(new HttpClient(new Handler(status, body))).SendAsync(Gemini(), new AiCall("x", "y", null)));
+            Client(new Handler(status, body)).Client.SendAsync(Gemini(), new AiCall("x", "y", null)));
         Assert.Contains(expected, ex.Message);
-        Assert.Equal(keyRefused, ex.KeyRefused);
+        Assert.Equal(kind, ex.Kind);
         Assert.DoesNotContain("AIza-secret", ex.Message);
     }
 

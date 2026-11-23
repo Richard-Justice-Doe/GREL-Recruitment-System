@@ -60,10 +60,7 @@ public sealed class SettingsStore(IServiceScopeFactory scopes, IConfiguration co
                 if (SettingCatalogue.Find(key) is not { } d) continue;
                 var secret = d.Kind == SettingKind.Secret;
                 if (secret && raw is null) continue; // not typed: keep
-                // A pasted key often carries a space or line break, which the provider then refuses.
-                var value = secret ? raw?.Trim() : raw;
-                if (secret && string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(raw)) continue; // only spaces typed: keep
-                var stored = string.IsNullOrEmpty(value) ? null : secret ? _protector.Protect(value) : value;
+                var stored = string.IsNullOrEmpty(raw) ? null : secret ? _protector.Protect(raw) : raw;
                 if (rows.TryGetValue(key, out var row))
                 {
                     if (row.SettingValue != stored) row.SettingValue = stored;

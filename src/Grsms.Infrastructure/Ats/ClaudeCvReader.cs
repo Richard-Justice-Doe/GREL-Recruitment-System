@@ -52,7 +52,7 @@ public sealed class ClaudeCvReader(IOptions<AtsAiOptions> options, ILogger<Claud
     {
         if (!IsConfigured || string.IsNullOrWhiteSpace(cvText)) return null;
 
-        AnthropicClient client = new() { ApiKey = _options.ApiKey, Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds) };
+        var client = Client(_options);
         try
         {
             var response = await client.Messages.Create(new MessageCreateParams
@@ -98,7 +98,31 @@ public sealed class ClaudeCvReader(IOptions<AtsAiOptions> options, ILogger<Claud
         {
             logger.LogWarning(ex, "Claude CV reader: the answer was not in the expected shape");
         }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            // The SDK's own time-out: before 23 Nov 2026 this escaped and the application's screening failed.
+            logger.LogWarning(ex, "Claude CV reader: no answer within {Seconds} s", _options.TimeoutSeconds);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Claude CV reader: unexpected failure");
+        }
         return null;
+    }
+
+    private static readonly Lock ClientLock = new();
+    private static (string Key, int Seconds, AnthropicClient Client)? _client;
+
+    /// <summary>One SDK client (and connection pool) for all CVs, instead of a new one per CV; replaced if the key changes.</summary>
+    private static AnthropicClient Client(AtsAiOptions o)
+    {
+        lock (ClientLock)
+        {
+            if (_client is { } c && c.Key == o.ApiKey && c.Seconds == o.TimeoutSeconds) return c.Client;
+            var client = new AnthropicClient { ApiKey = o.ApiKey!, Timeout = TimeSpan.FromSeconds(Math.Clamp(o.TimeoutSeconds, 5, 300)) };
+            _client = (o.ApiKey!, o.TimeoutSeconds, client);
+            return client;
+        }
     }
 
     // ===================================================================== Answer shape

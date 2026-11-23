@@ -39,14 +39,19 @@ public class AiAdminService(SystemSettingsService settings, ISettingsStore store
     public async Task<Result> SaveServiceAsync(IReadOnlyDictionary<string, string?> values, CancellationToken ct = default)
     {
         var provider = values.GetValueOrDefault(SettingCatalogue.AiProviderKey)?.Trim();
-        if (!Enum.TryParse<AiProvider>(provider, out _)) return Result.Failure("Choose the provider.");
+        // By name only: Enum.TryParse would also accept a number such as "7".
+        if (provider is null || !Enum.GetNames<AiProvider>().Contains(provider)) return Result.Failure("Choose the provider.");
         foreach (var priceKey in new[] { SettingCatalogue.AiInputPrice, SettingCatalogue.AiOutputPrice })
             if (values.GetValueOrDefault(priceKey) is { Length: > 0 } price &&
                 !(decimal.TryParse(price, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var p) && p >= 0))
                 return Result.Failure("Prices must be numbers such as 3 or 0.25 (US dollars per million tokens).");
-        if (provider == nameof(AiProvider.AzureOpenAI) &&
-            !Uri.TryCreate(values.GetValueOrDefault(SettingCatalogue.AiAzureEndpoint)?.Trim(), UriKind.Absolute, out var uri) | uri?.Scheme != "https")
-            return Result.Failure("Azure OpenAI needs its endpoint, starting with https://.");
+        if (provider == nameof(AiProvider.AzureOpenAI))
+        {
+            var endpointOk = Uri.TryCreate(values.GetValueOrDefault(SettingCatalogue.AiAzureEndpoint)?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
+            if (!endpointOk) return Result.Failure("Azure OpenAI needs its endpoint, starting with https://.");
+        }
+        if (values.GetValueOrDefault(SettingCatalogue.AiModel)?.Trim() is { Length: > 0 } model && model.Any(char.IsWhiteSpace))
+            return Result.Failure("The model name has a space in it. Copy it exactly from the provider (e.g. gemini-2.5-flash).");
         if (provider is nameof(AiProvider.OpenAI) or nameof(AiProvider.AzureOpenAI) or nameof(AiProvider.Gemini) && string.IsNullOrWhiteSpace(values.GetValueOrDefault(SettingCatalogue.AiModel)))
             return Result.Failure(provider switch
             {

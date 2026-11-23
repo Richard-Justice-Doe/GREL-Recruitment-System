@@ -107,14 +107,35 @@ public class AiGatewayTests : IDisposable
         _db.Ai.Reply = _ => throw new AiProviderException("The provider could not be reached.");
         Assert.Equal(AiGateway.Unavailable, (await RunAsync<Draft>(AiFeature.JobDescription)).Problem);
 
+        // 23 Nov 2026: each kind says what happened, with the provider's own reason, and what to do.
+        _db.Ai.Reply = _ => throw new AiProviderException("The provider had a service error (503): This model is currently experiencing high demand.", AiFailure.Busy);
+        var busy = (await RunAsync<Draft>(AiFeature.JobDescription)).Problem!;
+        Assert.Contains("busy right now", busy);
+        Assert.Contains("high demand", busy);
+        _db.Ai.Reply = _ => throw new AiProviderException("Quota used up.", AiFailure.Quota);
+        Assert.Contains("usage limit or credit is used up", (await RunAsync<Draft>(AiFeature.JobDescription)).Problem);
+        _db.Ai.Reply = _ => throw new AiProviderException("No answer within 30 seconds.", AiFailure.Timeout);
+        Assert.Contains("took too long", (await RunAsync<Draft>(AiFeature.JobDescription)).Problem);
+        _db.Ai.Reply = _ => throw new AiProviderException("Unknown model.", AiFailure.BadRequest);
+        Assert.Contains("check the model name", (await RunAsync<Draft>(AiFeature.JobDescription)).Problem);
+
+        // An unexpected exception never reaches the page; it is logged as a failure.
+        _db.Ai.Reply = _ => throw new InvalidOperationException("odd SDK answer");
+        Assert.Equal(AiGateway.Unavailable, (await RunAsync<Draft>(AiFeature.JobDescription)).Problem);
+        Assert.Contains("odd SDK answer", (await LogsAsync()).Last().Error);
+
         Answer("not json at all");
         Assert.Equal(AiGateway.Unavailable, (await RunAsync<Draft>(AiFeature.JobDescription)).Problem);
+
+        // A sentence around the JSON is tolerated too.
+        Answer("Here is the draft: {\"title\":\"T\",\"duties\":[],\"years\":1} Hope it helps.");
+        Assert.True((await RunAsync<Draft>(AiFeature.JobDescription)).Succeeded);
 
         // A code fence around the JSON is tolerated.
         Answer("```json\n{\"title\":\"T\",\"duties\":[],\"years\":1}\n```");
         Assert.True((await RunAsync<Draft>(AiFeature.JobDescription)).Succeeded);
 
-        Assert.Equal([AiOutcome.Failed, AiOutcome.Failed, AiOutcome.BadAnswer, AiOutcome.Success], (await LogsAsync()).Select(l => l.Outcome));
+        Assert.Equal([.. Enumerable.Repeat(AiOutcome.Failed, 7), AiOutcome.BadAnswer, AiOutcome.Success, AiOutcome.Success], (await LogsAsync()).Select(l => l.Outcome));
     }
 
     [Fact]

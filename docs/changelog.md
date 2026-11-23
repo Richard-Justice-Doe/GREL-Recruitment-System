@@ -4,6 +4,48 @@ Work done outside the numbered phases, newest first. Each entry says what change
 
 ---
 
+## 23 November 2026: AI connection rewritten: retries when the provider is busy, clear reasons for every failure
+
+Requested by the user after the AI kept failing on the server with Gemini (`gemini-3.1-flash-lite`): first "The provider refused the API key", then "The provider had a service error" and a time-out. Google was answering **503 "This model is currently experiencing high demand"**, but GRSMS dropped that reason, showed only "AI is not available right now", and gave up after one try.
+
+**What changed** (`Infrastructure/Ai/AiClient.cs`, rewritten; `Application/Ai/AiGateway.cs`, `AiContracts.cs`, `AiAdminService.cs`; `Infrastructure/Ats/ClaudeCvReader.cs`)
+* **Retries:** a busy provider (429 rate limit, 500/502/503/504, overloaded) or a dropped connection is tried up to **3 times**, waiting 1 s then 3 s (or the wait the provider asks for, at most 8 s), never beyond "Wait at most" in AI settings. Anthropic uses the SDK's own retries (the same 3 tries).
+* **Not retried**, because waiting cannot help: a refused key, an unknown model, a used-up quota or credit.
+* **Every failure has a kind and the provider's own reason** (never the key), in the AI log and on the page:
+  * key refused;
+  * busy ("try again in a minute; a Super Admin can choose another model");
+  * quota or credit used up ("check the provider account");
+  * timed out;
+  * server cannot reach the provider ("ask IT to check the firewall");
+  * request refused ("check the model name").
+* **Gemini's per-minute vs per-day limits:** both say "You exceeded your current quota". They are now told apart by the quota id in the error details. Per-minute is "busy" and retried; per-day is "quota".
+* **Reasoning models:** OpenAI GPT-5 / o-series think within the output limit, so a short request (the connection test: 200 tokens) came back empty. The same 8,192-token allowance Gemini already had is now added; only tokens used are billed. If an older model says the limit is above its maximum, the request is sent again with the feature's own limit.
+* **Nothing reaches the page as an error screen:** an unexpected exception during an AI call is logged and becomes "AI is not available right now".
+* **Answers:** JSON with a sentence before or after it is now accepted, as code fences already were.
+* **Smaller fixes:**
+  * one shared Anthropic client instead of a new one (and connection pool) per call, also for the older Claude CV reader;
+  * the older Claude CV reader's own time-out no longer escapes and breaks screening an application;
+  * Gemini's `IMAGE_SAFETY` stop is reported as a content filter;
+  * a blank Azure API version falls back to 2024-10-21;
+  * a numeric provider value ("7") is refused on save;
+  * a model name with a space in it is refused on save.
+
+**Checked:** 346 tests pass, including new ones for:
+* a retry that then succeeds;
+* three busy answers, then the provider's reason;
+* the provider's requested wait, capped at 8 s;
+* network failure, then "unreachable";
+* no retry for a key, model or quota problem;
+* no retry when the time allowed would run out;
+* the time-out;
+* the output-limit fallback;
+* Gemini per-minute vs per-day;
+* each message on the page;
+* an unexpected exception;
+* JSON with text around it.
+
+**Advice for GREL:** preview and "lite" models such as `gemini-3.1-flash-lite` are often overloaded. Use a stable model (e.g. `gemini-2.5-flash`) in AI settings for day-to-day work.
+
 ## 23 November 2026: GRSMS suggests the probation initial meeting date, and it can be scheduled ahead
 
 Requested by the user, with a screenshot: the employee starts on 13 Dec and the meeting is due by 20 Dec, but the form could only record meetings already held (no earlier than 29 Nov and no later than today, 23 Nov). So nothing could be saved yet. The user asked for a suggested date that works now, and chose to let the HOD schedule the meeting ahead.

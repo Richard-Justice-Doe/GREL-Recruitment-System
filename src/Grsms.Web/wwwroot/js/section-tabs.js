@@ -28,7 +28,7 @@
             : preferred && names.indexOf(preferred) >= 0 ? preferred : names[0];
 
         var nav = document.createElement("ul");
-        nav.className = "nav nav-pills mb-3 flex-nowrap overflow-auto pb-1";
+        nav.className = "nav nav-pills mb-3 flex-nowrap overflow-auto pb-1 section-tabs";
         nav.setAttribute("role", "tablist");
         names.concat([all]).forEach(function (n) {
             var li = document.createElement("li");
@@ -51,6 +51,8 @@
                 var on = b.getAttribute("data-tab") === name;
                 b.classList.toggle("active", on);
                 b.setAttribute("aria-selected", on ? "true" : "false");
+                // docs/37 C6: on a narrow screen keep the chosen tab in sight (the row scrolls sideways).
+                if (on && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = (b.parentNode.previousElementSibling || b.parentNode).offsetLeft;
             });
             try { sessionStorage.setItem(key, name); } catch (e) { /* not remembered: fine */ }
         }

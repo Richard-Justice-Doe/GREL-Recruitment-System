@@ -1,0 +1,41 @@
+@* docs/36 AI-5: a stored AI summary (interview or CV), with "Write" / "Write again" for Recruitment Officers and HR Managers. *@
+@model Grsms.Web.Helpers.AiInsightCard
+<div class="ai-panel mb-3" data-ai-insight="@Model.GenerateAction">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="ai-panel-title"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i>@Model.Title</div>
+        <span class="badge rounded-pill badge-soft-primary">AI</span>
+        @if (Model.CanGenerate)
+        {
+            <form asp-controller="@Model.GenerateController" asp-action="@Model.GenerateAction" asp-route-id="@Model.RecordId" method="post" class="ms-auto" data-ai-busy>
+                <button type="submit" class="btn btn-sm @(Model.CreatedAt is null ? "btn-primary" : "btn-outline-secondary")">
+                    <i class="fa-solid @(Model.CreatedAt is null ? "fa-wand-magic-sparkles" : "fa-rotate") me-1"></i>@(Model.CreatedAt is null ? "Write the summary" : "Write again")
+                </button>
+            </form>
+        }
+    </div>
+    <p class="small text-body-secondary mb-2">@Model.Note</p>
+    @if (Model.Unavailable is not null && Model.CreatedAt is null)
+    {
+        <p class="small mb-0">@Model.Unavailable</p>
+    }
+    @if (Model.CreatedAt is { } at)
+    {
+        @if (Model.Verdict is not null)
+        {
+            <div class="alert alert-@Model.VerdictTone py-2 small mb-2"><strong>@Model.Verdict</strong></div>
+        }
+        @foreach (var (title, lines) in Model.Sections)
+        {
+            <h3 class="h6 mt-2 mb-1">@title</h3>
+            @if (lines.Count == 1 && title is "Overview" or "Summary")
+            {
+                <p class="small mb-1">@lines[0]</p>
+            }
+            else
+            {
+                <ul class="small mb-1">@foreach (var l in lines) { <li>@l</li> }</ul>
+            }
+        }
+        <div class="small text-body-secondary mt-2">Written @at.ToString("d MMM yyyy HH:mm") GMT@(Model.CreatedBy is null ? "" : $", asked by {Model.CreatedBy}").</div>
+    }
+</div>

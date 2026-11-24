@@ -1,0 +1,117 @@
+@* 12 November 2026 (docs/34 quick win): past applicants who were not hired, to find and invite again. *@
+@model Grsms.Application.Common.PagedResult<TalentPoolPersonDto>
+@{
+    ViewData["Title"] = "Talent pool";
+    var f = (TalentPoolFilter)ViewBag.Filter;
+    bool mayInvite = ViewBag.MayInvite;
+    var openVacancies = (IReadOnlyList<InvitableVacancyDto>)ViewBag.Vacancies;
+    var thisPage = Context.Request.Path + Context.Request.QueryString;
+    Dictionary<string, string> Route(int page)
+    {
+        var d = new Dictionary<string, string> { ["page"] = page.ToString() };
+        if (!string.IsNullOrWhiteSpace(f.Search)) d["search"] = f.Search;
+        if (f.MinEducation is { } e) d["minEducation"] = e.ToString();
+        if (f.MinYears is { } y) d["minYears"] = y.ToString();
+        if (!string.IsNullOrWhiteSpace(f.Reached)) d["reached"] = f.Reached;
+        return d;
+    }
+    string StageCss(TalentStage s) => s switch
+    {
+        TalentStage.Offered => "badge-soft-success",
+        TalentStage.Interviewed => "badge-soft-primary",
+        TalentStage.Shortlisted => "badge-soft-warning",
+        _ => "badge-soft-secondary"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1>Candidates</h1>
+        <p>People who applied before and were not hired. Find them by skills or experience and invite them to apply for a vacancy that is open now.</p>
+    </div>
+</div>
+
+<partial name="_CandidatesTabs" />
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-4"><input name="search" value="@f.Search" class="form-control" placeholder="Name, skills, field of study, position" aria-label="Search" /></div>
+    <div class="col-md-3">
+        <select name="minEducation" class="form-select" aria-label="Minimum education">
+            <option value="">Any education</option>
+            @foreach (var level in Enum.GetValues<EducationLevel>())
+            {
+                <option value="@level" selected="@(f.MinEducation == level)">@level.DisplayName() or higher</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2"><input name="minYears" type="number" min="0" max="50" value="@f.MinYears" class="form-control" placeholder="Min. years" aria-label="Minimum years of experience" /></div>
+    <div class="col-md-2">
+        <select name="reached" class="form-select" aria-label="Got at least as far as">
+            <option value="">Any stage</option>
+            <option value="shortlisted" selected="@(f.Reached == "shortlisted")">Shortlisted or further</option>
+            <option value="interviewed" selected="@(f.Reached == "interviewed")">Interviewed or further</option>
+            <option value="offered" selected="@(f.Reached == "offered")">Offered</option>
+        </select>
+    </div>
+    <div class="col-md-1"><button type="submit" class="btn btn-outline-primary w-100" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button></div>
+</form>
+
+@if (mayInvite && openVacancies.Count == 0)
+{
+    <div class="alert alert-info small">No vacancy is open to external applicants with a published advert right now, so nobody can be invited yet.</div>
+}
+
+<div class="card glass">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Candidate</th><th>Qualifications</th><th class="d-none d-lg-table-cell">Skills</th><th>Got as far as</th><th class="text-end">Best score</th><th class="d-none d-md-table-cell">Last applied</th>@if (mayInvite) { <th>Invite to apply</th> }</tr></thead>
+            <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr><td colspan="7" class="text-center text-body-secondary py-4">Nobody in the talent pool matches. Unsuccessful applicants appear here once their application is closed.</td></tr>
+            }
+            @foreach (var p in Model.Items)
+            {
+                <tr>
+                    <td>
+                        <a asp-controller="Applications" asp-action="Details" asp-route-id="@p.LastApplicationId" class="fw-semibold text-decoration-none">@p.FullName</a>
+                        <div class="small text-body-secondary text-break">@p.Email · @p.Phone</div>
+                    </td>
+                    <td class="small">@p.Education.DisplayName()@(p.FieldOfStudy is null ? "" : $", {p.FieldOfStudy}")<div class="text-body-secondary">@p.YearsExperience years@(p.CurrentPosition is null ? "" : $" · {p.CurrentPosition}")</div></td>
+                    <td class="small d-none d-lg-table-cell text-truncate" style="max-width: 18rem" title="@p.Skills">@(p.Skills ?? "—")</td>
+                    <td><span class="badge rounded-pill @StageCss(p.Reached)">@p.Reached.DisplayName()</span></td>
+                    <td class="text-end">@(p.BestScore?.ToString() ?? "—")</td>
+                    <td class="small d-none d-md-table-cell">@p.LastApplied.ToString("dd MMM yyyy")<div class="text-body-secondary text-truncate" style="max-width: 14rem">@p.LastVacancy@(p.Applications > 1 ? $" (+{p.Applications - 1} more)" : "")</div></td>
+                    @if (mayInvite)
+                    {
+                        <td>
+                            @if (openVacancies.Count > 0)
+                            {
+                                <form asp-action="Invite" method="post" class="d-flex gap-1">
+                                    <input type="hidden" name="applicantUserId" value="@p.ApplicantUserId" />
+                                    <input type="hidden" name="returnUrl" value="@thisPage" />
+                                    <select name="vacancyId" class="form-select form-select-sm" aria-label="Vacancy" required>
+                                        @foreach (var v in openVacancies) { <option value="@v.VacancyId">@v.JobTitle (closes @v.ClosingDate.ToString("d MMM"))</option> }
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap" data-confirm="Email @p.FullName an invitation to apply?">Invite</button>
+                                </form>
+                            }
+                            else { <span class="small text-body-secondary">—</span> }
+                        </td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3">
+        <span class="small text-body-secondary">@Model.TotalCount @(Model.TotalCount == 1 ? "person" : "people") · page @Model.Page of @Model.TotalPages</span>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="d-flex gap-2">
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
+                <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+            </div>
+        }
+    </div>
+</div>

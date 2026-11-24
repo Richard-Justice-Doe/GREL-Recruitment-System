@@ -160,9 +160,10 @@ public class ReminderService(
         foreach (var v in await vacancies.ListAsync(v => v.Status == VacancyStatus.PendingApproval, ct))
         {
             if (Block(v.StatusChangedAt) is not { } block || !await notifications.ClaimReminderAsync($"waiting:vacancy:{v.Id}:{block}", ct)) continue;
-            await mailer.ToRoleAsync(Roles.HrManager, [v.RecruiterUserId], $"Waiting {(int)(nowUtc - v.StatusChangedAt).TotalDays} days: {v.VacancyNumber}",
-                $"Vacancy <b>{WorkflowMailer.Enc(v.VacancyNumber)}</b> ({WorkflowMailer.Enc(v.JobTitle)}) has been waiting for HR approval since " +
-                $"{v.StatusChangedAt.ToString("d MMMM", Gb)}.", links.Vacancy(v.Id), "Open the vacancy", ct);
+            // 17 Nov 2026: vacancies need no HR approval any more, so the Recruitment Officer is reminded to publish it.
+            await mailer.ToUserAsync(v.RecruiterUserId, $"Waiting {(int)(nowUtc - v.StatusChangedAt).TotalDays} days: {v.VacancyNumber}",
+                $"Vacancy <b>{WorkflowMailer.Enc(v.VacancyNumber)}</b> ({WorkflowMailer.Enc(v.JobTitle)}) was sent for HR approval on " +
+                $"{v.StatusChangedAt.ToString("d MMMM", Gb)}. No approval is needed any more: open it and publish it.", links.Vacancy(v.Id), "Open the vacancy", ct);
             sent++;
         }
 

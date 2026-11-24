@@ -28,6 +28,7 @@
     var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
     var canPersonnelFiles = (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded;
     var canEmployees = (await Auth.AuthorizeAsync(User, Policies.Employees)).Succeeded; // Phase 28
+    var canExecutive = (await Auth.AuthorizeAsync(User, Policies.ExecutiveDashboard)).Succeeded; // docs/36 AI-3
     var adminLinks = await Grsms.Web.Controllers.AdministrationController.VisibleAsync(Auth, User);
     var isStaff = (await Auth.AuthorizeAsync(User, Policies.Staff)).Succeeded;
     var hodOnly = MenuRules.IsHodOnly(User);
@@ -72,7 +73,7 @@
 }
 <aside class="sidebar" aria-label="Main menu">
     <a class="brand" asp-controller="Home" asp-action="Index">
-        <span class="brand-mark">G</span>
+        <span class="brand-mark brand-logo"><img src="~/images/grel-mark.png" alt="GREL" /></span>
         <span>GREL Recruitment<small>Hire · Onboard · Grow</small></span>
     </a>
 
@@ -80,6 +81,26 @@
         <a class="nav-link @Active("Home")" asp-controller="Home" asp-action="Index">
             <i class="fa-solid fa-house"></i> Home
         </a>
+        <a class="nav-link @Active("ActionCenter")" asp-controller="ActionCenter" asp-action="Index">
+            <i class="fa-solid fa-list-check"></i> Action Center
+        </a>
+        @if (canExecutive)
+        {
+            <a class="nav-link @Active("Executive")" asp-controller="Executive" asp-action="Index">
+                <i class="fa-solid fa-chart-pie"></i> Executive dashboard
+            </a>
+        }
+        @if (isStaff)
+        {
+            @* docs/36 AI-7: GREL's policies and procedures, with the question box *@
+            <a class="nav-link @Active("Knowledge")" asp-controller="Knowledge" asp-action="Index">
+                <i class="fa-solid fa-book"></i> Policies &amp; procedures
+            </a>
+            @* 17 Nov 2026: birthdays and work anniversaries *@
+            <a class="nav-link @Active("Celebrations")" asp-controller="Celebrations" asp-action="Index">
+                <i class="fa-solid fa-cake-candles"></i> Celebrations
+            </a>
+        }
 
         @if (!isStaff)
         {
@@ -140,7 +161,7 @@
             if (canApplications)
             {
                 @* Applications, screening (ATS) and shortlisting: one item, tabs switch between them (Views/Shared/_CandidatesTabs.cshtml). *@
-                <a class="nav-link @(Active("Applications", "Shortlisting") is "active" || (controller == "Ats" && action != "Settings") ? "active" : "")" asp-controller="Applications" asp-action="Index">
+                <a class="nav-link @(Active("Applications", "Shortlisting", "TalentPool") is "active" || (controller == "Ats" && action != "Settings") ? "active" : "")" asp-controller="Applications" asp-action="Index">
                     <i class="fa-solid fa-inbox"></i> Candidates
                     @if (showScreening && counts.AtsAwaitingHr is > 0)
                     {

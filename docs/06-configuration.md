@@ -75,6 +75,7 @@ dotnet user-secrets --project src/Grsms.Web set "Email:FromAddress" "recruitment
 | Setting | Default | Meaning |
 |---|---|---|
 | `Storage:RootFolder` | `App_Data/uploads` | Where uploaded documents are kept: a local folder (`D:\GRSMS\uploads`) or a file-server share (`\\fileserver\grsms`). Relative paths are inside the web app folder. **Never** point it inside `wwwroot`. Back it up with the database. The app's account needs read/write access. |
+| `Pdf:ChromiumPath` | *(found automatically)* | 13 Nov 2026: the browser that prints the offer and appointment letters to PDF (headless Chromium). The Docker image installs `chromium` and sets it to `/usr/bin/chromium`. Without it, GRSMS tries Chrome and Edge in their usual places; if none is found, the *Download PDF* buttons are hidden and letters can still be printed from the browser. |
 | `Uploads:MaxFileSizeMb` | `10` | Largest file accepted, in MB (the upload page allows at most 25 MB per request) |
 
 ### Virus scanning of uploads (connect before go-live)

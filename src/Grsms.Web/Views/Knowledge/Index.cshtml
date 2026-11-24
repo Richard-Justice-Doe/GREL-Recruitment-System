@@ -1,0 +1,119 @@
+@* docs/36 AI-7: GREL's policies and procedures for staff. A question box (an AI answer from GREL's documents only, with its sources,
+   when "Knowledge base answers" is on; otherwise the matching sections), and the library. *@
+@model IReadOnlyList<KnowledgeDocumentListItem>
+@{
+    ViewData["Title"] = "Policies & procedures";
+    var answer = ViewBag.Answer as KnowledgeAnswer;
+    var answersOn = ViewBag.AnswersOn is true;
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+    List<KnowledgeCitation> others = answer is null ? [] : answer.Matches.Where(m => answer.Citations.All(c => c.SectionId != m.SectionId)).ToList();
+}
+
+<div class="page-header">
+    <div>
+        <h1>Policies &amp; procedures</h1>
+        <p>GREL's policies, handbook and procedures. Ask a question, or open a document.</p>
+    </div>
+    @if (ViewBag.CanManage is true)
+    {
+        <a asp-controller="KnowledgeAdmin" asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-gear me-1"></i>Manage the knowledge base</a>
+    }
+</div>
+
+<div class="card glass mb-3">
+    <div class="card-body p-4">
+        <form asp-action="Ask" method="post" class="d-flex flex-wrap gap-2 align-items-start" autocomplete="off">
+            <label for="kb-question" class="visually-hidden">Your question</label>
+            <input id="kb-question" name="question" class="form-control kb-question" maxlength="500" required
+                   value="@answer?.Question" placeholder="e.g. How many days of annual leave do I get?" />
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass me-1"></i>Ask</button>
+        </form>
+        <p class="small text-body-secondary mt-2 mb-0">
+            @if (answersOn)
+            {
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i><text>Answered by AI from GREL's documents only, with the sources it used. Check the source before acting on it.</text>
+            }
+            else
+            {
+                <text>Shows the parts of GREL's documents that match your question.</text>
+            }
+        </p>
+    </div>
+</div>
+
+@if (answer?.Problem is not null)
+{
+    <div class="alert alert-warning">@answer.Problem</div>
+}
+@if (answer?.AiAnswer is not null)
+{
+    <section class="card glass mb-3 kb-answer" aria-live="polite">
+        <div class="card-body p-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-2">Answer <span class="badge rounded-pill badge-soft-primary ms-1">AI</span></h2>
+            <p class="mb-3 kb-answer-text">@answer.AiAnswer</p>
+            @if (answer.Citations.Count > 0)
+            {
+                <h3 class="h6 mb-2">Sources</h3>
+                <ol class="kb-sources mb-0">
+                    @foreach (var c in answer.Citations)
+                    {
+                        <li value="@c.Number">
+                            <a asp-action="Document" asp-route-id="@c.DocumentId" asp-fragment="s-@c.SectionId">@c.DocumentTitle</a>
+                            <span class="text-body-secondary small">(version @c.Version, effective @c.EffectiveDate.ToString("d MMM yyyy", gb))</span>
+                            · <span class="small">@c.Heading</span>
+                        </li>
+                    }
+                </ol>
+            }
+            else
+            {
+                <p class="small text-body-secondary mb-0">No source in GREL's documents answers this. HR can help.</p>
+            }
+        </div>
+    </section>
+}
+@if (others.Count > 0)
+{
+    <details class="card glass mb-3" open="@(answer?.AiAnswer is null)">
+        <summary class="card-body py-3 px-4 fw-semibold">@(answer?.AiAnswer is null ? "Matching sections" : "Other matching sections") (@others.Count)</summary>
+        <div class="card-body pt-0 px-4 pb-3">
+            @foreach (var m in others)
+            {
+                <div class="kb-match">
+                    <a asp-action="Document" asp-route-id="@m.DocumentId" asp-fragment="s-@m.SectionId" class="fw-semibold">@m.DocumentTitle · @m.Heading</a>
+                    <p class="small text-body-secondary mb-0">@m.Extract</p>
+                </div>
+            }
+        </div>
+    </details>
+}
+
+<h2 class="h6 text-uppercase text-body-secondary mt-4 mb-2">The library (@Model.Count)</h2>
+@if (Model.Count == 0)
+{
+    <div class="card glass"><div class="card-body p-4 text-body-secondary">No documents yet. HR adds them under Administration → Knowledge base.</div></div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var d in Model)
+        {
+            <div class="col-md-6 col-xl-4">
+                <div class="card glass h-100">
+                    <div class="card-body p-4 d-flex flex-column">
+                        <h3 class="h6 mb-1"><a asp-action="Document" asp-route-id="@d.Id" class="text-decoration-none">@d.Title</a>
+                            @if (!d.IsActive) { <span class="badge rounded-pill badge-soft-secondary ms-1">Archived</span> }</h3>
+                        <p class="small text-body-secondary mb-2">Version @d.Version · effective @d.EffectiveDate.ToString("d MMM yyyy", gb) · @d.Owner</p>
+                        @if (d.Summary is not null) { <p class="small mb-2">@d.Summary</p> }
+                        <div class="mt-auto d-flex flex-wrap gap-3 align-items-center small">
+                            <a asp-action="Document" asp-route-id="@d.Id"><i class="fa-regular fa-file-lines me-1"></i>Read</a>
+                            <partial name="_PreviewButton" model='((string?)Url.Action("Open", new { id = d.Id }), (string?)d.FileName)' />
+                            <a asp-action="Open" asp-route-id="@d.Id"><i class="fa-solid fa-download me-1"></i>Download</a>
+                            @if (d.Audience == KnowledgeAudience.StaffAndNewEmployees) { <span class="badge rounded-pill badge-soft-secondary">Also new employees</span> }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

@@ -14,8 +14,9 @@ namespace Grsms.Application.Vacancies;
 /// Vacancy Management (Module 3).
 ///
 /// WHO MAY DO WHAT (checked here, on the server):
-///   * Create (from an APPROVED request), edit, submit : Recruitment Officer; editing only while Draft.
-///   * Approve (= publish) or return                    : HR Manager, but never the person who submitted it.
+///   * Create (from a request approved for recruitment), edit, publish : Recruitment Officer; editing only while Draft.
+///                                                        No approval (17 Nov 2026): the MD's approval of the request is the last.
+///   * Approve (= publish) or return a vacancy pending from the earlier workflow: HR Manager, never the person who submitted it.
 ///   * Close, reopen, archive                           : Recruitment Officer or HR Manager.
 ///   * See                                              : RO, HR Manager, MD, HR Administrator (all);
 ///                                                        a HOD (their departments' vacancies).
@@ -137,7 +138,7 @@ public class VacancyService(
             DaysToClosing = v.ClosingDate.DayNumber - Today.DayNumber,
             ReturnComments = v.Status == VacancyStatus.Draft && lastAction?.Action == VacancyAction.Returned ? lastAction.Comments : null,
             CanEdit = VacancyWorkflow.IsEditable(v.Status) && IsRecruiter,
-            CanSubmit = VacancyWorkflow.CanSubmit(v.Status) && IsRecruiter,
+            CanPublish = VacancyWorkflow.CanPublish(v.Status) && IsRecruiter,
             CanDecide = pending && isApprover && submitter != scope.UserId,
             DecisionBlockedReason = pending && isApprover && submitter == scope.UserId
                 ? "You submitted this vacancy, so another HR Manager must approve it."
@@ -316,24 +317,35 @@ public class VacancyService(
         return await SaveAsync(ct);
     }
 
-    public async Task<Result> SubmitAsync(int id, CancellationToken ct = default)
+    /// <summary>
+    /// 17 Nov 2026: the Recruitment Officer publishes the vacancy. No approval: the MD's approval of the request was the last one.
+    /// Also publishes a vacancy still pending from the earlier HR Manager approval step.
+    /// </summary>
+    public async Task<Result> PublishAsync(int id, CancellationToken ct = default)
     {
-        if (!IsRecruiter) return Result.Failure("Only a Recruitment Officer can submit vacancies.");
+        if (!IsRecruiter) return Result.Failure("Only a Recruitment Officer can publish vacancies.");
         var v = await vacancies.GetWithDetailsAsync(id, ct);
         if (v is null) return Result.Failure("Vacancy not found.");
-        if (!VacancyWorkflow.CanSubmit(v.Status)) return Result.Failure("This vacancy has already been submitted.");
+        if (!VacancyWorkflow.CanPublish(v.Status)) return Result.Failure("This vacancy has already been published.");
         if (v.ClosingDate <= Today) return Result.Failure("The closing date must be in the future. Edit the vacancy first.");
 
-        v.RecordStep(VacancyAction.Submitted, VacancyStatus.PendingApproval, scope.UserId, scope.UserName, null, DateTime.UtcNow);
+        var now = DateTime.UtcNow;
+        v.PublishedAt = now;
+        v.RecordStep(VacancyAction.PublishedByRecruiter, VacancyStatus.Published, scope.UserId, scope.UserName, null, now);
         var saved = await SaveAsync(ct);
-        if (saved.Succeeded)
-            await mailer.ToRoleAsync(VacancyWorkflow.ApproverRole, [], $"Vacancy {v.VacancyNumber} needs your approval",
-                $"{WorkflowMailer.Enc(scope.UserName)} submitted the vacancy <b>{WorkflowMailer.Enc(v.JobTitle)}</b> for approval. Approving it publishes it.",
-                links.Vacancy(v.Id), $"Open vacancy {v.VacancyNumber}", ct);
+        if (!saved.Succeeded) return saved;
+
+        var html = $"The vacancy <b>{WorkflowMailer.Enc(v.JobTitle)}</b> has been published by the Recruitment Officer. It closes on {v.ClosingDate:dd MMM yyyy}." +
+            WorkflowMailer.NextStep("Vacancy published", "Create and publish the job advertisement", "Recruitment Officer");
+        var link = links.Vacancy(v.Id);
+        if (v.RecruiterUserId != scope.UserId)
+            await mailer.ToUserAsync(v.RecruiterUserId, $"{v.VacancyNumber} published", html, link, $"Open vacancy {v.VacancyNumber}", ct);
+        await mailer.ToUserAsync((await departments.GetByIdAsync(v.DepartmentId, ct))?.HeadOfDepartmentUserId,
+            $"{v.VacancyNumber} published", html, link, $"Open vacancy {v.VacancyNumber}", ct);
         return saved;
     }
 
-    // ===================================================================== Approve / return (HR Manager)
+    // ===================================================================== Approve / return (HR Manager): earlier workflow only
 
     public async Task<Result> DecideAsync(int id, VacancyDecisionDto dto, CancellationToken ct = default)
     {
@@ -360,7 +372,8 @@ public class VacancyService(
             var saved = await SaveAsync(ct);
             if (saved.Succeeded)
             {
-                var html = $"The vacancy <b>{WorkflowMailer.Enc(v.JobTitle)}</b> has been approved and published. It closes on {v.ClosingDate:dd MMM yyyy}.";
+                var html = $"The vacancy <b>{WorkflowMailer.Enc(v.JobTitle)}</b> has been approved and published. It closes on {v.ClosingDate:dd MMM yyyy}." +
+                    WorkflowMailer.NextStep("Vacancy approved and published", "Create the job advert", "Recruitment Officer");
                 var link = links.Vacancy(v.Id);
                 await mailer.ToUserAsync(v.RecruiterUserId, $"{v.VacancyNumber} published", html, link, $"Open vacancy {v.VacancyNumber}", ct);
                 if (submitter != v.RecruiterUserId)
@@ -510,10 +523,6 @@ public class VacancyService(
         if (form.ClosingDate is not { } closing || closing <= Today)
             errors.Add("The closing date must be after today.");
 
-        if (form.SalaryMin is { } min && form.SalaryMax is { } max && min > max)
-            errors.Add("The lowest salary cannot be more than the highest salary.");
-        if (form.ShowSalary && form.SalaryMin is null && form.SalaryMax is null)
-            errors.Add("Enter a salary range, or untick 'Show the salary range on adverts'.");
 
         if (form.UnitId is int unitId && !await units.AnyAsync(u => u.Id == unitId && u.DepartmentId == departmentId && u.IsActive, ct))
             errors.Add("The selected unit is not an active unit of this department.");
@@ -558,9 +567,7 @@ public class VacancyService(
         v.QualificationNotes = form.QualificationNotes;
         v.MinYearsExperience = form.MinYearsExperience;
         v.ExperienceNotes = form.ExperienceNotes;
-        v.SalaryMin = form.SalaryMin;
-        v.SalaryMax = form.SalaryMax;
-        v.ShowSalary = form.ShowSalary;
+        // docs/37 CR1: the salary range is no longer on the form; earlier values are kept as they are, hidden.
         v.ClosingDate = form.ClosingDate!.Value;
 
         // Replace the requirement lists as a whole. If something is listed as both essential and

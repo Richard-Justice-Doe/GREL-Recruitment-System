@@ -335,4 +335,40 @@ public class OnboardingServiceTests : OnboardingTestBase
         As(_candidate, Roles.Candidate);
         Assert.Equal(Application.Applications.MyStepTarget.Appointment, (await NextStepsAsync())[0].Target); // sign the letter first
     }
+
+    /// <summary>17 Nov 2026: a cancelled onboarding (or induction) can be reopened, back to the stage it was in.</summary>
+    [Fact]
+    public async Task A_cancelled_onboarding_or_induction_can_be_reopened_with_a_reason()
+    {
+        // Cancelled while the documents were with the Recruitment Officer.
+        var (id, _) = await SubmittedAsync();
+        AsRecruiter();
+        Assert.False((await Run(s => s.ReopenAsync(id, "Cancelled by mistake."))).Succeeded); // not cancelled
+        Assert.True((await Run(s => s.CancelAsync(id, "Did not report on the first day."))).Succeeded);
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.False((await Run(s => s.ReopenAsync(id, "Cancelled by mistake."))).Succeeded); // Recruitment Officer only
+        AsRecruiter();
+        Assert.Contains("reason", (await Run(s => s.ReopenAsync(id, " "))).Errors[0]);
+        Assert.True((await Run(s => s.GetAsync(id)))!.CanReopen);
+        Assert.True((await Run(s => s.ReopenAsync(id, "She reported a day late; cancelled by mistake."))).Succeeded);
+        var o = await RecordAsync(id);
+        Assert.Equal((OnboardingStatus.AwaitingDocumentVerification, (string?)null), (o.Status, o.CancelReason));
+        var steps = await Db(db => db.OnboardingActions.Where(a => a.OnboardingRecordId == id).OrderBy(a => a.Id).Select(a => a.Action).ToListAsync());
+        Assert.Equal(OnboardingAction.Reopened, steps.Last(a => a != OnboardingAction.Submitted));
+        Assert.Contains(_db.SentEmails(), m => m.Contains("ama@mail.test") && m.Contains("reopened"));
+        Assert.False((await Run(s => s.GetAsync(id)))!.CanReopen);
+    }
+
+    [Fact]
+    public async Task An_induction_cancelled_after_activation_reopens_to_the_induction()
+    {
+        var id = await ReadyAsync();
+        AsRecruiter();
+        Assert.True((await Run(s => s.ActivateAsync(id, "GREL-0458"))).Succeeded);
+        Assert.Equal(OnboardingStatus.AwaitingDepartmentalInduction, (await RecordAsync(id)).Status);
+        Assert.True((await Run(s => s.CancelAsync(id, "Induction stopped: left on the second day."))).Succeeded);
+        Assert.Equal(OnboardingStatus.Cancelled, (await RecordAsync(id)).Status);
+        Assert.True((await Run(s => s.ReopenAsync(id, "Came back: induction to continue."))).Succeeded);
+        Assert.Equal(OnboardingStatus.AwaitingDepartmentalInduction, (await RecordAsync(id)).Status);
+    }
 }

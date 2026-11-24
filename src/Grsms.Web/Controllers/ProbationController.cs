@@ -21,9 +21,10 @@ public class ProbationController(ProbationService probation) : AppController
         return View(await probation.SearchAsync(filter, ct));
     }
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Ai.ProbationPlanDrafter planDrafter, CancellationToken ct)
     {
         var model = await probation.GetAsync(id, ct);
+        ViewBag.AiPlanOn = model is { CanRecordInitialMeeting: true } && planDrafter.IsOn; // 17 Nov 2026
         return model is null ? NotFound() : View(model);
     }
 

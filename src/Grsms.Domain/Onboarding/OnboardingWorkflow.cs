@@ -89,6 +89,20 @@ public static class OnboardingWorkflow
     /// <summary>Most files one document may hold (e.g. several professional certificates).</summary>
     public const int MaxFilesPerDocument = 10;
 
+    // ---- docs/36 AI-4: document checks (rules, no AI)
+
+    /// <summary>ID-type documents that expire: a "valid until" date is asked for and checked.</summary>
+    public static readonly IReadOnlySet<string> ExpiringDocumentCodes =
+        new HashSet<string> { "GhanaCard", "PassportBiodataPage", "NonCitizenCard", "WorkPermit", "ResidencePermit" };
+
+    public static bool HasExpiry(string code) => ExpiringDocumentCodes.Contains(code);
+
+    /// <summary>An expiry this close (days) is flagged "expires soon".</summary>
+    public const int ExpiresSoonDays = 90;
+
+    /// <summary>A photo or scan whose longer side has fewer pixels than this is flagged as possibly unreadable.</summary>
+    public const int LowResolutionPixels = 1000;
+
     /// <summary>The new employee may change the files of a document unless it is verified or the RO is reviewing it.</summary>
     public static bool EmployeeMayChange(EmployeeDocumentStatus s) => s is not (EmployeeDocumentStatus.Verified or EmployeeDocumentStatus.UnderReview);
 
@@ -164,6 +178,21 @@ public static class OnboardingWorkflow
         : OnboardingStatus.AwaitingActivation;
 
     /// <summary><paramref name="days"/> working days (Monday to Friday) after <paramref name="from"/>.</summary>
+    /// <summary>Phase 27 stage C: working days (Monday to Friday) after <paramref name="from"/> up to and including <paramref name="to"/>.</summary>
+    public static int WorkingDaysBetween(DateOnly from, DateOnly to)
+    {
+        var count = 0;
+        for (var d = from.AddDays(1); d <= to; d = d.AddDays(1))
+            if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) count++;
+        return count;
+    }
+
+    /// <summary>Phase 27 stage C: the new employee is reminded of outstanding documents every this many working days.</summary>
+    public const int DocumentReminderEveryWorkingDays = 3;
+
+    /// <summary>Phase 27 stage C: the one extension of the document deadline is at most this many days.</summary>
+    public const int MaxDocumentExtensionDays = 14;
+
     public static DateOnly AddWorkingDays(DateOnly from, int days)
     {
         var d = from;

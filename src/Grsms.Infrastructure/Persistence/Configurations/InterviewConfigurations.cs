@@ -60,6 +60,8 @@ internal class InterviewPanelMemberConfiguration : IEntityTypeConfiguration<Inte
         b.Property(p => p.Attendance).HasConversion<string>().HasMaxLength(20);   // score validation (9 Nov 2026)
         b.Property(p => p.AttendanceNote).HasMaxLength(1000);
         b.Property(p => p.AttendanceRecordedByUserId).HasMaxLength(255);
+        b.Property(p => p.Response).HasConversion<string>().HasMaxLength(20).HasDefaultValue(PanelResponse.Pending);   // docs/35: RSVP
+        b.Property(p => p.DeclineReason).HasMaxLength(500);
         b.HasOne<ApplicationUser>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(p => new { p.InterviewId, p.UserId }).IsUnique();
         b.HasIndex(p => p.UserId); // "My interviews"
@@ -106,5 +108,24 @@ internal class ScorecardRatingConfiguration : IEntityTypeConfiguration<Scorecard
         // RESTRICT (not cascade) from criteria: a criterion with ratings cannot disappear.
         b.HasOne<InterviewCriterion>().WithMany().HasForeignKey(r => r.CriterionId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(r => new { r.ScorecardId, r.CriterionId }).IsUnique();
+        b.Property(r => r.Comment).HasMaxLength(1000); // docs/37 CR2
+    }
+}
+
+/// <summary>Table "InterviewPanelChanges" (docs/37 CR3): the history of panel replacements, substitutes and re-invitations.</summary>
+internal class InterviewPanelChangeConfiguration : IEntityTypeConfiguration<InterviewPanelChange>
+{
+    public void Configure(EntityTypeBuilder<InterviewPanelChange> b)
+    {
+        b.ToTable("InterviewPanelChanges");
+        b.ConfigureBase();
+        b.Property(c => c.Action).HasConversion<string>().HasMaxLength(20);
+        b.Property(c => c.OriginalUserId).HasMaxLength(450);
+        b.Property(c => c.ReplacementUserId).HasMaxLength(450);
+        b.Property(c => c.Reason).HasMaxLength(500);
+        b.Property(c => c.ActorUserId).HasMaxLength(450).IsRequired();
+        b.Property(c => c.ActorName).HasMaxLength(256).IsRequired();
+        b.HasOne<Interview>().WithMany().HasForeignKey(c => c.InterviewId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(c => c.InterviewId);
     }
 }

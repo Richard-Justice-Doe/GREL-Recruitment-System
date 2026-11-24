@@ -1,0 +1,211 @@
+# 36. AI-powered HR platform: analysis and plan
+
+13 November 2026. The response to the "AI implementation objective" brief (eight phases: CV screening, interview intelligence, job description and advert generators, onboarding assistant, document validation, knowledge base, executive dashboard). **Nothing is built yet**: this document compares the brief with what GRSMS already does, proposes one AI architecture for all eight phases, and lists the decisions needed (§9).
+
+Ground rules from the brief and earlier decisions: no new project, nothing removed or broken, database changes additive only, Clean Architecture, and **AI advises, people decide** (the 5 November rule that an automatic rejection waits for HR stays).
+
+---
+
+## 1. What already exists, phase by phase
+
+| Brief phase | Already in GRSMS | Gap |
+|---|---|---|
+| **1. AI CV screening** | **Mostly built (Phases 14-15):**<br>• CV text from PDF/DOCX on GREL's server<br>• Rule-based reader plus an **optional Claude AI reader** (off by default, Super Admin switch, needs an API key)<br>• Extracted name, contacts, education, certifications, experience, skills and job history stored per application (JSON in `JobApplications.CvParsed`, plus `CvText`)<br>• Weighted match score (education, experience, skills, certifications; 25 % each, editable)<br>• Missing required and preferred skills and certificates; knockout questions<br>• **Bands with editable thresholds:** Highly recommended 90, Recommended 80, Review required 70, Low match 50<br>• Automatic rejection with a generated reason, **held until HR confirms or overrides**; ATS board per vacancy; re-screening; talent pool | • A written **strengths / weaknesses** summary<br>• **Soft skills**<br>• Searchable structured tables (the JSON column holds the same data; see §5)<br>• "Not qualified" is called "Low match / rejected" today |
+| **2. Interview intelligence** | Scorecards with weighted criteria (5 defaults), panel comments, validated scores, quorum, interview results ranking, hiring case showing every round | • Question generation per vacancy<br>• An AI summary of validated scorecards (strengths, weaknesses, recommendation, risks) |
+| **3. Job description generator** | Vacancy job description and requirements (skills, certificates, education, experience); QF-81-11 "Description of the post" on the request | Drafting them from title, department, grade and responsibilities |
+| **4. Advert generator** | Advert body and how-to-apply, HR review and IT approval, channels with **copy-ready text** (template-based), careers portal, closing dates | Writing distinct internal / external / LinkedIn / careers versions |
+| **5. Onboarding assistant** | Without AI, "My next step", "My onboarding" and the documents portal already answer: pending documents, next step, deadline and status, plus reminders | A chat box that answers questions in the person's own words |
+| **6. Document validation** | • File type checked by content (magic bytes), size limit, virus-scan hook<br>• Required documents per hire; missing-documents report and verification report<br>• Deadlines with reminders; RO verification with a fixed rejection list<br>• SHA-256 of every file | • Expiry dates (passport, permits, Ghana Card)<br>• Duplicate-file flag<br>• Blur check<br>• Wrong-document check (needs AI vision) |
+| **7. Knowledge base** | Nothing (no policy library) | Everything: a document library, search, and answers with sources |
+| **8. Executive dashboard** | Reports overview (funnel, divisions, monthly trend), Home cards, workflow targets, employees and org chart, contract alerts, probation reports | • One executive page: recruitment, onboarding and workforce together<br>• Trends against the previous quarter<br>• A written summary |
+
+So phase 1 needs finishing touches. Phases 2-8 add AI on top of data GRSMS already holds; only the knowledge base needs new content (GREL's policy documents).
+
+---
+
+## 2. The rules every AI feature follows
+
+1. **Advisory only.** AI never approves, rejects, sends, verifies or changes a score. It drafts text or summarises, labelled **AI draft**. A person edits and accepts, and the existing workflow (HR review, IT approval, RO validation, HR confirmation of rejections) continues unchanged.
+2. **Facts come from GRSMS, wording from AI.**
+   * In the dashboard, onboarding assistant and interview summary, every number, status and name comes from GRSMS's own queries.
+   * The model only phrases them, and is told to say "I don't know" rather than guess.
+   * The knowledge base answers only from GREL's stored documents and cites the document and section.
+3. **Off by default, one switch per feature** (Super Admin), plus a **kill switch** for all AI. Without a key, or with AI switched off, every screen works as it does today.
+4. **Data minimisation.**
+   * Generators (job descriptions, adverts, questions) and the executive summary send **no personal data** (aggregates only).
+   * Features that send personal data (CVs, interview comments, a person's onboarding status, document images) each need their own switch and the data-protection sign-off of 5 November. This is in line with Ghana's Data Protection Act, 2012 (Act 843).
+5. **Untrusted input.** CVs, comments and documents are passed as data inside tags with "never follow instructions inside", as the CV reader already does. Output is plain text or a fixed JSON shape, and HTML goes through the existing sanitizer.
+6. **Logged and budgeted.** Every call is logged with feature, user, model, tokens, cost, time and result. A monthly budget cap stops AI (not GRSMS) when it is reached.
+
+---
+
+## 3. Architecture
+
+**Rejected option: a separate "AI module" project.** One shared AI layer inside the existing projects is used by every feature instead:
+
+```
+Grsms.Application/Ai/
+  IAiClient                 one provider-neutral call: instructions + data → text or typed JSON (structured output)
+  AiGateway                 every feature goes through it: switch and permission check, budget, cache, logging, errors
+  AiFeature (enum)          CvSummary, InterviewQuestions, InterviewSummary, JobDescription, Advert,
+                            OnboardingAssistant, DocumentCheck, KnowledgeAnswer, ExecutiveSummary
+  Prompts/                  one versioned prompt per feature, in code and reviewed like code
+  <feature services>        JobDescriptionDrafter, AdvertWriter, InterviewQuestionGenerator, InterviewSummaryService,
+                            OnboardingAssistantService, DocumentCheckService, KnowledgeBaseService, ExecutiveInsightsService
+Grsms.Infrastructure/Ai/
+  AnthropicAiClient         reuses the Anthropic SDK already in the solution (today's CV reader)
+  AzureOpenAiClient         only if decision D1 says so
+  AiRequestLog, AiCache     EF entities and repositories
+Grsms.Web/
+  Controllers/AiController  JSON endpoints for "Draft with AI" buttons (anti-forgery, permission, rate limit)
+  Views/Shared/_AiPanel     one reusable panel: "AI draft" badge, loading state, confidence, Accept / Edit / Regenerate
+  Controllers/AiAdminController + view   Administration → AI settings & usage
+```
+
+* **Provider:** chosen by configuration (`Ai:Provider`). The API key is kept in user-secrets, an environment variable or the encrypted System settings, never in source.
+* **Errors:** time-out, rate limit or refusal give a friendly message ("AI is unavailable, please write it yourself") and the page keeps working. The existing CV reader already falls back to the rule-based reader.
+* **Caching:**
+  * Generators cache on a hash of feature + prompt version + input, for 7 days (Regenerate bypasses it).
+  * The executive summary is made once a day.
+  * Nothing that contains personal data is cached beyond the record it belongs to.
+* **Cost:** price per million tokens per model in settings. Cost is worked out per call, shown per feature and per month, with a monthly cap and an 80 % warning to the Super Admin.
+* **Performance:** AI calls run in the background or on a button click, never inside saving a record. Long tasks show progress, and the gateway allows at most N calls at once.
+
+---
+
+## 4. Each phase in detail
+
+**Phase 1: CV screening (finish).**
+* An optional AI **match summary** per application: strengths, weaknesses and missing requirements in sentences, built from the ATS facts already computed and the CV text. It is shown on the ATS board and application page with the score it explains.
+* Soft skills added to what the reader extracts.
+* Band names stay editable; I'd rename "Low match" to "Not qualified" only if you want (D5).
+* The score and the rejection rules stay deterministic and published: the AI summary never changes the score, so a candidate can always be told why.
+
+**Phase 2: interview intelligence.**
+* A **question set per vacancy**: technical, behavioural, situational, competency and practical questions, generated from the job description, requirements, department and level. The RO edits it and it is saved with the vacancy; panel members see it on the session page.
+* After scores are validated, the RO can generate an **interview summary**: strengths, weaknesses, recommendation and risks, from validated scorecards and comments only. It is shown on the hiring case as advisory and is never sent to the candidate.
+
+**Phase 3: job descriptions.** **Draft with AI** on the vacancy form and on the QF-81-11 request, from title, department, grade and responsibilities. It fills the editable fields (description, duties, requirements, competencies, KPIs, skills matrix), which go through the existing approvals.
+
+**Phase 4: adverts.** **Write versions** on the advert: internal, external, LinkedIn and careers portal (summary, requirements, benefits, closing date taken from the vacancy). The texts are editable, then go through the existing HR review and IT approval, and fill the channels' copy-ready text.
+
+**Phase 5: onboarding assistant.**
+* A chat box on *My onboarding* (new employee) and on the onboarding page (RO).
+* It answers from the person's own data, using the services that already compute pending documents, next step, approver, status and deadlines; the model only words the answer.
+* It suggests buttons ("Upload my Ghana Card"). For policy questions it uses the knowledge base (phase 7).
+
+**Phase 6: document validation.** Mostly without AI:
+* **expiry date** asked on upload for passport, permits and Ghana Card (flag if expired or expiring within 30 days);
+* **duplicate** (same SHA-256 already uploaded for another document type or person);
+* **blur** for photos (a local sharpness check, nothing sent out);
+* **missing** (exists).
+
+An **optional AI check** asks "is this image a Ghana Card / passport / certificate?". This sends ID images out, so it is off unless signed off. Flags appear on the RO's review and in a **document verification report**. The RO still decides.
+
+**Phase 7: knowledge base.**
+* *Administration → Knowledge base*: HR uploads policies (PDF/DOCX) with owner, version, effective date and audience (staff, or also new employees).
+* Text is extracted (existing extractor), split into sections, and indexed with MySQL full-text search.
+* A question retrieves the best sections, and the AI answers **only from them, with citations**, or says it can't find it and who to ask.
+* MySQL 8 has no vector search, so full-text search is used first; embeddings can be added later if answers miss.
+* Needs GREL's documents (D4).
+
+**Phase 8: executive dashboard.**
+* *Executive dashboard* for the MD and HR Managers, with the same visibility rules as reports:
+  * recruitment: open vacancies, applications, time to hire, offer acceptance, workflow targets;
+  * onboarding: pending, delayed, probation due;
+  * workforce: headcount by department and site, contract expiries.
+* Each figure shows its trend against the previous quarter.
+* A daily **AI summary** written from those aggregates, e.g. "Time to hire fell from 41 to 32 days (−22 %) this quarter; Factory TBU has the most open positions (6)". Every number is from GRSMS and is linked.
+
+---
+
+## 5. Database changes (all additive; scripts `database/31_*` onwards)
+
+| Table / column | For |
+|---|---|
+| `AiRequestLogs` | Every call: feature, user, model, input/output tokens, cost, ms, outcome, record type/id, cache hit. **No prompt text by default** (personal data); a switch keeps it 30 days for troubleshooting |
+| `AiCacheEntries` | Hash → output, expiry (generators only) |
+| `AiDrafts` | Generated outputs kept with their record: feature, record type/id, JSON, prompt version, model, created by/at, accepted by/at (interview summaries, match summaries, question sets, executive summaries) |
+| `VacancyInterviewQuestions` | The edited question set per vacancy (category, question, guidance, order) |
+| `KnowledgeDocuments`, `KnowledgeSections` (FULLTEXT) | The policy library and its searchable sections |
+| `EmployeeDocuments.ExpiresOn`, `DocumentFlags` | Expiry and validation flags (duplicate, blur, expired, possibly wrong type) |
+| `JobAdvertChannels.CustomText` | AI-written (edited) text per channel |
+| `CvSkills` (optional) | Only if you want to **search** the talent pool by skill; otherwise the existing JSON is enough (D5) |
+| Settings rows | Provider, model, switches per feature, budget, prices: in the existing System settings table, no new table |
+
+New permissions: `ai.use` (generate drafts), `ai.insights` (executive dashboard), `ai.manage` (AI settings & usage), `knowledge.manage`. Defaults follow the existing roles and are added at start-up as before.
+
+---
+
+## 6. Security controls
+
+* Per-feature switch, plus a permission and record visibility (`AccessScope`) on every endpoint: AI can never show someone a record they couldn't open.
+* Anti-forgery and per-user rate limits (e.g. 30 AI calls a minute) on AI endpoints.
+* Prompt-injection guard (data in tags, no tools that write anything, fixed output shape), and sanitized output.
+* Every acceptance of an AI draft is in the audit trail, along with who generated it.
+* The candidate never sees AI analysis of themselves. Interview summaries and match summaries are staff-only.
+* Key handling: as the SMTP password (user-secrets / `.env` / encrypted setting).
+
+## 7. Interface
+
+* One consistent AI panel: an **AI draft** badge, a spinner while working, a **confidence** label (high / medium / low, from how complete the input was, not the model's own claim), **Accept / Edit / Regenerate**, and "why" notes.
+* The executive dashboard uses the existing card and chart styles, made denser and more executive.
+* The brief names Workday, Oracle HCM and others as a reference for the *standard* of finish. GRSMS keeps its own look rather than copying any product.
+
+## 8. Plan (each step tested, committed and documented before the next)
+
+| Step | Content | Personal data sent? | Size |
+|---|---|---|---|
+| **AI-0** | Foundation: `IAiClient`, gateway, logging, cache, budget, kill switch, *AI settings & usage* page, `_AiPanel` | — | M |
+| **AI-1** | Job description generator (phase 3) + advert versions (phase 4) | No | M |
+| **AI-2** | Interview question sets (phase 2a) | No | S |
+| **AI-3** | Executive dashboard + daily AI summary (phase 8) | No (aggregates) | M |
+| **AI-4** | Document validation without AI: expiry, duplicates, blur, report (phase 6) | No | M |
+| **AI-5** | Interview summary (2b) + CV match summary and soft skills (phase 1) | **Yes**: needs sign-off | M |
+| **AI-6** | Onboarding assistant (phase 5) | **Yes** (the person's own status) | M |
+| **AI-7** | Knowledge base (phase 7), then the assistant uses it | Policy text only | L |
+| **AI-8** | Optional AI document-type check (phase 6) | **Yes, ID images** | S |
+
+The order puts the features with no personal data first, so they can go live while the data-protection sign-off is obtained.
+
+## 9. Decisions needed
+
+* **D1. AI provider.** GRSMS already uses Claude (Anthropic) for the optional CV reader; the brief prefers Azure OpenAI or OpenAI. The layer is provider-neutral either way. Options:
+  * (a) **Claude for everything**: already integrated, one key, one data-protection review;
+  * (b) **Azure OpenAI**: data processed in GREL's own Azure tenancy and region, if GREL has an Azure subscription; the CV reader moves to it too;
+  * (c) **OpenAI API**;
+  * (d) build both adapters and choose in settings.
+* **D2. Personal data.** Which features may send personal data to the provider, and who signs off (DPO / MD)? The default plan above: none until signed off.
+* **D3. Order.** The plan in §8, or another order.
+* **D4. Knowledge base content.** Which documents (HR policies, handbook, SOPs, conditions of service), who owns and approves them, and may new employees (not yet staff) ask it questions?
+* **D5. Smaller points.**
+  * Rename "Low match" to "Not qualified"?
+  * Add searchable skill tables, or keep the JSON?
+  * Monthly AI budget cap (in USD)?
+  * Who sees the executive dashboard (MD and HR Managers only, or also HODs for their departments)?
+
+## 10. Decisions (13 November 2026)
+
+| # | Decision |
+|---|---|
+| D1 | **Provider chosen in settings.** Adapters are built for Anthropic (Claude), OpenAI, Azure OpenAI and (added 14 Nov at the user's request) Google Gemini; the Super Admin picks one and enters the key (the user will add their own key). |
+| D2 | **All features may send personal data, each behind its own switch** (off by default). The Super Admin switches each on once GREL's data-protection sign-off is in place; the AI settings page marks those features *Personal data* and says what each sends. |
+| D3 | **Order as §8.** |
+| D4 | **Build the knowledge-base library now; HR uploads the documents later.** |
+| D5 | Not answered yet. Until then: "Low match" keeps its name; the CV JSON is kept (no skill tables); the budget is an editable setting (default USD 50); the executive dashboard is for the MD and HR Managers. |
+
+## 11. Progress
+
+| Step | Status |
+|---|---|
+| **AI-0** foundation | ✅ 13 Nov. <br>• `Application/Ai`: `IAiClient`, `AiGateway`, `AiAdminService`<br>• `Infrastructure/Ai`: `AiClient` (Anthropic SDK; OpenAI and Azure OpenAI REST), `AiLogStore`<br>• Tables `AiRequestLogs`, `AiCacheEntries` (script 31)<br>• *Administration → AI settings & usage*: provider, encrypted key, model, budget, prices, requests per minute, keep-prompts switch, feature switches, connection test, usage this month<br>• Daily purge of kept prompts (30 days) and expired cache |
+| **AI-1** job descriptions + adverts | ✅ 13 Nov.<br>• Vacancy form: **Draft the job description with AI**. Optional grade, level and responsibilities; the preview shows a confidence level; *Use this draft* fills the description, education, experience, skills and certifications for the RO to edit and save.<br>• Advert form: **Write the advert with AI**. Optional benefits; four versions: careers text, job boards and newspapers, internal staff notice, LinkedIn. The new optional fields are saved with the advert (script 32) and used as the channels' copy-ready text. HR review and IT approval are unchanged.<br>• `Application/Ai/AiWriters.cs` (prompts with fair-hiring rules), `Controllers/AiController.cs`, `wwwroot/js/ai-panel.js` (reusable panel) |
+| **AI-2** interview question sets | ✅ 13 Nov.<br>• Vacancy page → **Interview guide**: the RO or HR Manager writes questions (technical, behavioural, situational, competency, practical, each with what a strong answer shows) or clicks **Draft questions**. The AI draft appears in the form unsaved, to edit, then **Save the guide**.<br>• Panel members see the guide, folded, on the interview page; candidates never do.<br>• Table `VacancyInterviewQuestions` (script 33); `Application/Vacancies/InterviewQuestionService.cs` |
+| **AI-3** executive dashboard | ✅ 13 Nov.<br>• Menu → **Executive dashboard**, new permission `executive.view` (MD and HR Managers by default, added at start-up).<br>• Recruitment, onboarding and probation, and workforce figures. Each count is compared with **the same point of the previous quarter**, with up and down arrows coloured by whether the change is good.<br>• Departments by headcount, positions to fill and vacancy rate (the highest is highlighted).<br>• An **AI summary** (headline, highlights, needs attention, next steps), written only from those totals with no names. It loads with the page, is answered from the cache until the figures change, and has a **Rewrite** button.<br>• `Application/Dashboard/ExecutiveDashboardService.cs`, `Controllers/ExecutiveController.cs`. D5 default used: MD and HR Managers only. |
+| **AI-4** document checks (rules, no AI) | ✅ 13 Nov.<br>• Ghana Card, passport biodata page, non-citizen card and work and residence permits get a **valid until** date (asked at upload; set or corrected later by the employee or the RO), flagged *expired*, *expires soon* (≤ 90 days) or *not given*.<br>• **The same file** (same SHA-256) used for two documents, or uploaded by another new employee; the second is shown to staff only.<br>• **Low resolution**: a photo or scan under 1,000 pixels on its longer side, read from the file header.<br>• Remarks are shown on each document and in the new **Document checks** report (HR, personal data).<br>• Blur detection proper is not done: it needs an image library or the AI check of AI-8. Resolution is the proxy.<br>• Script 34; `Application/Onboarding/DocumentCheckService.cs`, `Domain/Documents/ImageSize.cs` |
+| **AI-5** interview and CV summaries, CV reader | ✅ 13 Nov. Personal data, each behind its own switch.<br>• **AI interview summary** on the hiring case: overview, strengths, weaknesses, a recommendation (Hire, with reservations, Do not hire, Needs more evidence) and what to check before an offer. Built from **validated** scorecards only, with panel members anonymised.<br>• **AI CV summary** on the application: fit, strengths, weaknesses, requirements not shown, soft skills. Built from the CV text and the ATS results; the score is unchanged.<br>• Both are asked for by an RO or HR Manager, kept with the record (table `AiInsights`, script 35), readable by whoever may open the case or application, and never seen by the candidate.<br>• **CV reading** moves to the gateway: with the switch on, every CV is read by the chosen provider (now with soft skills), logged and budgeted. Otherwise the earlier Claude reader works as before, and the rule-based reader stays the fallback. |
+| **AI-6** onboarding assistant | ✅ 14 Nov. Personal data, behind its own switch.<br>• A chat box on the new employee's *My onboarding* pages (open on the application page, folded on the documents page) and on the RO's onboarding page (folded).<br>• **Facts from GRSMS, wording from AI**: each question sends the onboarding's own facts (stage, letter, personal record, every document and why it was rejected, due date, first day, things to bring, tasks, next step from the process guide) built by the services behind those pages, with the same visibility rules. The new employee gets only their own; staff only one they may open; the HOD gets no personal documents. Never pay, and the new employee's own name is not sent.<br>• The model answers only from those facts, says when it doesn't know and who to ask, and defers policy questions to HR until the knowledge base (AI-7).<br>• **Buttons** ("Upload my Ghana Card", "Review the Passport") are picked by key from a list GRSMS builds; the URLs never come from the model.<br>• No cache, the chat is not stored (the page keeps the last 6 turns), every call is logged.<br>• `Application/Ai/OnboardingAssistant.cs`, `AiController.Onboarding`, `Views/Shared/_OnboardingAssistant.cshtml`, `wwwroot/js/onboarding-assistant.js`; no database change |
+| **AI-7** knowledge base | ✅ 14 Nov. Library built; HR adds the documents (D4).<br>• **Administration → Knowledge base** (new permission *Maintain the knowledge base*, HR Administrator and HR Manager): add a PDF or Word policy with owner, version, effective date and audience (*Staff* or *Staff and new employees*); the usual upload checks; the text is read and split into sections at its headings (about a page each); upload a new version (the old file stays as history), edit, archive, delete. A scanned file with no text is kept and flagged.<br>• **Policies & procedures** for all staff (menu): the library, each document's sections, preview and download, and a question box.<br>• **Search inside GRSMS** (BM25, headings count double) instead of MySQL full-text search as planned in §4: the same ranking on MySQL and in the tests, and no lost short words; the index is rebuilt only when a document changes.<br>• **Answers** (switch *Knowledge base answers*, no personal data): the AI answers only from the 6 best sections and cites them as [1], [2] with document, version and section; invented source numbers are dropped; nothing is sent when no section matches; with the switch off, the matching sections are shown.<br>• **Onboarding assistant**: with both switches on, policy questions are answered from the documents marked for new employees (staff-only documents are never sent for a new employee), with a button to open the document.<br>• Script 37; `Application/Knowledge`, `KnowledgeController`, `KnowledgeAdminController`; guide docs/38 |
+| **AI-8** AI document check | ✅ 15 Nov. Personal data (ID images), behind its own switch *Document type check* (off by default).<br>• **Check with AI** on each uploaded new-hire document, for whoever verifies documents (onboarding.verify-documents): up to two of its files (JPEG, PNG or PDF, at most 5 MB each) are sent with the expected type; the AI says whether they show that kind of document, what they look like, whether they are readable (the blur check AI-4 could not do), its confidence and up to four points to look at. It is told never to write names, numbers, dates or addresses from the document.<br>• The verdict is kept with the document (AiInsights) and shown as a **staff-only flag** beside the rule-based ones (never to the new employee); it goes **out of date** when the files change; it never verifies or rejects anything. With the switch off, the flags and the button disappear.<br>• AI calls can now carry files: Anthropic image/document blocks, OpenAI image_url and file parts, Gemini inlineData parts; never cached.<br>• `Application/Onboarding/DocumentAiCheckService.cs`, `OnboardingController.AiCheckDocument`; no database change |
+
+**All steps of §8 are built.** Every AI feature is off until the Super Admin switches it on (the personal-data ones after GREL's data-protection sign-off). |

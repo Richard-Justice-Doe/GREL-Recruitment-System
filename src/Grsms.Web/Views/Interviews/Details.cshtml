@@ -31,12 +31,12 @@
 <div class="page-header">
     <div>
         <h1>@Model.Type.DisplayName(): @Model.ApplicantName
-            <span class="badge @statusCss align-middle fs-6">@Model.Status.DisplayName()</span>
+            <span class="badge @statusCss">@Model.Status.DisplayName()</span>
         </h1>
         <p>Round @Model.Round · <a asp-controller="Applications" asp-action="Details" asp-route-id="@Model.ApplicationId">@Model.ApplicationNumber</a>
             · @Model.VacancyNumber @Model.JobTitle · @Model.DepartmentName</p>
     </div>
-    <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left"></i>Interviews</a>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All interviews</a>
 </div>
 
 @* ---------------------------------------------------------------- Your next step *@
@@ -48,7 +48,7 @@
             <h2>Correct your scorecard and submit it again</h2>
             <p>@(mine.ReturnedByName ?? validator) sent it back: <em>@mine.ReturnReason</em></p>
         </div>
-        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-primary">Correct my scorecard</a></div>
+        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-outline-primary">Correct my scorecard <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a></div>
     </section>
 }
 else if (Model.CanScore && mine is null)
@@ -59,7 +59,7 @@ else if (Model.CanScore && mine is null)
             <h2>Submit your scorecard</h2>
             <p>Rate each criterion and give your recommendation. You will see the other panel members' scorecards once yours is in.</p>
         </div>
-        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-primary">Open my scorecard</a></div>
+        <div class="next-step-actions"><a href="#my-scorecard" class="btn btn-outline-primary">Open my scorecard <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a></div>
     </section>
 }
 else if (Model.IsValidator && Model.CanValidate)
@@ -71,7 +71,7 @@ else if (Model.IsValidator && Model.CanValidate)
             <p>All @validCards.Count scorecards are in. Check them below, then validate, or return one to its panel member to correct.
                The Head of Department and the interview results see the scores only after you validate them.</p>
         </div>
-        <div class="next-step-actions"><a href="#validate" class="btn btn-primary">Validate the scores</a></div>
+        <div class="next-step-actions"><a href="#validate" class="btn btn-outline-primary">Validate the scores <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a></div>
     </section>
 }
 else if (open && Model.MissingScorers.Count > 0)
@@ -117,6 +117,8 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
     </section>
 }
 
+@* docs/37 CR5: where the candidate's journey stands, who acts next, since when. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process) { <partial name="_ProcessGuide" model="process" /> }
 <div class="row g-3">
     <div class="col-xl-7">
         <div class="card glass mb-3">
@@ -137,6 +139,27 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                 </dl>
             </div>
         </div>
+
+        @* ---- Interview guide (docs/36 AI-2): the vacancy's questions, for the panel. Never shown to the applicant. *@
+        @if (ViewBag.Guide is IReadOnlyList<Grsms.Application.Vacancies.InterviewQuestionRow> { Count: > 0 } guide)
+        {
+            <details class="card glass mb-3">
+                <summary class="card-body p-4 py-3 fw-semibold"><i class="fa-solid fa-clipboard-question me-1 text-primary"></i>Interview guide: @guide.Count questions for this vacancy</summary>
+                <div class="card-body pt-0 px-4 pb-4">
+                    @foreach (var g in guide.GroupBy(q => q.Category))
+                    {
+                        <h3 class="h6 text-uppercase text-body-secondary mt-2">@g.Key.DisplayName()</h3>
+                        <ol class="mb-2">
+                            @foreach (var q in g)
+                            {
+                                <li class="mb-1">@q.Question @if (q.Guidance is not null) { <div class="small text-body-secondary">Look for: @q.Guidance</div> }</li>
+                            }
+                        </ol>
+                    }
+                    <a asp-controller="Vacancies" asp-action="Questions" asp-route-id="@Model.VacancyId" class="small">Open the guide</a>
+                </div>
+            </details>
+        }
 
         @* ---- My scorecard *@
         @if (Model.IsPanelMember)
@@ -174,6 +197,9 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                                                         <option value="@r" selected="@(current == r)">@ratingLabels[r]</option>
                                                     }
                                                 </select>
+                                                @* docs/37 CR2: optional reason for this score. *@
+                                                <textarea name="comments[@c.Id]" class="form-control form-control-sm mt-1" rows="1" maxlength="1000"
+                                                          placeholder="Reason (optional)" aria-label="Reason for the rating of @c.Name">@(mine?.Comments?.GetValueOrDefault(c.Id))</textarea>
                                             </td>
                                         </tr>
                                     }
@@ -269,10 +295,15 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                             </tbody>
                         </table>
                     </div>
-                    @foreach (var s in Model.Scorecards.Where(s => s.Strengths is not null || s.Concerns is not null || s.ReturnReason is not null))
+                    @foreach (var s in Model.Scorecards.Where(s => s.Strengths is not null || s.Concerns is not null || s.ReturnReason is not null || s.Comments is { Count: > 0 }))
                     {
                         <div class="border-top pt-2 mt-2 small">
                             <strong>@s.PanelName</strong>
+                            @* docs/37 CR2: the reason given for each score. *@
+                            @foreach (var c in Model.Criteria.Where(c => s.Comments?.ContainsKey(c.Id) == true))
+                            {
+                                <div><span class="fw-semibold">@c.Name (@s.Ratings.GetValueOrDefault(c.Id)/5):</span> @s.Comments![c.Id]</div>
+                            }
                             @if (s.Strengths is not null) { <div><span class="text-success fw-semibold">Strengths:</span> @s.Strengths</div> }
                             @if (s.Concerns is not null) { <div><span class="text-danger fw-semibold">Concerns:</span> @s.Concerns</div> }
                             @if (s.ReturnReason is not null) { <div class="text-body-secondary"><i class="fa-solid fa-rotate-left me-1"></i>Returned by @s.ReturnedByName: @s.ReturnReason</div> }
@@ -292,6 +323,21 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                     {
                         <li class="d-flex justify-content-between align-items-start gap-2 py-2 border-bottom">
                             <span>@p.Name @if (p.IsChair) { <span class="badge badge-soft-primary ms-1">Chair</span> }
+                                @if (p.IsHodDelegate) { <span class="badge badge-soft-secondary ms-1" title="Stands in for the Head of Department">HOD delegate</span> }
+                                @* docs/35: the member's reply to the invitation. *@
+                                <br />
+                                @switch (p.Response)
+                                {
+                                    case PanelResponse.Accepted:
+                                        <small class="text-success"><i class="fa-solid fa-check me-1"></i>Accepted</small>
+                                        break;
+                                    case PanelResponse.Declined:
+                                        <small class="text-danger"><i class="fa-solid fa-xmark me-1"></i>Declined@(p.DeclineReason is null ? "" : $": {p.DeclineReason}")</small>
+                                        break;
+                                    default:
+                                        <small class="text-body-secondary">Awaiting reply</small>
+                                        break;
+                                }
                                 @if (p.AttendanceNote is not null) { <br /><small class="text-body-secondary">@p.AttendanceNote</small> }
                             </span>
                             @if (p.HasSubmitted)
@@ -313,6 +359,111 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                         </li>
                     }
                 </ul>
+
+                @* ---- docs/35: quorum, my reply, replacing a member who declined *@
+                @if (Model.QuorumProblems.Count > 0)
+                {
+                    <div class="alert alert-warning small mt-3 mb-0">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i><b>Quorum at risk:</b> the session needs @string.Join(", ", Model.QuorumProblems).
+                        @if (Model.QuorumRequired) { <span>Scores cannot be validated until quorum is met.</span> }
+                    </div>
+                }
+                else if (Model.QuorumRequired && Model.Status == InterviewStatus.Scheduled)
+                {
+                    <p class="small text-success mt-3 mb-0"><i class="fa-solid fa-circle-check me-1"></i>Quorum met (at least 3, including the Head of Department and an HR Manager).</p>
+                }
+
+                @if (Model.CanRespond)
+                {
+                    <div class="border-top mt-3 pt-3">
+                        <p class="small mb-2">Your reply: <b>@(Model.MyResponse?.DisplayName() ?? "Awaiting reply")</b></p>
+                        <div class="d-flex flex-wrap gap-2">
+                            @if (Model.MyResponse != PanelResponse.Accepted)
+                            {
+                                <form asp-action="Respond" asp-route-id="@Model.Id" method="post">
+                                    <input type="hidden" name="accept" value="true" />
+                                    <button type="submit" class="btn btn-sm btn-success"><i class="fa-solid fa-check me-1"></i>Accept</button>
+                                </form>
+                            }
+                            @if (Model.MyResponse != PanelResponse.Declined)
+                            {
+                                <form asp-action="Respond" asp-route-id="@Model.Id" method="post" class="d-flex gap-1 flex-grow-1">
+                                    <input type="hidden" name="accept" value="false" />
+                                    <input name="reason" class="form-control form-control-sm" maxlength="500" required placeholder="Why you can't take part" aria-label="Reason for declining" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">Decline</button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* docs/37 CR3: manage the panel before the session: replace anyone (with a reason), add a substitute, resend an invitation. *@
+                @if (Model.CanReplace)
+                {
+                    var declined = Model.Panel.Where(p => p.Response == PanelResponse.Declined).ToList();
+                    var pending = Model.Panel.Where(p => p.Response == PanelResponse.Pending).ToList();
+                    <details class="border-top mt-3 pt-3" open="@(declined.Count > 0)">
+                        <summary class="small fw-semibold">Manage the panel@(declined.Count > 0 ? $" ({declined.Count} declined)" : "")</summary>
+                        <form asp-action="ReplaceMember" asp-route-id="@Model.Id" method="post" class="mt-2">
+                            <p class="small mb-1">Replace a member</p>
+                            <select name="oldUserId" class="form-select form-select-sm mb-2" aria-label="Member to replace" required>
+                                @foreach (var d in declined.Concat(Model.Panel.Except(declined)))
+                                {
+                                    <option value="@d.UserId">@d.Name@(d.Response == PanelResponse.Declined ? " (declined)" : "")</option>
+                                }
+                            </select>
+                            <select name="newUserId" class="form-select form-select-sm mb-2" aria-label="Replacement" required>
+                                <option value="">Choose the replacement…</option>
+                                @foreach (var s in Model.ReplacementOptions) { <option value="@s.Value">@s.Text</option> }
+                            </select>
+                            <input name="reason" class="form-control form-control-sm mb-2" maxlength="500" placeholder="Reason (needed unless they declined), e.g. on leave that day" aria-label="Reason for the replacement" />
+                            <div class="form-text mb-2">To replace the Head of Department, choose someone from the same department: they stand in for them. The member replaced is told.</div>
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Replace and invite</button>
+                        </form>
+                        <form asp-action="AddMember" asp-route-id="@Model.Id" method="post" class="mt-3">
+                            <p class="small mb-1">Add a substitute</p>
+                            <select name="newUserId" class="form-select form-select-sm mb-2" aria-label="Substitute" required>
+                                <option value="">Choose a member of staff…</option>
+                                @foreach (var s in Model.ReplacementOptions) { <option value="@s.Value">@s.Text</option> }
+                            </select>
+                            <input name="reason" class="form-control form-control-sm mb-2" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for adding" />
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Add and invite</button>
+                        </form>
+                        @if (pending.Count > 0)
+                        {
+                            <p class="small mb-1 mt-3">No reply yet</p>
+                            @foreach (var p in pending)
+                            {
+                                <form asp-action="ResendInvitation" asp-route-id="@Model.Id" method="post" class="d-flex align-items-center gap-2 mb-1">
+                                    <input type="hidden" name="userId" value="@p.UserId" />
+                                    <span class="small">@p.Name</span>
+                                    <button type="submit" class="btn btn-sm btn-link p-0 ms-auto">Send the invitation again</button>
+                                </form>
+                            }
+                        }
+                    </details>
+                }
+                @if (Model.PanelChanges.Count > 0)
+                {
+                    <div class="border-top mt-3 pt-2 small">
+                        <p class="fw-semibold mb-1">Panel changes</p>
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var c in Model.PanelChanges)
+                            {
+                                <li class="mb-1">
+                                    <span class="text-body-secondary">@c.At.ToString("dd MMM yyyy HH:mm")</span> ·
+                                    @switch (c.Action)
+                                    {
+                                        case PanelChangeAction.Replaced: <span><strong>@c.Original</strong> replaced by <strong>@c.Replacement</strong></span> break;
+                                        case PanelChangeAction.Added: <span><strong>@c.Replacement</strong> added as a substitute</span> break;
+                                        default: <span>Invitation sent again to <strong>@c.Original</strong></span> break;
+                                    }
+                                    · by @c.Actor@(c.Reason is null ? "" : $" · {c.Reason}")
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
             </div>
         </div>
 
@@ -393,6 +544,10 @@ else if (Model.Status == InterviewStatus.Completed && Model.ValidatedAt is { } v
                         <label class="form-label small" for="startsAt">Reschedule (only before any scorecard)</label>
                         <input id="startsAt" name="startsAt" type="datetime-local" class="form-control form-control-sm mb-1" required />
                         <input name="location" class="form-control form-control-sm mb-1" placeholder="New place (leave empty to keep)" maxlength="500" aria-label="New place" />
+                        <div class="form-check small mb-1">
+                            <input class="form-check-input" type="checkbox" name="ignoreClashes" value="true" id="ignoreClashes" />
+                            <label class="form-check-label" for="ignoreClashes">Even if someone already has a session then</label>
+                        </div>
                         <button type="submit" class="btn btn-sm btn-outline-primary w-100">Reschedule and notify</button>
                     </form>
                     <form asp-action="NoShow" asp-route-id="@Model.Id" method="post" class="mb-3">

@@ -1,0 +1,22 @@
+@* 17 Nov 2026: loads today's celebrations for the signed-in member of staff. Model: "widget" (Home: cards) or "summary" (the
+   Action Center: one line with the counts). Shows nothing when switched off or when there is nothing to celebrate. *@
+@model string
+@inject CelebrationService Celebrations
+@{
+    var c = await Celebrations.OverviewAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+}
+@if (Model == "summary")
+{
+    @if ((c.BirthdaysOn || c.AnniversariesOn) && c.Today.Count > 0)
+    {
+        <a asp-controller="Celebrations" asp-action="Index" class="celebrate-summary mb-3">
+            <span>🎂 Birthdays today: <strong>@c.BirthdaysToday</strong></span>
+            <span>🎉 Work anniversaries today: <strong>@c.AnniversariesToday</strong></span>
+            <span class="ms-auto">View celebrations <i class="fa-solid fa-arrow-right"></i></span>
+        </a>
+    }
+}
+else
+{
+    <partial name="_CelebrationsWidget" model="c" />
+}

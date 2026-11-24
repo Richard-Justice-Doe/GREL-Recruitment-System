@@ -1,4 +1,4 @@
-@* One vacancy: progress stepper, job details, requirements, salary, the action panel for whoever may
+@* One vacancy: progress stepper, job details, requirements, the action panel for whoever may
    act now, and the history. What each person may do comes from the service (Model.CanEdit, ...). *@
 @model VacancyDetailsDto
 @{
@@ -9,11 +9,6 @@
     var current = (int)Model.Status; // the enum order matches the steps
     var skills = Model.Requirements.Where(r => r.Type == RequirementType.Skill).ToList();
     var certs = Model.Requirements.Where(r => r.Type == RequirementType.Certification).ToList();
-    string Salary() =>
-        Model.SalaryMin is null && Model.SalaryMax is null ? "Not specified"
-        : Model.SalaryMin is { } a && Model.SalaryMax is { } b ? $"GHS {a:N2} - {b:N2} per month"
-        : Model.SalaryMin is { } m ? $"From GHS {m:N2} per month"
-        : $"Up to GHS {Model.SalaryMax:N2} per month";
     string DotCss(VacancyAction a) => a switch
     {
         VacancyAction.Returned => "warning",
@@ -28,7 +23,7 @@
         <p>@Model.VacancyNumber@(Model.RequisitionNumber is null ? "" : $" · {Model.RequisitionNumber}") · @Model.DepartmentName@(Model.UnitName is null ? "" : $" → {Model.UnitName}") · @Model.SiteName</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
-        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All vacancies</a>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All vacancies</a>
         @if (Model.CanEdit)
         {
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
@@ -39,11 +34,22 @@
 @{
     (bool Mine, string Title, string? Detail, string? Anchor) nextStep =
         Model.CanDecide ? (true, "approve or return this vacancy", null, "your-decision")
-        : Model.CanSubmit ? (true, "submit the vacancy for approval", "Check that it is ready.", "ready")
+        : Model.CanPublish ? (true, "publish the vacancy", "No approval is needed: the Managing Director has approved the request.", "ready")
         : (false, Model.Status.DisplayName(), null, null);
 }
 <partial name="_NextStepBanner" model="nextStep" />
 
+@* docs/37 CR5: the process guide; the old stepper is the fallback. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process)
+{
+    <partial name="_ProcessGuide" model="process" />
+    @if (Model.IsOpenForApplications)
+    {
+        <p class="small text-success mt-n2 mb-3"><i class="fa-solid fa-door-open me-1"></i>Open for applications. Closes @Model.ClosingDate.ToString("dddd dd MMM yyyy") (@(Model.DaysToClosing == 0 ? "today" : $"in {Model.DaysToClosing} days")).</p>
+    }
+}
+else
+{
 <div class="card glass mb-3">
     <div class="card-body py-4">
         <ol class="stepper" aria-label="Vacancy progress">
@@ -63,7 +69,7 @@
             }
             else if (Model.Status == VacancyStatus.PendingApproval)
             {
-                <span class="text-body-secondary">Waiting for the <strong>HR Manager</strong> since @Model.StatusChangedAt.ToString("dd MMM yyyy HH:mm").</span>
+                <span class="text-body-secondary">Submitted under the earlier workflow on @Model.StatusChangedAt.ToString("dd MMM yyyy HH:mm"). The Recruitment Officer can now publish it directly.</span>
             }
             else if (Model.Status == VacancyStatus.Closed)
             {
@@ -72,6 +78,7 @@
         </p>
     </div>
 </div>
+}
 
 @if (Model.ReturnComments is not null)
 {
@@ -96,7 +103,6 @@
                     <dt>Employment type</dt><dd>@Model.EmploymentType.DisplayName()</dd>
                     <dt>Positions</dt><dd>@Model.NumberOfPositions</dd>
                     <dt>Who may apply</dt><dd>@Model.VacancyType.DisplayName()</dd>
-                    <dt>Salary</dt><dd>@Salary() @(Model.ShowSalary ? "" : "(not shown on adverts)")</dd>
                     <dt>Closing date</dt><dd>@Model.ClosingDate.ToString("dd MMM yyyy")</dd>
                     <dt>Vacancy owner</dt><dd>@Model.RecruiterName</dd>
                     @if (Model.PublishedAt is not null)
@@ -157,16 +163,16 @@
     </div>
 
     <div class="col-xl-5">
-        @* ---- Recruitment Officer: submit / archive draft *@
-        @if (Model.CanSubmit)
+        @* ---- Recruitment Officer: publish (17 Nov 2026: no approval after the MD) *@
+        @if (Model.CanPublish)
         {
             <div class="card glass mb-3">
                 <div class="card-body p-4">
                     <h2 id="ready" class="h6 text-uppercase text-body-secondary mb-3">Ready?</h2>
-                    <p class="small">Check the wording, requirements, salary and closing date, then send it to the HR Manager. Approving it publishes it.</p>
-                    <form asp-action="Submit" asp-route-id="@Model.Id" method="post">
-                        <button type="submit" class="btn btn-primary w-100" data-confirm="Submit this vacancy for approval?">
-                            <i class="fa-solid fa-paper-plane me-1"></i>Submit for approval
+                    <p class="small">Check the wording, requirements and closing date, then publish it. No further approval is needed: the Managing Director has approved the request. Next, you create and publish the job advertisement.</p>
+                    <form asp-action="Publish" asp-route-id="@Model.Id" method="post">
+                        <button type="submit" class="btn btn-primary w-100" data-confirm="Publish this vacancy now?">
+                            <i class="fa-solid fa-bullhorn me-1"></i>Publish the vacancy
                         </button>
                     </form>
                 </div>
@@ -251,14 +257,25 @@
                     <h2 class="h6 text-uppercase text-body-secondary mb-1">Applications</h2>
                     <div class="fs-4 fw-semibold">@ViewBag.ApplicationCount</div>
                 </div>
-<div class="d-flex flex-wrap gap-2">
-                                <a asp-controller="Applications" asp-action="Index" asp-route-tab="all" asp-route-VacancyId="@Model.Id" class="btn btn-sm btn-outline-primary">
+                <div class="d-flex flex-wrap gap-2">
+                <a asp-controller="Applications" asp-action="Index" asp-route-tab="all" asp-route-VacancyId="@Model.Id" class="btn btn-sm btn-outline-primary">
                     <i class="fa-solid fa-inbox me-1"></i>View applications
                 </a>
-                <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@Model.Id" class="btn btn-sm btn-primary">
+                <a asp-controller="Shortlisting" asp-action="Vacancy" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary">
                     <i class="fa-solid fa-list-check me-1"></i>Shortlisting
                 </a>
                 </div>
+            </div>
+        </div>
+
+        @* ---- Interview guide (docs/36 AI-2) *@
+        <div class="card glass mb-3">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <h2 class="h6 text-uppercase text-body-secondary mb-1">Interview guide</h2>
+                    <div class="small text-body-secondary">@(ViewBag.QuestionCount is int qc && qc > 0 ? $"{qc} question{(qc == 1 ? "" : "s")} for the panel" : "No questions yet")</div>
+                </div>
+                <a asp-action="Questions" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-clipboard-question me-1"></i>Open</a>
             </div>
         </div>
 

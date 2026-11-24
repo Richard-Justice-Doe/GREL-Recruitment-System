@@ -7,9 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Grsms.Web.Controllers;
 
 /// <summary>
-/// Job advert screens (Module 4): list tabs, create from a published vacancy, edit, details, send for review, HR review,
-/// IT approval (publish / schedule), return, reject, take offline, cancel schedule, close, clone, and recording external
-/// channel postings. All rules live in <see cref="AdvertService"/>; the review steps are also guarded by policies.
+/// Job advert screens (Module 4): list tabs, create from a published vacancy, edit, details, publish / schedule (the Recruitment
+/// Officer, no review since 17 Nov 2026), return or reject (adverts left in the earlier review), take offline, cancel schedule,
+/// close, clone, and recording external channel postings. All rules live in <see cref="AdvertService"/>.
 /// </summary>
 [Authorize(Policy = Policies.Adverts)]
 public class AdvertsController(AdvertService service) : AppController
@@ -47,7 +47,7 @@ public class AdvertsController(AdvertService service) : AppController
             var result = await service.CreateAsync(form, ct);
             if (result.Succeeded)
             {
-                Success("Advert saved as a draft. Check it, then click 'Send for review'.");
+                Success("Advert saved as a draft. Check it, then click 'Publish now': no approval is needed.");
                 return RedirectToAction(nameof(Details), new { id = result.Value });
             }
             AddErrors(result);
@@ -91,22 +91,14 @@ public class AdvertsController(AdvertService service) : AppController
         return model is null ? NotFound() : View(model);
     }
 
-    // ---- Review (11 Nov 2026, docs/29 change 2): RO → HR Manager → IT Manager
+    // ---- Publish (17 Nov 2026): the Recruitment Officer publishes with no review; the MD's approval of the request was the last.
 
+    /// <summary>Publishes the advert (now, or on its start date). AdvertService checks who may (authors, or the IT Manager).</summary>
     [HttpPost]
-    public Task<IActionResult> Submit(int id, CancellationToken ct) =>
-        Act(id, () => service.SubmitAsync(id, ct), "Sent to the HR Manager for review.");
-
-    [HttpPost]
-    [Authorize(Policy = Policies.ReviewAdvertsHr)]
-    public Task<IActionResult> HrApprove(int id, string? comment, CancellationToken ct) =>
-        Act(id, () => service.HrApproveAsync(id, comment, ct), "Reviewed. The advert is now with the IT Manager for approval.");
-
-    /// <summary>The IT Manager's approval, which publishes the advert (now or on its start date).</summary>
-    [HttpPost]
-    [Authorize(Policy = Policies.PublishAdverts)]
     public Task<IActionResult> Publish(int id, CancellationToken ct) =>
-        Act(id, () => service.PublishAsync(id, ct), "Approved and published. It shows on its automatic channels now, or from its start date if that is later.");
+        Act(id, () => service.PublishAsync(id, ct), "Published. It shows on its automatic channels now, or from its start date if that is later. Applications come in from the careers page.");
+
+    // ---- Adverts left in the earlier review steps (sent before 17 Nov 2026) can still be returned or rejected by their reviewer.
 
     [HttpPost]
     [Authorize(Policy = Policies.ReturnAdverts)]
@@ -140,17 +132,15 @@ public class AdvertsController(AdvertService service) : AppController
             Fail(result);
             return RedirectToAction(nameof(Details), new { id });
         }
-        Success("Copy created as a new draft. Check the dates and channels, then send it for review.");
+        Success("Copy created as a new draft. Check the dates and channels, then publish it.");
         return RedirectToAction(nameof(Details), new { id = result.Value });
     }
 
     [HttpPost]
-    [Authorize(Policy = Policies.PublishAdverts)]
     public Task<IActionResult> MarkPosted(int id, int channelId, string? reference, CancellationToken ct) =>
         Act(id, () => service.MarkPostedAsync(id, channelId, reference, ct), "Channel recorded as posted.");
 
     [HttpPost]
-    [Authorize(Policy = Policies.PublishAdverts)]
     public Task<IActionResult> MarkRemoved(int id, int channelId, CancellationToken ct) =>
         Act(id, () => service.MarkRemovedAsync(id, channelId, ct), "Channel recorded as taken down.");
 

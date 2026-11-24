@@ -1,0 +1,113 @@
+@* docs/36 AI-2: a vacancy's interview guide. The RO or HR Manager writes it or drafts it with AI, edits and saves it; panel members
+   see it on the interview page. Rows use js/repeater.js. *@
+@using Grsms.Domain.Vacancies
+@model InterviewGuideDto
+@{
+    ViewData["Title"] = $"Interview guide: {Model.JobTitle}";
+    var rows = Model.Questions.Count == 0 && Model.CanEdit ? new List<InterviewQuestionRow> { new() } : Model.Questions.ToList();
+    var categories = Enum.GetValues<InterviewQuestionCategory>();
+}
+
+<div class="page-header">
+    <div>
+        <h1>Interview guide</h1>
+        <p><a asp-action="Details" asp-route-id="@Model.VacancyId">@Model.VacancyNumber</a> · @Model.JobTitle</p>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.VacancyId" class="btn btn-outline-secondary">Back to the vacancy</a>
+</div>
+
+@if (Model.IsAiDraft)
+{
+    <div class="alert alert-warning">
+        <span class="badge rounded-pill badge-soft-primary me-1">AI draft</span>
+        @if (Model.AiFromCache) { <span class="badge rounded-pill badge-soft-secondary me-1">Same as last time (saved answer)</span> }
+        <strong>Not saved yet.</strong> Check every question, change or remove any, then <strong>Save the guide</strong>. Saving replaces the current guide.
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-xl-8">
+        @if (!Model.CanEdit)
+        {
+            <div class="card glass"><div class="card-body p-4">
+                @if (Model.Questions.Count == 0)
+                {
+                    <p class="text-body-secondary mb-0">No interview questions yet. The Recruitment Officer or HR Manager prepares them.</p>
+                }
+                @foreach (var g in Model.Questions.GroupBy(q => q.Category))
+                {
+                    <h2 class="h6 text-uppercase text-body-secondary mt-2">@g.Key.DisplayName()</h2>
+                    <ol>
+                        @foreach (var q in g)
+                        {
+                            <li class="mb-2">@q.Question @if (q.Guidance is not null) { <div class="small text-body-secondary">Look for: @q.Guidance</div> }</li>
+                        }
+                    </ol>
+                }
+            </div></div>
+        }
+        else
+        {
+            <form asp-action="SaveQuestions" asp-route-id="@Model.VacancyId" method="post" class="card glass">
+                <div class="card-body p-4">
+                    <div data-repeater>
+                        @{
+                            async Task Row(string key, InterviewQuestionRow r)
+                            {
+                                <div class="border rounded-3 p-2 mb-2" data-repeater-row>
+                                    <input type="hidden" name="Questions.Index" value="@key" />
+                                    <div class="d-flex gap-2 mb-1">
+                                        <select name="Questions[@key].Category" class="form-select form-select-sm w-auto" aria-label="Category">
+                                            @foreach (var c in categories)
+                                            {
+                                                <option value="@c" selected="@(c == r.Category)">@c.DisplayName()</option>
+                                            }
+                                        </select>
+                                        <button type="button" class="btn btn-sm btn-link text-danger ms-auto p-0" data-repeater-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <textarea name="Questions[@key].Question" class="form-control form-control-sm mb-1" rows="2" maxlength="1000" placeholder="Question" aria-label="Question">@r.Question</textarea>
+                                    <input name="Questions[@key].Guidance" class="form-control form-control-sm" maxlength="1000" value="@r.Guidance" placeholder="What a strong answer shows (optional)" aria-label="Guidance" />
+                                </div>
+                                await Task.CompletedTask;
+                            }
+                        }
+                        <div data-repeater-list>
+                            @foreach (var (r, i) in rows.Select((r, i) => (r, i))) { await Row(i.ToString(), r); }
+                        </div>
+                        <template data-repeater-template>@{ await Row("__key__", new()); }</template>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-repeater-add><i class="fa-solid fa-plus me-1"></i>Add a question</button>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3"><i class="fa-solid fa-floppy-disk me-1"></i>Save the guide</button>
+                </div>
+            </form>
+        }
+    </div>
+
+    <div class="col-xl-4">
+        @if (Model.AiOn)
+        {
+            <div class="ai-panel">
+                <div class="ai-panel-title"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i>Draft with AI</div>
+                <p class="small text-body-secondary">Writes technical, behavioural, situational, competency and practical questions from the vacancy's description and requirements, each with what a strong answer shows. You see them in the form to edit before saving.</p>
+                <form asp-action="GenerateQuestions" asp-route-id="@Model.VacancyId" method="post" class="d-flex flex-wrap gap-2" data-ai-busy>
+                    <button type="submit" class="btn btn-sm btn-primary"
+                            data-confirm="@(Model.Questions.Count > 0 && !Model.IsAiDraft ? "The draft will replace the questions in the form (the saved guide stays until you save). Continue?" : null)"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Draft questions</button>
+                    @if (Model.IsAiDraft)
+                    {
+                        <button type="submit" name="regenerate" value="true" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-rotate me-1"></i>Another version</button>
+                    }
+                </form>
+            </div>
+        }
+        <div class="card glass mt-3"><div class="card-body p-4 small">
+            <h2 class="h6 text-uppercase text-body-secondary">Good practice</h2>
+            <ul class="mb-0">
+                <li>Ask every candidate the same core questions, in the same way.</li>
+                <li>Score answers on the scorecard criteria, not on the guide.</li>
+                <li>Never ask about age, family, religion, ethnicity, health or politics.</li>
+            </ul>
+        </div></div>
+    </div>
+</div>
+
+@section Scripts { <script src="~/js/repeater.js" asp-append-version="true"></script> }

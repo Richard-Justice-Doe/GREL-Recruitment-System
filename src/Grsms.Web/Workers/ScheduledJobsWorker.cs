@@ -72,6 +72,18 @@ public class ScheduledJobsWorker(IServiceScopeFactory scopes, IConfiguration con
                 logger.LogError(ex, "Offer expiry failed; will retry in {Interval}", interval);
             }
 
+            try
+            {
+                // 17 Nov 2026: the morning birthday and work-anniversary announcements (once a day, from HR's chosen hour).
+                using var scope = scopes.CreateScope();
+                var told = await scope.ServiceProvider.GetRequiredService<Application.Celebrations.CelebrationService>().RunMorningAsync(today, stoppingToken);
+                if (told > 0) logger.LogInformation("Celebrations announced to {Count} members of staff", told);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Celebration announcements failed; will retry in {Interval}", interval);
+            }
+
             // Phase 10: reminders and survey invitations, only from the morning (GMT) so nobody is messaged at night;
             // each one is sent once, whatever the interval. Read notifications older than 6 months are removed.
             if (config.GetValue("Reminders:Enabled", true) && DateTime.UtcNow.Hour >= config.GetValue("Reminders:FromHourGmt", 7))
@@ -84,8 +96,16 @@ public class ScheduledJobsWorker(IServiceScopeFactory scopes, IConfiguration con
                         .RunAsync(DateTime.UtcNow, sp.GetRequiredService<Application.Settings.ISettingsStore>().GetInt(Domain.Settings.SettingCatalogue.ApprovalWaitingDays), stoppingToken); // Phase 16: System settings (falls back to Reminders:ApprovalWaitingDays)
                     var invited = await sp.GetRequiredService<Application.Surveys.SurveyService>().InviteDueAsync(DateTime.UtcNow, stoppingToken);
                     var purged = await sp.GetRequiredService<Application.Notifications.INotificationCenter>().PurgeAsync(DateTime.UtcNow.AddMonths(-6), stoppingToken);
-                    if (reminders + invited + purged > 0)
-                        logger.LogInformation("Reminders sent: {Reminders}; survey invitations: {Invited}; old notifications removed: {Purged}", reminders, invited, purged);
+                    // docs/34: contracts ending in 90 / 60 / 30 / 7 days.
+                    var contracts = await sp.GetRequiredService<Application.Employees.ContractAlertService>().RunAsync(DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
+                    // Phase 27 stage C: onboarding document reminders, overdue notices and the RO's daily digest.
+                    var documents = await sp.GetRequiredService<Application.Onboarding.DocumentDeadlineService>().RunAsync(DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
+                    // docs/36: prompts kept for troubleshooting are cleared after 30 days; expired AI cache entries removed.
+                    await sp.GetRequiredService<Application.Ai.IAiLogStore>().PurgeAsync(DateTime.UtcNow.AddDays(-30), DateTime.UtcNow, stoppingToken);
+                    if (reminders + invited + purged + contracts + documents.Reminders + documents.Overdue + documents.Digests > 0)
+                        logger.LogInformation("Reminders sent: {Reminders}; survey invitations: {Invited}; old notifications removed: {Purged}; contract alerts: {Contracts}; " +
+                                              "document reminders: {DocReminders}, overdue: {DocOverdue}, digests: {DocDigests}",
+                            reminders, invited, purged, contracts, documents.Reminders, documents.Overdue, documents.Digests);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

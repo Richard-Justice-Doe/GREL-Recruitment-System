@@ -12,6 +12,8 @@ public class EmployeeFilter
 {
     public string? Search { get; set; }
     public int? DepartmentId { get; set; }
+    /// <summary>12 Nov 2026 (docs/35): the place of work.</summary>
+    public int? SiteId { get; set; }
     public EmployeeStatus? Status { get; set; }
     public int? GradeId { get; set; }
 
@@ -22,7 +24,8 @@ public class EmployeeFilter
 
 /// <summary>One employee as the list reads it from the database (the name from Users; organisation names added by the service).</summary>
 public record EmployeeRow(int Id, string EmployeeNumber, string Name, string PositionTitle, int DepartmentId, int SiteId, int? GradeId,
-    EmploymentType EmploymentType, EmployeeStatus Status, DateOnly HireDate);
+    EmploymentType EmploymentType, EmployeeStatus Status, DateOnly HireDate,
+    string UserId = "", string? ReportsToUserId = null, int? OnboardingRecordId = null, int? PhotoAttachmentId = null, DateOnly? ContractEndDate = null);
 
 /// <summary>docs/32: employee queries done in the database (filtering, counting and paging), so the list stays fast with thousands of staff.</summary>
 public interface IEmployeeRepository : Common.Interfaces.IRepository<Employee>
@@ -37,8 +40,11 @@ public interface IEmployeeRepository : Common.Interfaces.IRepository<Employee>
     Task<IReadOnlyDictionary<int, int>> CountByGradeAsync(CancellationToken ct = default);
 }
 
+/// <param name="Manager">17 Nov 2026 (directory): the line manager, or the Head of Department acting as one.</param>
+/// <param name="Completion">17 Nov 2026: the profile completion (null when not worked out).</param>
 public record EmployeeListItemDto(int Id, string EmployeeNumber, string Name, string PositionTitle, string DepartmentName, string SiteName,
-    string? GradeName, EmploymentType EmploymentType, EmployeeStatus Status, DateOnly HireDate);
+    string? GradeName, EmploymentType EmploymentType, EmployeeStatus Status, DateOnly HireDate,
+    string? Manager = null, bool HasPhoto = false, ProfileCompletion? Completion = null, DateOnly? ContractEndDate = null);
 
 public record EmployeeCountsDto(int All, int OnProbation, int Active, int Separated);
 
@@ -64,6 +70,17 @@ public record EmployeeDetailsDto(
         return y == 0 && m == 0 ? "Less than a month"
             : string.Join(" ", new[] { y > 0 ? $"{y} year{(y == 1 ? "" : "s")}" : null, m > 0 ? $"{m} month{(m == 1 ? "" : "s")}" : null }.OfType<string>());
     }
+}
+
+/// <summary>12 November 2026 (docs/34): one step of an employee's story, from their application to their latest job change.</summary>
+/// <param name="Stage">Recruitment, Onboarding, Probation or Job.</param>
+public record TimelineEntryDto(DateTime At, string Stage, string Title, string? Detail, string? By);
+
+/// <summary>12 November 2026 (docs/34): one box of the organisation chart and the people who report to it.</summary>
+/// <param name="EmployeeId">Null for a manager who has a GRSMS account but no employee record yet.</param>
+public record OrgNodeDto(int? EmployeeId, string Name, string? Position, string? DepartmentName, string? EmployeeNumber, IReadOnlyList<OrgNodeDto> Reports)
+{
+    public int TeamSize => Reports.Sum(r => 1 + r.TeamSize);
 }
 
 /// <summary>Registering an existing member of staff (hired before GRSMS).</summary>
@@ -115,6 +132,10 @@ public class RegisterEmployeeForm
 
     [Display(Name = "Confirmation date", Description = "When their appointment was confirmed, if known.")]
     public DateOnly? ConfirmationDate { get; set; }
+
+    /// <summary>22 Nov 2026: optional; used for birthdays (only the day and month are shown).</summary>
+    [Display(Name = "Date of birth", Description = "Optional. Only the day and month are shown, in celebrations.")]
+    public DateOnly? DateOfBirth { get; set; }
 }
 
 /// <summary>Updating an employee's job details: adds a job history line from the effective date.</summary>
@@ -189,3 +210,17 @@ public class GradeFormDto
     [Display(Name = "Active")]
     public bool IsActive { get; set; } = true;
 }
+
+// ===================================================================== 17 November 2026: the employee profile workspace
+
+/// <summary>A person in the organisation view (manager or direct report). <see cref="EmployeeId"/> is null for a manager with no employee record.</summary>
+public sealed record TeamMember(int? EmployeeId, string Name, string? Position, bool HasPhoto);
+
+/// <param name="ManagerIsHod">No line manager is set: the Head of Department acts as one.</param>
+public sealed record EmployeeTeamDto(TeamMember? Manager, bool ManagerIsHod, IReadOnlyList<TeamMember> Reports);
+
+public sealed record ProbationSummaryDto(int Id, string Number, Domain.Probation.ProbationStatus Status, DateOnly StartDate, DateOnly EndDate);
+
+/// <summary>What the profile page adds to the employee record (see EmployeeService.ProfileAsync).</summary>
+public sealed record EmployeeProfileExtras(bool HasPhoto, ProfileCompletion Completion, IReadOnlyList<EmployeeAlert> Alerts, EmployeeTeamDto Team,
+    ProbationSummaryDto? Probation);

@@ -26,14 +26,19 @@ public class AdministrationController(IAuthorizationService auth) : AppControlle
         (Policies.MasterData, new("Onboarding set-up", "Induction areas", "Who owns each induction area and its tasks.", "fa-list-check", "InductionAreas", "Index")),
         (Policies.MasterData, new("Onboarding set-up", "Onboarding documents", "The documents new employees upload.", "fa-file-circle-check", "OnboardingDocuments", "Index")),
         (Policies.UserAdmin, new("People", "Users & roles", "Add staff accounts, reset passwords, unlock, deactivate.", "fa-users-gear", "Users", "Index")),
-        (Policies.Grades, new("People", "Grades", "GREL's salary grades, given to employees on their record.", "fa-layer-group", "Grades", "Index")), // Phase 28
+        (Policies.Grades, new("People", "Grades", "GREL's job grades, given to employees on their record.", "fa-layer-group", "Grades", "Index")), // Phase 28
+        (Policies.KnowledgeBase, new("People", "Knowledge base", "GREL's policies and procedures: staff search them, and the AI answers from them.", "fa-book", "KnowledgeAdmin", "Index")), // docs/36 AI-7
         (Policies.SystemSettings, new("People", "Roles & permissions", "Which roles may open which screens.", "fa-user-shield", "Roles", "Index")),
         (Policies.SystemSettings, new("System", "Screening (ATS) settings", "Score weights, bands and automatic-rejection rules.", "fa-sliders", "Ats", "Settings")),
         (Policies.SystemSettings, new("System", "System settings", "Email server, Microsoft 365 sign-in, workflow settings.", "fa-gear", "SystemSettings", "Index")),
         (Policies.SystemSettings, new("System", "Email templates", "The wording of the emails candidates receive.", "fa-envelope", "EmailTemplates", "Index")),
+        (Policies.SystemSettings, new("System", "Letterhead & signature", "Address, contacts and signatory on the offer and appointment letters.", "fa-file-signature", "LetterSettings", "Index")),
+        (Policies.SystemSettings, new("System", "AI settings & usage", "AI provider, key, budget, feature switches and usage.", "fa-wand-magic-sparkles", "AiSettings", "Index")), // docs/36
         (Policies.Backups, new("System", "Backups", "See, start and download backups.", "fa-box-archive", "Backups", "Index")),
         (Policies.AuditTrail, new("Audit", "Audit monitor", "Sign-in problems and configuration changes at a glance.", "fa-shield-heart", "AuditMonitor", "Index")),
-        (Policies.AuditTrail, new("Audit", "Audit trail", "Every change and sign-in recorded by the system.", "fa-clock-rotate-left", "AuditLogs", "Index"))
+        (Policies.AuditTrail, new("Audit", "Audit trail", "Every change and sign-in recorded by the system.", "fa-clock-rotate-left", "AuditLogs", "Index")),
+        // 22 Nov 2026 (docs/41 H2): every member of staff turns two-step sign-in on (or off) for their own account here.
+        (Policies.Staff, new("Your account", "Two-step sign-in", "Protect your account with a code from an authenticator app on your phone.", "fa-shield-halved", "Account", "TwoStep"))
     ];
 
     /// <summary>

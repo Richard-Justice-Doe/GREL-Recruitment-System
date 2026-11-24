@@ -74,6 +74,18 @@ public class Employee : BaseEntity
     public DateTime StatusChangedAt { get; set; }
 
     /// <summary>Changes on every save; two people editing the same employee cannot overwrite each other.</summary>
+    /// <summary>17 Nov 2026 (employee directory): the profile photo (an Attachment of owner type "EmployeePhoto"); null = none uploaded.</summary>
+    public int? PhotoAttachmentId { get; set; }
+
+    /// <summary>17 Nov 2026: the employee asked not to have their birthday or work anniversary shown or announced (set by HR).</summary>
+    public bool CelebrationsOptOut { get; set; }
+
+    /// <summary>
+    /// 22 Nov 2026: the date of birth of staff who have no onboarding personal record (imported or registered by hand), entered by
+    /// HR or by the employee. The personal record's date of birth, when there is one, always wins. Used for birthdays only.
+    /// </summary>
+    public DateOnly? DateOfBirth { get; set; }
+
     public Guid Version { get; set; } = Guid.NewGuid();
 
     /// <summary>The job history. Add new lines here so the employee and its line are saved together.</summary>

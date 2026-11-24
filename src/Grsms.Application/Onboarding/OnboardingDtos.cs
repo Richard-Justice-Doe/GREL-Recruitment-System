@@ -75,6 +75,9 @@ public record OnboardingDetailsDto
 
     /// <summary>The RO (onboarding.manage): change first-day details, notes and the checklist; cancel.</summary>
     public bool CanManage { get; init; }
+
+    /// <summary>17 Nov 2026: a cancelled onboarding may be reopened (onboarding.manage).</summary>
+    public bool CanReopen { get; init; }
     public bool CanEditStartDate { get; init; }
     public bool CanIssueLetter { get; init; }
 
@@ -161,7 +164,12 @@ public class OnboardingFilter
 /// <param name="DocsRejected">documents rejected and waiting for a replacement.</param>
 public record OnboardingListItemDto(int Id, string Number, int ApplicationId, string EmployeeName, string JobTitle, string DivisionName,
     string DepartmentName, DateOnly StartDate, OnboardingStatus Status, bool LetterIssued, bool LetterSigned, int TasksDone, int TasksTotal,
-    int DocsRequired = 0, int DocsVerified = 0, int DocsMissing = 0, int DocsToVerify = 0, int DocsRejected = 0);
+    int DocsRequired = 0, int DocsVerified = 0, int DocsMissing = 0, int DocsToVerify = 0, int DocsRejected = 0, DateOnly? DocumentsDueDate = null)
+{
+    /// <summary>Phase 27 stage C: past the document deadline with documents still missing or rejected (before activation).</summary>
+    public bool DocumentsOverdue(DateOnly today) => DocumentsDueDate is { } due && due < today && (DocsMissing > 0 || DocsRejected > 0)
+        && OnboardingWorkflow.BeforeActivation(Status) && Status != OnboardingStatus.Cancelled;
+}
 
 /// <summary>An open checklist item that the current user is responsible for ("My tasks").</summary>
 public record MyOnboardingTaskDto(int TaskId, int OnboardingId, string Number, string EmployeeName, string JobTitle, OnboardingTeam Team,
@@ -199,7 +207,8 @@ public record EmployeeDocumentDto(
     DateTime? SubmittedAt, string? NotApplicableReason, DateTime? ReviewStartedAt, string? ReviewStartedBy, DateTime? VerifiedAt, string? VerifiedBy,
     DocumentRejectionReason? RejectionReasonCode, string? RejectionReason, int RejectionCount, int MinFiles, IReadOnlyList<string> FileTypes,
     IReadOnlyList<EmployeeDocumentFileDto> Files, IReadOnlyList<EmployeeDocumentFileDto> ReplacedFiles, IReadOnlyList<DocumentEventDto> History,
-    bool CanEdit, bool CanReview, bool CanStartReview)
+    bool CanEdit, bool CanReview, bool CanStartReview,
+    DateOnly? ExpiresOn = null, bool HasExpiry = false, IReadOnlyList<DocumentFlag>? Flags = null) // docs/36 AI-4
 {
     /// <summary>"Not applicable" that the RO has accepted.</summary>
     public bool NotApplicableAccepted => Status == EmployeeDocumentStatus.NotApplicable && VerifiedAt is not null;

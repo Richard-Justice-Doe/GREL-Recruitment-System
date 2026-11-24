@@ -1,0 +1,26 @@
+@* One box of the organisation chart and, below it, the people who report to it (this partial calls itself). *@
+@model OrgNodeDto
+<li>
+    <div class="org-box">
+        @if (Model.EmployeeId is int id)
+        {
+            <a asp-action="Details" asp-route-id="@id" class="fw-semibold text-decoration-none">@Model.Name</a>
+        }
+        else
+        {
+            <span class="fw-semibold">@Model.Name</span>
+            <span class="badge rounded-pill badge-soft-secondary ms-1" title="Has a GRSMS account but no employee record yet">not registered</span>
+        }
+        @if (Model.Position is not null) { <div class="small">@Model.Position</div> }
+        <div class="small text-body-secondary">@Model.DepartmentName@(Model.TeamSize > 0 ? $" · team of {Model.TeamSize}" : "")</div>
+    </div>
+    @if (Model.Reports.Count > 0)
+    {
+        <ul>
+            @foreach (var r in Model.Reports)
+            {
+                <partial name="_OrgNode" model="r" />
+            }
+        </ul>
+    }
+</li>

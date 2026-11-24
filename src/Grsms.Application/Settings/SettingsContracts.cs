@@ -48,7 +48,11 @@ public class EmailTemplateFormDto
 }
 
 /// <summary>Phase 16: one backup file.</summary>
-public record BackupFileDto(string Name, string Kind, long SizeBytes, DateTime CreatedAt);
+/// <param name="Encrypted">22 Nov 2026 (docs/41, H4): encrypted with GREL's backup public key (".gpg"). Only encrypted database dumps download.</param>
+public record BackupFileDto(string Name, string Kind, long SizeBytes, DateTime CreatedAt, bool Encrypted = false)
+{
+    public bool Downloadable => Kind == "Database" && Encrypted;
+}
 
 /// <summary>Phase 16: the backups folder as seen by GRSMS.</summary>
 public record BackupOverviewDto(bool Configured, string? Folder, IReadOnlyList<BackupFileDto> Files, DateTime? RequestedAt, bool RequestLooksStuck);

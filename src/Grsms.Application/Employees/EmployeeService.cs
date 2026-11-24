@@ -36,7 +36,14 @@ public class EmployeeService(
     IUserDirectory users,
     IUnitOfWork unitOfWork,
     ICurrentUserService me,
-    AccessScope scope)
+    AccessScope scope,
+    Applications.IApplicationRepository applications,
+    IRepository<Domain.Applications.ApplicationActionEntry> applicationSteps,
+    IRepository<Domain.Vacancies.Vacancy> vacancies,
+    IRepository<OnboardingActionEntry> onboardingSteps,
+    IRepository<ProbationActionEntry> probationSteps,
+    EmployeePhotoService photos,
+    ProfileCompletionService completion)
 {
     private const string ConflictMessage = "Someone else updated this employee at the same moment. Please reload the page and try again.";
     public const int MaxImportRows = 2000;
@@ -60,9 +67,21 @@ public class EmployeeService(
         if (!MayView) return new PagedResult<EmployeeListItemDto>([], 1, filter.PageSize, 0);
         var page = await employees.SearchAsync(filter, await scope.VisibilityAsync(ct), ct);
         var (deptNames, siteNames, gradeNames) = await NamesAsync(ct);
+
+        // 17 Nov 2026 (directory): the manager (or the Head of Department acting as one), the photo and the profile completion,
+        // each worked out for the whole page at once.
+        var hods = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id, d => d.HeadOfDepartmentUserId);
+        string? ManagerId(EmployeeRow e) => e.ReportsToUserId ?? (hods.GetValueOrDefault(e.DepartmentId) is { } h && h != e.UserId ? h : null);
+        var managerNames = await users.GetDisplayNamesAsync(page.Items.Select(ManagerId).OfType<string>().Distinct(), ct);
+        var withPhoto = await photos.WithPhotoAsync(page.Items.Select(e => (e.Id, e.PhotoAttachmentId, e.OnboardingRecordId)).ToList(), ct);
+        var completions = await completion.ForAsync(page.Items.Select(e =>
+            new CompletionInput(e.Id, e.UserId, e.OnboardingRecordId, e.GradeId, e.ReportsToUserId, e.DepartmentId, withPhoto.Contains(e.Id))).ToList(), ct);
+
         return new PagedResult<EmployeeListItemDto>(page.Items.Select(e => new EmployeeListItemDto(e.Id, e.EmployeeNumber, e.Name, e.PositionTitle,
                 deptNames.GetValueOrDefault(e.DepartmentId, ""), siteNames.GetValueOrDefault(e.SiteId, ""),
-                e.GradeId is { } g ? gradeNames.GetValueOrDefault(g) : null, e.EmploymentType, e.Status, e.HireDate)).ToList(),
+                e.GradeId is { } g ? gradeNames.GetValueOrDefault(g) : null, e.EmploymentType, e.Status, e.HireDate,
+                ManagerId(e) is { } m ? managerNames.GetValueOrDefault(m) : null, withPhoto.Contains(e.Id), completions.GetValueOrDefault(e.Id),
+                e.ContractEndDate)).ToList(),
             page.Page, page.PageSize, page.TotalCount);
     }
 
@@ -106,6 +125,142 @@ public class EmployeeService(
             MayManage && e.UserId != me.UserId && e.Status != EmployeeStatus.Separated, e.Version);
     }
 
+    /// <summary>
+    /// 12 November 2026 (docs/34 quick win): the employee's whole story, oldest first, from what GRSMS already records: every
+    /// application they made (submitted, shortlisted, interviews, offer), each onboarding's steps, each probation's steps and
+    /// every job history line. Same visibility as the employee record. Comments are staff notes, shown to HR and HODs only.
+    /// </summary>
+    public async Task<IReadOnlyList<TimelineEntryDto>> TimelineAsync(int id, CancellationToken ct = default)
+    {
+        if (await employees.GetByIdAsync(id, ct) is not { } e || !(await VisibleAsync(ct))(e)) return [];
+        var entries = new List<TimelineEntryDto>();
+        static string? Short(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Length > 160 ? s[..157] + "..." : s;
+
+        // Recruitment: every application by this person (onboarding steps come from the onboarding itself, below).
+        var apps = await applications.ListAsync(a => a.ApplicantUserId == e.UserId, ct);
+        if (apps.Count > 0)
+        {
+            var appIds = apps.Select(a => a.Id).ToList();
+            var vacancyIds = apps.Select(a => a.VacancyId).Distinct().ToList();
+            var titles = (await vacancies.ListAsync(v => vacancyIds.Contains(v.Id), ct)).ToDictionary(v => v.Id, v => $"{v.JobTitle} ({v.VacancyNumber})");
+            var byApp = apps.ToDictionary(a => a.Id);
+            foreach (var s in await applicationSteps.ListAsync(s => appIds.Contains(s.JobApplicationId), ct))
+            {
+                if (s.Action.ToString().StartsWith("Onboarding", StringComparison.Ordinal)) continue;
+                var app = byApp[s.JobApplicationId];
+                entries.Add(new TimelineEntryDto(s.ActionAt, "Recruitment", EnumText.Label(s.Action),
+                    Short($"{titles.GetValueOrDefault(app.VacancyId, app.ApplicationNumber)}{(s.Comments is null ? "" : ". " + s.Comments)}"), s.ActorName));
+            }
+        }
+
+        var onboardingIds = (await onboardings.ListAsync(o => o.EmployeeUserId == e.UserId, ct)).Select(o => o.Id).ToList();
+        foreach (var s in await onboardingSteps.ListAsync(s => onboardingIds.Contains(s.OnboardingRecordId), ct))
+            entries.Add(new TimelineEntryDto(s.ActionAt, "Onboarding", EnumText.Label(s.Action), Short(s.Comments), s.ActorName));
+
+        var probationIds = (await probations.ListAsync(p => p.EmployeeUserId == e.UserId, ct)).Select(p => p.Id).ToList();
+        foreach (var s in await probationSteps.ListAsync(s => probationIds.Contains(s.ProbationRecordId), ct))
+            entries.Add(new TimelineEntryDto(s.ActionAt, "Probation", EnumText.Label(s.Action), Short(s.Comments), s.ActorName));
+
+        // Job history: what the job became at each line.
+        var (deptNames, _, gradeNames) = await NamesAsync(ct);
+        var lines = await assignments.ListAsync(a => a.EmployeeId == e.Id, ct);
+        var people = await users.GetDisplayNamesAsync(lines.Select(a => a.RecordedByUserId).OfType<string>().Distinct(), ct);
+        foreach (var a in lines)
+            entries.Add(new TimelineEntryDto(a.CreatedAt == default ? a.EffectiveFrom.ToDateTime(TimeOnly.MinValue) : a.CreatedAt, "Job",
+                $"{EnumText.Label(a.Source)}: {a.PositionTitle}",
+                Short($"{deptNames.GetValueOrDefault(a.DepartmentId, "")}{(a.GradeId is { } g ? $", {gradeNames.GetValueOrDefault(g)}" : "")}, " +
+                      $"from {a.EffectiveFrom:d MMM yyyy}{(a.Source == AssignmentSource.Update && a.Note is not null ? ". " + a.Note : "")}"),
+                a.RecordedByUserId is { } r ? people.GetValueOrDefault(r) : null));
+
+        return entries.OrderBy(x => x.At).ToList();
+    }
+
+    /// <summary>
+    /// 12 November 2026 (docs/34 quick win): the organisation chart, from the employees' line managers. With no line manager
+    /// set, the Head of Department is the manager (as on the employee page). A manager who has a GRSMS account but no employee
+    /// record still appears, by name. People whose manager is outside the chosen department (or the visible ones) start a
+    /// branch of their own. Separated employees are left out.
+    /// </summary>
+    public async Task<IReadOnlyList<OrgNodeDto>> OrgChartAsync(int? departmentId, CancellationToken ct = default)
+    {
+        var visible = await VisibleAsync(ct);
+        var people = (await employees.ListAsync(e => e.Status != EmployeeStatus.Separated && (departmentId == null || e.DepartmentId == departmentId), ct))
+            .Where(visible).ToList();
+        if (people.Count == 0) return [];
+        var depts = (await departments.ListAsync(ct: ct)).ToDictionary(d => d.Id);
+        var byUser = people.ToDictionary(e => e.UserId);
+        string? ManagerOf(Employee e) =>
+            e.ReportsToUserId ?? (depts.GetValueOrDefault(e.DepartmentId)?.HeadOfDepartmentUserId is { } hod && hod != e.UserId ? hod : null);
+
+        // Managers without an employee record (e.g. a Head of Department not registered yet) become name-only boxes.
+        var outsideManagers = people.Select(ManagerOf).OfType<string>().Where(m => !byUser.ContainsKey(m)).Distinct().ToList();
+        var names = await users.GetDisplayNamesAsync(people.Select(e => e.UserId).Concat(outsideManagers).Distinct(), ct);
+        var reportsTo = people.ToLookup(e => ManagerOf(e) ?? "");
+
+        var placed = new HashSet<string>();
+        OrgNodeDto Node(Employee e)
+        {
+            placed.Add(e.UserId);
+            var team = new List<OrgNodeDto>();
+            foreach (var r in reportsTo[e.UserId].OrderBy(r => names.GetValueOrDefault(r.UserId, "")))
+                if (!placed.Contains(r.UserId)) team.Add(Node(r)); // checked as we go, so a reporting loop cannot repeat forever
+            return new OrgNodeDto(e.Id, names.GetValueOrDefault(e.UserId, e.EmployeeNumber), e.PositionTitle, depts.GetValueOrDefault(e.DepartmentId)?.Name,
+                e.EmployeeNumber, team);
+        }
+
+        var roots = new List<OrgNodeDto>();
+        // 1. People with no manager at all (e.g. the MD).
+        foreach (var e in people.Where(e => ManagerOf(e) is null).OrderBy(e => names.GetValueOrDefault(e.UserId, "")))
+            roots.Add(Node(e));
+        // 2. Managers known only by their account, with their teams.
+        foreach (var m in outsideManagers.OrderBy(m => names.GetValueOrDefault(m, "")))
+        {
+            var team = new List<OrgNodeDto>();
+            foreach (var r in reportsTo[m].OrderBy(r => names.GetValueOrDefault(r.UserId, "")))
+                if (!placed.Contains(r.UserId)) team.Add(Node(r));
+            if (team.Count > 0) roots.Add(new OrgNodeDto(null, names.GetValueOrDefault(m, "Unknown manager"), null, null, null, team));
+        }
+        // 3. Anyone left (a reporting loop, e.g. two people reporting to each other) starts a branch, so nobody is lost.
+        foreach (var e in people.Where(e => !placed.Contains(e.UserId)).OrderBy(e => names.GetValueOrDefault(e.UserId, "")))
+            if (!placed.Contains(e.UserId)) roots.Add(Node(e));
+        return roots;
+    }
+
+    /// <summary>
+    /// 17 November 2026 (employee profile, E4): what the profile page adds to <see cref="GetAsync"/>: the photo, the profile
+    /// completion and pending actions, the team (manager and direct reports) and the latest probation. Same visibility.
+    /// </summary>
+    public async Task<EmployeeProfileExtras?> ProfileAsync(int id, CancellationToken ct = default)
+    {
+        if (await employees.GetByIdAsync(id, ct) is not { } e || !(await VisibleAsync(ct))(e)) return null;
+        var today = Today;
+        var dept = await departments.GetByIdAsync(e.DepartmentId, ct);
+        var hod = dept?.HeadOfDepartmentUserId;
+        var managerUserId = e.ReportsToUserId ?? (hod is not null && hod != e.UserId ? hod : null);
+
+        // Direct reports: people whose line manager is this employee; a Head of Department also leads the department's people
+        // who have no line manager of their own.
+        var reports = (await employees.ListAsync(x => x.Status != EmployeeStatus.Separated && x.UserId != e.UserId &&
+            (x.ReportsToUserId == e.UserId || (hod == e.UserId && x.DepartmentId == e.DepartmentId && x.ReportsToUserId == null)), ct)).ToList();
+        var manager = managerUserId is null ? null : (await employees.ListAsync(x => x.UserId == managerUserId, ct)).FirstOrDefault();
+        var withPhoto = await photos.WithPhotoAsync(reports.Append(e).Concat(manager is null ? [] : [manager])
+            .Select(x => (x.Id, x.PhotoAttachmentId, x.OnboardingRecordId)).DistinctBy(x => x.Id).ToList(), ct);
+        var names = await users.GetDisplayNamesAsync(reports.Select(r => r.UserId).Append(managerUserId).OfType<string>().Distinct(), ct);
+        TeamMember Member(Employee x) => new(x.Id, names.GetValueOrDefault(x.UserId, x.EmployeeNumber), x.PositionTitle, withPhoto.Contains(x.Id));
+
+        var completionOf = (await completion.ForAsync([new CompletionInput(e.Id, e.UserId, e.OnboardingRecordId, e.GradeId, e.ReportsToUserId, e.DepartmentId,
+            withPhoto.Contains(e.Id))], ct))[e.Id];
+        var alerts = await completion.AlertsAsync(e, completionOf, today, ct);
+        var probation = (await probations.ListAsync(p => p.EmployeeUserId == e.UserId, ct)).OrderByDescending(p => p.Id).FirstOrDefault();
+
+        return new EmployeeProfileExtras(withPhoto.Contains(e.Id), completionOf, alerts,
+            new EmployeeTeamDto(
+                managerUserId is null ? null : manager is not null ? Member(manager) : new TeamMember(null, names.GetValueOrDefault(managerUserId, "Line manager"), null, false),
+                e.ReportsToUserId is null && managerUserId is not null,
+                reports.OrderBy(r => names.GetValueOrDefault(r.UserId, r.EmployeeNumber)).Select(Member).ToList()),
+            probation is null ? null : new ProbationSummaryDto(probation.Id, probation.Number, probation.Status, probation.StartDate, probation.EndDate));
+    }
+
     /// <summary>The employee record of a user account, if any (for links from other pages).</summary>
     public async Task<int?> IdForUserAsync(string userId, CancellationToken ct = default) =>
         (await employees.ListAsync(e => e.UserId == userId, ct)).FirstOrDefault() is { } e && (await VisibleAsync(ct))(e) ? e.Id : null;
@@ -137,7 +292,8 @@ public class EmployeeService(
             EmployeeNumber = form.EmployeeNumber, UserId = account.Value!, PositionTitle = form.PositionTitle, DepartmentId = form.DepartmentId!.Value,
             SiteId = form.SiteId!.Value, GradeId = form.GradeId, ReportsToUserId = form.ReportsToUserId, EmploymentType = form.EmploymentType,
             ContractEndDate = form.ContractEndDate, HireDate = form.HireDate!.Value, Status = form.Status,
-            ConfirmationDate = form.Status == EmployeeStatus.Active ? form.ConfirmationDate : null, StatusChangedAt = now
+            ConfirmationDate = form.Status == EmployeeStatus.Active ? form.ConfirmationDate : null, StatusChangedAt = now,
+            DateOfBirth = form.DateOfBirth
         };
         e.Assignments.Add(new EmployeeAssignment
         {
@@ -184,6 +340,7 @@ public class EmployeeService(
         }
         if (form.Status == EmployeeStatus.Separated) errors.Add("Register current staff only.");
         if (form.ConfirmationDate is { } c && (c > Today || (form.HireDate is { } h && c < h))) errors.Add("The confirmation date must be between the date joined and today.");
+        if (form.DateOfBirth is { } dob && Celebrations.CelebrationService.CheckDateOfBirth(dob, Today) is { } dobProblem) errors.Add(dobProblem);
         return errors;
     }
 
@@ -267,14 +424,14 @@ public class EmployeeService(
 
     /// <summary>The columns of the import file, in the order of the template.</summary>
     public static readonly string[] ImportColumns =
-        ["StaffNumber", "FullName", "Email", "Phone", "Position", "Department", "Site", "Grade", "EmploymentType", "HireDate", "Status", "ConfirmationDate", "ReportsToEmail", "ContractEndDate"];
+        ["StaffNumber", "FullName", "Email", "Phone", "Position", "Department", "Site", "Grade", "EmploymentType", "HireDate", "Status", "ConfirmationDate", "ReportsToEmail", "ContractEndDate", "DateOfBirth"];
 
     private static readonly string[] RequiredColumns = ["StaffNumber", "FullName", "Email", "Position", "Department", "Site", "HireDate"];
 
     /// <summary>A template with the header row and one example line.</summary>
     public static string ImportTemplate() =>
         string.Join(",", ImportColumns) + "\r\n" +
-        "GREL-0456,Kwame Boateng,k.boateng@grel.com.gh,0244000000,HR Officer,Human Resources,Head Office,,Permanent,2019-03-01,Active,2019-09-01,,\r\n";
+        "GREL-0456,Kwame Boateng,k.boateng@grel.com.gh,0244000000,HR Officer,Human Resources,Head Office,,Permanent,2019-03-01,Active,2019-09-01,,,1988-06-14\r\n";
 
     /// <summary>
     /// Imports existing staff from a CSV file (UTF-8, comma-separated, header row first). Every row is checked first; if any
@@ -344,7 +501,8 @@ public class EmployeeService(
             {
                 EmployeeNumber = C("StaffNumber"), FullName = C("FullName"), Email = C("Email"), Phone = C("Phone"), PositionTitle = C("Position"),
                 DepartmentId = dept?.Id, SiteId = site?.Id, GradeId = grade?.Id, EmploymentType = type, HireDate = Date("HireDate"), Status = status,
-                ConfirmationDate = Date("ConfirmationDate"), ContractEndDate = Date("ContractEndDate"), ReportsToUserId = managerId
+                ConfirmationDate = Date("ConfirmationDate"), ContractEndDate = Date("ContractEndDate"), ReportsToUserId = managerId,
+                DateOfBirth = Date("DateOfBirth")
             };
             Normalize(form);
             if (form.HireDate is null && C("HireDate").Length == 0) rowErrors.Add("HireDate is empty");

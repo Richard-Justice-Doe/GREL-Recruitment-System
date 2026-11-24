@@ -93,3 +93,39 @@ public class ChangePasswordViewModel
     /// <summary>True when the user was forced here because an administrator set a temporary password.</summary>
     public bool IsForced { get; set; }
 }
+
+/// <summary>22 Nov 2026 (docs/41, H2): the second step of signing in: the code from the authenticator app, or a recovery code.</summary>
+public class LoginWith2faViewModel
+{
+    [Required(ErrorMessage = "Enter the code.")]
+    [StringLength(20)]
+    [Display(Name = "Code")]
+    public string Code { get; set; } = string.Empty;
+
+    /// <summary>True when the person types one of their recovery codes instead (lost phone).</summary>
+    public bool UseRecoveryCode { get; set; }
+
+    public bool RememberMe { get; set; }
+    public string? ReturnUrl { get; set; }
+}
+
+/// <summary>22 Nov 2026 (docs/41, H2): the "Two-step sign-in" page: status, set-up (QR code and key) and recovery codes.</summary>
+public class TwoStepViewModel
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>The person's role must use it (and the rule is on): they cannot turn it off.</summary>
+    public bool Required { get; set; }
+
+    /// <summary>They were sent here because they must set it up before using GRSMS.</summary>
+    public bool MustSetUp { get; set; }
+
+    /// <summary>For setting up: the key in groups of four, and the same key as a QR code (PNG data URI).</summary>
+    public string? SharedKey { get; set; }
+    public string? QrDataUri { get; set; }
+
+    public int RecoveryCodesLeft { get; set; }
+
+    /// <summary>New recovery codes, shown once right after they are made.</summary>
+    public IReadOnlyList<string>? NewRecoveryCodes { get; set; }
+}

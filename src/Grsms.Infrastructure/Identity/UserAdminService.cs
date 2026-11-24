@@ -72,7 +72,9 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
                 u.IsActive,
                 u.LockoutEnd > now,
                 u.IsCandidate,
-                u.LastSignInAt))
+                u.LastSignInAt,
+                u.TwoFactorEnabled,
+                u.RequireTwoStep))
             .ToList();
     }
 
@@ -104,7 +106,7 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
         var now = DateTimeOffset.UtcNow;
         var items = users.Select(u => new UserListItemDto(u.Id, u.FullName, u.Email ?? "", u.StaffNumber,
                 u.DepartmentId is int d ? deptNames.GetValueOrDefault(d) : null, u.SiteId is int s ? siteNames.GetValueOrDefault(s) : null,
-                rolesByUser[u.Id].OrderBy(r => r).ToList(), u.IsActive, u.LockoutEnd > now, u.IsCandidate, u.LastSignInAt))
+                rolesByUser[u.Id].OrderBy(r => r).ToList(), u.IsActive, u.LockoutEnd > now, u.IsCandidate, u.LastSignInAt, u.TwoFactorEnabled, u.RequireTwoStep))
             .ToList();
         return new PagedResult<UserListItemDto>(items, page, pageSize, total);
     }
@@ -270,6 +272,33 @@ public class UserAdminService(UserManager<ApplicationUser> userManager, Applicat
         await userManager.SetLockoutEndDateAsync(user, null);
         await userManager.ResetAccessFailedCountAsync(user);
         return Result.Success();
+    }
+
+    public async Task<Result> ResetTwoStepAsync(string id, CancellationToken ct = default)
+    {
+        var user = await userManager.FindByIdAsync(id);
+        if (user is null) return Result.Failure("User not found.");
+        if (user.Id == me.UserId) return Result.Failure("You cannot reset your own two-step sign-in. Use your recovery codes, or ask another administrator.");
+        var roles = await userManager.GetRolesAsync(user);
+        if (!IsSuperAdmin && roles.Any(r => Roles.TwoStepRequired.Contains(r) || Roles.NeedsSuperAdmin([r])))
+            return Result.Failure($"{user.FullName} holds a privileged role, so only a Super Admin can reset their two-step sign-in.");
+        if (!await userManager.GetTwoFactorEnabledAsync(user)) return Result.Failure($"{user.FullName} has not set up two-step sign-in.");
+
+        await userManager.SetTwoFactorEnabledAsync(user, false);
+        await userManager.ResetAuthenticatorKeyAsync(user); // the old phone's codes stop working; also signs them out (new security stamp)
+        return Result.Success();
+    }
+
+    public async Task<Result> SetTwoStepRequiredAsync(string id, bool required, CancellationToken ct = default)
+    {
+        if (!IsSuperAdmin) return Result.Failure("Only a Super Admin can require two-step sign-in for a person.");
+        var user = await userManager.FindByIdAsync(id);
+        if (user is null) return Result.Failure("User not found.");
+        if (user.IsCandidate) return Result.Failure("Two-step sign-in is for GREL staff accounts.");
+        if (user.RequireTwoStep == required) return Result.Success();
+        user.RequireTwoStep = required;
+        var result = await userManager.UpdateAsync(user); // audited as a change to the user; their sign-in picks it up within 5 minutes
+        return result.Succeeded ? Result.Success() : Result.Failure([.. result.Errors.Select(e => e.Description)]);
     }
 
     private static void Normalize(UserFormDto form)

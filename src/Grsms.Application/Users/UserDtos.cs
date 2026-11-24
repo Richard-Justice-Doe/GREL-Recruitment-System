@@ -14,7 +14,9 @@ public record UserListItemDto(
     bool IsActive,
     bool IsLockedOut,
     bool IsCandidate,
-    DateTime? LastSignInAt);
+    DateTime? LastSignInAt,
+    bool TwoStepEnabled = false, // 22 Nov 2026 (docs/41, H2): set up by the person
+    bool TwoStepRequired = false); // required for them by the Super Admin
 
 /// <summary>The staff-account create/edit form used by the HR Administrator.</summary>
 public class UserFormDto

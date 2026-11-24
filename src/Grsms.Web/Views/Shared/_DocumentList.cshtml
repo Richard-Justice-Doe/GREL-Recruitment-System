@@ -19,6 +19,7 @@ else
                 <i class="fa-regular @Icon(d.ContentType) fa-lg mt-1"></i>
                 <div class="flex-grow-1 text-break">
                     <a href="@Model.DownloadUrl?attachmentId=@d.Id" class="fw-semibold text-decoration-none">@d.FileName</a>
+                    <partial name="_PreviewButton" model='((string?)$"{Model.DownloadUrl}?attachmentId={d.Id}", (string?)d.FileName)' />
                     <div class="small text-body-secondary">@d.Category.DisplayName() · @Size(d.SizeBytes) · @d.UploadedAt.ToString("dd MMM yyyy")</div>
                 </div>
             </li>

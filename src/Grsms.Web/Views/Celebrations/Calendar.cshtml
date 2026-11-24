@@ -1,0 +1,84 @@
+@* 17 Nov 2026: the birthday and work-anniversary calendar for one month, with department and site filters. *@
+@model IReadOnlyList<Celebrant>
+@{
+    int year = ViewBag.Year, month = ViewBag.Month;
+    var first = new DateOnly(year, month, 1);
+    ViewData["Title"] = $"Celebrations: {first:MMMM yyyy}";
+    var prev = first.AddMonths(-1);
+    var next = first.AddMonths(1);
+    var lead = ((int)first.DayOfWeek + 6) % 7; // Monday first
+    var days = DateTime.DaysInMonth(year, month);
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var byDay = Model.GroupBy(c => c.Date.Day).ToDictionary(g => g.Key, g => g.ToList());
+}
+
+<div class="page-header">
+    <div>
+        <h1>Celebrations calendar</h1>
+        <p>@Model.Count(c => c.Kind == CelebrationKind.Birthday) birthday(s) and @Model.Count(c => c.Kind == CelebrationKind.Anniversary) work anniversar@(Model.Count(c => c.Kind == CelebrationKind.Anniversary) == 1 ? "y" : "ies") in @first.ToString("MMMM yyyy").</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>Today's celebrations</a>
+</div>
+
+<form method="get" class="row g-2 mb-3 align-items-end">
+    <div class="col-6 col-md-2">
+        <label class="form-label small" for="month">Month</label>
+        <select id="month" name="month" class="form-select">
+            @for (var m = 1; m <= 12; m++) { <option value="@m" selected="@(m == month)">@(new DateOnly(2000, m, 1).ToString("MMMM"))</option> }
+        </select>
+    </div>
+    <div class="col-6 col-md-2">
+        <label class="form-label small" for="year">Year</label>
+        <input id="year" name="year" type="number" min="2000" max="2100" value="@year" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small" for="departmentId">Department</label>
+        <select id="departmentId" name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select"><option value="">All departments</option></select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small" for="siteId">Site / location</label>
+        <select id="siteId" name="siteId" asp-items="ViewBag.SiteFilterList" class="form-select"><option value="">All sites</option></select>
+    </div>
+    <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100"><i class="fa-solid fa-filter me-1"></i>Show</button></div>
+</form>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <a asp-action="Calendar" asp-route-year="@prev.Year" asp-route-month="@prev.Month" asp-route-departmentId="@ViewBag.DepartmentId" asp-route-siteId="@ViewBag.SiteId" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-chevron-left me-1"></i>@prev.ToString("MMM")</a>
+    <h2 class="h5 mb-0">@first.ToString("MMMM yyyy")</h2>
+    <a asp-action="Calendar" asp-route-year="@next.Year" asp-route-month="@next.Month" asp-route-departmentId="@ViewBag.DepartmentId" asp-route-siteId="@ViewBag.SiteId" class="btn btn-sm btn-outline-secondary">@next.ToString("MMM")<i class="fa-solid fa-chevron-right ms-1"></i></a>
+</div>
+
+<div class="cal-grid card glass p-2">
+    @foreach (var d in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" }) { <div class="cal-head">@d</div> }
+    @for (var i = 0; i < lead; i++) { <div class="cal-day is-empty" aria-hidden="true"></div> }
+    @for (var day = 1; day <= days; day++)
+    {
+        var date = new DateOnly(year, month, day);
+        <div class="cal-day @(date == today ? "is-today" : "") @(byDay.ContainsKey(day) ? "has-items" : "")">
+            <div class="cal-num">@day</div>
+            @foreach (var c in byDay.GetValueOrDefault(day) ?? [])
+            {
+                <div class="cal-item" title="@c.Name, @c.DepartmentName">
+                    @(c.Kind == CelebrationKind.Birthday ? "🎂" : "🎉") <span class="cal-name">@c.Name</span>@(c.Kind == CelebrationKind.Anniversary ? $" ({c.Years})" : "")
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<h2 class="h6 text-uppercase text-body-secondary mt-4 mb-2">The list</h2>
+@if (Model.Count == 0) { <p class="text-body-secondary">No celebrations this month.</p> }
+else
+{
+    <ul class="celebrate-upcoming list-unstyled">
+        @foreach (var c in Model)
+        {
+            <li>
+                <span class="celebrate-date">@c.Date.ToString("d MMM")</span>
+                <partial name="_CelebrantAvatar" model='(c, "sm")' />
+                <span class="min-w-0"><span class="fw-semibold">@c.Name</span>
+                    <span class="small text-body-secondary">· @c.DepartmentName · @c.SiteName · @(c.Kind == CelebrationKind.Birthday ? "🎂 Birthday" : $"🎉 {c.Years} year{(c.Years == 1 ? "" : "s")} of service")</span></span>
+            </li>
+        }
+    </ul>
+}

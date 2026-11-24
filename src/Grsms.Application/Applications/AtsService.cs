@@ -96,7 +96,7 @@ public class AtsService(
         s.RejectMissingRequiredCertification = form.RejectMissingRequiredCertification;
         s.RejectMissingRequiredSkill = form.RejectMissingRequiredSkill;
         if (form.UseAiReader && !ai.IsConfigured && !s.UseAiReader)
-            return Result.Failure("The Claude AI reader has no API key on this server (setting Ats:Ai:ApiKey). Ask IT to set it first.");
+            return Result.Failure("To read CVs with AI, go to Administration → AI settings & usage: enter the API key there, switch \"Use AI\" on, and switch on \"CV reading\" under AI features.");
         s.UseAiReader = form.UseAiReader;
 
         var errors = s.Validate();
@@ -203,7 +203,7 @@ public class AtsService(
                     : null;
 
         ParsedCv? parsed = null;
-        if (settings.UseAiReader && ai.IsConfigured && a.CvText is not null)
+        if (((settings.UseAiReader && ai.IsConfigured) || ai.IsSwitchedOn) && a.CvText is not null)
             parsed = await ai.ReadAsync(a.CvText, Today, ct);
         parsed ??= CvParser.Parse(a.CvText, Today);
         a.CvParsed = System.Text.Json.JsonSerializer.Serialize(parsed);

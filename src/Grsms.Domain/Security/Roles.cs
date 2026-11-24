@@ -35,7 +35,7 @@ public static class Roles
     /// <summary>Recruitment Officer: manages vacancies, candidates, adverts and interview schedules.</summary>
     public const string RecruitmentOfficer = "Recruitment Officer";
 
-    /// <summary>HR Manager: approves requests (no budget confirmation since 11 Nov 2026), reviews job adverts, views onboarding.</summary>
+    /// <summary>HR Manager: no longer approves requests, vacancies, adverts (17 Nov 2026) or hires (9 Nov 2026); shortlist overrides, probation outcome, views onboarding.</summary>
     public const string HrManager = "HR Manager";
 
     /// <summary>
@@ -44,7 +44,7 @@ public static class Roles
     /// </summary>
     public const string ItManager = "IT Manager";
 
-    /// <summary>Managing Director: final approval of vacancies and hires, executive dashboard.</summary>
+    /// <summary>Managing Director: the last approval of recruitment requests (17 Nov 2026), executive dashboard. Hires need only the RO (9 Nov 2026).</summary>
     public const string ManagingDirector = "Managing Director";
 
     /// <summary>Interview panel member: reviews interviews and completes scorecards.</summary>
@@ -62,6 +62,13 @@ public static class Roles
 
     /// <summary>Built-in roles that belong to GREL staff (everything except Candidate).</summary>
     public static readonly IReadOnlyList<string> Staff = All.Where(r => r != Candidate).ToList();
+
+    /// <summary>
+    /// 22 Nov 2026 (docs/41, H2): roles that can see every employee's personal data or change the system. They must use
+    /// two-step sign-in (an authenticator app) when signing in with a password, once the Super Admin switches the rule on
+    /// (System settings → Sign-in security). Microsoft 365 sign-in relies on Microsoft's own two-step check.
+    /// </summary>
+    public static readonly IReadOnlyList<string> TwoStepRequired = [SuperAdmin, Admin, HrAdministrator, HrManager, RecruitmentOfficer];
 
     /// <summary>
     /// Phase 14: the only roles an HR Administrator may give or take away. Every other role (built-in or custom) can
@@ -96,10 +103,10 @@ public static class Roles
         SuperAdmin => "Full access to the whole system. Creates privileged accounts and sets permissions.",
         Admin => "System administrator: manages all user accounts except Admins and Super Admins, organisation data and the audit trail; sees settings read-only.",
         HrAdministrator => "Maintains departments, divisions, units and sites, and everyday staff accounts.",
-        HrManager => "Approves requests and vacancies, reviews job adverts, authorises shortlists and hiring decisions.",
-        ItManager => "Gives the final approval of job adverts, publishes them and records where they are posted.",
-        ManagingDirector => "Final approval of recruitment requests and hires.",
-        RecruitmentOfficer => "Runs vacancies, adverts, screening, interviews and offers.",
+        HrManager => "Shortlists against the HOD's view (with a reason), decides the outcome of probation and can write job adverts. Requests, vacancies, adverts and hires need no HR Manager approval.",
+        ItManager => "Records where job adverts are posted and can take a published advert offline (adverts need no IT approval since 17 Nov 2026).",
+        ManagingDirector => "Gives the last approval of recruitment requests; after it the Recruitment Officer needs no further approval.",
+        RecruitmentOfficer => "Reviews recruitment requests (stage 2), publishes vacancies and adverts, validates interview scores, approves hires, sends offers and verifies new-hire documents.",
         HeadOfDepartment => "Reviews (stage 1) and raises recruitment requests for their department, and takes part in selection.",
         PanelMember => "Sits on interview panels and completes scorecards.",
         Employee => "GREL staff member: sees internal vacancies, applies internally and fills in recruitment requests for their department.",

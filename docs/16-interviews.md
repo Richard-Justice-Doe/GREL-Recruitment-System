@@ -23,6 +23,10 @@ Click **Schedule and send invitations**. Then:
 
 An applicant can have several **rounds**, for example a written test followed by an interview.
 
+## 1a. Interview guide (13 November 2026, docs/36)
+
+On the vacancy page, **Interview guide → Open**. The Recruitment Officer or HR Manager lists the questions the panel should ask, by category (technical, behavioural, situational, competency, practical assessment), each with *what a strong answer shows*, then clicks **Save the guide**. With AI switched on (*AI settings & usage*), **Draft questions** fills the form with suggestions from the vacancy's description and requirements, to edit before saving. Panel members see the guide, folded, at the top of the interview page. Applicants never see it.
+
 ## 2. Score (panel members)
 
 Any GREL staff member can sit on a panel. Open **Menu → Interviews**:
@@ -38,6 +42,14 @@ On the session page, the scorecard **opens when the session starts**:
 GRSMS works out the **weighted score out of 100**: each rating ÷ 5 × the criterion's weight, added up. For example, 4/5 on a 60-weight criterion plus 5/5 on a 40-weight one gives 48 + 40 = **88**.
 
 **Independent scoring:** panel members see the other scorecards **only after submitting their own**, so nobody is swayed. You can update your scorecard until the Recruitment Officer validates the scores.
+
+## 2a. Panel replies and quorum (12 November 2026, docs/35)
+
+* Every panel member is asked to **accept or decline** the invitation: on the session page and in *My tasks* on Home (*Panel invitation: … Accept or decline*). A decline needs a reason.
+* **Quorum:** at least **3** panel members, including the department's **HOD** (or a delegate from the same department) and an **HR Manager**. Scheduling checks this, and scores **cannot be validated** until quorum is met on the day (members marked absent don't count).
+* **When someone declines,** the scheduler, the vacancy's recruiter and the HR Managers are emailed (*Quorum at risk* when it is). The RO or HR Manager clicks **Replace** next to that member and picks someone else; the new member is invited and checked for clashes. A replacement for the HOD must be from the same department and is shown as **HOD delegate**. If the chair is replaced, the new member becomes chair.
+* The session page shows each member's reply and either what quorum still needs or *Quorum met*.
+* The rule can be switched off in **System settings → Workflow → Enforce interview quorum** (on by default). Sessions scheduled before 12 November are not held to it.
 
 ## 3. Score validation (Recruitment Officer)
 

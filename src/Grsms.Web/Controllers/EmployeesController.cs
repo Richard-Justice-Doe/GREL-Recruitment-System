@@ -16,24 +16,28 @@ namespace Grsms.Web.Controllers;
 /// staff (form or CSV import) and updating job details. Thin: every rule is in <see cref="EmployeeService"/>.
 /// </summary>
 [Authorize(Policy = Policies.Employees)]
-public class EmployeesController(EmployeeService employees, GradeService grades, IDepartmentService departments, ISiteService sites, IUserDirectory users)
+public class EmployeesController(EmployeeService employees, GradeService grades, IDepartmentService departments, ISiteService sites, IUserDirectory users,
+    EmployeePhotoService photos, ProfileCompletionService completion, IAuthorizationService auth)
     : AppController
 {
     private const long ImportLimitBytes = 2 * 1024 * 1024;
 
     /// <summary>Tabs: current (default), probation, active, left.</summary>
-    public async Task<IActionResult> Index(string? tab, string? search, int? departmentId, int? gradeId, int page = 1, CancellationToken ct = default)
+    public async Task<IActionResult> Index(string? tab, string? search, int? departmentId, int? siteId, int? gradeId, int page = 1, string? view = null, CancellationToken ct = default)
     {
         tab = tab is "probation" or "active" or "left" ? tab : "current";
         var filter = new EmployeeFilter
         {
-            Search = search, DepartmentId = departmentId, GradeId = gradeId, Page = page,
+            Search = search, DepartmentId = departmentId, SiteId = siteId, GradeId = gradeId, Page = page,
             Status = tab switch { "probation" => EmployeeStatus.OnProbation, "active" => EmployeeStatus.Active, "left" => EmployeeStatus.Separated, _ => null }
         };
         ViewBag.Tab = tab;
+        ViewBag.View = view == "list" ? "list" : "grid"; // 17 Nov 2026: directory cards (default) or a list
         ViewBag.Search = search;
         ViewBag.DepartmentId = departmentId;
         ViewBag.GradeId = gradeId;
+        ViewBag.SiteId = siteId;
+        ViewBag.SiteFilterList = new SelectList(await sites.GetActiveLookupAsync(ct), nameof(LookupItem.Value), nameof(LookupItem.Text), siteId?.ToString());
         ViewBag.Counts = await employees.CountsAsync(ct);
         ViewBag.CanManage = employees.MayManage;
         ViewBag.GradeList = new SelectList(await grades.GetActiveLookupAsync(ct), nameof(LookupItem.Value), nameof(LookupItem.Text), gradeId?.ToString());
@@ -41,10 +45,50 @@ public class EmployeesController(EmployeeService employees, GradeService grades,
         return View(await employees.SearchAsync(filter, ct));
     }
 
+    /// <summary>17 Nov 2026: the employee profile workspace (header, completion, pending actions, tabs).</summary>
     public async Task<IActionResult> Details(int id, CancellationToken ct)
     {
-        var model = await employees.GetAsync(id, ct);
+        var model = await ProfileAsync(id, ct);
         return model is null ? NotFound() : View(model);
+    }
+
+    /// <summary>17 Nov 2026: a printable one-page report of the employee (Print or Save as PDF from the browser).</summary>
+    public async Task<IActionResult> Report(int id, CancellationToken ct)
+    {
+        var model = await ProfileAsync(id, ct);
+        return model is null ? NotFound() : View(model);
+    }
+
+    private async Task<Models.EmployeeProfileViewModel?> ProfileAsync(int id, CancellationToken ct)
+    {
+        var e = await employees.GetAsync(id, ct);
+        var extras = e is null ? null : await employees.ProfileAsync(id, ct);
+        if (e is null || extras is null) return null;
+        var sp = HttpContext.RequestServices;
+        var canPersonal = (await auth.AuthorizeAsync(User, Policies.ViewOnboarding)).Succeeded;
+        var canAudit = (await auth.AuthorizeAsync(User, Policies.AuditTrail)).Succeeded;
+        Application.Onboarding.PersonalRecordPageDto? personal = null;
+        Application.Onboarding.DocumentChecklistDto? documents = null;
+        Application.Onboarding.OnboardingJourneyDto? journey = null;
+        if (canPersonal && e.OnboardingRecordId is { } ob)
+        {
+            personal = await sp.GetRequiredService<Application.Onboarding.PersonalRecordService>().GetForHrAsync(ob, ct);
+            documents = await sp.GetRequiredService<Application.Onboarding.DocumentVerificationService>().GetForHrAsync(ob, ct);
+            if (await sp.GetRequiredService<Application.Onboarding.OnboardingService>().GetAsync(ob, ct) is { } onboarding)
+                journey = Application.Onboarding.OnboardingJourneyService.ForStaff(onboarding);
+        }
+        var audit = canAudit
+            ? (await sp.GetRequiredService<Application.Auditing.IAuditLogService>().SearchAsync(new Application.Auditing.AuditLogQuery
+                { EntityName = "Employee", EntityId = id.ToString(), PageSize = 25 }, ct)).Items
+            : null;
+        return new Models.EmployeeProfileViewModel(e, extras, await employees.TimelineAsync(id, ct), personal, documents, journey, audit, canPersonal, canAudit);
+    }
+
+    /// <summary>docs/34: the organisation chart, optionally for one department.</summary>
+    public async Task<IActionResult> OrgChart(int? departmentId, CancellationToken ct)
+    {
+        await LoadFilterListsAsync(null, departmentId, ct);
+        return View(await employees.OrgChartAsync(departmentId, ct));
     }
 
     // ------------------------------------------------------------------ registering existing staff
@@ -147,4 +191,32 @@ public class EmployeesController(EmployeeService employees, GradeService grades,
         ViewBag.HasGrades = gradeItems.Count > 0 || currentGradeId is not null;
         ViewBag.StaffList = new SelectList(await users.GetActiveStaffAsync(null, ct), nameof(LookupItem.Value), nameof(LookupItem.Text));
     }
+
+    // ------------------------------------------------------------------ 17 Nov 2026: photos (employee directory)
+
+    /// <summary>The employee's photo (uploaded, or the verified onboarding photograph); 404 when there is none (initials are shown).</summary>
+    public async Task<IActionResult> Photo(int id, CancellationToken ct)
+    {
+        var file = await photos.OpenAsync(id, ct);
+        if (file is null) return NotFound();
+        Response.Headers.CacheControl = "private, max-age=3600";
+        return File(file.Content, file.ContentType);
+    }
+
+    [HttpPost]
+    [Authorize(Policy = Policies.ManageEmployees)]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> UploadPhoto(int id, IFormFile? photo, CancellationToken ct)
+    {
+        await using var stream = photo?.OpenReadStream();
+        var result = await photos.UploadAsync(id, photo?.FileName, stream, ct);
+        if (result.Succeeded) Success("Photo saved.");
+        else Fail(result);
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost]
+    [Authorize(Policy = Policies.ManageEmployees)]
+    public Task<IActionResult> RemovePhoto(int id, CancellationToken ct) =>
+        RunAsync(() => photos.RemoveAsync(id, ct), "Photo removed.", () => RedirectToAction(nameof(Details), new { id }));
 }

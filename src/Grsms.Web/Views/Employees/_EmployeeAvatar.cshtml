@@ -1,0 +1,14 @@
+@* 17 Nov 2026 (employee directory): an employee's photo, or their initials on a colour picked from the name (the same every time).
+   Model: (Id, Name, HasPhoto, Size) with Size "sm" (lists), "md" (cards) or "xl" (the profile header). *@
+@model (int Id, string Name, bool HasPhoto, string Size)
+@{
+    var colour = Math.Abs(Model.Name.Aggregate(17, (h, c) => unchecked(h * 31 + c))) % 8;
+}
+@if (Model.HasPhoto)
+{
+    <img class="emp-avatar emp-avatar-@Model.Size" src="@Url.Action("Photo", "Employees", new { id = Model.Id })" alt="Photo of @Model.Name" loading="lazy" />
+}
+else
+{
+    <span class="emp-avatar emp-avatar-@Model.Size emp-avatar-c@(colour)" role="img" aria-label="@Model.Name">@Grsms.Application.Employees.EmployeePhotoService.Initials(Model.Name)</span>
+}

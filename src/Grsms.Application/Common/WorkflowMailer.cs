@@ -64,6 +64,14 @@ public class WorkflowMailer(IUserDirectory users, IEmailService email, ICurrentU
     }
 
     /// <summary>HTML-encodes user-typed text before it goes into an email.</summary>
+    /// <summary>
+    /// G4 (15 Nov 2026, guided workflow): the standard "what just happened and what comes next" block added to workflow messages
+    /// (emails and the bell): "&#x2705; Department approval completed · Next step: HR review · Responsible: HR Manager".
+    /// </summary>
+    public static string NextStep(string completed, string next, string responsible) =>
+        $"<p style=\"margin:12px 0;padding:10px 12px;border-left:4px solid #3cb54a;background:#f3faf4\">&#x2705; <b>{Enc(completed)}.</b><br/>" +
+        $"Next step: <b>{Enc(next)}</b>.<br/>Responsible: <b>{Enc(responsible)}</b>.</p>";
+
     public static string Enc(string? text) => WebUtility.HtmlEncode(text ?? "");
 
     /// <summary>

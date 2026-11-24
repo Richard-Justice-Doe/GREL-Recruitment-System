@@ -1,0 +1,41 @@
+@* docs/36 AI-6: the onboarding assistant, a small chat (wwwroot/js/onboarding-assistant.js). Shown only when the feature is switched
+   on in AI settings. Answers are built from this onboarding's own facts in GRSMS; the model only words them. The chat is not stored. *@
+@model Grsms.Web.Helpers.AssistantBox
+@inject Grsms.Application.Ai.OnboardingAssistantService Assistant
+@if (Assistant.IsOn)
+{
+    var questions = Model.ForEmployee
+        ? new[] { "What do I still need to do?", "When and where is my first day?", "Why was a document rejected?" }
+        : new[] { "What is still outstanding?", "Which documents are waiting for review?", "What is late?" };
+    <details class="card glass mb-3 assistant" open="@Model.Open" data-assistant
+             data-assistant-endpoint="@Url.Action("Onboarding", "Ai")"
+             data-application-id="@Model.ApplicationId" data-onboarding-id="@Model.OnboardingId">
+        <summary class="card-body py-3 px-4 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-primary" aria-hidden="true"></i>
+            <span class="fw-semibold">@(Model.ForEmployee ? "Questions about your onboarding? Ask the assistant" : "Ask the onboarding assistant")</span>
+            <span class="badge rounded-pill badge-soft-primary ms-1">AI</span>
+        </summary>
+        <div class="card-body pt-0 px-4 pb-4">
+            <p class="small text-body-secondary mb-2">
+                @(Model.ForEmployee
+                    ? "It answers from your onboarding as it stands today (your documents, letter and first day). For questions about GREL's policies, ask HR."
+                    : "It answers from this onboarding as it stands today (documents, tasks, letter, first day). Advice only: check the page before acting.")
+            </p>
+            <div class="assistant-log" aria-live="polite"></div>
+            <div class="d-flex flex-wrap gap-2 mb-2 assistant-suggestions">
+                @foreach (var q in questions)
+                {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-assistant-ask="@q">@q</button>
+                }
+            </div>
+            <form class="assistant-form d-flex gap-2" method="post" autocomplete="off">
+                @Html.AntiForgeryToken()
+                <label class="visually-hidden" for="assistant-question-@(Model.ApplicationId ?? Model.OnboardingId)">Your question</label>
+                <input id="assistant-question-@(Model.ApplicationId ?? Model.OnboardingId)" name="question" class="form-control" maxlength="500" required
+                       placeholder="@(Model.ForEmployee ? "e.g. Which documents are still missing?" : "e.g. What is blocking activation?")" />
+                <button type="submit" class="btn btn-outline-primary text-nowrap"><i class="fa-solid fa-paper-plane me-1"></i>Ask</button>
+            </form>
+            <p class="small text-body-secondary mt-2 mb-0"><i class="fa-solid fa-circle-info me-1"></i>AI answer, worded by @(Model.ForEmployee ? "an AI service from your details in GRSMS" : "an AI service from GRSMS's data"). It can make mistakes: the page itself is always right.</p>
+        </div>
+    </details>
+}

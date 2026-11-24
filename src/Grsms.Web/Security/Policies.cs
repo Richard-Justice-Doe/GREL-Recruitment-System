@@ -65,7 +65,9 @@ public static class Policies
     /// <summary>Phase 28 (docs/30): the employee master record and grades.</summary>
     public const string Employees = nameof(Employees);
     public const string ManageEmployees = nameof(ManageEmployees);
+    public const string ExecutiveDashboard = nameof(ExecutiveDashboard); // docs/36 AI-3
     public const string Grades = nameof(Grades);
+    public const string KnowledgeBase = nameof(KnowledgeBase); // docs/36 AI-7
     /// <summary>Open the Reports (Phase 11). HODs see only their own departments (decided by ReportService).</summary>
     public const string Reports = nameof(Reports);
 
@@ -109,8 +111,10 @@ public static class Policies
             .AddPermissionPolicy(CompleteOnboarding, Permissions.CompleteOnboarding)
             .AddPermissionPolicy(DecideProbation, Permissions.DecideProbation)
             .AddPermissionPolicy(Employees, Permissions.ViewEmployees)
+            .AddPermissionPolicy(ExecutiveDashboard, Permissions.ViewExecutiveDashboard)
             .AddPermissionPolicy(ManageEmployees, Permissions.ManageEmployees)
             .AddPermissionPolicy(Grades, Permissions.ManageGrades)
+            .AddPermissionPolicy(KnowledgeBase, Permissions.ManageKnowledge)
             .AddPermissionPolicy(Reports, Permissions.ViewReports)
             .AddPermissionPolicy(RolesAndPermissions, Permissions.ManagePermissions)
             .AddPermissionPolicy(SystemSettings, Permissions.ViewSystemSettings)

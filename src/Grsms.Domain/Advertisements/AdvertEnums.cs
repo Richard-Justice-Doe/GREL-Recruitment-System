@@ -74,11 +74,14 @@ public enum AdvertAction
     [Display(Name = "Closed")] Closed,
     [Display(Name = "Closed automatically")] AutoClosed,
 
-    // 11 Nov 2026 (docs/29 change 2): HR review, then IT approval.
+    // 11-17 Nov 2026 (docs/29 change 2, removed 17 Nov): HR review, then IT approval. Kept for the history of those adverts.
     [Display(Name = "Sent for HR review")] Submitted,
     [Display(Name = "Reviewed by HR, sent for IT approval")] HrApproved,
     [Display(Name = "Approved by IT")] ItApproved,
     [Display(Name = "Returned for correction")] Returned,
     [Display(Name = "Rejected")] Rejected,
-    [Display(Name = "Taken offline")] Unpublished
+    [Display(Name = "Taken offline")] Unpublished,
+
+    // 17 Nov 2026: the Recruitment Officer edits a published advert; it stays published (no review).
+    [Display(Name = "Edited while published")] EditedWhilePublished
 }

@@ -34,6 +34,10 @@ public class Attachment : BaseEntity
 
     /// <summary>SHA-256 fingerprint of the file, to prove later that it has not been altered.</summary>
     public string Sha256 { get; set; } = string.Empty;
+
+    /// <summary>docs/36 AI-4: width and height in pixels of a JPEG or PNG (read from the file header at upload); null for other files or older uploads.</summary>
+    public int? ImageWidth { get; set; }
+    public int? ImageHeight { get; set; }
 }
 
 /// <summary>What a file is. New modules add their own categories here.</summary>
@@ -57,7 +61,13 @@ public enum AttachmentCategory
     [Display(Name = "New-hire document")] NewHireDocument,
 
     // Phase 20: a document HR filed directly in a personnel file
-    [Display(Name = "Personnel file document")] PersonnelFileDocument
+    [Display(Name = "Personnel file document")] PersonnelFileDocument,
+
+    // docs/36 AI-7: a policy or procedure in the knowledge base
+    [Display(Name = "Knowledge-base document")] KnowledgeDocument,
+
+    // 17 Nov 2026: an employee's profile photo
+    [Display(Name = "Employee photo")] EmployeePhoto
 }
 
 /// <summary>The values used in <see cref="Attachment.OwnerType"/>.</summary>
@@ -79,4 +89,10 @@ public static class AttachmentOwners
 
     /// <summary>Phase 20: a file HR added directly to an employee's personnel file (OwnerId = PersonnelFiles.Id).</summary>
     public const string PersonnelFile = "PersonnelFile";
+
+    /// <summary>docs/36 AI-7: the file of a knowledge-base document (OwnerId = KnowledgeDocuments.Id; older versions stay as history).</summary>
+    public const string KnowledgeDocument = "KnowledgeDocument";
+
+    /// <summary>17 Nov 2026: an employee's profile photo (OwnerId = Employees.Id; earlier photos stay as history).</summary>
+    public const string EmployeePhoto = "EmployeePhoto";
 }

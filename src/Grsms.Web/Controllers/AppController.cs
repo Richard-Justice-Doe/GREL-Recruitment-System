@@ -12,6 +12,35 @@ namespace Grsms.Web.Controllers;
 /// </summary>
 public abstract class AppController : Controller
 {
+    /// <summary>
+    /// 14 November 2026 (docs/37 CR4): serves a file the caller has already checked access to, three ways:
+    ///   * <paramref name="view"/> null: a download, as before;
+    ///   * "inline": shown in the browser (PDF and pictures only; the document preview uses it), never cached;
+    ///   * "html": a Word (.docx) file converted to safe HTML for the preview.
+    /// Anything else is downloaded. The same permission checks and "viewed" log apply, because every route goes through the caller.
+    /// </summary>
+    protected async Task<IActionResult> ServeFileAsync(Application.Documents.FileDownload? file, string? view, CancellationToken ct)
+    {
+        if (file is null) return NotFound();
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        Response.Headers.CacheControl = "no-store";
+        if (view == "inline" && ext is ".pdf" or ".jpg" or ".jpeg" or ".png")
+        {
+            Response.Headers.ContentDisposition = new System.Net.Mime.ContentDisposition { Inline = true, FileName = file.FileName }.ToString();
+            return File(file.Content, file.ContentType);
+        }
+        if (view == "html" && ext == ".docx")
+        {
+            var preview = HttpContext.RequestServices.GetRequiredService<Application.Common.Interfaces.IDocumentHtmlPreview>();
+            await using (file.Content)
+            {
+                var html = await preview.ToHtmlAsync(file.Content, ct);
+                return html is null ? StatusCode(StatusCodes.Status422UnprocessableEntity) : Content(html, "text/html; charset=utf-8");
+            }
+        }
+        return File(file.Content, file.ContentType, file.FileName);
+    }
+
     /// <summary>Shows a green "success" banner on the next page.</summary>
     protected void Success(string message) => TempData["Success"] = message;
 

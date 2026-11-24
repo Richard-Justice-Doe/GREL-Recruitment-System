@@ -1,16 +1,19 @@
-@* Phase 28 (docs/30): the employee list. A Head of Department sees their own departments; HR sees everyone. *@
+@* Phase 28 (docs/30): the employee list; 17 Nov 2026: the employee directory: cards with photos (or initials), status and profile
+   completion, or a list, and quick actions. A Head of Department sees their own departments; HR sees everyone. *@
 @model Grsms.Application.Common.PagedResult<EmployeeListItemDto>
 @{
     ViewData["Title"] = "Employees";
     string tab = ViewBag.Tab;
     var counts = (EmployeeCountsDto)ViewBag.Counts;
     bool canManage = ViewBag.CanManage;
-    Dictionary<string, string> Route(int page)
+    string view = ViewBag.View;
+    Dictionary<string, string> Route(int page, string? asView = null)
     {
-        var d = new Dictionary<string, string> { ["tab"] = tab, ["page"] = page.ToString() };
+        var d = new Dictionary<string, string> { ["tab"] = tab, ["page"] = page.ToString(), ["view"] = asView ?? view };
         if (!string.IsNullOrWhiteSpace((string?)ViewBag.Search)) d["search"] = (string)ViewBag.Search;
         if (ViewBag.DepartmentId is int dep) d["departmentId"] = dep.ToString();
         if (ViewBag.GradeId is int grade) d["gradeId"] = grade.ToString();
+        if (ViewBag.SiteId is int site) d["siteId"] = site.ToString();
         return d;
     }
     var tabs = new[]
@@ -20,20 +23,23 @@
         ("active", "Active", counts.Active),
         ("left", "Left GREL", counts.Separated)
     };
+    string StatusTone(EmployeeListItemDto e) => e.Status == EmployeeStatus.Separated ? "is-left" : e.Status == EmployeeStatus.OnProbation ? "is-probation" : "";
+    string BarCss(int p) => p >= 85 ? "bg-success" : p >= 60 ? "bg-warning" : "bg-danger";
 }
 
 <div class="page-header">
     <div>
         <h1>Employees</h1>
-        <p>Every GREL employee: people hired through GRSMS get a record when their onboarding is activated; staff hired before GRSMS are registered by HR.</p>
+        <p>GREL's employee directory. People hired through GRSMS get a record when their onboarding is activated; staff hired before GRSMS are registered by HR.</p>
     </div>
-    @if (canManage)
-    {
-        <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="OrgChart" class="btn btn-outline-secondary"><i class="fa-solid fa-sitemap me-1"></i>Organisation chart</a>
+        @if (canManage)
+        {
             <a asp-action="Import" class="btn btn-outline-primary"><i class="fa-solid fa-file-import me-1"></i>Import from CSV</a>
             <a asp-action="Register" class="btn btn-primary"><i class="fa-solid fa-user-plus me-1"></i>Register existing employee</a>
-        </div>
-    }
+        }
+    </div>
 </div>
 
 <ul class="nav nav-tabs mb-3">
@@ -41,20 +47,26 @@
     {
         <li class="nav-item">
             <a class="nav-link @(tab == key ? "active" : "")" asp-action="Index" asp-route-tab="@key" asp-route-departmentId="@ViewBag.DepartmentId"
-               asp-route-gradeId="@ViewBag.GradeId" asp-route-search="@ViewBag.Search">@label <span class="badge text-bg-light">@count</span></a>
+               asp-route-gradeId="@ViewBag.GradeId" asp-route-siteId="@ViewBag.SiteId" asp-route-search="@ViewBag.Search" asp-route-view="@view">@label <span class="badge text-bg-light">@count</span></a>
         </li>
     }
 </ul>
 
 <form method="get" class="row g-2 mb-3">
     <input type="hidden" name="tab" value="@tab" />
-    <div class="col-md-4"><input name="search" value="@ViewBag.Search" class="form-control" placeholder="Name, staff number or position" aria-label="Search" /></div>
+    <input type="hidden" name="view" value="@view" />
+    <div class="col-md-3"><input name="search" value="@ViewBag.Search" class="form-control" placeholder="Name, staff number or position" aria-label="Search" /></div>
     <div class="col-md-3">
         <select name="departmentId" asp-items="ViewBag.DepartmentList" class="form-select" aria-label="Department">
             <option value="">All departments</option>
         </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
+        <select name="siteId" asp-items="ViewBag.SiteFilterList" class="form-select" aria-label="Site">
+            <option value="">All sites</option>
+        </select>
+    </div>
+    <div class="col-md-2">
         <select name="gradeId" asp-items="ViewBag.GradeList" class="form-select" aria-label="Grade">
             <option value="">All grades</option>
         </select>
@@ -62,41 +74,111 @@
     <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100"><i class="fa-solid fa-magnifying-glass me-1"></i>Search</button></div>
 </form>
 
-<div class="card glass">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
-            <thead><tr><th>Staff no.</th><th>Name</th><th>Position</th><th>Department</th><th class="d-none d-md-table-cell">Site</th><th class="d-none d-lg-table-cell">Grade</th><th class="d-none d-md-table-cell">Joined</th><th>Status</th></tr></thead>
-            <tbody>
-                @if (Model.Items.Count == 0)
-                {
-                    <tr><td colspan="8" class="text-center text-body-secondary py-4">
-                        No employees here.@(canManage && counts.All == 0 ? " Register existing staff, or import them from a CSV file." : "")
-                    </td></tr>
-                }
-                @foreach (var e in Model.Items)
-                {
-                    <tr>
-                        <td class="text-nowrap"><a asp-action="Details" asp-route-id="@e.Id" class="fw-semibold text-decoration-none">@e.EmployeeNumber</a></td>
-                        <td>@e.Name</td>
-                        <td>@e.PositionTitle</td>
-                        <td>@e.DepartmentName</td>
-                        <td class="d-none d-md-table-cell">@e.SiteName</td>
-                        <td class="d-none d-lg-table-cell">@(e.GradeName ?? "—")</td>
-                        <td class="d-none d-md-table-cell small text-nowrap">@e.HireDate.ToString("dd MMM yyyy")</td>
-                        <td><partial name="_EmployeeStatusBadge" model="e.Status" /></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <span class="small text-body-secondary">@Model.TotalCount employee@(Model.TotalCount == 1 ? "" : "s")@(Model.TotalPages > 1 ? $" · page {Model.Page} of {Model.TotalPages}" : "")</span>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Show as">
+        <a class="btn @(view == "grid" ? "btn-secondary" : "btn-outline-secondary")" asp-action="Index" asp-all-route-data="@Route(Model.Page, "grid")" aria-current="@(view == "grid" ? "true" : null)"><i class="fa-solid fa-grip me-1"></i>Grid</a>
+        <a class="btn @(view == "list" ? "btn-secondary" : "btn-outline-secondary")" asp-action="Index" asp-all-route-data="@Route(Model.Page, "list")" aria-current="@(view == "list" ? "true" : null)"><i class="fa-solid fa-list me-1"></i>List</a>
     </div>
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3">
-        <span class="small text-body-secondary">@Model.TotalCount employee@(Model.TotalCount == 1 ? "" : "s") · page @Model.Page of @Model.TotalPages</span>
-        @if (Model.TotalPages > 1)
+</div>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="dash-card dash-empty"><i class="fa-regular fa-id-badge d-block"></i>No employees here.@(canManage && counts.All == 0 ? " Register existing staff, or import them from a CSV file." : "")</div>
+}
+else if (view == "grid")
+{
+    <div class="row g-3 emp-grid">
+        @foreach (var e in Model.Items)
         {
-            <div class="d-flex gap-2">
-                <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
-                <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+            <div class="col-sm-6 col-xl-4 col-xxl-3">
+                <article class="card glass h-100 emp-card @StatusTone(e)">
+                    <div class="card-body p-3 d-flex flex-column">
+                        <div class="d-flex gap-3 align-items-start">
+                            <a asp-action="Details" asp-route-id="@e.Id" tabindex="-1" aria-hidden="true"><partial name="_EmployeeAvatar" model='(e.Id, e.Name, e.HasPhoto, "md")' /></a>
+                            <div class="min-w-0 flex-grow-1">
+                                <h2 class="h6 mb-0 text-truncate"><a asp-action="Details" asp-route-id="@e.Id" class="text-decoration-none">@e.Name</a></h2>
+                                <div class="small text-body-secondary">@e.EmployeeNumber</div>
+                                <div class="mt-1"><partial name="_EmployeeStatusBadge" model="e.Status" />
+                                    @if (e.EmploymentType != EmploymentType.Permanent) { <span class="badge rounded-pill badge-soft-secondary">@e.EmploymentType.DisplayName()</span> }</div>
+                            </div>
+                        </div>
+                        <dl class="emp-facts small mt-3 mb-2">
+                            <dt>Position</dt><dd>@e.PositionTitle</dd>
+                            <dt>Department</dt><dd>@e.DepartmentName</dd>
+                            <dt>Grade</dt><dd>@(e.GradeName ?? "—")</dd>
+                            <dt>Site</dt><dd>@e.SiteName</dd>
+                            <dt>Manager</dt><dd>@(e.Manager ?? "—")</dd>
+                        </dl>
+                        @if (e.Completion is { } c)
+                        {
+                            <div class="mt-auto pt-1" title="@(c.Missing.Count == 0 ? "Profile complete" : "Missing: " + string.Join("; ", c.Missing.Select(m => m.Section)))">
+                                <div class="d-flex justify-content-between small"><span class="text-body-secondary">Profile</span><strong>@c.Percent% complete</strong></div>
+                                <div class="progress emp-progress" role="progressbar" aria-label="Profile completion" aria-valuenow="@c.Percent" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar @BarCss(c.Percent)" style="width: @c.Percent%"></div></div>
+                            </div>
+                        }
+                        <div class="d-flex gap-2 mt-3">
+                            <a asp-action="Details" asp-route-id="@e.Id" class="btn btn-sm btn-outline-primary flex-grow-1"><i class="fa-regular fa-id-card me-1"></i>View profile</a>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More actions for @e.Name"><i class="fa-solid fa-ellipsis"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    @if (canManage && e.Status != EmployeeStatus.Separated) { <li><a class="dropdown-item" asp-action="UpdateJob" asp-route-id="@e.Id"><i class="fa-solid fa-pen me-2"></i>Edit employee</a></li> }
+                                    <li><a class="dropdown-item" asp-action="Details" asp-route-id="@e.Id" asp-fragment="documents"><i class="fa-regular fa-folder-open me-2"></i>Documents</a></li>
+                                    <li><a class="dropdown-item" asp-action="Details" asp-route-id="@e.Id" asp-fragment="leave"><i class="fa-regular fa-calendar me-2"></i>Leave</a></li>
+                                    <li><a class="dropdown-item" asp-action="Details" asp-route-id="@e.Id" asp-fragment="performance"><i class="fa-solid fa-chart-line me-2"></i>Performance</a></li>
+                                    <li><a class="dropdown-item" asp-action="Details" asp-route-id="@e.Id" asp-fragment="training"><i class="fa-solid fa-graduation-cap me-2"></i>Training</a></li>
+                                    <li><a class="dropdown-item" asp-action="Report" asp-route-id="@e.Id"><i class="fa-solid fa-print me-2"></i>Employee report</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </article>
             </div>
         }
     </div>
-</div>
+}
+else
+{
+    <div class="card glass">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Employee</th><th>Position</th><th>Department</th><th class="d-none d-md-table-cell">Site</th><th class="d-none d-lg-table-cell">Grade</th><th class="d-none d-xl-table-cell">Manager</th><th class="d-none d-md-table-cell">Joined</th><th>Status</th><th class="d-none d-lg-table-cell">Profile</th></tr></thead>
+                <tbody>
+                    @foreach (var e in Model.Items)
+                    {
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <partial name="_EmployeeAvatar" model='(e.Id, e.Name, e.HasPhoto, "sm")' />
+                                    <div><a asp-action="Details" asp-route-id="@e.Id" class="fw-semibold text-decoration-none">@e.Name</a><div class="small text-body-secondary">@e.EmployeeNumber</div></div>
+                                </div>
+                            </td>
+                            <td>@e.PositionTitle</td>
+                            <td>@e.DepartmentName</td>
+                            <td class="d-none d-md-table-cell">@e.SiteName</td>
+                            <td class="d-none d-lg-table-cell">@(e.GradeName ?? "—")</td>
+                            <td class="d-none d-xl-table-cell">@(e.Manager ?? "—")</td>
+                            <td class="d-none d-md-table-cell small text-nowrap">@e.HireDate.ToString("dd MMM yyyy")</td>
+                            <td><partial name="_EmployeeStatusBadge" model="e.Status" /></td>
+                            <td class="d-none d-lg-table-cell" style="min-width: 7rem">
+                                @if (e.Completion is { } c)
+                                {
+                                    <div class="small fw-semibold">@c.Percent%</div>
+                                    <div class="progress emp-progress"><div class="progress-bar @BarCss(c.Percent)" style="width: @c.Percent%"></div></div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (Model.TotalPages > 1)
+{
+    <div class="d-flex justify-content-end gap-2 mt-3">
+        <a class="btn btn-sm btn-outline-secondary @(Model.HasPrevious ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page - 1)">Previous</a>
+        <a class="btn btn-sm btn-outline-secondary @(Model.HasNext ? "" : "disabled")" asp-action="Index" asp-all-route-data="@Route(Model.Page + 1)">Next</a>
+    </div>
+}

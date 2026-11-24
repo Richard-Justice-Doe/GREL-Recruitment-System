@@ -38,6 +38,34 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         return View(model);
     }
 
+    /// <summary>13 Nov 2026: my appointment letter as a PDF (once issued).</summary>
+    public async Task<IActionResult> AppointmentPdf(int id, [FromServices] Helpers.LetterPdfBuilder pdf, CancellationToken ct)
+    {
+        var model = await onboarding.GetMyAppointmentAsync(id, ct);
+        if (model is null || !model.LetterReady) return NotFound();
+        var bytes = await pdf.BuildAsync(ControllerContext, $"Appointment letter {model.LetterNumber}", "_AppointmentLetter", model, false, ct);
+        if (bytes is null)
+        {
+            Error("The PDF could not be made right now. Use Print instead (choose \"Save as PDF\").");
+            return RedirectToAction(nameof(Appointment), new { id });
+        }
+        return File(bytes, "application/pdf", $"{model.LetterNumber ?? "appointment-letter"}.pdf");
+    }
+
+    /// <summary>13 Nov 2026: my offer letter as a PDF.</summary>
+    public async Task<IActionResult> OfferPdf(int id, [FromServices] Helpers.LetterPdfBuilder pdf, CancellationToken ct)
+    {
+        var offer = await hiring.GetMyOfferAsync(id, ct);
+        if (offer is null) return NotFound();
+        var bytes = await pdf.BuildAsync(ControllerContext, $"Offer {offer.Number}", "_OfferLetter", offer, false, ct);
+        if (bytes is null)
+        {
+            Error("The PDF could not be made right now. Use Print instead (choose \"Save as PDF\").");
+            return RedirectToAction(nameof(Offer), new { id });
+        }
+        return File(bytes, "application/pdf", $"{offer.Number}.pdf");
+    }
+
     /// <summary>Sign the appointment letter by typing my full name.</summary>
     [HttpPost]
     public async Task<IActionResult> SignLetter(int id, string? fullName, bool confirm, CancellationToken ct)
@@ -75,13 +103,13 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     [RequestSizeLimit(DocumentUploadLimitBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = DocumentUploadLimitBytes)]
     /// <param name="replacesAttachmentId">Phase 27: the file this one replaces (the old one stays in the history).</param>
-    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, int? replacesAttachmentId, CancellationToken ct)
+    public async Task<IActionResult> UploadDocument(int id, int documentId, IFormFile? file, int? replacesAttachmentId, DateOnly? expiresOn, CancellationToken ct)
     {
         if (file is null || file.Length == 0) Error("Choose a file to upload.");
         else
         {
             await using var stream = file.OpenReadStream();
-            var result = await documents.UploadAsync(documentId, file.FileName, stream, ct, replacesAttachmentId);
+            var result = await documents.UploadAsync(documentId, file.FileName, stream, ct, replacesAttachmentId, expiresOn);
             if (result.Succeeded) Success($"'{Path.GetFileName(file.FileName)}' uploaded. HR will check it and email you if anything needs attention.");
             else Fail(result);
         }
@@ -91,6 +119,12 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     [HttpPost]
     public Task<IActionResult> RemoveDocumentFile(int id, int documentId, int attachmentId, CancellationToken ct) =>
         DocumentAct(id, () => documents.RemoveFileAsync(documentId, attachmentId, ct), "File removed.");
+
+    [HttpPost]
+    /// <summary>docs/36 AI-4: the "valid until" date of my Ghana Card, passport or permit.</summary>
+    [HttpPost]
+    public Task<IActionResult> SetDocumentExpiry(int id, int documentId, DateOnly? expiresOn, CancellationToken ct) =>
+        DocumentAct(id, () => documents.SetExpiryAsync(documentId, expiresOn, ct), "Valid-until date saved.");
 
     [HttpPost]
     public Task<IActionResult> MarkNotApplicable(int id, int documentId, string? reason, CancellationToken ct) =>
@@ -109,10 +143,10 @@ public class MyApplicationsController(ApplicationService applications, Applicati
     }
 
     /// <summary>Downloads one of my own document files.</summary>
-    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await documents.OpenFileAsync(documentId, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 
     // ================================================================= Phase 19: my personal record declaration
@@ -223,9 +257,9 @@ public class MyApplicationsController(ApplicationService applications, Applicati
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    public async Task<IActionResult> Download(int id, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> Download(int id, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await applications.OpenMyDocumentAsync(id, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
 }

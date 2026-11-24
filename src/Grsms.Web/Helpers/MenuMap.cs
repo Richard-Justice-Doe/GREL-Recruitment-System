@@ -22,12 +22,15 @@ public static class MenuMap
         "Applications" => new("Candidates", "Applications", controller),
         "Ats" when action != "Settings" => new("Candidates", "Screening", controller),
         "Shortlisting" => new("Candidates", "Candidates", "Applications"),
+        "TalentPool" => new("Candidates", "Talent pool", controller),
         "Interviews" => new("Candidates", "Interviews", controller),
         "Hiring" => new("Hiring", "Hiring & offers", controller),
         "Onboarding" => new("Onboarding", "Onboarding", controller),
         "Employees" => new("Employees", "Employees", controller),
         "Probation" => new("Onboarding", "Probation", controller),
         "PersonnelFiles" => new("Employees", "Personnel files", controller),
+        "Knowledge" => new("Help", "Policies & procedures", controller), // docs/36 AI-7
+        "Celebrations" => new("People", "Celebrations", controller), // 17 Nov 2026
         _ => null
     };
 }

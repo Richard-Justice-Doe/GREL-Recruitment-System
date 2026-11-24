@@ -68,6 +68,10 @@ public class AccountController(
             return RedirectToLocal(model.ReturnUrl);
         }
 
+        // 22 Nov 2026 (docs/41, H2): the password was right and two-step sign-in is on: ask for the code.
+        if (result.RequiresTwoFactor)
+            return RedirectToAction(nameof(LoginWith2fa), new { rememberMe = model.RememberMe, returnUrl = model.ReturnUrl });
+
         if (result.IsLockedOut)
         {
             await audit.LogAsync(AuditActions.LockedOut, user?.Id, model.Email);
@@ -420,6 +424,159 @@ public class AccountController(
         TempData["Success"] = "Your password has been changed.";
         return RedirectToAction("Index", "Home");
     }
+
+    // ================================================================= Two-step sign-in (22 Nov 2026, docs/41 H2)
+
+    /// <summary>The second step: the password was right; now the code from the authenticator app (or a recovery code).</summary>
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> LoginWith2fa(bool rememberMe, string? returnUrl = null, bool recovery = false)
+    {
+        if (await signInManager.GetTwoFactorAuthenticationUserAsync() is null) return RedirectToAction(nameof(Login));
+        return View(new LoginWith2faViewModel { RememberMe = rememberMe, ReturnUrl = returnUrl, UseRecoveryCode = recovery });
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)]
+    public async Task<IActionResult> LoginWith2fa(LoginWith2faViewModel model)
+    {
+        var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
+        if (user is null) return LoginError("Your sign-in took too long. Please sign in again.");
+        if (!ModelState.IsValid) return View(model);
+
+        var result = model.UseRecoveryCode
+            ? await signInManager.TwoFactorRecoveryCodeSignInAsync(model.Code.Replace(" ", ""))
+            : await signInManager.TwoFactorAuthenticatorSignInAsync(AuthenticatorCode(model.Code), model.RememberMe, rememberClient: false);
+
+        if (result.Succeeded)
+        {
+            await RecordSuccessfulSignInAsync(user, model.UseRecoveryCode ? "password + recovery code" : "password + authenticator code");
+            if (model.UseRecoveryCode && await userManager.CountRecoveryCodesAsync(user) <= 3)
+                TempData["Info"] = "You have few recovery codes left. Make new ones under Two-step sign-in.";
+            return RedirectToLocal(model.ReturnUrl);
+        }
+        if (result.IsLockedOut)
+        {
+            await audit.LogAsync(AuditActions.LockedOut, user.Id, user.Email, "Too many wrong two-step codes");
+            return LoginError("This account is locked after too many wrong codes. Try again in 15 minutes or ask HR to unlock it.");
+        }
+        // Identity has already counted the wrong code towards the 5-attempt lockout, like a wrong password.
+        await audit.LogAsync(AuditActions.SignInFailed, user.Id, user.Email, "Wrong two-step code");
+        ModelState.AddModelError("", model.UseRecoveryCode
+            ? "That recovery code is not right, or it was already used."
+            : "That code is not right. Use the newest code in the app, and check that your phone's clock is correct.");
+        return View(model);
+    }
+
+    /// <summary>The "Two-step sign-in" page: set it up (QR code), see how many recovery codes are left, make new ones.</summary>
+    [Authorize]
+    [HttpGet]
+    public async Task<IActionResult> TwoStep()
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        if (!await userManager.HasPasswordAsync(user))
+        {
+            TempData["Info"] = "You sign in with Microsoft 365, so two-step sign-in is managed by Microsoft (GREL IT).";
+            return RedirectToAction("Index", "Home");
+        }
+        return View(await TwoStepModelAsync(user));
+    }
+
+    /// <summary>Turns two-step sign-in on: the first code from the app proves it is set up. Shows the recovery codes once.</summary>
+    [Authorize]
+    [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimits.SignIn)]
+    public async Task<IActionResult> TwoStep(string? code)
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        if (await userManager.GetTwoFactorEnabledAsync(user)) return RedirectToAction(nameof(TwoStep));
+
+        if (string.IsNullOrWhiteSpace(code) || !await userManager.VerifyTwoFactorTokenAsync(user,
+                userManager.Options.Tokens.AuthenticatorTokenProvider, AuthenticatorCode(code)))
+        {
+            ModelState.AddModelError("", "That code is not right. Scan the QR code again, then type the 6-digit code the app shows now.");
+            return View(await TwoStepModelAsync(user));
+        }
+
+        await userManager.SetTwoFactorEnabledAsync(user, true);
+        var codes = (await userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10))?.ToList() ?? [];
+        await audit.LogAsync(AuditActions.TwoStepEnabled, user.Id, user.Email);
+        // This session has now passed the two-step check (turning it on changed the security stamp, so sign in again).
+        await signInManager.SignInWithClaimsAsync(user, isPersistent: false, [new Claim(TwoStepRequiredFilter.AmrClaim, "mfa")]);
+        var model = await TwoStepModelAsync(user, codes);
+        return View(model);
+    }
+
+    /// <summary>New recovery codes (the old ones stop working), shown once.</summary>
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> RecoveryCodes()
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        if (!await userManager.GetTwoFactorEnabledAsync(user)) return RedirectToAction(nameof(TwoStep));
+        var codes = (await userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10))?.ToList() ?? [];
+        await audit.LogAsync(AuditActions.RecoveryCodesRenewed, user.Id, user.Email);
+        return View(nameof(TwoStep), await TwoStepModelAsync(user, codes));
+    }
+
+    /// <summary>Turns two-step sign-in off; only for people whose role does not require it.</summary>
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> TurnOffTwoStep()
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        if (TwoStepIsRequiredFor(User, user))
+        {
+            TempData["Error"] = "Two-step sign-in is required for your account, so it cannot be turned off. If you changed phone, ask an administrator to reset it.";
+            return RedirectToAction(nameof(TwoStep));
+        }
+        await userManager.SetTwoFactorEnabledAsync(user, false);
+        await userManager.ResetAuthenticatorKeyAsync(user);
+        await audit.LogAsync(AuditActions.TwoStepDisabled, user.Id, user.Email);
+        await signInManager.RefreshSignInAsync(user);
+        TempData["Success"] = "Two-step sign-in is off.";
+        return RedirectToAction(nameof(TwoStep));
+    }
+
+    /// <summary>The company-wide rule for the person's role, or the Super Admin requires it for them (read fresh from the account).</summary>
+    private bool TwoStepIsRequiredFor(ClaimsPrincipal principal, ApplicationUser user) =>
+        user.RequireTwoStep || TwoStepRequiredFilter.RequiredFor(principal, settings);
+
+    private async Task<TwoStepViewModel> TwoStepModelAsync(ApplicationUser user, IReadOnlyList<string>? newCodes = null)
+    {
+        var enabled = await userManager.GetTwoFactorEnabledAsync(user);
+        var model = new TwoStepViewModel
+        {
+            Enabled = enabled,
+            Required = TwoStepIsRequiredFor(User, user),
+            MustSetUp = !enabled && TwoStepIsRequiredFor(User, user),
+            RecoveryCodesLeft = enabled ? await userManager.CountRecoveryCodesAsync(user) : 0,
+            NewRecoveryCodes = newCodes
+        };
+        if (!enabled)
+        {
+            var key = await userManager.GetAuthenticatorKeyAsync(user);
+            if (string.IsNullOrEmpty(key))
+            {
+                await userManager.ResetAuthenticatorKeyAsync(user);
+                key = await userManager.GetAuthenticatorKeyAsync(user);
+            }
+            model.SharedKey = string.Join(" ", Enumerable.Range(0, (key!.Length + 3) / 4).Select(i => key.Substring(i * 4, Math.Min(4, key.Length - i * 4)))).ToLowerInvariant();
+            var issuer = Uri.EscapeDataString("GREL GRSMS");
+            var uri = $"otpauth://totp/{issuer}:{Uri.EscapeDataString(user.Email ?? user.UserName ?? "")}?secret={key}&issuer={issuer}&digits=6";
+            using var qr = QRCoder.QRCodeGenerator.GenerateQrCode(uri, QRCoder.QRCodeGenerator.ECCLevel.Q);
+            model.QrDataUri = "data:image/png;base64," + Convert.ToBase64String(new QRCoder.PngByteQRCode(qr).GetGraphic(6));
+        }
+        return model;
+    }
+
+    /// <summary>"123 456" or "123-456" → "123456".</summary>
+    private static string AuthenticatorCode(string code) => new(code.Where(char.IsDigit).ToArray());
 
     // ================================================================= Helpers
 

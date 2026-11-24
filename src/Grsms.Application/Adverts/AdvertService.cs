@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Grsms.Application.Common;
 using Grsms.Application.Common.Interfaces;
 using Grsms.Application.Users;
@@ -14,21 +15,22 @@ namespace Grsms.Application.Adverts;
 /// Job Advertisement Management (Module 4): create, edit, review, publish, close and clone adverts for published
 /// vacancies, and track each channel.
 ///
-/// WHO MAY DO WHAT (every rule is checked here, on the server). Since 11 Nov 2026 (docs/29 change 2) every advert is
-/// reviewed by the HR Manager and approved by the IT Manager before it is published:
-///   * Create / edit / send for review / cancel a schedule / close / clone : Recruitment Officer or HR Manager (the authors).
-///   * HR review (approve for IT, reject)               : permission adverts.review.hr (HR Manager).
-///   * IT approval, which publishes it                  : adverts.publish (IT Manager); rejecting at this step: adverts.review.it.
-///   * Return for correction (at the step one reviews)  : adverts.return (HR and IT Managers).
-///   * Take a published advert offline, close it        : adverts.unpublish (IT Manager).
-///   * Record external channels as posted or removed    : adverts.publish (the IT Manager alone).
+/// WHO MAY DO WHAT (every rule is checked here, on the server). Since 17 Nov 2026 the Managing Director's approval of the
+/// request is the last approval: the Recruitment Officer publishes adverts with no HR or IT review (the 11 Nov 2026 review,
+/// docs/29 change 2, is removed).
+///   * Create / edit / publish / schedule / cancel a schedule / close / clone : Recruitment Officer or HR Manager (the authors).
+///   * Record external channels as posted or removed    : the authors, and the IT Manager (adverts.publish).
+///   * Take a published advert offline                  : adverts.unpublish (IT Manager).
+///   * Adverts left in the earlier review steps          : the authors publish them; the reviewers (adverts.return,
+///                                                        adverts.review.hr / .it) can still return or reject them.
 ///   * See                                              : RO, HR Manager, IT Manager, MD, HR Administrator (all);
 ///                                                        a HOD (their departments' adverts).
 ///   * Scheduled publishing and automatic closing        : the system (see <see cref="RunScheduleAsync"/>).
 ///
-/// Editing a published or scheduled advert takes it offline and sends it back through both reviews.
+/// Editing a published or scheduled advert keeps it published with the new text.
 /// The internal portal and company website are published by GRSMS itself when the advert goes live. LinkedIn, Indeed,
-/// Jobberman and newspapers have no connection to GRSMS: the IT Manager posts the copy-ready text and records the link.
+/// Jobberman and newspapers have no connection to GRSMS: the Recruitment Officer (or IT Manager) posts the copy-ready text and
+/// records the link.
 /// </summary>
 public class AdvertService(
     IAdvertRepository adverts,
@@ -41,7 +43,9 @@ public class AdvertService(
     IUnitOfWork unitOfWork,
     AccessScope scope,
     WorkflowMailer mailer,
-    IAppLinks links)
+    IAppLinks links,
+    Applications.JobAlertService jobAlerts,
+    ILogger<AdvertService> logger)
 {
     private const string ConflictMessage = "Someone else updated this advert at the same moment. Please reload the page and try again.";
 
@@ -85,24 +89,24 @@ public class AdvertService(
         IsAuthor && await vacancies.GetByIdAsync(vacancyId, ct) is { } v && AdvertWorkflow.VacancyAllowsAdvertising(v, Today);
 
     /// <summary>
-    /// Adverts waiting for the current user (dashboard to-dos): to review (HR), to approve and publish (IT), and the
-    /// user's own adverts returned for correction.
+    /// Adverts waiting for the current user (dashboard to-dos). Since 17 Nov 2026 nobody reviews adverts, so these are the
+    /// author's own: drafts and returned adverts to publish, and adverts left in an earlier review step (publish them now).
     /// </summary>
     public async Task<IReadOnlyList<AdvertWorkItem>> MyWorkAsync(CancellationToken ct = default)
     {
         var work = new List<AdvertWorkItem>();
-        if (scope.Holds(Permissions.ReviewAdvertsHr))
-            work.AddRange((await adverts.ListAsync(a => a.Status == AdvertStatus.AwaitingHrReview, ct))
-                .Select(a => new AdvertWorkItem(a.Id, a.AdvertNumber, a.Title, a.Status, "Review the advert", a.StatusChangedAt)));
-        if (scope.Holds(Permissions.PublishAdverts))
-            work.AddRange((await adverts.ListAsync(a => a.Status == AdvertStatus.AwaitingItApproval, ct))
-                .Select(a => new AdvertWorkItem(a.Id, a.AdvertNumber, a.Title, a.Status, "Approve and publish", a.StatusChangedAt)));
         if (IsAuthor)
         {
             var uid = scope.UserId;
-            work.AddRange((await adverts.ListAsync(a => a.Status == AdvertStatus.ReturnedForCorrection &&
+            work.AddRange((await adverts.ListAsync(a => (a.Status == AdvertStatus.Draft || a.Status == AdvertStatus.ReturnedForCorrection ||
+                                                         a.Status == AdvertStatus.AwaitingHrReview || a.Status == AdvertStatus.AwaitingItApproval) &&
                                                         (a.CreatedByUserId == uid || a.SubmittedByUserId == uid), ct))
-                .Select(a => new AdvertWorkItem(a.Id, a.AdvertNumber, a.Title, a.Status, "Make the changes and send it again", a.StatusChangedAt)));
+                .Select(a => new AdvertWorkItem(a.Id, a.AdvertNumber, a.Title, a.Status, a.Status switch
+                {
+                    AdvertStatus.ReturnedForCorrection => "Make the changes and publish it",
+                    AdvertStatus.Draft => "Finish and publish the advert",
+                    _ => "Publish it: no review is needed any more"
+                }, a.StatusChangedAt)));
         }
         return work.OrderBy(w => w.Since).ToList();
     }
@@ -131,8 +135,9 @@ public class AdvertService(
         string? Name(string? userId) => userId is null ? null : names.GetValueOrDefault(userId) ?? "?";
         var source = a.ClonedFromAdvertId is int sid ? await adverts.GetByIdAsync(sid, ct) : null;
         var link = links.CareersJob(a.AdvertNumber);
-        var blocked = AdvertWorkflow.CanSubmit(a.Status) || AdvertWorkflow.InReview.Contains(a.Status) ? PublishProblem(a, v) : null;
+        var blocked = AdvertWorkflow.CanPublish(a.Status) ? PublishProblem(a, v) : null;
         var involved = IsAuthor || ReviewsStep(a.Status) || scope.Holds(Permissions.PublishAdverts);
+        var managesChannels = IsAuthor || scope.Holds(Permissions.PublishAdverts);
 
         return new AdvertDetailsDto
         {
@@ -142,6 +147,7 @@ public class AdvertService(
             Title = a.Title,
             Body = a.Body,
             HowToApply = a.HowToApply,
+            InternalNotice = a.InternalNotice,
             StartDate = a.StartDate,
             EndDate = a.EndDate,
             PublishedAt = a.PublishedAt,
@@ -173,10 +179,7 @@ public class AdvertService(
             ItApprovedAt = a.ItApprovedAt,
             ReviewComment = a.ReviewComment,
             CanEdit = IsAuthor && AdvertWorkflow.IsEditable(a.Status),
-            EditTakesOffline = AdvertWorkflow.IsPublished(a.Status),
-            CanSubmit = IsAuthor && AdvertWorkflow.CanSubmit(a.Status) && blocked is null,
-            CanHrApprove = a.Status == AdvertStatus.AwaitingHrReview && scope.Holds(Permissions.ReviewAdvertsHr) && blocked is null,
-            CanPublish = a.Status == AdvertStatus.AwaitingItApproval && scope.Holds(Permissions.PublishAdverts) && blocked is null,
+            CanPublish = (IsAuthor || scope.Holds(Permissions.PublishAdverts)) && AdvertWorkflow.CanPublish(a.Status) && blocked is null,
             CanReturn = ReviewsStep(a.Status) && scope.Holds(Permissions.ReturnAdverts),
             CanReject = ReviewsStep(a.Status),
             CanUnpublish = AdvertWorkflow.IsPublished(a.Status) && scope.Holds(Permissions.UnpublishAdverts),
@@ -184,8 +187,8 @@ public class AdvertService(
             CanUnschedule = IsAuthor && AdvertWorkflow.CanUnschedule(a.Status),
             CanClose = (IsAuthor || scope.Holds(Permissions.UnpublishAdverts)) && AdvertWorkflow.CanClose(a.Status),
             CanClone = IsAuthor,
-            CanManageChannels = scope.Holds(Permissions.PublishAdverts) && a.Status == AdvertStatus.Live,
-            CanRecordRemoval = scope.Holds(Permissions.PublishAdverts)
+            CanManageChannels = managesChannels && a.Status == AdvertStatus.Live,
+            CanRecordRemoval = managesChannels
         };
     }
 
@@ -224,6 +227,7 @@ public class AdvertService(
         var form = new AdvertFormDto
         {
             Id = a.Id, VacancyId = a.VacancyId, Title = a.Title, Body = a.Body, HowToApply = a.HowToApply,
+            ExternalText = a.ExternalText, LinkedInText = a.LinkedInText, InternalNotice = a.InternalNotice,
             StartDate = a.StartDate, EndDate = a.EndDate, Channels = [.. a.Channels.Select(c => c.Channel).Order()],
             TakesOffline = AdvertWorkflow.IsPublished(a.Status), ReviewComment = a.ReviewComment
         };
@@ -263,8 +267,8 @@ public class AdvertService(
     }
 
     /// <summary>
-    /// Saves changes. A draft or returned advert stays as it is (send it for review afterwards). A published or scheduled
-    /// advert is taken offline and sent straight back for the HR review (decision 11 Nov 2026, docs/29 §7).
+    /// Saves changes. A draft or returned advert stays as it is (publish it afterwards). Since 17 Nov 2026 a published or
+    /// scheduled advert stays published with the new text: there is no review to go back to.
     /// </summary>
     public async Task<Result> UpdateAsync(AdvertFormDto form, CancellationToken ct = default)
     {
@@ -272,9 +276,7 @@ public class AdvertService(
         var a = await adverts.GetWithDetailsAsync(form.Id, ct);
         if (a is null) return Result.Failure("Advert not found.");
         if (!AdvertWorkflow.IsEditable(a.Status))
-            return Result.Failure(AdvertWorkflow.InReview.Contains(a.Status)
-                ? "This advert is being reviewed. Ask the reviewer to return it if it needs changes."
-                : "Closed or rejected adverts cannot be edited. Clone it into a new draft instead.");
+            return Result.Failure("Closed or rejected adverts cannot be edited. Clone it into a new draft instead.");
         var v = (await vacancies.GetByIdAsync(a.VacancyId, ct))!;
 
         Normalize(form);
@@ -291,89 +293,54 @@ public class AdvertService(
 
         if (PublishProblem(a, v) is { } problem) return Result.Failure(problem);
         var now = DateTime.UtcNow;
-        TakeOffline(a, now);
-        a.RecordStep(AdvertAction.Unpublished, AdvertStatus.ReturnedForCorrection, scope.UserId, scope.UserName,
-            "Edited while published: offline until it is approved again", now);
-        MarkSubmitted(a, now);
-        var saved = await SaveAsync(ct);
-        if (saved.Succeeded) await NotifySubmittedAsync(a, resubmittedAfterEdit: true, ct);
-        return saved;
+        a.RecordStep(AdvertAction.EditedWhilePublished, a.Status, scope.UserId, scope.UserName, null, now);
+        // New dates: a scheduled advert whose start date is now today goes live; a live one moved to a later start waits for it.
+        if (a.Status == AdvertStatus.Scheduled && a.StartDate <= Today)
+            GoLive(a, AdvertAction.Published, scope.UserId, scope.UserName, now);
+        else if (a.Status == AdvertStatus.Live && a.StartDate > Today)
+        {
+            TakeOffline(a, now);
+            a.RecordStep(AdvertAction.Scheduled, AdvertStatus.Scheduled, scope.UserId, scope.UserName, $"Goes live on {a.StartDate:dd MMM yyyy}", now);
+        }
+        return await SaveAsync(ct);
     }
 
-    // ===================================================================== Review: RO → HR Manager → IT Manager
-
-    /// <summary>The author sends a draft (or a corrected advert) for the HR review.</summary>
-    public async Task<Result> SubmitAsync(int id, CancellationToken ct = default)
-    {
-        if (!IsAuthor) return Result.Failure("Only a Recruitment Officer or HR Manager can send adverts for review.");
-        var a = await adverts.GetWithDetailsAsync(id, ct);
-        if (a is null) return Result.Failure("Advert not found.");
-        if (!AdvertWorkflow.CanSubmit(a.Status)) return Result.Failure("Only draft or returned adverts can be sent for review.");
-        var v = (await vacancies.GetByIdAsync(a.VacancyId, ct))!;
-        if (PublishProblem(a, v) is { } problem) return Result.Failure(problem);
-
-        MarkSubmitted(a, DateTime.UtcNow);
-        var saved = await SaveAsync(ct);
-        if (saved.Succeeded) await NotifySubmittedAsync(a, resubmittedAfterEdit: false, ct);
-        return saved;
-    }
-
-    /// <summary>The HR Manager has checked the advert: it goes to the IT Manager for the final approval.</summary>
-    public async Task<Result> HrApproveAsync(int id, string? comment, CancellationToken ct = default)
-    {
-        if (!scope.Holds(Permissions.ReviewAdvertsHr)) return Result.Failure("Only the HR Manager reviews job adverts.");
-        var a = await adverts.GetWithDetailsAsync(id, ct);
-        if (a is null) return Result.Failure("Advert not found.");
-        if (a.Status != AdvertStatus.AwaitingHrReview) return Result.Failure("This advert is not waiting for the HR review.");
-        var v = (await vacancies.GetByIdAsync(a.VacancyId, ct))!;
-        if (PublishProblem(a, v) is { } problem) return Result.Failure(problem);
-
-        var now = DateTime.UtcNow;
-        a.HrReviewedByUserId = scope.UserId;
-        a.HrReviewedAt = now;
-        a.RecordStep(AdvertAction.HrApproved, AdvertStatus.AwaitingItApproval, scope.UserId, scope.UserName, Clean(comment), now);
-        var saved = await SaveAsync(ct);
-        if (saved.Succeeded)
-            await mailer.ToRoleAsync(Roles.ItManager, [], $"{a.AdvertNumber}: advert to approve",
-                $"The HR Manager ({WorkflowMailer.Enc(scope.UserName)}) has reviewed the advert <b>{WorkflowMailer.Enc(a.Title)}</b>. " +
-                "Please check it and approve it (which publishes it), return it for correction or reject it.",
-                links.Advert(a.Id), $"Open advert {a.AdvertNumber}", ct);
-        return saved;
-    }
+    // ===================================================================== Publish (17 Nov 2026: the Recruitment Officer, no review)
 
     /// <summary>
-    /// The IT Manager's final approval, which publishes the advert: live straight away if the start date is today (or
-    /// earlier), otherwise scheduled for that day. The vacancy must be published (approval complete) and still open.
+    /// Publishes the advert: live straight away if the start date is today (or earlier), otherwise scheduled for that day. The
+    /// Recruitment Officer (or HR Manager) does this with no further approval, since the MD's approval of the request was the
+    /// last one; the IT Manager can too. Adverts left in the earlier HR / IT review steps are published the same way.
+    /// The vacancy must be published and still open.
     /// </summary>
     public async Task<Result> PublishAsync(int id, CancellationToken ct = default)
     {
-        if (!scope.Holds(Permissions.PublishAdverts)) return Result.Failure("Only the IT Manager approves and publishes job adverts.");
+        if (!IsAuthor && !scope.Holds(Permissions.PublishAdverts)) return Result.Failure("Only a Recruitment Officer or HR Manager can publish job adverts.");
         var a = await adverts.GetWithDetailsAsync(id, ct);
         if (a is null) return Result.Failure("Advert not found.");
-        if (a.Status != AdvertStatus.AwaitingItApproval)
-            return Result.Failure("Only adverts reviewed by the HR Manager (awaiting IT approval) can be published.");
+        if (!AdvertWorkflow.CanPublish(a.Status))
+            return Result.Failure(AdvertWorkflow.IsPublished(a.Status) ? "This advert is already published." : "Closed or rejected adverts cannot be published. Clone it into a new draft instead.");
         var v = (await vacancies.GetByIdAsync(a.VacancyId, ct))!;
         if (PublishProblem(a, v) is { } problem) return Result.Failure(problem);
 
         var now = DateTime.UtcNow;
-        a.ItApprovedByUserId = scope.UserId;
-        a.ItApprovedAt = now;
+        a.SubmittedByUserId ??= scope.UserId;
+        a.SubmittedAt ??= now;
         a.ReviewComment = null;
         var scheduled = a.StartDate > Today;
         if (scheduled)
-            a.RecordStep(AdvertAction.ItApproved, AdvertStatus.Scheduled, scope.UserId, scope.UserName,
+            a.RecordStep(AdvertAction.Scheduled, AdvertStatus.Scheduled, scope.UserId, scope.UserName,
                 $"Published: goes live on {a.StartDate:dd MMM yyyy}", now);
         else
-            GoLive(a, AdvertAction.ItApproved, scope.UserId, scope.UserName, now);
+            GoLive(a, AdvertAction.Published, scope.UserId, scope.UserName, now);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return saved;
 
-        var html = $"The IT Manager ({WorkflowMailer.Enc(scope.UserName)}) has approved the advert <b>{WorkflowMailer.Enc(a.Title)}</b>. " +
-                   (scheduled ? $"It goes live on {a.StartDate:dd MMM yyyy}." : $"It is published until {a.EndDate:dd MMM yyyy}.");
-        await mailer.ToUserAsync(a.HrReviewedByUserId, $"{a.AdvertNumber}: approved by IT", html, links.Advert(a.Id), $"Open advert {a.AdvertNumber}", ct);
         if (scheduled)
-            foreach (var uid in await AuthorIdsAsync(a, ct))
-                await mailer.ToUserAsync(uid, $"{a.AdvertNumber}: approved by IT", html, links.Advert(a.Id), $"Open advert {a.AdvertNumber}", ct);
+            foreach (var uid in (await AuthorIdsAsync(a, ct)).Where(u => u != scope.UserId))
+                await mailer.ToUserAsync(uid, $"{a.AdvertNumber}: scheduled",
+                    $"The advert <b>{WorkflowMailer.Enc(a.Title)}</b> is published and goes live on {a.StartDate:dd MMM yyyy}.",
+                    links.Advert(a.Id), $"Open advert {a.AdvertNumber}", ct);
         else
             await NotifyLiveAsync(a, ct);
         return saved;
@@ -397,7 +364,7 @@ public class AdvertService(
         if (saved.Succeeded)
             await NotifyDecisionAsync(a, $"{a.AdvertNumber}: returned for correction",
                 $"{(fromIt ? "The IT Manager" : "The HR Manager")} ({WorkflowMailer.Enc(scope.UserName)}) returned the advert <b>{WorkflowMailer.Enc(a.Title)}</b> " +
-                $"for correction:<p>{WorkflowMailer.Enc(why)}</p>Make the changes, then send it for review again.", alsoHr: fromIt, ct);
+                $"for correction:<p>{WorkflowMailer.Enc(why)}</p>Make the changes, then publish it again.", alsoHr: fromIt, ct);
         return saved;
     }
 
@@ -440,7 +407,7 @@ public class AdvertService(
         if (saved.Succeeded)
             await NotifyDecisionAsync(a, $"{a.AdvertNumber}: taken offline",
                 $"The IT Manager ({WorkflowMailer.Enc(scope.UserName)}) took the advert <b>{WorkflowMailer.Enc(a.Title)}</b> offline:" +
-                $"<p>{WorkflowMailer.Enc(why)}</p>Make the changes, then send it for review again.", alsoHr: true, ct);
+                $"<p>{WorkflowMailer.Enc(why)}</p>Make the changes, then publish it again.", alsoHr: true, ct);
         return saved;
     }
 
@@ -485,6 +452,7 @@ public class AdvertService(
         a.Title = source.Title;
         a.Body = source.Body;
         a.HowToApply = source.HowToApply;
+        (a.ExternalText, a.LinkedInText, a.InternalNotice) = (source.ExternalText, source.LinkedInText, source.InternalNotice);
         a.StartDate = Today;
         a.EndDate = v.ClosingDate;
         a.ClonedFromAdvertId = source.Id;
@@ -500,9 +468,9 @@ public class AdvertService(
         return Result.Success(a.Id);
     }
 
-    // ===================================================================== External channels (the IT Manager)
+    // ===================================================================== External channels (the Recruitment Officer or IT Manager)
 
-    /// <summary>Records that the IT Manager has placed the advert on an external channel (with its link or newspaper edition).</summary>
+    /// <summary>Records that the advert was placed on an external channel (with its link or newspaper edition).</summary>
     public async Task<Result> MarkPostedAsync(int id, int channelId, string? reference, CancellationToken ct = default)
     {
         var (a, channel, error) = await LoadChannelAsync(id, channelId, ct);
@@ -619,13 +587,13 @@ public class AdvertService(
 
     private async Task<(JobAdvert? Advert, AdvertChannelPost? Channel, string? Error)> LoadChannelAsync(int id, int channelId, CancellationToken ct)
     {
-        if (!scope.Holds(Permissions.PublishAdverts)) return (null, null, "Only the IT Manager records where adverts are posted.");
+        if (!IsAuthor && !scope.Holds(Permissions.PublishAdverts)) return (null, null, "Only a Recruitment Officer, HR Manager or IT Manager records where adverts are posted.");
         var a = await adverts.GetWithDetailsAsync(id, ct);
         var channel = a?.Channels.FirstOrDefault(c => c.Id == channelId);
         return a is null || channel is null ? (null, null, "Advert channel not found.") : (a, channel, null);
     }
 
-    /// <summary>Why the advert cannot be sent for review or published now, or null if it can.</summary>
+    /// <summary>Why the advert cannot be published now, or null if it can.</summary>
     private static string? PublishProblem(JobAdvert a, Vacancy v)
     {
         if (v.Status != VacancyStatus.Published)
@@ -649,16 +617,7 @@ public class AdvertService(
         StatusChangedAt = now
     };
 
-    /// <summary>Records the submission for the HR review (the previous review's reason is cleared).</summary>
-    private void MarkSubmitted(JobAdvert a, DateTime now)
-    {
-        a.SubmittedByUserId = scope.UserId;
-        a.SubmittedAt = now;
-        a.ReviewComment = null;
-        a.RecordStep(AdvertAction.Submitted, AdvertStatus.AwaitingHrReview, scope.UserId, scope.UserName, null, now);
-    }
-
-    /// <summary>Goes live: automatic channels are posted now; external channels wait for the IT Manager.</summary>
+    /// <summary>Goes live: automatic channels are posted now; external channels are posted by hand.</summary>
     private static void GoLive(JobAdvert a, AdvertAction action, string? actorId, string actorName, DateTime now)
     {
         a.PublishedAt = now;
@@ -682,7 +641,7 @@ public class AdvertService(
         }
     }
 
-    /// <summary>Ends an advert: automatic channels come down at once; posted external channels are left for the IT Manager to take down.</summary>
+    /// <summary>Ends an advert: automatic channels come down at once; posted external channels are left to take down by hand.</summary>
     private static void End(JobAdvert a, AdvertAction action, string? actorId, string actorName, string? comments, DateTime now)
     {
         a.ClosedAt = now;
@@ -694,14 +653,6 @@ public class AdvertService(
     private async Task<IReadOnlyList<string>> AuthorIdsAsync(JobAdvert a, CancellationToken ct) =>
         new[] { a.SubmittedByUserId, a.CreatedByUserId, (await vacancies.GetByIdAsync(a.VacancyId, ct))?.RecruiterUserId }
             .OfType<string>().Distinct().ToList();
-
-    /// <summary>Tells the HR Manager(s) that an advert is waiting for their review.</summary>
-    private Task NotifySubmittedAsync(JobAdvert a, bool resubmittedAfterEdit, CancellationToken ct) =>
-        mailer.ToRoleAsync(Roles.HrManager, [], $"{a.AdvertNumber}: advert to review",
-            $"<b>{WorkflowMailer.Enc(scope.UserName)}</b> sent the advert <b>{WorkflowMailer.Enc(a.Title)}</b> for review." +
-            (resubmittedAfterEdit ? " It was published and has been edited, so it is offline until it is approved again." : "") +
-            " Please check it and approve it for the IT Manager, return it for correction or reject it.",
-            links.Advert(a.Id), $"Open advert {a.AdvertNumber}", ct);
 
     /// <summary>Tells the author(s) of a return, rejection or taking offline; and the HR reviewer when IT decided.</summary>
     private async Task NotifyDecisionAsync(JobAdvert a, string subject, string html, bool alsoHr, CancellationToken ct)
@@ -721,13 +672,26 @@ public class AdvertService(
         var v = await vacancies.GetByIdAsync(a.VacancyId, ct);
         var toPost = a.Channels.Where(c => c.Status == ChannelPostStatus.ToPost).Select(c => EnumText.Label(c.Channel)).ToList();
         var html = $"The advert <b>{WorkflowMailer.Enc(a.Title)}</b> is now live until {a.EndDate:dd MMM yyyy}." +
-                   (toPost.Count == 0 ? "" : $"<p>Still to post by the IT Manager, using the copy-ready text on the advert page: {WorkflowMailer.Enc(string.Join(", ", toPost))}.</p>");
+                   (toPost.Count == 0 ? "" : $"<p>Still to post, using the copy-ready text on the advert page: {WorkflowMailer.Enc(string.Join(", ", toPost))}.</p>") +
+                   WorkflowMailer.NextStep("Advert published", "Receive and screen applications", "Recruitment Officer");
         var link = links.Advert(a.Id);
         if (v is not null)
             await mailer.ToUserAsync(v.RecruiterUserId, $"{a.AdvertNumber} is live", html, link, $"Open advert {a.AdvertNumber}", ct);
         await mailer.ToUserAsync(a.RequestingHodUserId, $"{a.AdvertNumber} is live",
             $"The advert <b>{WorkflowMailer.Enc(a.Title)}</b> for your department is now live until {a.EndDate:dd MMM yyyy}.",
             link, $"Open advert {a.AdvertNumber}", ct);
+
+        // docs/34: candidates who switched on job alerts. The advert is already live; a problem here never undoes that.
+        if (v is null) return;
+        try
+        {
+            var alerted = await jobAlerts.SendForAdvertAsync(a, v, ct);
+            if (alerted > 0) logger.LogInformation("Job alerts for {Advert}: {Count} candidate(s) emailed", a.AdvertNumber, alerted);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Job alerts for {Advert} could not be sent.", a.AdvertNumber);
+        }
     }
 
     private static void FillVacancyFields(AdvertFormDto form, Vacancy v)
@@ -744,6 +708,8 @@ public class AdvertService(
         form.Title = form.Title.Trim();
         form.Body = form.Body.Trim().Replace("\r\n", "\n");
         form.HowToApply = form.HowToApply.Trim();
+        static string? Opt(string? t) => string.IsNullOrWhiteSpace(t) ? null : t.Trim().Replace("\r\n", "\n");
+        (form.ExternalText, form.LinkedInText, form.InternalNotice) = (Opt(form.ExternalText), Opt(form.LinkedInText), Opt(form.InternalNotice));
         form.Channels = form.Channels.Distinct().Order().ToList();
     }
 
@@ -773,6 +739,7 @@ public class AdvertService(
         a.Title = form.Title;
         a.Body = form.Body;
         a.HowToApply = form.HowToApply;
+        (a.ExternalText, a.LinkedInText, a.InternalNotice) = (form.ExternalText, form.LinkedInText, form.InternalNotice);
         a.StartDate = form.StartDate!.Value;
         a.EndDate = form.EndDate!.Value;
         foreach (var gone in a.Channels.Where(c => !form.Channels.Contains(c.Channel)).ToList()) a.Channels.Remove(gone);

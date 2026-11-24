@@ -1,19 +1,21 @@
 # 8. Recruitment requests: user guide
 
-For **department staff, Heads of Department, the HR Manager, the Managing Director and Recruitment Officers**. No technical knowledge needed.
+For **department staff, Heads of Department, Recruitment Officers and the Managing Director**. No technical knowledge needed.
 
-A recruitment request is the digital version of form **QF-81-11 Recruitment Request Form**. It asks permission to fill a position, and it must be approved at three stages, in this order, before recruitment may begin:
+A recruitment request is the digital version of form **QF-81-11 Recruitment Request Form**. It asks permission to fill a position, and it must be approved at three stages, in this order, before recruitment may begin (since 17 November 2026):
 
 ```
-  Department staff            Stage 1                    Stage 2                  Stage 3
-  (or the HOD)                Head of Department         HR Manager               Managing Director
-  ────────────────            ──────────────────         ──────────               ─────────────────
-  Draft  ── submit ──►  Department Head review ──►  HR Manager review ──►  MD approval ──►  ✅ Approved
-    ▲                          │                         │                      │              │
-    └──── returned for correction ┴─────────────────────────┴──────────────────────┘              ▼
-                               └──── or rejected ❌                                  HR converts it into a
-                                                                                     job vacancy
+  Department staff        Stage 1                      Stage 2                        Stage 3
+  (or the HOD)            Head of Department           Recruitment Officer            Managing Director
+  ────────────────        ──────────────────           ───────────────────            ─────────────────
+  Draft ── submit ──► Department Head approval ──► Recruitment Officer review ──► MD approval ──► ✅ Approved for recruitment
+    ▲                        │                            │                            │                    │
+    └──── returned for correction ┴────────────────────────────┴────────────────────────────┘                    ▼
+                             └──── or rejected ❌                              The Recruitment Officer creates the
+                                                                               vacancy and the advert: no further approval
 ```
+
+**The MD's approval is the last approval.** After it, nobody else approves anything: not the HR Manager, an HR Director or an administrator. The Recruitment Officer owns the process: they create and publish the vacancy, then create and publish the job advertisement, then move on to the candidates.
 
 **Menu → Recruitment → Recruitment requests**
 
@@ -62,17 +64,17 @@ Accepted: **PDF, Word (DOCX) and Excel (XLSX)** only, up to 10 MB each. A file t
 ### Submit
 Click **Submit for approval**. Your Head of Department gets an email. From now on you can't change the request unless it is returned to you.
 
-**If you are the Head of the department yourself**, submitting is your stage-1 sign-off: the history records "Department Head review: signed off by the Head of Department" and the request goes straight to the HR Manager.
+**If you are the Head of the department yourself**, submitting is your stage-1 sign-off: the history records "Department Head approval: signed off by the Head of Department" and the request goes straight to the Recruitment Officer review.
 
 ### If it is returned for correction
-You'll get an email, and the request shows **Returned for correction**. Read the reviewer's comments in **History**, click **Edit**, make the corrections (and update documents if needed), then click **Resubmit for approval**. It starts again at stage 1, and the HR Manager confirms the budget again.
+You'll get an email, and the request shows **Returned for correction**. Read the reviewer's comments in **History**, click **Edit**, make the corrections (and update documents if needed), then click **Resubmit for approval**. It starts again at stage 1.
 
 ### Cancel
 While the request is still open, you can cancel it at the bottom of **Your actions**. Cancelling is permanent.
 
 ---
 
-## For approvers (Head of Department, HR Manager, Managing Director)
+## For approvers (Head of Department, Recruitment Officer, Managing Director)
 
 Requests waiting for you are under the **Awaiting my action** tab, oldest first. The red number on the tab and the tile on the home page show how many there are. A red **"N days"** label marks requests waiting 3 days or more. You also get an email for each one, and a reminder if one waits too long.
 
@@ -88,21 +90,38 @@ What's special at each stage:
 
 | Stage | Who | Extra step |
 |---|---|---|
-| 1. Department Head review | The **Head of the request's department** (not any HOD) | None. |
-| 2. HR Manager review | HR Manager | Approve, return or reject. No budget confirmation is needed (since 11 November 2026); a Budget approval document, if attached, can be read in Supporting documents. |
-| 3. MD approval | Managing Director | Final approval. The requester, the HOD, the HR Manager and the Recruitment Officers are emailed. |
+| 1. Department Head approval | The **Head of the request's department** (not any HOD) | None. |
+| 2. Recruitment Officer review | Any **Recruitment Officer** | To approve, tick all three checks: **Request verified** (department, purpose, justification, documents), **Vacancy details validated** (position, number, engagement type, site, start date) and **Requirements confirmed** (education, experience, certificates, licence). The checks are recorded in the history. The Recruitment Officer who approves becomes the request's **Recruitment Officer**, the process owner after the MD. No budget confirmation is needed; a Budget approval document, if attached, can be read in Supporting documents. |
+| 3. MD approval | Managing Director | **The last approval.** The request becomes **Approved for recruitment**. The requester and the HOD are emailed, and the Recruitment Officer gets **"Job request approved"**: *The Managing Director has approved the requisition. Your next action is to create the vacancy and publish the job advertisement.* |
+
+Requests that were already at the **HR Manager review** on 17 November 2026 are still decided by the HR Manager there, then go to the MD. The status shows **HR Manager review (earlier workflow)**.
 
 ### Rules the system enforces
 * **Nobody can approve their own request.** If you raised it, another person in your role must decide.
 * Only the person or role named for the stage can decide.
 * If two people open the same request and both click a decision, only the first counts. The second is asked to reload the page.
-* **Recruitment can only begin after the MD's final approval:** a vacancy can only be created from an approved request.
+* **Recruitment can only begin after the MD's approval:** a vacancy can only be created from a request approved for recruitment.
+* **Nothing is approved after the MD.** The vacancy and the advert are published by the Recruitment Officer.
 
 ---
 
-## After approval: converting the request into a job vacancy (HR)
+## After the MD's approval: the Recruitment Officer creates the vacancy
 
-A **Recruitment Officer** opens the approved request and clicks **Convert into a job vacancy** (or uses **Vacancies → Approved requests awaiting a vacancy**). The vacancy form opens already filled in from the request: job title, unit, site, the description of the post (as plain text), educational level, field of study, level of training, experience, the required certificates, and the driving licence: if *Mandatory*, an essential certificate line and a knockout question that screens out applicants without one; if *Desirable*, a nice-to-have certificate line only.
+The request page then shows:
+* **Approved for recruitment** by the Managing Director, with *No further approvals are required*;
+* the **process owner**: the Recruitment Officer (by name);
+* the next action.
+
+The process guide at the top of the page shows the journey:
+* ✅ Department Head approval, ✅ Recruitment Officer review and ✅ Managing Director approval;
+* **Vacancy creation** as the current step;
+* then Advertisement and Candidate applications.
+
+It also names the owner, the next action (*Create the vacancy*) and the step after it (*Advertisement*).
+
+On the Recruitment Officer's **Action Center** and Home, the request appears as **Create the vacancy**. It is always **High** priority, marked *Approved by the Managing Director*.
+
+The **Recruitment Officer** opens the approved request and clicks **Create the vacancy** (or uses **Vacancies → Approved requests awaiting a vacancy**). The vacancy form opens already filled in from the request: job title, unit, site, the description of the post (as plain text), educational level, field of study, level of training, experience, the required certificates, and the driving licence: if *Mandatory*, an essential certificate line and a knockout question that screens out applicants without one; if *Desirable*, a nice-to-have certificate line only.
 
 At the top of the form, under **Job requisition**, HR then:
 
@@ -111,7 +130,7 @@ At the top of the form, under **Job requisition**, HR then:
 * sets the **Recruitment closing date**;
 * selects **Internal or external recruitment**: internal (GREL staff only), external (public), or both.
 
-The vacancy then follows its own approval by the HR Manager (see the [vacancies guide](09-vacancies.md)).
+The Recruitment Officer then publishes the vacancy, with no approval (see the [vacancies guide](09-vacancies.md)). After that, they create and publish the job advert, also with no approval (see the [job adverts guide](13-job-adverts.md)).
 
 ---
 

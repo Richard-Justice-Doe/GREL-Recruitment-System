@@ -87,6 +87,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Domain.Employees.EmployeeAssignment> EmployeeAssignments => Set<Domain.Employees.EmployeeAssignment>();
     public DbSet<Domain.Employees.Grade> Grades => Set<Domain.Employees.Grade>();
 
+    // docs/34: opt-in job alerts
+    public DbSet<Domain.Applications.JobAlertSubscription> JobAlertSubscriptions => Set<Domain.Applications.JobAlertSubscription>();
+
     // Phase 10: notifications, reminders and surveys
     public DbSet<Domain.Notifications.Notification> Notifications => Set<Domain.Notifications.Notification>();
     public DbSet<Domain.Notifications.SentReminder> SentReminders => Set<Domain.Notifications.SentReminder>();
@@ -104,6 +107,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     // Phase 16: system settings and email templates
     public DbSet<Domain.Settings.SystemSetting> SystemSettings => Set<Domain.Settings.SystemSetting>();
     public DbSet<Domain.Settings.EmailTemplate> EmailTemplates => Set<Domain.Settings.EmailTemplate>();
+    public DbSet<Domain.Ai.AiRequestLog> AiRequestLogs => Set<Domain.Ai.AiRequestLog>(); // docs/36
+    public DbSet<Domain.Ai.AiCacheEntry> AiCacheEntries => Set<Domain.Ai.AiCacheEntry>();
+    public DbSet<Domain.Ai.AiInsight> AiInsights => Set<Domain.Ai.AiInsight>(); // docs/36 AI-5
+    public DbSet<Domain.Interviews.InterviewPanelChange> InterviewPanelChanges => Set<Domain.Interviews.InterviewPanelChange>(); // docs/37 CR3
+    public DbSet<VacancyInterviewQuestion> VacancyInterviewQuestions => Set<VacancyInterviewQuestion>(); // docs/36 AI-2
+    public DbSet<Domain.Knowledge.KnowledgeDocument> KnowledgeDocuments => Set<Domain.Knowledge.KnowledgeDocument>(); // docs/36 AI-7
+    public DbSet<Domain.Knowledge.KnowledgeSection> KnowledgeSections => Set<Domain.Knowledge.KnowledgeSection>();
+    public DbSet<Domain.Celebrations.CelebrationMessage> CelebrationMessages => Set<Domain.Celebrations.CelebrationMessage>(); // 17 Nov 2026
 
     /// <summary>
     /// Dates without a time (DateOnly: closing dates, start dates, ...) and times without a date (TimeOnly) are read and

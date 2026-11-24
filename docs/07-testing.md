@@ -72,3 +72,7 @@ SQLite is not MySQL. The easiest real-MySQL check is the Docker set-up ([10 Runn
 
 1. Service rules: copy the pattern in `OrganizationServiceTests` (`new TestDatabase()`, then one `NewScope()` per simulated request).
 2. Screens: add a method to `WebTests` (or a new class with `IClassFixture<GrsmsWebFactory>`), sign in with `client.SignInAsync(...)` and drive forms with `PostFormAsync`.
+
+## One primary button per page (docs/37 C6)
+
+Every client from `GrsmsWebFactory.NewClient()` checks each record page it opens (requests, vacancies, adverts, applications, interviews, hiring case, onboarding, probation, employees, personnel files, the candidate's application). A page that shows more than one filled primary/success button fails the test, with the button labels in the message. Make the extra buttons outline buttons. Per-document buttons inside the folded checklist rows and buttons in pop-up dialogs do not count. See `tests/Grsms.Tests/Infrastructure/PrimaryActionCheck.cs`.

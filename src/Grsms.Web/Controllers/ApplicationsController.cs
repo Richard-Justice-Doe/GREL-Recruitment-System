@@ -12,7 +12,7 @@ namespace Grsms.Web.Controllers;
 /// </summary>
 [Authorize(Policy = Policies.Applications)]
 public class ApplicationsController(ApplicationService applications, Application.Shortlisting.ShortlistingService shortlisting,
-    Application.Interviews.InterviewService interviews) : AppController
+    Application.Interviews.InterviewService interviews, Application.Ai.AiSummaryService summaries) : AppController
 {
     /// <param name="filter">Tab "new", "review" or "all", plus the report filters.</param>
     public async Task<IActionResult> Index([FromQuery] ApplicationFilter filter, CancellationToken ct)
@@ -23,7 +23,7 @@ public class ApplicationsController(ApplicationService applications, Application
         return View(await applications.SearchAsync(filter, ct));
     }
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await applications.GetDetailsAsync(id, ct);
         if (model is null) return NotFound();
@@ -32,6 +32,8 @@ public class ApplicationsController(ApplicationService applications, Application
         ViewBag.ShortlistRow = (await shortlisting.GetBoardAsync(model.VacancyId, ct))?.Rows.FirstOrDefault(r => r.ApplicationId == id);
         // Phase 7: can an interview / assessment be scheduled now?
         ViewBag.CanSchedule = await interviews.CanScheduleForAsync(id, ct);
+        ViewBag.AiSummary = Helpers.AiInsightCard.Cv(await summaries.GetCvPanelAsync(id, ct), id); // docs/36 AI-5
+        ViewBag.Process = await guide.ForApplicationAsync(id, ct); // docs/37 CR5
         return View(model);
     }
 
@@ -44,11 +46,16 @@ public class ApplicationsController(ApplicationService applications, Application
         Act(id, () => applications.MarkNotSuccessfulAsync(id, reason, ct), "Marked not successful. The applicant has been emailed (without the reason).");
 
     /// <summary>Downloads an applicant's document (always as a download, never opened inside the site).</summary>
-    public async Task<IActionResult> Download(int id, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> Download(int id, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await applications.OpenDocumentAsync(id, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
+
+    /// <summary>docs/36 AI-5: the AI CV summary (advisory; the ATS score is unchanged).</summary>
+    [HttpPost]
+    public Task<IActionResult> GenerateCvSummary(int id, CancellationToken ct) =>
+        Act(id, () => summaries.GenerateCvSummaryAsync(id, ct), "CV summary written. It is advice only.");
 
     private Task<IActionResult> Act(int id, Func<Task<Result>> action, string successMessage) =>
         RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));

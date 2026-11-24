@@ -31,7 +31,8 @@ public class ReportService(
     IRepository<Department> departments,
     IRepository<Division> divisions,
     AccessScope scope,
-    Workforce.WorkforceReportService workforce)
+    Workforce.WorkforceReportService workforce,
+    WorkflowTargetsReportService targets)
 {
     private static readonly CultureInfo Gb = CultureInfo.GetCultureInfo("en-GB");
 
@@ -47,6 +48,19 @@ public class ReportService(
             var w = await workforce.RunAsync(filter, ct);
             var winfo = ReportKeys.All.FirstOrDefault(r => r.Key == w.Key);
             return w with { Title = winfo.Title ?? "", Description = winfo.Description ?? "", LimitedToMyDepartments = !scope.SeesAllDepartments };
+        }
+        if (filter.Report == ReportKeys.WorkflowTargets)
+        {
+            var t = await targets.RunAsync(filter, ct);
+            var tinfo = ReportKeys.All.First(r => r.Key == t.Key);
+            var vis = await scope.VisibilityAsync(ct);
+            var mine = vis.HodDepartmentIds.ToList();
+            var visible = await vacancies.ListAsync(x => vis.SeeAll || mine.Contains(x.DepartmentId), ct);
+            return t with
+            {
+                Title = tinfo.Title, Description = tinfo.Description, LimitedToMyDepartments = !vis.SeeAll,
+                VacancyOptions = visible.OrderByDescending(v => v.Id).Select(v => new LookupItem(v.Id.ToString(), $"{v.VacancyNumber} {v.JobTitle}")).ToList()
+            };
         }
         var data = await LoadAsync(filter, ct);
         var result = filter.Report switch
@@ -119,7 +133,7 @@ public class ReportService(
             d.Reached[a.Id] = seen.Select(StageIndex).Max();
         }
 
-        d.Offers = (await offers.ListAsync(x => (all || mine.Contains(x.DepartmentId)) && (div == null || x.DivisionId == div) &&
+        d.Offers = (await offers.ListAsync(x => x.Status != OfferStatus.Draft && (all || mine.Contains(x.DepartmentId)) && (div == null || x.DivisionId == div) &&
                                                 (dep == null || x.DepartmentId == dep) && (vac == null || x.VacancyId == vac), ct)).ToList();
         d.Onboardings = (await onboardings.ListAsync(x => (all || mine.Contains(x.DepartmentId)) && (div == null || x.DivisionId == div) &&
                                                           (dep == null || x.DepartmentId == dep) && (vac == null || x.VacancyId == vac), ct)).ToList();
@@ -237,7 +251,7 @@ public class ReportService(
             .OrderByDescending(r => r.DateRequested ?? r.CreatedAt).ToList();
         var rows = list.Select(r => new ReportRow([
             r.RequestNumber, r.PositionTitle, d.Divisions.GetValueOrDefault(r.DivisionId), d.Departments.GetValueOrDefault(r.DepartmentId),
-            r.NumberOfPositions, r.EstimatedAnnualCost, EnumText.Label(r.Status), DateOf(r.DateRequested ?? r.CreatedAt), DateOf(r.ApprovedAt),
+            r.NumberOfPositions, EnumText.Label(r.Status), DateOf(r.DateRequested ?? r.CreatedAt), DateOf(r.ApprovedAt),
             Days(r.DateRequested ?? r.CreatedAt, r.ApprovedAt)
         ], new ReportLink("RecruitmentRequests", "Details", r.Id))).ToList();
 
@@ -253,13 +267,12 @@ public class ReportService(
                 new("Positions requested", list.Sum(r => r.NumberOfPositions).ToString(Gb)),
                 new("Approved", approved.Count.ToString(Gb)),
                 new("In approval", list.Count(r => RecruitmentWorkflow.IsInApproval(r.Status)).ToString(Gb)),
-                new("Estimated annual cost", $"GHS {list.Sum(r => r.EstimatedAnnualCost):N0}"),
                 new("Average time to approve", Average(approved.Select(r => Days(r.DateRequested ?? r.CreatedAt, r.ApprovedAt))))
             ],
             Table = new ReportTable(
-                [new("Request"), new("Position"), new("Division"), new("Department"), new("Positions", true), new("Est. annual cost (GHS)", true),
+                [new("Request"), new("Position"), new("Division"), new("Department"), new("Positions", true), // docs/37 CR1: no cost
                  new("Status"), new("Requested"), new("Approved"), new("Days to approve", true)],
-                rows, ["Total", null, null, null, list.Sum(r => r.NumberOfPositions), list.Sum(r => r.EstimatedAnnualCost), null, null, null, null])
+                rows, ["Total", null, null, null, list.Sum(r => r.NumberOfPositions), null, null, null, null])
         };
     }
 
@@ -376,7 +389,7 @@ public class ReportService(
         var list = d.Offers.Where(o => InPeriod(f, o.SentAt) && (status is null || o.Status == status)).OrderByDescending(o => o.SentAt).ToList();
         var names = d.Applications.ToDictionary(a => a.Id, a => a.FullName);
         var rows = list.Select(o => new ReportRow([
-            o.Number, names.GetValueOrDefault(o.JobApplicationId), o.JobTitle, d.Departments.GetValueOrDefault(o.DepartmentId), o.MonthlySalary,
+            o.Number, names.GetValueOrDefault(o.JobApplicationId), o.JobTitle, d.Departments.GetValueOrDefault(o.DepartmentId),
             DateOf(o.SentAt), o.ExpiresOn, EnumText.Label(o.Status), DateOf(o.RespondedAt), Days(o.SentAt, o.RespondedAt)
         ], new ReportLink("Hiring", "Case", o.JobApplicationId))).ToList();
         var answered = list.Count(o => o.Status is OfferStatus.Accepted or OfferStatus.Declined or OfferStatus.Expired);
@@ -392,11 +405,10 @@ public class ReportService(
                 new("Accepted", list.Count(o => o.Status == OfferStatus.Accepted).ToString(Gb)),
                 new("Declined", list.Count(o => o.Status == OfferStatus.Declined).ToString(Gb)),
                 new("Expired / withdrawn", list.Count(o => o.Status is OfferStatus.Expired or OfferStatus.Withdrawn).ToString(Gb)),
-                new("Acceptance rate", Percent(list.Count(o => o.Status == OfferStatus.Accepted), answered), "Accepted out of accepted + declined + expired"),
-                new("Average monthly salary", list.Count == 0 ? "—" : $"GHS {list.Average(o => o.MonthlySalary):N0}")
+                new("Acceptance rate", Percent(list.Count(o => o.Status == OfferStatus.Accepted), answered), "Accepted out of accepted + declined + expired")
             ],
             Table = new ReportTable(
-                [new("Offer"), new("Candidate"), new("Job"), new("Department"), new("Monthly salary (GHS)", true), new("Sent"), new("Reply by"), new("Status"),
+                [new("Offer"), new("Candidate"), new("Job"), new("Department"), new("Sent"), new("Reply by"), new("Status"), // docs/37 CR1: no salary
                  new("Answered"), new("Days to answer", true)],
                 rows)
         };

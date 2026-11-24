@@ -150,7 +150,7 @@ public class SystemSettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Backups_list_only_backup_files_download_only_database_dumps_and_requests_leave_a_file()
+    public async Task Backups_list_only_backup_files_download_only_encrypted_database_dumps_and_requests_leave_a_file()
     {
         var store = _db.Services.GetRequiredService<IBackupStore>();
         var folder = Path.Combine(_db.TempFolder, "backups");
@@ -159,15 +159,22 @@ public class SystemSettingsServiceTests : IDisposable
         Directory.CreateDirectory(folder);
         await File.WriteAllTextAsync(Path.Combine(folder, "grsms-db-20261105-0100.sql.gz"), "dump");
         await File.WriteAllTextAsync(Path.Combine(folder, "grsms-files-20261105-0100.tar.gz"), "files");
+        // 22 Nov 2026 (docs/41 H4): encrypted copies (".gpg") and the separate keys archive.
+        await File.WriteAllTextAsync(Path.Combine(folder, "grsms-db-20261122-0100.sql.gz.gpg"), "encrypted dump");
+        await File.WriteAllTextAsync(Path.Combine(folder, "grsms-keys-20261122-0100.tar.gz.gpg"), "encrypted keys");
         await File.WriteAllTextAsync(Path.Combine(folder, "notes.txt"), "not a backup");
         await File.WriteAllTextAsync(Path.Combine(_db.TempFolder, "secret.txt"), "outside");
 
         var o = store.Overview();
         Assert.True(o.Configured);
-        Assert.Equal(["Database", "Files and keys"], o.Files.Select(f => f.Kind).OrderBy(k => k));
+        Assert.Equal(["Database", "Database", "Encryption keys", "Uploaded files"], o.Files.Select(f => f.Kind).OrderBy(k => k));
+        Assert.Equal(["grsms-db-20261122-0100.sql.gz.gpg"], o.Files.Where(f => f.Downloadable).Select(f => f.Name));
+        Assert.True(o.Files.Single(f => f.Name.StartsWith("grsms-keys-")).Encrypted);
 
-        using (var dump = store.Open("grsms-db-20261105-0100.sql.gz")) Assert.NotNull(dump);
-        Assert.Null(store.Open("grsms-files-20261105-0100.tar.gz")); // holds the keys: server only
+        using (var dump = store.Open("grsms-db-20261122-0100.sql.gz.gpg")) Assert.NotNull(dump);
+        Assert.Null(store.Open("grsms-db-20261105-0100.sql.gz"));        // not encrypted: server only
+        Assert.Null(store.Open("grsms-files-20261105-0100.tar.gz"));     // uploaded files: server only
+        Assert.Null(store.Open("grsms-keys-20261122-0100.tar.gz.gpg"));  // keys: server only, even encrypted
         Assert.Null(store.Open("../secret.txt"));
         Assert.Null(store.Open("notes.txt"));
 

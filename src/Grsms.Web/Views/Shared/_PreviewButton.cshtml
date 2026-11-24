@@ -1,0 +1,13 @@
+@* docs/37 CR4: a "Preview" button for a file that can be shown in the page (PDF, JPEG, PNG, Word .docx). Model: (download URL, file
+   name). js/document-preview.js opens it in a modal through the same download URL with ?view=inline or ?view=html, so the same
+   permission checks apply. Nothing is shown for other files (they are downloaded as before). *@
+@model (string? Url, string? FileName)
+@{
+    var ext = System.IO.Path.GetExtension(Model.FileName ?? "").ToLowerInvariant(); // "Path" alone is the view's own property
+    var kind = ext switch { ".pdf" => "pdf", ".jpg" or ".jpeg" or ".png" => "image", ".docx" => "docx", _ => null };
+}
+@if (kind is not null && Model.Url is not null)
+{
+    <button type="button" class="btn btn-sm btn-link p-0 text-nowrap doc-preview-btn" data-preview-url="@Model.Url" data-preview-kind="@kind"
+            data-preview-name="@Model.FileName" aria-label="Preview @Model.FileName"><i class="fa-regular fa-eye me-1"></i>Preview</button>
+}

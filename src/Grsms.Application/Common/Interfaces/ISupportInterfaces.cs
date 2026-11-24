@@ -29,9 +29,11 @@ public interface IFileStorage
 /// <summary>The answer of a virus scan.</summary>
 /// <param name="Clean">False = the file must be refused.</param>
 /// <param name="Threat">What was found (shown to the uploader), when not clean.</param>
-public record VirusScanResult(bool Clean, string? Threat = null)
+/// <param name="Unavailable">22 Nov 2026 (docs/41, H3): the scanner could not be reached, so the file is refused (fail closed).</param>
+public record VirusScanResult(bool Clean, string? Threat = null, bool Unavailable = false)
 {
     public static readonly VirusScanResult Passed = new(true);
+    public static readonly VirusScanResult NotAvailable = new(false, null, true);
 }
 
 /// <summary>
@@ -71,11 +73,20 @@ public interface IAppLinks
     /// <summary>An onboarding (checklist, appointment letter, first day) for staff.</summary>
     string Onboarding(int id);
 
+    /// <summary>17 Nov 2026: the celebrations page (birthdays and work anniversaries).</summary>
+    string Celebrations();
+
     /// <summary>Phase 21: a probation (staff page).</summary>
     string Probation(int id);
 
     /// <summary>Phase 21: the employee's own probation page.</summary>
     string MyProbation();
+
+    /// <summary>12 November 2026: an employee record (staff page).</summary>
+    string Employee(int id);
+
+    /// <summary>12 November 2026: the home page (for people with no page of their own to open).</summary>
+    string Home();
 
     /// <summary>A survey invitation, for the person invited to answer it.</summary>
     string Survey(int invitationId);
@@ -91,3 +102,28 @@ public interface IAppLinks
 /// </summary>
 public class ConcurrencyConflictException(Exception inner)
     : Exception("The record was changed by someone else while you were working on it.", inner);
+
+/// <summary>
+/// 13 November 2026 (docs/26 Phase 24, docs/35 Wave 1): turns a complete HTML page into a PDF. The built-in implementation
+/// (Infrastructure/Documents/ChromiumPdfRenderer) runs headless Chromium (Chrome or Edge on Windows, the "chromium" package in
+/// the Docker image), so the PDF looks exactly like the HTML letter.
+/// </summary>
+public interface IPdfRenderer
+{
+    /// <summary>False when no Chromium browser is found on this server: the PDF buttons are hidden and the HTML letters still work.</summary>
+    bool IsAvailable { get; }
+
+    /// <summary>The PDF bytes, or null if rendering failed (logged).</summary>
+    Task<byte[]?> RenderAsync(string html, CancellationToken ct = default);
+}
+
+/// <summary>
+/// 14 November 2026 (docs/37 CR4): a Word (.docx) document as simple, safe HTML for the in-page preview (headings, paragraphs, bold and
+/// italic, lists, tables, embedded pictures). Layout is approximate; the original file is unchanged and can still be downloaded.
+/// Implemented in Infrastructure/Documents/DocxHtmlPreview.
+/// </summary>
+public interface IDocumentHtmlPreview
+{
+    /// <summary>The HTML (a fragment, no scripts), or null when the file can't be read as a Word document.</summary>
+    Task<string?> ToHtmlAsync(Stream docx, CancellationToken ct = default);
+}

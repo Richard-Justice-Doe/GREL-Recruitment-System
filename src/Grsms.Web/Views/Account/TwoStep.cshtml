@@ -1,0 +1,94 @@
+@* 22 Nov 2026 (docs/41, H2): two-step sign-in: set it up with an authenticator app (QR code or key), see and renew recovery codes,
+   and turn it off when the role does not require it. Privileged staff are sent here until it is set up (TwoStepRequiredFilter). *@
+@model TwoStepViewModel
+@{
+    ViewData["Title"] = "Two-step sign-in";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Two-step sign-in</h1>
+        <p>Each time you sign in with your password, GRSMS also asks for a 6-digit code from an app on your phone. A stolen or guessed password alone is then not enough.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        @if (Model.NewRecoveryCodes is { Count: > 0 } codes)
+        {
+            <div class="card glass mb-3 border border-warning">
+                <div class="card-body p-4">
+                    <h2 class="h6 mb-2"><i class="fa-solid fa-key text-warning me-1"></i>Your recovery codes: save them now</h2>
+                    <p class="small mb-3">If you lose your phone, each code lets you sign in once. Print them or keep them somewhere safe (not on the same phone). They are shown only now.</p>
+                    <div class="row row-cols-2 g-2 font-monospace mb-0" aria-label="Recovery codes">
+                        @foreach (var c in codes) { <div class="col"><span class="d-block border rounded px-2 py-1 text-center">@c</span></div> }
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-3" data-print><i class="fa-solid fa-print me-1"></i>Print the codes</button>
+                </div>
+            </div>
+        }
+
+        @if (Model.Enabled)
+        {
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 mb-2"><i class="fa-solid fa-circle-check text-success me-1"></i>Two-step sign-in is on</h2>
+                    <p class="small mb-3">You have <b>@Model.RecoveryCodesLeft</b> recovery code@(Model.RecoveryCodesLeft == 1 ? "" : "s") left.@(Model.RecoveryCodesLeft <= 3 ? " Make new ones soon." : "")</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <form asp-action="RecoveryCodes" method="post">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" data-confirm="Make new recovery codes? Your old codes stop working.">Make new recovery codes</button>
+                        </form>
+                        @if (!Model.Required)
+                        {
+                            <form asp-action="TurnOffTwoStep" method="post">
+                                <button type="submit" class="btn btn-sm btn-link text-danger" data-confirm="Turn off two-step sign-in?">Turn off two-step sign-in</button>
+                            </form>
+                        }
+                    </div>
+                    @if (Model.Required)
+                    {
+                        <p class="small text-body-secondary mt-3 mb-0">Two-step sign-in is required for your account. New phone? Ask an administrator to reset it, then set it up again.</p>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            @if (Model.MustSetUp)
+            {
+                <div class="alert alert-warning small"><i class="fa-solid fa-shield-halved me-1"></i>Two-step sign-in is required for your account, so GRSMS asks you to set it up before you continue. It takes about two minutes.</div>
+            }
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 mb-3">Set it up</h2>
+                    <ol class="small ps-3 mb-3">
+                        <li class="mb-2">Install an authenticator app on your phone: <b>Microsoft Authenticator</b> or <b>Google Authenticator</b> (free).</li>
+                        <li class="mb-2">In the app, add an account and <b>scan this QR code</b>:
+                            <div class="my-2"><img src="@Model.QrDataUri" alt="QR code for GREL GRSMS two-step sign-in" width="180" height="180" class="border rounded bg-white p-1" /></div>
+                            Can't scan? Choose "enter a setup key" and type: <code class="user-select-all">@Model.SharedKey</code>
+                        </li>
+                        <li>Type the 6-digit code the app now shows:</li>
+                    </ol>
+                    <form asp-action="TwoStep" method="post" class="d-flex flex-wrap gap-2 align-items-start">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small w-100 mb-1"></div>
+                        <input name="code" class="form-control" style="max-width: 10rem" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456" required aria-label="6-digit code" />
+                        <button type="submit" class="btn btn-primary">Turn on two-step sign-in</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="col-lg-5">
+        <div class="card glass">
+            <div class="card-body p-4 small">
+                <h2 class="h6">Good to know</h2>
+                <ul class="mb-0 ps-3">
+                    <li>The code changes every 30 seconds; always use the newest one.</li>
+                    <li>If codes are refused, check that your phone's date and time are set automatically.</li>
+                    <li>Signing in with Microsoft 365 uses Microsoft's own check instead.</li>
+                    <li>New or lost phone: use a recovery code, or ask an administrator to reset your two-step sign-in.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

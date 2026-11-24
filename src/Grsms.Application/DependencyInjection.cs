@@ -44,6 +44,8 @@ public static class DependencyInjection
         services.AddScoped<Applications.CandidateProfileService>();
         services.AddScoped<Applications.MyNextStepService>(); // usability U2
         services.AddScoped<Applications.ApplicationService>();
+        services.AddScoped<Applications.TalentPoolService>(); // docs/34: talent pool
+        services.AddScoped<Applications.JobAlertService>(); // docs/34: opt-in job alerts
 
         // Phase 6: CV screening and shortlisting
         services.AddScoped<Shortlisting.ShortlistingService>();
@@ -53,6 +55,23 @@ public static class DependencyInjection
 
         // Phase 16: System settings and email templates
         services.AddScoped<Settings.SystemSettingsService>();
+        services.AddScoped<Settings.LetterSettingsService>(); // letterhead and signature (12 Nov 2026)
+        services.AddScoped<Ai.AiGateway>(); // docs/36: every AI call goes through it
+        services.AddScoped<Ai.AiAdminService>();
+        services.AddScoped<Ai.JobDescriptionDrafter>(); // docs/36 AI-1
+        services.AddScoped<Ai.AdvertWriter>();
+        services.AddScoped<Vacancies.InterviewQuestionService>(); // docs/36 AI-2
+        services.AddScoped<Dashboard.ExecutiveDashboardService>(); // docs/36 AI-3
+        services.AddScoped<Onboarding.DocumentCheckService>(); // docs/36 AI-4
+        services.AddScoped<Onboarding.DocumentAiCheckService>(); // docs/36 AI-8
+        services.AddScoped<Onboarding.OnboardingJourneyService>(); // G3 guided workflow
+        services.AddScoped<Ai.AiSummaryService>(); // docs/36 AI-5
+        services.AddScoped<Ai.OnboardingAssistantService>(); // docs/36 AI-6
+        services.AddScoped<Ai.ProbationPlanDrafter>(); // 17 Nov 2026
+        services.AddSingleton<Knowledge.KnowledgeIndexCache>(); // docs/36 AI-7
+        services.AddScoped<Knowledge.KnowledgeBaseService>();
+        services.AddScoped<Process.ProcessGuideService>(); // docs/37 CR5
+        services.AddScoped<Process.ActionCenterService>();
 
         // Phase 7: interviews, assessments and scorecards
         services.AddScoped<Interviews.InterviewService>();
@@ -64,6 +83,7 @@ public static class DependencyInjection
         services.AddScoped<Onboarding.OnboardingService>();
         services.AddScoped<Onboarding.DocumentVerificationService>(); // Phase 18
         services.AddScoped<Onboarding.OnboardingProgressService>(); // Phase 27
+        services.AddScoped<Onboarding.DocumentDeadlineService>(); // Phase 27 stage C: document deadline reminders and digest
         services.AddScoped<Onboarding.OnboardingDocumentTypeService>(); // Phase 27
         services.AddScoped<Onboarding.PersonalRecordService>(); // Phase 19
         services.AddScoped<Onboarding.InductionAreaService>(); // Phase 20
@@ -75,7 +95,11 @@ public static class DependencyInjection
         // Phase 28 (docs/30): the employee master record, job history and grades
         services.AddScoped<Employees.EmployeeLifecycle>();
         services.AddScoped<Employees.EmployeeService>();
+        services.AddScoped<Employees.EmployeePhotoService>(); // 17 Nov 2026: employee directory
+        services.AddScoped<Employees.ProfileCompletionService>();
+        services.AddScoped<Celebrations.CelebrationService>(); // 17 Nov 2026
         services.AddScoped<Employees.GradeService>();
+        services.AddScoped<Employees.ContractAlertService>(); // docs/34: contract expiry alerts (daily job)
 
         // Phase 10: reminders and surveys (notifications themselves are stored by Infrastructure)
         services.AddScoped<Notifications.ReminderService>();
@@ -83,6 +107,7 @@ public static class DependencyInjection
 
         // Phase 11: reports and the executive overview
         services.AddScoped<Reports.ReportService>();
+        services.AddScoped<Reports.WorkflowTargetsReportService>(); // docs/35 R1
 
         // Home-page dashboard
         services.AddScoped<Dashboard.DashboardService>();

@@ -33,9 +33,9 @@
             · @Model.VacancyNumber @Model.JobTitle · @Model.DivisionName → @Model.DepartmentName
             · positions: @Model.PositionsTaken of @Model.Positions offered or filled</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All hiring</a>
         <a asp-controller="Interviews" asp-action="Results" asp-route-id="@Model.VacancyId" class="btn btn-outline-secondary">Interview results</a>
-        <a asp-action="Index" class="btn btn-outline-secondary">All hiring</a>
     </div>
 </div>
 
@@ -69,10 +69,10 @@ else if (Model.CanSubmitDraft)
         <div class="next-step-text">
             <span class="next-step-label">Your next step</span>
             <h2>Review and approve the hire</h2>
-            <p>The hiring process has started for @Model.ApplicantName. Check the salary, start date and justification below
+            <p>The hiring process has started for @Model.ApplicantName. Check the start date and justification below
                (add the references and fit), then click <strong>Approve hire</strong>. The background checks are open further down.</p>
         </div>
-        <div class="next-step-actions"><a href="#recommend" class="btn btn-primary">Review the draft</a></div>
+        <div class="next-step-actions"><a href="#recommend" class="btn btn-outline-primary">Review the draft <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a></div>
     </section>
 }
 else if (Model.CanOffer)
@@ -81,9 +81,16 @@ else if (Model.CanOffer)
         <div class="next-step-text">
             <span class="next-step-label">Your next step</span>
             <h2>Send the offer</h2>
-            <p>The hire is approved and the background checks are complete. Send the offer letter to @Model.ApplicantName.</p>
+            <p>@(Model.OfferDraft is null ? "The hire is approved and the background checks are complete." : "The offer is drafted and the background checks are complete.")
+                Check it, preview the letter and send it to @Model.ApplicantName.</p>
         </div>
-        <div class="next-step-actions"><a href="#send-offer" class="btn btn-primary">Send the offer</a></div>
+        <div class="next-step-actions">
+            @if (Model.OfferDraft is not null)
+            {
+                <a asp-action="OfferLetter" asp-route-id="@Model.ApplicationId" class="btn btn-outline-primary"><i class="fa-solid fa-eye me-1"></i>Preview letter</a>
+            }
+            <a href="#send-offer" class="btn btn-outline-primary">Check and send <i class="fa-solid fa-arrow-down ms-1" aria-hidden="true"></i></a>
+        </div>
     </section>
 }
 else if (Model.Recommendation?.Status == HiringStatus.Approved && Model.Offer is null && Model.OfferBlockedReason is not null)
@@ -131,6 +138,8 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
     </section>
 }
 
+@* docs/37 CR5: where the candidate's journey stands, who acts next, since when. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process) { <partial name="_ProcessGuide" model="process" /> }
 <div class="row g-3" data-section-tabs data-section-default="@(Model.Offer is not null || Model.Recommendation?.Status == HiringStatus.Approved ? "Offer" : Model.Recommendation is not null ? "Recommendation" : "Interview scores")">
     <div class="col-xl-7">
         @* ---- Results so far: screening and the validated interview scores (9 Nov 2026), in view for the recommendation,
@@ -141,10 +150,10 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                     <div class="pill tone-hire" style="font-size:.85rem;padding:.5rem .9rem">Screening <strong class="ms-1">@(Model.ScreeningScore?.ToString() ?? "—")</strong></div>
                     <div class="pill tone-interview" style="font-size:.85rem;padding:.5rem .9rem">Interview average <strong class="ms-1">@(Model.InterviewAverage is decimal ia ? $"{ia:0.0} / 100" : "not validated yet")</strong></div>
                     <div class="pill pill-muted" style="font-size:.85rem;padding:.5rem .9rem">Validated rounds <strong class="ms-1">@Model.CompletedInterviews</strong></div>
-                    <div class="pill pill-muted" style="font-size:.85rem;padding:.5rem .9rem">Advertised salary <strong class="ms-1">
-                        @(Model.VacancySalaryMin is null && Model.VacancySalaryMax is null ? "not set" : $"GHS {Model.VacancySalaryMin:N0} – {Model.VacancySalaryMax:N0}")</strong></div>
                 </div>
 
+                @* docs/36 AI-5: advisory AI summary of the validated scores. *@
+                @if (ViewBag.AiSummary is Grsms.Web.Helpers.AiInsightCard aiCard) { <partial name="_AiInsightCard" model="aiCard" /> }
                 <h2 class="h5 mb-2">Interview scores</h2>
                 @if (Model.InterviewRounds.Count == 0)
                 {
@@ -186,6 +195,8 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                                             <td>
                                                 @if (s.Strengths is not null) { <div><span class="text-success fw-semibold">+</span> @s.Strengths</div> }
                                                 @if (s.Concerns is not null) { <div><span class="text-danger fw-semibold">−</span> @s.Concerns</div> }
+                                                @* docs/37 CR2: the reason given for each score. *@
+                                                @foreach (var cc in s.CriterionComments ?? []) { <div class="text-body-secondary">@cc</div> }
                                             </td>
                                         </tr>
                                     }
@@ -210,17 +221,13 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                         <form id="recommend" asp-action="Recommend" asp-route-id="@Model.ApplicationId" method="post">
                             <div class="row g-2 mb-2">
                                 <div class="col-md-6">
-                                    <label for="salary" class="form-label small">Proposed monthly salary (GHS)</label>
-                                    <input id="salary" name="salary" type="number" step="0.01" min="1" class="form-control" required value="@Model.VacancySalaryMin" />
-                                </div>
-                                <div class="col-md-6">
                                     <label for="startDate" class="form-label small">Proposed start date</label>
                                     <input id="startDate" name="startDate" type="date" class="form-control" required min="@today.ToString("yyyy-MM-dd")" value="@today.AddDays(30).ToString("yyyy-MM-dd")" />
                                 </div>
                             </div>
                             <label for="justification" class="form-label small">Why this candidate (interview results, references, fit)</label>
                             <textarea id="justification" name="justification" class="form-control mb-2" rows="6" maxlength="4000" required>@justificationStart</textarea>
-                            <button type="submit" class="btn btn-success"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
+                            <button type="submit" class="btn btn-outline-success"><i class="fa-solid fa-circle-check"></i>Approve hire</button>
                         </form>
                     }
                     else
@@ -235,14 +242,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                         <span class="small text-body-secondary ms-1">started by @r.CreatedBy on @r.CreatedAt.ToString("dd MMM yyyy")</span></p>
                     <form id="recommend" asp-action="Recommend" asp-route-id="@Model.ApplicationId" method="post">
                         <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <label for="salary" class="form-label small">Proposed monthly salary (GHS)</label>
-                                <input id="salary" name="salary" type="number" step="0.01" min="1" class="form-control" required value="@(r.ProposedSalary > 0 ? r.ProposedSalary.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "")" />
-                                @if (Model.VacancySalaryMin is not null || Model.VacancySalaryMax is not null)
-                                {
-                                    <div class="form-text">Advertised: GHS @Model.VacancySalaryMin?.ToString("N0") – @Model.VacancySalaryMax?.ToString("N0")</div>
-                                }
-                            </div>
                             <div class="col-md-6">
                                 <label for="startDate" class="form-label small">Proposed start date</label>
                                 <input id="startDate" name="startDate" type="date" class="form-control" required min="@today.ToString("yyyy-MM-dd")" value="@r.ProposedStartDate.ToString("yyyy-MM-dd")" />
@@ -263,7 +262,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                     var roApproved = r.Status == HiringStatus.Approved && r.HodDecision == HiringDecision.None && r.HrDecision == HiringDecision.None;
                     <dl class="details-grid small">
                         <dt>@(roApproved ? "Approved by" : "Proposed by")</dt><dd>@r.CreatedBy@(roApproved ? " (Recruitment Officer)" : ""), @r.CreatedAt.ToString("dd MMM yyyy")</dd>
-                        <dt>Salary</dt><dd>GHS @r.ProposedSalary.ToString("N2") per month</dd>
                         <dt>Start date</dt><dd>@r.ProposedStartDate.ToString("dd MMM yyyy")</dd>
                         <dt>Justification</dt><dd style="white-space: pre-wrap">@r.Justification</dd>
                     </dl>
@@ -318,7 +316,6 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                 {
                     <dl class="details-grid small">
                         <dt>Offer</dt><dd>@o.Number · <strong>@o.Status.DisplayName()</strong></dd>
-                        <dt>Salary</dt><dd>GHS @o.MonthlySalary.ToString("N2") per month</dd>
                         <dt>Start date</dt><dd>@o.StartDate.ToString("dd MMM yyyy")</dd>
                         <dt>Reply by</dt><dd>@o.ExpiresOn.ToString("dd MMM yyyy")</dd>
                         <dt>Sent</dt><dd>@o.SentAt.ToString("dd MMM yyyy HH:mm")</dd>
@@ -331,7 +328,7 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                     }
                     else if (o.Status == OfferStatus.Accepted && (User.IsInRole(Roles.RecruitmentOfficer) || User.IsInRole(Roles.HrManager)))
                     {
-                        <a asp-controller="Onboarding" asp-action="Start" asp-route-id="@Model.ApplicationId" class="btn btn-sm btn-primary mb-2"><i class="fa-solid fa-play me-1"></i>Start onboarding</a>
+                        <a asp-controller="Onboarding" asp-action="Start" asp-route-id="@Model.ApplicationId" class="btn btn-sm btn-outline-primary mb-2"><i class="fa-solid fa-play me-1"></i>Start onboarding</a>
                     }
                     @if (Model.CanWithdrawOffer)
                     {
@@ -343,27 +340,41 @@ else if (acceptedOffer && ViewBag.OnboardingId is int startedOnboarding)
                         </form>
                     }
                 }
-                else if (Model.CanOffer)
+                else if (Model.CanEditOffer)
                 {
+                    @* 13 Nov 2026: the offer is drafted when the hire is approved; the RO checks it, previews the letter and sends it. *@
+                    @if (Model.OfferDraft is { } draft)
+                    {
+                        <p class="small mb-2"><span class="badge rounded-pill badge-soft-warning">Draft</span> @draft.Number, last saved @draft.SentAt.ToString("dd MMM yyyy HH:mm"). The candidate can't see it until you send it.</p>
+                    }
                     <form id="send-offer" asp-action="SendOffer" asp-route-id="@Model.ApplicationId" method="post">
                         <div class="row g-2 mb-2">
                             <div class="col-md-4">
-                                <label for="offerSalary" class="form-label small">Monthly salary (GHS)</label>
-                                <input id="offerSalary" name="salary" type="number" step="0.01" class="form-control" value="@r!.ProposedSalary" max="@r.ProposedSalary" required />
-                            </div>
-                            <div class="col-md-4">
                                 <label for="offerStart" class="form-label small">Start date</label>
-                                <input id="offerStart" name="startDate" type="date" class="form-control" value="@r.ProposedStartDate.ToString("yyyy-MM-dd")" required />
+                                <input id="offerStart" name="startDate" type="date" class="form-control" value="@Model.FormStartDate.ToString("yyyy-MM-dd")" required />
                             </div>
                             <div class="col-md-4">
                                 <label for="expiresOn" class="form-label small">Reply by</label>
-                                <input id="expiresOn" name="expiresOn" type="date" class="form-control" value="@today.AddDays(7).ToString("yyyy-MM-dd")" required />
+                                <input id="expiresOn" name="expiresOn" type="date" class="form-control" value="@Model.FormExpiresOn.ToString("yyyy-MM-dd")" required />
                             </div>
                         </div>
                         <label for="terms" class="form-label small">Other terms for the letter (probation, benefits, ...)</label>
-                        <textarea id="terms" name="terms" class="form-control mb-2" rows="4" maxlength="8000">Probation: 6 months.
-Benefits: in line with GREL's conditions of service for this grade.</textarea>
-                        <button type="submit" class="btn btn-primary" data-confirm="Send the offer to the candidate?"><i class="fa-solid fa-envelope-open-text me-1"></i>Send offer</button>
+                        <textarea id="terms" name="terms" class="form-control mb-2" rows="4" maxlength="8000">@Model.FormTerms</textarea>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <button type="submit" name="save" value="true" class="btn btn-outline-primary" formnovalidate><i class="fa-solid fa-floppy-disk me-1"></i>Save draft</button>
+                            @if (Model.OfferDraft is not null)
+                            {
+                                <a asp-action="OfferLetter" asp-route-id="@Model.ApplicationId" class="btn btn-outline-secondary"><i class="fa-solid fa-eye me-1"></i>Preview letter</a>
+                            }
+                            @if (Model.CanOffer)
+                            {
+                                <button type="submit" class="btn btn-primary" data-confirm="Send the offer to the candidate?"><i class="fa-solid fa-envelope-open-text me-1"></i>Send offer</button>
+                            }
+                        </div>
+                        @if (!Model.CanOffer && Model.OfferBlockedReason is not null)
+                        {
+                            <p class="small text-body-secondary mt-2 mb-0"><i class="fa-solid fa-circle-info me-1"></i>Before sending: @Model.OfferBlockedReason</p>
+                        }
                     </form>
                 }
                 else

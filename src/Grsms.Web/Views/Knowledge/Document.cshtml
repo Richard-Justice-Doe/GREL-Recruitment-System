@@ -1,0 +1,59 @@
+@* docs/36 AI-7: one knowledge-base document as staff read it: its details, the file, and its sections (the answers link to them). *@
+@model KnowledgeDocumentDetails
+@{
+    var d = Model.Document;
+    ViewData["Title"] = d.Title;
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+}
+
+<div class="page-header">
+    <div>
+        <h1>@d.Title @if (!d.IsActive) { <span class="badge rounded-pill badge-soft-secondary">Archived</span> }</h1>
+        <p>Version @d.Version · effective @d.EffectiveDate.ToString("d MMMM yyyy", gb) · owner: @d.Owner · for @(d.Audience == KnowledgeAudience.StaffAndNewEmployees ? "staff and new employees" : "staff")</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All policies</a>
+        <a asp-action="Open" asp-route-id="@d.Id" class="btn btn-outline-primary"><i class="fa-solid fa-download me-1"></i>Download</a>
+        @if (Model.CanManage)
+        {
+            <a asp-controller="KnowledgeAdmin" asp-action="Edit" asp-route-id="@d.Id" class="btn btn-outline-secondary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
+        }
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-8 order-2 order-xl-1">
+        @if (Model.Sections.Count == 0)
+        {
+            <div class="card glass"><div class="card-body p-4 text-body-secondary">@(d.ReadProblem ?? "This document has no text to show. Open the file instead.")</div></div>
+        }
+        else
+        {
+            <div class="card glass">
+                <div class="card-body p-4">
+                    @foreach (var s in Model.Sections)
+                    {
+                        <section id="s-@s.Id" class="kb-section">
+                            <h2 class="h6 mb-1">@s.Heading</h2>
+                            <div class="small kb-section-text">@s.Text</div>
+                        </section>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    <div class="col-xl-4 order-1 order-xl-2">
+        <div class="card glass">
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-2">The file</h2>
+                <p class="small mb-2"><i class="fa-regular fa-file me-1"></i>@d.FileName</p>
+                <div class="d-flex gap-3 small">
+                    <partial name="_PreviewButton" model='((string?)Url.Action("Open", new { id = d.Id }), (string?)d.FileName)' />
+                    <a asp-action="Open" asp-route-id="@d.Id"><i class="fa-solid fa-download me-1"></i>Download</a>
+                </div>
+                @if (d.Summary is not null) { <p class="small text-body-secondary mt-3 mb-0">@d.Summary</p> }
+                <p class="small text-body-secondary mt-3 mb-0">@d.SectionCount sections · last updated @d.UpdatedAt.ToString("d MMM yyyy", gb)</p>
+            </div>
+        </div>
+    </div>
+</div>

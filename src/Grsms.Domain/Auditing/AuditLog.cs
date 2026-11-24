@@ -52,4 +52,10 @@ public static class AuditActions
     public const string SignedOut = "SignedOut";
     public const string PasswordReset = "PasswordReset";
     public const string PasswordChanged = "PasswordChanged";
+
+    // 22 Nov 2026 (docs/41, H2): two-step sign-in
+    public const string TwoStepEnabled = "TwoStepEnabled";
+    public const string TwoStepDisabled = "TwoStepDisabled";
+    public const string TwoStepReset = "TwoStepReset";
+    public const string RecoveryCodesRenewed = "RecoveryCodesRenewed";
 }

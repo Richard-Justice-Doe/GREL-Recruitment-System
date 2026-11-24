@@ -5,6 +5,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="~/images/grel-icon-32.png" />
     <title>@ViewData["Title"] · GREL Careers</title>
     @if (ViewData["Description"] is string description)
     {
@@ -21,7 +22,7 @@
 <header class="public-top">
     <div class="public-inner d-flex align-items-center gap-3">
         <a asp-controller="Careers" asp-action="Index" class="d-flex align-items-center gap-2 text-reset text-decoration-none">
-            <span class="brand-mark">G</span>
+            <span class="brand-mark brand-logo"><img src="~/images/grel-mark.png" alt="GREL" /></span>
             <span>
                 <span class="fw-bold d-block lh-sm">GREL Careers</span>
                 <span class="small text-body-secondary">Ghana Rubber Estates Limited</span>

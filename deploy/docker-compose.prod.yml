@@ -1,7 +1,8 @@
 # GRSMS production set-up (Phase 13). See docs/21-production-deployment.md.
 #
 #   Internet / GREL network ──HTTPS──► proxy (Caddy: certificates, HTTP→HTTPS) ──► web (GRSMS, Production) ──► db (MySQL 8.4)
-#                                                                                   backup (nightly dump + files)
+#                                                                                   │        backup (nightly, encrypted)
+#                                                                                   └──► clamav (virus scan of every upload)
 #
 # Only the proxy is reachable from outside. The app and the database have no published ports.
 # All settings and passwords come from deploy/.env (copy .env.production.example; never commit it).
@@ -73,6 +74,9 @@ services:
       Sms__ClientSecret: ${SMS_CLIENT_SECRET:-}
       # Phase 16: the backup folder as seen by the app (see volumes below)
       Backups__Folder: /app/backups
+      # 22 Nov 2026 (docs/41 H3): every upload is scanned by ClamAV; if it cannot be reached, uploads are refused (fail closed).
+      Antivirus__Host: clamav
+      Antivirus__Port: "3310"
     volumes:
       - app-data:/app/App_Data   # uploads, data-protection keys, saved emails / texts
       - app-logs:/app/logs
@@ -99,8 +103,21 @@ services:
       - caddy-config:/config
     networks: [grsms]
 
+  # 22 Nov 2026 (docs/41 H3): the virus scanner. It updates its virus signatures by itself several times a day (freshclam).
+  # It needs about 2 GB of memory and a few minutes after starting to load the signatures; uploads are refused meanwhile.
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    volumes:
+      - clamav-db:/var/lib/clamav   # downloaded signatures, kept across restarts
+    networks: [grsms]
+
   backup:
-    image: mysql:8.4
+    # 22 Nov 2026 (docs/41 H4): MySQL tools + GnuPG, to encrypt backups with GREL's backup public key.
+    build:
+      context: .
+      dockerfile: backup.Dockerfile
+    image: grsms-backup:${GRSMS_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       db:
@@ -112,6 +129,9 @@ services:
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
     volumes:
       - ./backup.sh:/backup.sh:ro
+      # GREL's backup PUBLIC key (strongly advised): put it in deploy/backup-key/ as a .asc file; backups are encrypted with it.
+      # The private key stays off this server. With no key in the folder, backups are made unencrypted, with a warning.
+      - ./backup-key:/backup-key:ro
       - ${BACKUP_FOLDER:-./backups}:/backups
       - app-data:/app-data:ro
     networks: [grsms]
@@ -124,6 +144,7 @@ networks:
 
 volumes:
   mysql-data:
+  clamav-db:
   app-data:
   app-logs:
   caddy-data:

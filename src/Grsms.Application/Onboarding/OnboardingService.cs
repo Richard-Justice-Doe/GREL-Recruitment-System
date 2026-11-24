@@ -319,6 +319,7 @@ public class OnboardingService(
             Documents = hr ? await documentService.GetForHrAsync(snap, ct) : null,
             PersonalRecordSigned = hr ? snap.PersonalRecordSigned : null,
             CanManage = manage,
+            CanReopen = MayManage && !own && o.Status == OnboardingStatus.Cancelled,
             CanEditStartDate = manage && !o.LetterAcknowledged,
             CanIssueLetter = manage && OnboardingWorkflow.LetterMayBeIssued(o.Status) && !o.LetterAcknowledged,
             CanRequestCorrection = MayVerify && !own && OnboardingWorkflow.BeforeActivation(o.Status),
@@ -489,7 +490,9 @@ public class OnboardingService(
         foreach (var uid in new[] { o.LetterIssuedByUserId, o.CreatedByUserId }.OfType<string>().Distinct())
             await mailer.ToUserAsync(uid, $"{o.LetterNumber} signed",
                 $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> has signed the appointment letter for {WorkflowMailer.Enc(o.JobTitle)} " +
-                $"(starts {o.StartDate.ToString("d MMMM yyyy", Gb)}).", links.Onboarding(o.Id), "Open the onboarding", ct);
+                $"(starts {o.StartDate.ToString("d MMMM yyyy", Gb)})." +
+                WorkflowMailer.NextStep("Appointment letter signed", "New-hire documents and personal record, then document verification", "The new employee, then the Recruitment Officer"),
+                links.Onboarding(o.Id), "Open the onboarding", ct);
         return saved;
     }
 
@@ -713,7 +716,8 @@ public class OnboardingService(
         foreach (var uid in owners)
             await mailer.ToUserAsync(uid, $"Onboarding {o.Number}: induction can begin",
                 $"<b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}, starts {o.StartDate.ToString("d MMMM yyyy", Gb)}) is now an " +
-                $"active GREL employee, staff number {WorkflowMailer.Enc(staffNumber)}. Please complete your induction tasks.",
+                $"active GREL employee, staff number {WorkflowMailer.Enc(staffNumber)}. Please complete your induction tasks." +
+                WorkflowMailer.NextStep("Staff account activated", "Department induction and IT set-up", "Supervisor / Head of Department and IT"),
                 links.Onboarding(o.Id), "Open the onboarding", ct);
         // Phase 28 (docs/30): the employee master record. Last, after everything above is saved; it never fails the activation.
         await employeeLifecycle.OnActivatedAsync(o, ct);
@@ -791,6 +795,75 @@ public class OnboardingService(
         return saved;
     }
 
+    /// <summary>
+    /// 17 November 2026: reopens a cancelled onboarding (e.g. it was cancelled by mistake, or the new employee reported after all).
+    /// It goes back to the stage it was in when cancelled; before activation the stage is then worked out again from the documents,
+    /// letter and personal record, as usual. Everything kept while it was cancelled (letter, documents, tasks, induction) carries on.
+    /// Needs a reason; the history, the application, the new employee and the Heads of Department are told.
+    /// </summary>
+    public async Task<Result> ReopenAsync(int id, string? reason, CancellationToken ct = default)
+    {
+        if (!MayManage) return Result.Failure("Only a Recruitment Officer can do this.");
+        var o = await onboardings.GetByIdAsync(id, ct);
+        if (o is null) return Result.Failure("Onboarding not found.");
+        if (o.EmployeeUserId == MyId) return Result.Failure("This is your own appointment.");
+        if (o.Status != OnboardingStatus.Cancelled) return Result.Failure("Only a cancelled onboarding can be reopened.");
+        reason = Clean(reason);
+        if (reason is null || reason.Length < 5) return Result.Failure("Give the reason for reopening (e.g. cancelled by mistake, or the new employee reported after all).");
+        if (reason.Length > 2000) return Result.Failure("Keep the reason under 2,000 characters.");
+
+        var cancelled = (await history.ListAsync(a => a.OnboardingRecordId == o.Id && a.Action == OnboardingAction.Cancelled, ct))
+            .OrderByDescending(a => a.ActionAt).ThenByDescending(a => a.Id).FirstOrDefault();
+        var back = cancelled?.FromStatus is { } from && from != OnboardingStatus.Cancelled ? from : OnboardingStatus.Draft;
+        var app = (await applications.GetWithHistoryAsync(o.JobApplicationId, ct))!;
+        var now = DateTime.UtcNow;
+        o.CancelReason = null;
+        o.RecordStep(OnboardingAction.Reopened, back, MyId, scope.UserName, reason, now);
+        app.RecordStep(ApplicationAction.OnboardingReopened, app.Status, MyId, scope.UserName, reason, now);
+        var saved = await SaveAsync(ct);
+        if (!saved.Succeeded) return saved;
+        if (OnboardingWorkflow.BeforeActivation(o.Status)) await progress.RefreshAsync(o.Id, ct);
+
+        await mailer.ToUserAsync(o.EmployeeUserId, "Your onboarding at GREL has been reopened",
+            $"Your onboarding for <b>{WorkflowMailer.Enc(o.JobTitle)}</b> is open again. Please sign in to see what is still to do.",
+            links.MyApplication(o.JobApplicationId), "Open my onboarding", ct);
+        foreach (var hod in await HodsAsync(o, ct))
+            await mailer.ToUserAsync(hod, $"Onboarding {o.Number} reopened",
+                $"The onboarding of <b>{WorkflowMailer.Enc(o.EmployeeName)}</b> ({WorkflowMailer.Enc(o.JobTitle)}) was reopened: {WorkflowMailer.Enc(reason)}",
+                links.Onboarding(o.Id), "Open the onboarding", ct);
+        return saved;
+    }
+
+    /// <summary>
+    /// Phase 27 stage C: the Recruitment Officer gives the new employee more time for their documents, once, by at most
+    /// <see cref="OnboardingWorkflow.MaxDocumentExtensionDays"/> days, with a reason. The new employee is emailed.
+    /// </summary>
+    public async Task<Result> ExtendDocumentDeadlineAsync(int id, DateOnly? newDate, string? reason, CancellationToken ct = default)
+    {
+        var (o, error) = await LoadForHrAsync(id, ct);
+        if (o is null) return Result.Failure(error!);
+        if (!OnboardingWorkflow.BeforeActivation(o.Status) || o.Status == OnboardingStatus.Cancelled)
+            return Result.Failure("The document deadline only matters before the employee is activated.");
+        if (o.DocumentsDueDateExtended) return Result.Failure("The deadline has already been extended once.");
+        var current = o.DocumentsDueDate ?? Today;
+        var latest = current.AddDays(OnboardingWorkflow.MaxDocumentExtensionDays);
+        if (newDate is not { } until || until <= current || until > latest)
+            return Result.Failure($"Choose a new date after {current:d MMM yyyy} and no later than {latest:d MMM yyyy} (at most {OnboardingWorkflow.MaxDocumentExtensionDays} days more).");
+        reason = Clean(reason);
+        if (reason is null || reason.Length < 3) return Result.Failure("Give the reason for the extension.");
+        if (reason.Length > 500) return Result.Failure("Keep the reason under 500 characters.");
+
+        o.DocumentsDueDate = until;
+        o.DocumentsDueDateExtended = true;
+        o.RecordStep(OnboardingAction.DeadlineExtended, o.Status, MyId, scope.UserName, $"To {until:d MMM yyyy}: {reason}", DateTime.UtcNow);
+        var saved = await SaveAsync(ct);
+        if (saved.Succeeded)
+            await mailer.ToUserAsync(o.EmployeeUserId, "More time for your onboarding documents",
+                $"You now have until <b>{until.ToString("dddd d MMMM yyyy", Gb)}</b> to upload your onboarding documents for <b>{WorkflowMailer.Enc(o.JobTitle)}</b>.",
+                links.MyApplication(o.JobApplicationId), "Upload my documents", ct);
+        return saved;
+    }
+
     // ===================================================================== Lists and tasks
 
     public async Task<IReadOnlyList<OnboardingListItemDto>> SearchAsync(OnboardingFilter filter, CancellationToken ct = default)
@@ -833,7 +906,7 @@ public class OnboardingService(
                     counts.GetValueOrDefault(o.Id).Done, counts.GetValueOrDefault(o.Id).Total,
                     required.Count, required.Count(d => d.Status == EmployeeDocumentStatus.Verified),
                     required.Count(d => d.Status == EmployeeDocumentStatus.Pending),
-                    mine.Count(d => OnboardingWorkflow.AwaitsReview(d.Status)), mine.Count(d => d.Status == EmployeeDocumentStatus.Rejected));
+                    mine.Count(d => OnboardingWorkflow.AwaitsReview(d.Status)), mine.Count(d => d.Status == EmployeeDocumentStatus.Rejected), o.DocumentsDueDate);
             })
             .ToList();
     }

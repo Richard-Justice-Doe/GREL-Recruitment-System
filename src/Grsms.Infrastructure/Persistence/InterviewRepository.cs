@@ -17,6 +17,12 @@ public class InterviewRepository(ApplicationDbContext context) : Repository<Inte
             .AsSplitQuery()
             .FirstOrDefaultAsync(i => i.Id == id, ct);
 
+    public async Task<IReadOnlyList<Interview>> ListScheduledBetweenAsync(DateTime from, DateTime to, CancellationToken ct = default) =>
+        await Db.Interviews.AsNoTracking()
+            .Include(i => i.Panel)
+            .Where(i => i.Status == InterviewStatus.Scheduled && i.StartsAt >= from && i.StartsAt < to)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Interview>> ListForApplicationsAsync(IReadOnlyCollection<int> applicationIds, CancellationToken ct = default)
     {
         var ids = applicationIds.ToList();

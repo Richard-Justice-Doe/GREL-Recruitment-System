@@ -454,8 +454,9 @@ The first phase of "GRSMS Phase 2, the HR platform" ([30](30-hr-platform-impact-
 
 **Not done here:** script 28 not yet run on MySQL; pages not checked in a browser. Staff registered directly have no personal record or personnel file yet (Phase 29, *My HR*).
 
-## 🚧 Phase 27: Candidate onboarding document portal (10 November 2026), stage A of 3 delivered
+## ✅ Phase 27: Candidate onboarding document portal (10-12 November 2026), all three stages delivered
 
+**Stage C (12 November 2026, docs/35 Wave 1):** the daily job (`DocumentDeadlineService`, working days only) reminds the new employee of what is still outstanding **every 3 working days**, sends a **last reminder on the due date copied to the RO**, and on the day after tells the employee and the RO **once** that the documents are **overdue** (red *Overdue* badge on the onboarding page and list; the candidate's next step says so). Each RO gets **one daily digest** of the documents waiting for their verification. The RO may **extend the deadline once, by at most 14 days, with a reason** (history entry *Document deadline extended*, the employee is emailed). Nothing is blocked: the employee may still start work with documents outstanding. Tests: `DocumentDeadlineTests` (3).
 Numbered 27 because 22 to 26 are reserved for the approved automation plan ([26](26-automation-analysis.md)).
 
 **Asked for:** after an accepted offer, the candidate uploads every onboarding document in a mobile-friendly *My Onboarding* portal; the Recruitment Officer reviews each one (verify, or reject with a reason, then the candidate resubmits); configurable document types (education certificates split, expatriate documents); statuses Not submitted / Submitted / Under review / Verified / Rejected / Resubmitted; upload history; virus-scan placeholder; a tracking dashboard with filters; "ready for activation" logic; notifications; audit of every upload, view, verification, rejection and resubmission; permissions `onboarding.view / .manage / .verify-documents / .complete`.

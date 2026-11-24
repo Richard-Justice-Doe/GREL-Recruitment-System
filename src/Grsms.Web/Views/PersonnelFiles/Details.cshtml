@@ -17,8 +17,8 @@
         <p>Personnel file <strong>@Model.FileNumber</strong> · staff number @(Model.StaffNumber ?? "—") · @Model.JobTitle, @Model.DepartmentName · opened @Model.OpenedAt.ToString("dd MMM yyyy")</p>
     </div>
     <div class="d-flex gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All files</a>
         <a asp-controller="Onboarding" asp-action="Details" asp-route-id="@Model.OnboardingRecordId" class="btn btn-outline-secondary">The onboarding</a>
-        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All files</a>
     </div>
 </div>
 
@@ -43,6 +43,7 @@
                                     {
                                         case PersonnelDocumentKind.File:
                                             <a asp-action="Download" asp-route-id="@d.Id" class="fw-semibold text-decoration-none">@d.Title</a>
+                                            <partial name="_PreviewButton" model='((string?)Url.Action("Download", new { id = d.Id }), d.FileName)' />
                                             break;
                                         case PersonnelDocumentKind.Letter:
                                             <a asp-action="Letter" asp-route-id="@d.Id" class="fw-semibold text-decoration-none">@d.Title</a>

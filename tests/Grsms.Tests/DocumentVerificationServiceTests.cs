@@ -319,6 +319,29 @@ public class DocumentVerificationServiceTests : OnboardingTestBase
         Assert.False(await scope.ServiceProvider.GetRequiredService<Grsms.Infrastructure.Persistence.ApplicationDbContext>().Attachments.AnyAsync());
     }
 
+    /// <summary>22 Nov 2026 (docs/41, H3): fail closed: when the scanner is down, nothing is stored and the person is told to retry.</summary>
+    [Fact]
+    public async Task A_file_is_not_stored_when_the_virus_scanner_is_unavailable()
+    {
+        using var db = new TestDatabase(configure: s =>
+        {
+            s.RemoveAll<IVirusScanner>();
+            s.AddSingleton<IVirusScanner, ScannerDown>();
+        });
+        using var scope = db.NewScope();
+        var files = scope.ServiceProvider.GetRequiredService<AttachmentService>();
+        var r = await files.AddAsync(AttachmentOwners.EmployeeDocument, 1, AttachmentCategory.NewHireDocument, "card.pdf", FakePdf());
+        Assert.False(r.Succeeded);
+        Assert.Contains("could not be checked for viruses right now", r.Errors.Single());
+        Assert.False(await scope.ServiceProvider.GetRequiredService<Grsms.Infrastructure.Persistence.ApplicationDbContext>().Attachments.AnyAsync());
+    }
+
+    private sealed class ScannerDown : IVirusScanner
+    {
+        public Task<VirusScanResult> ScanAsync(Stream content, string fileName, CancellationToken ct = default) =>
+            Task.FromResult(VirusScanResult.NotAvailable);
+    }
+
     private sealed class RefuseEverything : IVirusScanner
     {
         public Task<VirusScanResult> ScanAsync(Stream content, string fileName, CancellationToken ct = default) =>

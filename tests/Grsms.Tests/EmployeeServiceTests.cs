@@ -68,7 +68,7 @@ public class EmployeeServiceTests : OnboardingTestBase
         // The accepted offer is now in the personnel file too (Recruitment documents), frozen as accepted.
         var offer = await Db(db => db.PersonnelFileDocuments.SingleAsync(d => d.SourceType == "OfferLetter"));
         Assert.Equal(PersonnelFileCategories.RecruitmentDocuments, offer.CategoryId);
-        Assert.Contains("8,500.00", offer.Content);
+        Assert.DoesNotContain("8,500", offer.Content); // docs/37 CR1: no salary on file
 
         // HR sees the record; the employee page links the onboarding, personnel file and probation.
         AsHrManager();
@@ -255,6 +255,10 @@ public class EmployeeServiceTests : OnboardingTestBase
         Assert.Contains("appears twice", result.Errors[1]);
         Assert.Equal(0, await Db(db => db.Employees.CountAsync()));
 
+        // 22 Nov 2026: a date of birth must be sensible.
+        var young = "StaffNumber,FullName,Email,Position,Department,Site,HireDate,DateOfBirth\r\n" +
+                    $"GREL-0209,Kojo Ansah,k.ansah@grel.test,Clerk,APM,HQ,2020-01-01,{Today.AddYears(-5):yyyy-MM-dd}\r\n";
+        Assert.Contains("at least 15 years ago", Assert.Single((await RunEmployees(s => s.ImportAsync(Csv(young)))).Errors));
         Assert.Contains("missing: Site", Assert.Single((await RunEmployees(s => s.ImportAsync(Csv("StaffNumber,FullName,Email,Position,Department,HireDate\r\nA,B,c@d.e,P,APM,2020-01-01")))).Errors));
     }
 
@@ -263,9 +267,9 @@ public class EmployeeServiceTests : OnboardingTestBase
     {
         AsHrManager();
         var apm = await Db(db => db.Departments.Where(d => d.Id == Apm).Select(d => d.Name).SingleAsync());
-        var csv = "Staff Number,Full Name,Email,Phone,Position,Department,Site,Grade,Employment Type,Hire Date,Status,Confirmation Date,Reports To Email,Contract End Date\n" +
-                  $"GREL-0301,Akosua Darko,a.darko@grel.test,,Field Officer,\"{apm}\",HQ,,Contract,2023-01-09,On probation,,k.owusu@grel.test,2027-01-08\n" +
-                  $"GREL-0302,\"Kofi Owusu, Jr\",k.owusu@grel.test,0244000002,Estate Manager,{apm},HQ,,,2015-07-01,Active,2016-01-01,hod@grel.test,\n";
+        var csv = "Staff Number,Full Name,Email,Phone,Position,Department,Site,Grade,Employment Type,Hire Date,Status,Confirmation Date,Reports To Email,Contract End Date,Date Of Birth\n" +
+                  $"GREL-0301,Akosua Darko,a.darko@grel.test,,Field Officer,\"{apm}\",HQ,,Contract,2023-01-09,On probation,,k.owusu@grel.test,2027-01-08,14/06/1990\n" +
+                  $"GREL-0302,\"Kofi Owusu, Jr\",k.owusu@grel.test,0244000002,Estate Manager,{apm},HQ,,,2015-07-01,Active,2016-01-01,hod@grel.test,,\n";
         var result = await RunEmployees(s => s.ImportAsync(Csv(csv)));
         Assert.True(result.Succeeded, string.Join(" | ", result.Errors));
         Assert.Equal(2, result.Imported);
@@ -276,6 +280,7 @@ public class EmployeeServiceTests : OnboardingTestBase
             (akosua.EmploymentType, akosua.Status, akosua.ContractEndDate, akosua.ReportsToUserId));
         Assert.Equal(kofi.UserId, Assert.Single(await HistoryAsync(akosua.Id)).ReportsToUserId);
         Assert.Equal((_hod, EmployeeStatus.Active), (kofi.ReportsToUserId, kofi.Status));
+        Assert.Equal(((DateOnly?)new DateOnly(1990, 6, 14), (DateOnly?)null), (akosua.DateOfBirth, kofi.DateOfBirth)); // 22 Nov 2026: optional, for birthdays
         Assert.Equal("Kofi Owusu, Jr", await Db(db => db.Users.Where(u => u.Id == kofi.UserId).Select(u => u.FullName).SingleAsync()));
 
         // The list: HR sees both; the search finds by name.
@@ -290,9 +295,12 @@ public class EmployeeServiceTests : OnboardingTestBase
         AsHrManager();
         var csv = new StringBuilder("StaffNumber,FullName,Email,Position,Department,Site,HireDate\n");
         for (var i = 1; i <= 12; i++)
-            csv.Append($"GREL-1{i:000},Worker {i:00},w{i}@grel.test,{(i == 7 ? "Tapper_Lead" : "Tapper")},{(i <= 9 ? "APM" : "HR")},ABU,2020-01-01\n");
+            csv.Append($"GREL-1{i:000},Worker {i:00},w{i}@grel.test,{(i == 7 ? "Tapper_Lead" : "Tapper")},{(i <= 9 ? "APM" : "HR")},{(i == 12 ? "HQ" : "ABU")},2020-01-01\n");
         Assert.True((await RunEmployees(s => s.ImportAsync(Csv(csv.ToString())))).Succeeded);
 
+        // 12 Nov 2026 (docs/35): by site (Worker 12 is at Head Office, the rest at Abura).
+        Assert.Equal("Worker 12", Assert.Single((await RunEmployees(s => s.SearchAsync(new EmployeeFilter { SiteId = 1 }))).Items).Name);
+        Assert.Equal(11, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter { SiteId = 2 }))).TotalCount);
         var first = await RunEmployees(s => s.SearchAsync(new EmployeeFilter { PageSize = 10 }));
         Assert.Equal((12, 2, 10), (first.TotalCount, first.TotalPages, first.Items.Count));
         Assert.Equal("Worker 01", first.Items[0].Name); // sorted by name
@@ -311,6 +319,99 @@ public class EmployeeServiceTests : OnboardingTestBase
         Assert.Equal(new EmployeeCountsDto(9, 0, 9, 0), await RunEmployees(s => s.CountsAsync()));
         As(_staff, Roles.Employee);
         Assert.Equal(0, (await RunEmployees(s => s.SearchAsync(new EmployeeFilter()))).TotalCount); // no permission
+    }
+
+    [Fact]
+    public async Task The_timeline_tells_the_whole_story_in_order()
+    {
+        var onboardingId = await ActivatedAsync();
+        var appId = (await RecordAsync(onboardingId)).JobApplicationId;
+        await Db(async db =>
+        {
+            db.Set<Grsms.Domain.Applications.ApplicationActionEntry>().Add(new Grsms.Domain.Applications.ApplicationActionEntry
+            {
+                JobApplicationId = appId, Action = Grsms.Domain.Applications.ApplicationAction.Submitted,
+                ToStatus = Grsms.Domain.Applications.ApplicationStatus.Submitted, ActorName = "Ama Mensah", ActionAt = DateTime.UtcNow.AddDays(-40)
+            });
+            return await db.SaveChangesAsync();
+        });
+        var e = await EmployeeAsync(_candidate);
+
+        AsHrManager();
+        var timeline = await RunEmployees(s => s.TimelineAsync(e.Id));
+        Assert.Equal(timeline.OrderBy(t => t.At).Select(t => t.Title), timeline.Select(t => t.Title)); // oldest first
+        Assert.Equal(("Recruitment", "Application submitted"), (timeline[0].Stage, timeline[0].Title));
+        Assert.Contains("Process Engineer", timeline[0].Detail);
+        Assert.Contains(timeline, t => t.Stage == "Onboarding" && t.Title.Contains("ctivated"));
+        Assert.Contains(timeline, t => t.Stage == "Probation");
+        Assert.Contains(timeline, t => t.Stage == "Job" && t.Title == "Hired: Process Engineer");
+        Assert.DoesNotContain(timeline, t => t.Stage == "Recruitment" && t.Title.StartsWith("Onboarding")); // not twice
+
+        As(_staff, Roles.Employee); // no permission: nothing
+        Assert.Empty(await RunEmployees(s => s.TimelineAsync(e.Id)));
+    }
+
+    [Fact]
+    public async Task The_organisation_chart_follows_line_managers_and_the_head_of_department()
+    {
+        AsHrManager();
+        async Task<int> Reg(string name, string email, string number, string? reportsTo)
+        {
+            var f = Kwame();
+            (f.FullName, f.Email, f.EmployeeNumber, f.ReportsToUserId) = (name, email, number, reportsTo);
+            var r = await RunEmployees(s => s.RegisterAsync(f));
+            Assert.True(r.Succeeded, string.Join(" ", r.Errors));
+            return r.Value;
+        }
+        var manager = await Reg("Mary Manager", "m.manager@grel.test", "GREL-0201", null);
+        var managerUser = (await Db(db => db.Employees.SingleAsync(e => e.Id == manager))).UserId;
+        await Reg("Sam Supervisor", "s.super@grel.test", "GREL-0202", managerUser);
+        await Reg("Tina Tapper", "t.tapper@grel.test", "GREL-0203", managerUser);
+        await Reg("Nobody Set", "n.set@grel.test", "GREL-0204", null); // no line manager: the APM Head of Department
+
+        var chart = await RunEmployees(s => s.OrgChartAsync(Apm));
+        // The APM HOD ("hod") has an account but no employee record: a name-only box with Mary and Nobody below.
+        var hodBox = Assert.Single(chart);
+        Assert.Equal((null, "hod"), (hodBox.EmployeeId, hodBox.Name));
+        Assert.Equal(["Mary Manager", "Nobody Set"], hodBox.Reports.Select(r => r.Name));
+        var mary = hodBox.Reports[0];
+        Assert.Equal(["Sam Supervisor", "Tina Tapper"], mary.Reports.Select(r => r.Name));
+        Assert.Equal((2, 4), (mary.TeamSize, hodBox.TeamSize));
+
+        Assert.Empty(await RunEmployees(s => s.OrgChartAsync(It))); // nobody in IT
+        As(_staff, Roles.Employee);
+        Assert.Empty(await RunEmployees(s => s.OrgChartAsync(null))); // no permission
+    }
+
+    [Fact]
+    public async Task Contract_expiry_alerts_go_out_once_per_stage()
+    {
+        AsHrManager();
+        var form = Kwame();
+        (form.EmploymentType, form.ContractEndDate) = (EmploymentType.FixedTermContract, Today.AddDays(45));
+        Assert.True((await RunEmployees(s => s.RegisterAsync(form))).Succeeded);
+        var permanent = Kwame();
+        (permanent.Email, permanent.EmployeeNumber) = ("p.permanent@grel.test", "GREL-0102"); // no contract end: never alerted
+        Assert.True((await RunEmployees(s => s.RegisterAsync(permanent))).Succeeded);
+
+        As(_staff, Roles.Employee); // the daily job acts as nobody in particular (the mailer never emails the person acting)
+        async Task<int> AlertsOn(DateOnly day)
+        {
+            using var scope = _db.NewScope();
+            return await scope.ServiceProvider.GetRequiredService<ContractAlertService>().RunAsync(day);
+        }
+
+        Assert.Equal(1, await AlertsOn(Today));         // 45 days left: the 60-day alert
+        Assert.Equal(0, await AlertsOn(Today));         // not twice
+        Assert.Equal(0, await AlertsOn(Today.AddDays(10))); // 35 days left: still the 60-day stage
+        Assert.Equal(1, await AlertsOn(Today.AddDays(15))); // 30 days left
+        Assert.Equal(1, await AlertsOn(Today.AddDays(40))); // 5 days left (a missed day): the 7-day alert
+        Assert.Equal(0, await AlertsOn(Today.AddDays(46))); // ended
+
+        var mails = _db.SentEmails();
+        Assert.Contains(mails, m => m.Contains("To: hrm@grel.test") && m.Contains("Contract ending in 45 days"));
+        Assert.Contains(mails, m => m.Contains("To: hod@grel.test") && m.Contains("Contract ending in 45 days")); // Head of APM
+        Assert.Contains(mails, m => m.Contains("To: k.boateng@grel.test") && m.Contains("Your contract ends"));
     }
 
     [Fact]

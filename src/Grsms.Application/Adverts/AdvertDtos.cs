@@ -29,6 +29,19 @@ public class AdvertFormDto
     [Display(Name = "How to apply")]
     public string HowToApply { get; set; } = string.Empty;
 
+    // 13 Nov 2026 (docs/36 AI-1): optional texts for other channels; empty = built from the advert text.
+    [StringLength(10000)]
+    [Display(Name = "Job boards and newspapers (optional)")]
+    public string? ExternalText { get; set; }
+
+    [StringLength(3000)]
+    [Display(Name = "LinkedIn post (optional)")]
+    public string? LinkedInText { get; set; }
+
+    [StringLength(10000)]
+    [Display(Name = "Internal notice for staff (optional)")]
+    public string? InternalNotice { get; set; }
+
     [Required]
     [DataType(DataType.Date)]
     [Display(Name = "Start date")]
@@ -121,6 +134,7 @@ public record AdvertDetailsDto
     public string Title { get; init; } = "";
     public string Body { get; init; } = "";
     public string HowToApply { get; init; } = "";
+    public string? InternalNotice { get; init; } // docs/36 AI-1
     public DateOnly StartDate { get; init; }
     public DateOnly EndDate { get; init; }
     public DateTime? PublishedAt { get; init; }
@@ -157,16 +171,7 @@ public record AdvertDetailsDto
     // ---- What the current user may do
     public bool CanEdit { get; init; }
 
-    /// <summary>Saving changes takes the published advert offline and sends it back for review.</summary>
-    public bool EditTakesOffline { get; init; }
-
-    /// <summary>Send it for the HR review (the author).</summary>
-    public bool CanSubmit { get; init; }
-
-    /// <summary>The HR review: approve it for the IT Manager.</summary>
-    public bool CanHrApprove { get; init; }
-
-    /// <summary>The IT approval, which publishes it (now or on its start date).</summary>
+    /// <summary>17 Nov 2026: publish it (now or on its start date), with no review: the Recruitment Officer (or IT Manager).</summary>
     public bool CanPublish { get; init; }
 
     public bool CanReturn { get; init; }
@@ -182,7 +187,7 @@ public record AdvertDetailsDto
     /// <summary>Record an external channel as taken down (the IT Manager, also after the advert closed or went offline).</summary>
     public bool CanRecordRemoval { get; init; }
 
-    /// <summary>Why the advert cannot be sent for review or published right now (e.g. the vacancy is not published), if so.</summary>
+    /// <summary>Why the advert cannot be published right now (e.g. the vacancy is not published), if so.</summary>
     public string? PublishBlockedReason { get; init; }
 }
 

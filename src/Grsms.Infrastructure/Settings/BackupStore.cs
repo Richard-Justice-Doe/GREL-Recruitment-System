@@ -12,8 +12,8 @@ namespace Grsms.Infrastructure.Settings;
 ///     another file on the server.
 ///   * "Back up now" leaves a request file (requests/backup-request); the backup service checks for it every 30 seconds,
 ///     makes the backup and removes the file. GRSMS itself never runs mysqldump and never restores.
-///   * Database dumps can be downloaded. The files archive cannot: it holds the data-protection KEYS as well as every
-///     uploaded document, so it is copied from the server by IT, never through the web.
+///   * Only ENCRYPTED database dumps (".gpg", 22 Nov 2026, docs/41 H4) can be downloaded. Plain dumps, the uploaded-files archive
+///     and the keys archive are copied from the server by IT, never through the web.
 /// </summary>
 public sealed partial class BackupStore(IConfiguration config) : IBackupStore
 {
@@ -29,7 +29,7 @@ public sealed partial class BackupStore(IConfiguration config) : IBackupStore
 
         var files = new DirectoryInfo(folder).GetFiles("grsms-*")
             .Where(f => BackupName().IsMatch(f.Name))
-            .Select(f => new BackupFileDto(f.Name, f.Name.StartsWith("grsms-db-") ? "Database" : "Files and keys", f.Length, f.LastWriteTimeUtc))
+            .Select(f => new BackupFileDto(f.Name, KindOf(f.Name), f.Length, f.LastWriteTimeUtc, f.Name.EndsWith(".gpg")))
             .OrderByDescending(f => f.CreatedAt).ToList();
         var request = new FileInfo(Path.Combine(folder, RequestFileName));
         DateTime? requested = request.Exists ? request.LastWriteTimeUtc : null;
@@ -47,11 +47,16 @@ public sealed partial class BackupStore(IConfiguration config) : IBackupStore
 
     public Stream? Open(string name)
     {
-        if (Folder is not { } folder || !BackupName().IsMatch(name ?? "") || !name!.StartsWith("grsms-db-")) return null;
+        // 22 Nov 2026 (docs/41, H4): only ENCRYPTED database dumps leave the server through the web; plain dumps are copied by IT.
+        if (Folder is not { } folder || !BackupName().IsMatch(name ?? "") || !name!.StartsWith("grsms-db-") || !name.EndsWith(".gpg")) return null;
         var path = Path.Combine(folder, name);
         return File.Exists(path) ? new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read) : null;
     }
 
-    [GeneratedRegex(@"^grsms-(db|files)-\d{8}-\d{4}\.(sql|tar)\.gz$")]
+    private static string KindOf(string name) =>
+        name.StartsWith("grsms-db-") ? "Database" : name.StartsWith("grsms-keys-") ? "Encryption keys" : "Uploaded files";
+
+    // 22 Nov 2026 (docs/41, H4): encrypted copies end in ".gpg"; the keys are in their own archive ("grsms-keys-").
+    [GeneratedRegex(@"^grsms-(db|files|keys)-\d{8}-\d{4}\.(sql|tar)\.gz(\.gpg)?$")]
     private static partial Regex BackupName();
 }

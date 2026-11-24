@@ -16,22 +16,25 @@ public enum RecruitmentRequestStatus
     [Display(Name = "Returned for correction")] Returned,
 
     /// <summary>Stage 1: waiting for the Head of the request's department to review it.</summary>
-    [Display(Name = "Department Head review")] DepartmentHeadReview,
+    [Display(Name = "Department Head approval")] DepartmentHeadReview,
 
     /// <summary>
-    /// The Recruitment Officer review stage of the first workflow (used until November 2026). No new request enters it;
-    /// requests already sitting here can still be decided by a Recruitment Officer and then go on to HR approval.
+    /// Stage 2 (since 17 Nov 2026; also the second stage of the first workflow): a Recruitment Officer verifies the request,
+    /// validates the vacancy details and confirms the requirements, then it goes to the MD.
     /// </summary>
-    [Display(Name = "Recruitment review (earlier workflow)")] RecruitmentReview,
+    [Display(Name = "Recruitment Officer review")] RecruitmentReview,
 
-    /// <summary>Stage 2: waiting for the HR Manager (a budget approval document is optional).</summary>
-    [Display(Name = "HR Manager review")] HrApproval,
+    /// <summary>
+    /// The HR Manager review of the 5–17 Nov 2026 workflow. No new request enters it; requests already here are still decided by
+    /// the HR Manager and then go to the MD.
+    /// </summary>
+    [Display(Name = "HR Manager review (earlier workflow)")] HrApproval,
 
-    /// <summary>Stage 3: waiting for the Managing Director's final approval.</summary>
+    /// <summary>Stage 3: waiting for the Managing Director's approval, the last approval.</summary>
     [Display(Name = "MD approval")] MdApproval,
 
-    /// <summary>Fully approved. Only now may recruitment begin: HR converts it into a vacancy.</summary>
-    [Display(Name = "Approved")] Approved,
+    /// <summary>Approved by the MD: approved for recruitment. The Recruitment Officer creates the vacancy and the advert, with no further approval.</summary>
+    [Display(Name = "Approved for recruitment")] Approved,
 
     /// <summary>Rejected permanently by a reviewer. Final.</summary>
     [Display(Name = "Rejected")] Rejected,

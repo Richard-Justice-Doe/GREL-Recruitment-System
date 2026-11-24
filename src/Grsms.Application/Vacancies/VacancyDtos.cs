@@ -215,7 +215,8 @@ public record VacancyDetailsDto
 
     // ---- permissions
     public bool CanEdit { get; init; }
-    public bool CanSubmit { get; init; }
+    /// <summary>17 Nov 2026: the Recruitment Officer publishes it directly (no approval).</summary>
+    public bool CanPublish { get; init; }
     public bool CanDecide { get; init; }
     public string? DecisionBlockedReason { get; init; }
     public bool CanClose { get; init; }

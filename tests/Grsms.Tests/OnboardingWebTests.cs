@@ -147,12 +147,21 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Contains("Your letter is being prepared", waiting);
         Assert.Contains("Your first day", waiting);
         Assert.DoesNotContain("Sign the letter", waiting);
+        Assert.Equal(HttpStatusCode.NotFound, (await employee.GetAsync($"/MyApplications/AppointmentPdf/{c.ApplicationId}")).StatusCode); // not issued
 
         var recruiter = await SignedInAsync(c.Email("ro"));
+        // 13 Nov 2026: staff can download the draft as a PDF, marked DRAFT.
+        Assert.Equal("application/pdf", (await recruiter.GetAsync($"/Onboarding/LetterPdf/{id}")).Content.Headers.ContentType!.MediaType);
+        Assert.Contains("class=\"draft-mark\"", factory.Pdf.LastHtml);
         Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(url, $"/Onboarding/IssueLetter/{id}",
             new() { ["terms"] = "Probation: 6 months. Hours: 7:30 to 16:30, Monday to Friday." })).StatusCode);
         Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(letterPage, $"/MyApplications/SignLetter/{c.ApplicationId}",
             new() { ["fullName"] = fullName, ["confirm"] = "true" })).StatusCode);
+
+        // The signed letter as a PDF, with the electronic signature line.
+        Assert.Equal("application/pdf", (await employee.GetAsync($"/MyApplications/AppointmentPdf/{c.ApplicationId}")).Content.Headers.ContentType!.MediaType);
+        Assert.Contains("Accepted and signed electronically", factory.Pdf.LastHtml);
+        Assert.DoesNotContain("class=\"draft-mark\"", factory.Pdf.LastHtml);
     }
 
     private Task<List<EmployeeDocument>> DocumentsAsync(int onboardingId) =>
@@ -362,11 +371,12 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
         Assert.Contains("Your first day", tracker);
         Assert.Contains("Garage workshop, Abura", tracker);
         Assert.Contains("Upload my new-hire documents", tracker);
+        Assert.Contains("Welcome to your onboarding journey", tracker); // G3
         Assert.Contains("Read and sign my appointment letter", tracker);
         var letterPage = $"/MyApplications/Appointment/{c.ApplicationId}";
         var letter = await employee.GetStringAsync(letterPage);
         Assert.Contains("Letter of appointment: Diesel Mechanic", letter);
-        Assert.Contains("3,900.00", letter);
+        Assert.Contains("Remuneration", letter); Assert.DoesNotContain("GHS", letter); // docs/37 CR1
         await employee.PostFormAsync(letterPage, $"/MyApplications/SignLetter/{c.ApplicationId}", new() { ["fullName"] = "Efua Asante" }); // box not ticked
         Assert.Equal(HttpStatusCode.Redirect, (await employee.PostFormAsync(letterPage, $"/MyApplications/SignLetter/{c.ApplicationId}",
             new() { ["fullName"] = "Efua Asante", ["confirm"] = "true" })).StatusCode);
@@ -590,6 +600,68 @@ public class OnboardingWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWe
             Assert.Contains(screen, adminPage);
         Assert.DoesNotContain("Backups", adminPage); // Super Admin only
         var panelClient = await SignedInAsync("m.panel@grel.test");
-        Assert.Contains("/Account/AccessDenied", (await panelClient.GetAsync("/Administration")).Headers.Location!.ToString()); // nothing to administer
+        // 22 Nov 2026 (docs/41 H2): nothing to administer except their own account: only "Two-step sign-in".
+        var panelAdmin = await panelClient.GetStringAsync("/Administration");
+        Assert.Contains("Two-step sign-in", panelAdmin);
+        Assert.DoesNotContain("Departments", panelAdmin);
+    }
+
+    /// <summary>docs/36 AI-6: the assistant shows only when switched on, answers the new employee and staff, and refuses other people's onboarding.</summary>
+    [Fact]
+    public async Task Onboarding_assistant_shows_when_switched_on_and_answers_through_the_ai_endpoint()
+    {
+        var start = Today.AddDays(14);
+        var c = await AcceptedOfferAsync("as", "Kwesi Ofori", start);
+        var (details, id) = await StartAsync(c, start);
+        var employee = await SignedInAsync(c.Email("cand"));
+        var recruiter = await SignedInAsync(c.Email("ro"));
+        var myPage = $"/MyApplications/Details/{c.ApplicationId}";
+        var myDocuments = $"/MyApplications/Documents/{c.ApplicationId}";
+        Assert.DoesNotContain("data-assistant", await employee.GetStringAsync(myPage));
+        Assert.DoesNotContain("data-assistant", await recruiter.GetStringAsync(details));
+
+        async Task SwitchAsync(bool on)
+        {
+            using var scope = factory.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<Grsms.Application.Settings.ISettingsStore>().SaveAsync(new Dictionary<string, string?>
+            {
+                [Grsms.Domain.Settings.SettingCatalogue.AiEnabled] = on ? "true" : "false",
+                [Grsms.Domain.Settings.SettingCatalogue.AiApiKey] = on ? "k" : "",
+                [Grsms.Domain.Settings.SettingCatalogue.AiFeatureKey(Grsms.Domain.Ai.AiFeature.OnboardingAssistant)] = on ? "true" : "false"
+            });
+        }
+        await SwitchAsync(true);
+        try
+        {
+            Assert.Contains("Questions about your onboarding? Ask the assistant", await employee.GetStringAsync(myPage));
+            Assert.Contains("data-assistant", await employee.GetStringAsync(myDocuments));
+            Assert.Contains("Ask the onboarding assistant", await recruiter.GetStringAsync(details));
+
+            factory.Ai.Reply = _ => new Grsms.Application.Ai.AiReply("""{"answer":"Upload your Ghana Card first.","actions":["documents","/Admin"]}""", 10, 10, "m");
+            var mine = await employee.PostFormAsync(myDocuments, "/Ai/Onboarding", new()
+            {
+                ["applicationId"] = c.ApplicationId.ToString(), ["question"] = "What is missing?", ["history"] = """[{"u":true,"t":"Hello"}]"""
+            });
+            var json = await mine.Content.ReadAsStringAsync();
+            Assert.Contains("\"ok\":true", json);
+            Assert.Contains("Upload your Ghana Card first.", json);
+            Assert.Contains($"\"url\":\"/MyApplications/Documents/{c.ApplicationId}\"", json);
+            Assert.DoesNotContain("/Admin", json);
+
+            factory.Ai.Reply = _ => new Grsms.Application.Ai.AiReply("""{"answer":"The letter is not issued yet.","actions":["letter"]}""", 10, 10, "m");
+            var staff = await (await recruiter.PostFormAsync(details, "/Ai/Onboarding", new() { ["onboardingId"] = id.ToString(), ["question"] = "Is the letter out?" }))
+                .Content.ReadAsStringAsync();
+            Assert.Contains($"\"url\":\"/Onboarding/Letter/{id}\"", staff);
+
+            // Not their own application / not an onboarding they may open.
+            Assert.Contains("Onboarding not found.", await (await recruiter.PostFormAsync(details, "/Ai/Onboarding",
+                new() { ["applicationId"] = c.ApplicationId.ToString(), ["question"] = "What is missing?" })).Content.ReadAsStringAsync());
+            Assert.Contains("Onboarding not found.", await (await employee.PostFormAsync(myDocuments, "/Ai/Onboarding",
+                new() { ["onboardingId"] = id.ToString(), ["question"] = "What is missing?" })).Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            await SwitchAsync(false);
+        }
     }
 }

@@ -135,6 +135,10 @@
                                 {
                                     <span class="badge rounded-pill badge-soft-warning me-1" title="Uploaded, waiting for the Recruitment Officer">@o.DocsToVerify to verify</span>
                                 }
+                                @if (o.DocumentsOverdue(today))
+                                {
+                                    <span class="badge rounded-pill text-bg-danger me-1" title="Past the document deadline (@o.DocumentsDueDate?.ToString("d MMM"))">overdue</span>
+                                }
                                 @if (o.DocsRejected > 0)
                                 {
                                     <span class="badge rounded-pill badge-soft-danger me-1" title="Rejected, waiting for a replacement">@o.DocsRejected rejected</span>

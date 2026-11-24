@@ -12,7 +12,7 @@ namespace Grsms.Web.Controllers;
 /// Rules live in <see cref="HiringService"/>.
 /// </summary>
 [Authorize(Policy = Policies.Applications)]
-public class HiringController(HiringService hiring, Application.Onboarding.OnboardingService onboarding) : AppController
+public class HiringController(HiringService hiring, Application.Onboarding.OnboardingService onboarding, Application.Ai.AiSummaryService summaries) : AppController
 {
     /// <param name="filter">Tab "ready" (validated, to recommend), "awaiting" (my decision), "approved", "offers" or "all", plus the report filters.</param>
     public async Task<IActionResult> Index([FromQuery] HiringFilter filter, CancellationToken ct)
@@ -24,13 +24,20 @@ public class HiringController(HiringService hiring, Application.Onboarding.Onboa
     }
 
     /// <param name="id">The application id.</param>
-    public async Task<IActionResult> Case(int id, CancellationToken ct)
+    public async Task<IActionResult> Case(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await hiring.GetCaseAsync(id, ct);
         if (model is null) return NotFound();
         ViewBag.OnboardingId = await onboarding.IdForApplicationAsync(id, ct); // Phase 9
+        ViewBag.AiSummary = Helpers.AiInsightCard.Interview(await summaries.GetInterviewPanelAsync(id, ct), id); // docs/36 AI-5
+        ViewBag.Process = await guide.ForApplicationAsync(id, ct); // docs/37 CR5
         return View(model);
     }
+
+    /// <summary>docs/36 AI-5: the AI interview summary (validated scores only, advisory).</summary>
+    [HttpPost]
+    public Task<IActionResult> GenerateInterviewSummary(int id, CancellationToken ct) =>
+        Act(id, () => summaries.GenerateInterviewSummaryAsync(id, ct), "Interview summary written. It is advice only.");
 
     [HttpPost]
     public Task<IActionResult> AddCheck(int id, CheckType type, string? subject, CancellationToken ct) =>
@@ -80,10 +87,38 @@ public class HiringController(HiringService hiring, Application.Onboarding.Onboa
     public Task<IActionResult> DiscardDraft(int id, CancellationToken ct) =>
         Act(id, () => hiring.DiscardDraftAsync(id, ct), "Draft discarded. The candidate is back in \"Ready to recommend\".");
 
+    /// <param name="save">"Save draft" was clicked (13 Nov 2026); otherwise "Send offer".</param>
     [HttpPost]
-    public Task<IActionResult> SendOffer(int id, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, CancellationToken ct) =>
-        Act(id, async () => Plain(await hiring.SendOfferAsync(id, salary, startDate, expiresOn, terms, ct)),
-            "Offer sent. The candidate has been emailed and can accept or decline in their portal.");
+    public Task<IActionResult> SendOffer(int id, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, bool save, CancellationToken ct) =>
+        save
+            ? Act(id, async () => Plain(await hiring.SaveOfferDraftAsync(id, salary, startDate, expiresOn, terms ?? "", ct)),
+                "Draft saved. Preview the letter, then send it when ready.")
+            : Act(id, async () => Plain(await hiring.SendOfferAsync(id, salary, startDate, expiresOn, terms ?? "", ct)),
+                "Offer sent. The candidate has been emailed and can accept or decline in their portal.");
+
+    /// <summary>13 Nov 2026: the offer letter as the candidate will see it (the draft before sending, or the offer sent).</summary>
+    public async Task<IActionResult> OfferLetter(int id, CancellationToken ct)
+    {
+        var letter = await hiring.GetOfferLetterAsync(id, ct);
+        if (letter is null) return NotFound();
+        ViewBag.ApplicationId = id;
+        return View(letter);
+    }
+
+    /// <summary>13 Nov 2026: the offer letter as a PDF (a draft is marked DRAFT).</summary>
+    public async Task<IActionResult> OfferPdf(int id, [FromServices] Helpers.LetterPdfBuilder pdf, CancellationToken ct)
+    {
+        var letter = await hiring.GetOfferLetterAsync(id, ct);
+        if (letter is null) return NotFound();
+        var draft = letter.Status == Domain.Hiring.OfferStatus.Draft;
+        var bytes = await pdf.BuildAsync(ControllerContext, $"Offer {letter.Number}", "_OfferLetter", letter, draft, ct);
+        if (bytes is null)
+        {
+            Error("The PDF could not be made on this server. Use Print instead (choose \"Save as PDF\").");
+            return RedirectToAction(nameof(OfferLetter), new { id });
+        }
+        return File(bytes, "application/pdf", $"{letter.Number}{(draft ? "-DRAFT" : "")}.pdf");
+    }
 
     [HttpPost]
     public Task<IActionResult> WithdrawOffer(int id, string? reason, CancellationToken ct) =>

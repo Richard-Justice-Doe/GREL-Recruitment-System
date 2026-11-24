@@ -1,0 +1,146 @@
+@* docs/36 AI-7: add a knowledge-base document (details + file), or edit one: details, a new version of the file (the old one is kept),
+   what GRSMS read from it, archive or delete. *@
+@model KnowledgeDocumentForm
+@{
+    var isNew = Model.Id is null;
+    var details = ViewBag.Details as KnowledgeDocumentDetails;
+    ViewData["Title"] = isNew ? "Add a document" : Model.Title;
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+    var accept = string.Join(",", KnowledgeBaseService.FileTypes);
+}
+
+<div class="page-header">
+    <div>
+        <h1>@ViewData["Title"] @if (details is { Document.IsActive: false }) { <span class="badge rounded-pill badge-soft-secondary">Archived</span> }</h1>
+        <p>@(isNew ? "A PDF or Word file. GRSMS reads its text and splits it into sections that staff can search." : $"Version {details?.Document.Version} · {details?.Document.SectionCount} sections")</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All documents</a>
+        @if (!isNew)
+        {
+            <a asp-controller="Knowledge" asp-action="Document" asp-route-id="@Model.Id" class="btn btn-outline-secondary"><i class="fa-regular fa-eye me-1"></i>As staff see it</a>
+        }
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <form asp-action="@(isNew ? "Create" : "Edit")" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="card glass" novalidate>
+            <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Details</h2>
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label asp-for="Title" class="form-label"></label>
+                        <input asp-for="Title" class="form-control" placeholder="e.g. Leave Policy" />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Owner" class="form-label"></label>
+                        <input asp-for="Owner" class="form-control" />
+                        <span asp-validation-for="Owner" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="Version" class="form-label"></label>
+                        <input asp-for="Version" class="form-control" />
+                        <span asp-validation-for="Version" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="EffectiveDate" class="form-label"></label>
+                        <input asp-for="EffectiveDate" type="date" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Audience" class="form-label"></label>
+                        <select asp-for="Audience" asp-items="Html.GetEnumSelectList<KnowledgeAudience>()" class="form-select"></select>
+                        <div class="form-text">"Staff and new employees": also used by the onboarding assistant to answer new employees' policy questions.</div>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Summary" class="form-label"></label>
+                        <textarea asp-for="Summary" class="form-control" rows="2" maxlength="500"></textarea>
+                    </div>
+                    @if (isNew)
+                    {
+                        <div class="col-12">
+                            <label for="file" class="form-label">File (PDF or Word .docx)</label>
+                            <input id="file" name="file" type="file" class="form-control" accept="@accept" required />
+                            <div class="form-text">Use a PDF with a text layer or the Word file: a scanned image can be stored but not searched.</div>
+                        </div>
+                    }
+                </div>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>@(isNew ? "Add the document" : "Save")</button>
+                </div>
+            </div>
+        </form>
+
+        @if (details is not null)
+        {
+            <details class="card glass mt-3">
+                <summary class="card-body py-3 px-4 fw-semibold">What GRSMS read from the file (@details.Sections.Count sections)</summary>
+                <div class="card-body pt-0 px-4 pb-4">
+                    @if (details.Document.ReadProblem is not null)
+                    {
+                        <div class="alert alert-warning small mb-0">@details.Document.ReadProblem</div>
+                    }
+                    @foreach (var s in details.Sections)
+                    {
+                        <div class="kb-match">
+                            <div class="fw-semibold small">@s.SortOrder. @s.Heading</div>
+                            <div class="small text-body-secondary">@(s.Text.Length > 240 ? s.Text[..240] + "…" : s.Text)</div>
+                        </div>
+                    }
+                </div>
+            </details>
+        }
+    </div>
+
+    @if (details is not null)
+    {
+        <div class="col-xl-5">
+            <div class="card glass mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">The file</h2>
+                    <p class="small mb-2"><i class="fa-regular fa-file me-1"></i>@details.Document.FileName
+                        <span class="ms-2"><partial name="_PreviewButton" model='((string?)Url.Action("Open", "Knowledge", new { id = Model.Id }), (string?)details.Document.FileName)' /></span></p>
+                    <form asp-action="Replace" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="border-top pt-3 mt-3">
+                        <label for="replace-file" class="form-label small fw-semibold">Upload a new version</label>
+                        <input id="replace-file" name="file" type="file" class="form-control form-control-sm mb-2" accept="@accept" required />
+                        <div class="d-flex gap-2 align-items-center">
+                            <label for="replace-version" class="small text-nowrap">New version</label>
+                            <input id="replace-version" name="version" class="form-control form-control-sm" maxlength="30" placeholder="@details.Document.Version" />
+                            <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="fa-solid fa-upload me-1"></i>Upload</button>
+                        </div>
+                        <div class="form-text">The text is read again; the earlier file stays below as history.</div>
+                    </form>
+                    @if (details.Files.Count > 1)
+                    {
+                        <h3 class="h6 mt-3 mb-2">Earlier files</h3>
+                        <ul class="small mb-0 ps-3">
+                            @foreach (var f in details.Files.Skip(1)) @* newest first: the first is the current file *@
+                            {
+                                <li><a asp-controller="Knowledge" asp-action="Open" asp-route-id="@Model.Id" asp-route-attachmentId="@f.Id">@f.FileName</a>
+                                    <span class="text-body-secondary">@f.UploadedAt.ToString("d MMM yyyy", gb)@(f.UploadedBy is null ? "" : $", {f.UploadedBy}")</span></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+            <div class="card glass">
+                <div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Use</h2>
+                    <form asp-action="SetActive" asp-route-id="@Model.Id" method="post" class="mb-2">
+                        <input type="hidden" name="active" value="@(details.Document.IsActive ? "false" : "true")" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            @if (details.Document.IsActive) { <i class="fa-solid fa-box-archive me-1"></i><text>Archive (stop using it)</text> }
+                            else { <i class="fa-solid fa-rotate-left me-1"></i><text>Put back in use</text> }
+                        </button>
+                    </form>
+                    <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Delete &quot;@details.Document.Title&quot;? Use this only for a document added by mistake; archive it otherwise.">
+                            <i class="fa-solid fa-trash me-1"></i>Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>

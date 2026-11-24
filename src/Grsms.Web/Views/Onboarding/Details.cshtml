@@ -25,17 +25,18 @@
 Probation: 6 months from the date of appointment, after which your appointment will be confirmed subject to satisfactory performance.
 Working hours: 8:00 to 17:00, Monday to Friday, or as your department requires.
 Annual leave, medical cover and other benefits: in line with GREL's conditions of service for your grade.
-Notice: one month's notice or one month's salary in lieu, on either side, after confirmation.
+Notice: one month's notice on either side, after confirmation.
 """;
 }
 
 <div class="page-header">
     <div>
-        <h1>Onboarding: @Model.EmployeeName <span class="badge rounded-pill @StatusCss(Model.Status) fs-6 align-middle">@Model.Status.DisplayName()</span></h1>
+        <h1>Onboarding: @Model.EmployeeName <span class="badge rounded-pill @StatusCss(Model.Status)">@Model.Status.DisplayName()</span></h1>
         <p>@Model.Number · @Model.JobTitle · @Model.DivisionName → @Model.DepartmentName · @Model.SiteName
             · starts <strong>@Model.StartDate.ToString("ddd dd MMM yyyy")</strong></p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All onboarding</a>
         @if ((await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded)
         {
             <a asp-controller="Hiring" asp-action="Case" asp-route-id="@Model.ApplicationId" class="btn btn-outline-secondary">Hiring case</a>
@@ -51,15 +52,44 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                 <button type="submit" class="btn btn-outline-primary"><i class="fa-regular fa-folder-open me-1"></i>Open the personnel file</button>
             </form>
         }
-        <a asp-action="Index" class="btn btn-outline-secondary">All onboarding</a>
     </div>
 </div>
 
 @if (Model.Status == OnboardingStatus.Cancelled)
 {
-    <div class="alert alert-secondary">Cancelled: @Model.CancelReason</div>
+    <div class="alert alert-secondary">
+        <div><strong>Cancelled:</strong> @Model.CancelReason</div>
+        @if (Model.CanReopen)
+        {
+            @* 17 Nov 2026: a cancelled onboarding can be reopened; it returns to the stage it was in. *@
+            <form asp-action="Reopen" asp-route-id="@Model.Id" method="post" class="mt-2">
+                <div class="input-group input-group-sm">
+                    <input name="reason" class="form-control" maxlength="2000" required placeholder="Why reopen? (e.g. cancelled by mistake, the new employee reported after all)" aria-label="Reason for reopening" />
+                    <button type="submit" class="btn btn-primary" data-confirm="Reopen this onboarding? It goes back to the stage it was in, and the new employee is told."><i class="fa-solid fa-rotate-left me-1"></i>Reopen onboarding</button>
+                </div>
+            </form>
+        }
+    </div>
 }
 
+@* docs/37 CR5: the whole journey (who acts next, since when); the onboarding steps follow below. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process) { <partial name="_ProcessGuide" model="process" /> }
+@* G3 (15 Nov 2026): the onboarding journey (the same stages the new employee sees) replaces the 1-6 stepper; a cancelled onboarding
+   keeps the stepper, which shows where it stopped. *@
+@if (Model.Status != OnboardingStatus.Cancelled)
+{
+    <partial name="_OnboardingJourney" model="Grsms.Application.Onboarding.OnboardingJourneyService.ForStaff(Model)" />
+    @if (OnboardingWorkflow.IsActive(Model.Status) && Model.ExpectedCompletionDate is { } expectedBy)
+    {
+        <p class="small text-body-secondary mt-n2 mb-3">Expected to be complete by <strong>@expectedBy.ToString("dd MMM yyyy")</strong>@(expectedBy < today ? " (overdue)" : "").</p>
+    }
+    else if (Model.CompletedAt is { } doneAt)
+    {
+        <p class="small text-body-secondary mt-n2 mb-3">Completed on @doneAt.ToString("dd MMM yyyy"), staff number <strong>@Model.EmployeeNumber</strong>.</p>
+    }
+}
+else
+{
 <div class="card glass mb-3">
     <div class="card-body py-4">
         <partial name="_OnboardingStepper" model="(Model.Status, Model.History.LastOrDefault(h => h.ToStatus == OnboardingStatus.Cancelled)?.FromStatus)" />
@@ -75,7 +105,10 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
         }
     </div>
 </div>
+}
 
+@* docs/36 AI-6: the onboarding assistant (only when switched on in AI settings; folded until opened) *@
+<partial name="_OnboardingAssistant" model="new Grsms.Web.Helpers.AssistantBox(null, Model.Id)" />
 <div class="row g-3" data-section-tabs data-section-default="@(OnboardingWorkflow.BeforeActivation(Model.Status) ? "Documents" : "Checklist")">
     <div class="col-xl-7">
         @* ---- Phase 19: the personal record declaration (HR only) *@
@@ -282,7 +315,27 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
                         </div>
                         @if (Model.DocumentsDueDate is { } due)
                         {
-                            <p class="small mb-2">Documents due <strong>@due.ToString("ddd dd MMM yyyy")</strong>@(due < today && !Model.Documents.ReadyForActivation ? " (overdue)" : "")@(Model.DocumentsDueDateExtended ? " · extended once" : "").</p>
+                            var late = due < today && Model.Outstanding.Count > 0;
+                            <p class="small mb-2">
+                                Documents due <strong>@due.ToString("ddd dd MMM yyyy")</strong>
+                                @if (late) { <span class="badge rounded-pill text-bg-danger ms-1">Overdue</span> }
+                                @(Model.DocumentsDueDateExtended ? " · extended once" : "")
+                            </p>
+                            @* Phase 27 stage C: one extension, at most 14 days. *@
+                            @if (Model.CanManage && !Model.DocumentsDueDateExtended && OnboardingWorkflow.BeforeActivation(Model.Status) && Model.Status != OnboardingStatus.Cancelled)
+                            {
+                                <details class="small mb-2">
+                                    <summary>Give more time (once)</summary>
+                                    <form asp-action="ExtendDeadline" asp-route-id="@Model.Id" method="post" class="row g-2 mt-1">
+                                        <div class="col-sm-5">
+                                            <input type="date" name="newDate" class="form-control form-control-sm" required aria-label="New due date"
+                                                   min="@due.AddDays(1).ToString("yyyy-MM-dd")" max="@due.AddDays(OnboardingWorkflow.MaxDocumentExtensionDays).ToString("yyyy-MM-dd")" />
+                                        </div>
+                                        <div class="col-sm-7"><input name="reason" class="form-control form-control-sm" maxlength="500" required placeholder="Reason" aria-label="Reason" /></div>
+                                        <div class="col-12"><button type="submit" class="btn btn-sm btn-outline-primary">Extend the deadline and email them</button></div>
+                                    </form>
+                                </details>
+                            }
                         }
                         @if (Model.Outstanding.Count > 0)
                         {
@@ -462,7 +515,6 @@ Notice: one month's notice or one month's salary in lieu, on either side, after 
             <div class="card-body p-4">
                 <dl class="details-grid small mb-0">
                     <dt>New employee</dt><dd>@Model.EmployeeName@(Model.EmployeeEmail is null ? "" : $" · {Model.EmployeeEmail}")</dd>
-                    <dt>Salary</dt><dd>GHS @Model.MonthlySalary.ToString("N2") per month</dd>
                     <dt>Application</dt><dd>@Model.ApplicationNumber · offer @Model.OfferNumber · @Model.VacancyNumber</dd>
                     <dt>Started by</dt><dd>@Model.CreatedBy, @Model.CreatedAt.ToString("dd MMM yyyy")</dd>
                 </dl>

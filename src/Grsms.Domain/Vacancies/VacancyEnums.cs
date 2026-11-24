@@ -10,7 +10,7 @@ public enum VacancyStatus
     /// <summary>Being prepared by the Recruitment Officer (also where a returned vacancy goes back to).</summary>
     [Display(Name = "Draft")] Draft,
 
-    /// <summary>Waiting for the HR Manager to approve the wording, requirements and salary.</summary>
+    /// <summary>Earlier workflow (before 17 Nov 2026): submitted to the HR Manager. The Recruitment Officer can now publish it directly.</summary>
     [Display(Name = "Pending approval")] PendingApproval,
 
     /// <summary>Approved and open for applications until the closing date.</summary>
@@ -62,5 +62,8 @@ public enum VacancyAction
     [Display(Name = "Closed")] Closed,
     [Display(Name = "Closed automatically (closing date passed)")] AutoClosed,
     [Display(Name = "Reopened")] Reopened,
-    [Display(Name = "Archived")] Archived
+    [Display(Name = "Archived")] Archived,
+
+    /// <summary>17 Nov 2026: published by the Recruitment Officer, with no approval after the MD's.</summary>
+    [Display(Name = "Published by the Recruitment Officer")] PublishedByRecruiter
 }

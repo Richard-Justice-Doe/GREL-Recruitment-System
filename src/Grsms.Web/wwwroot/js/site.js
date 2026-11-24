@@ -37,6 +37,18 @@
         });
     }
 
+    // 22 Nov 2026: print (and "Save as PDF") always in light colours, so dark-mode text is not printed faint on white paper.
+    // The saved theme is not changed: it comes back after printing.
+    var themeBeforePrint = null;
+    window.addEventListener("beforeprint", function () {
+        themeBeforePrint = document.documentElement.getAttribute("data-bs-theme");
+        document.documentElement.setAttribute("data-bs-theme", "light");
+    });
+    window.addEventListener("afterprint", function () {
+        if (themeBeforePrint) document.documentElement.setAttribute("data-bs-theme", themeBeforePrint);
+        themeBeforePrint = null;
+    });
+
     document.addEventListener("DOMContentLoaded", function () {
         setTheme(document.documentElement.getAttribute("data-bs-theme") || "light");
 
@@ -321,4 +333,36 @@
             holder.appendChild(note);
         }
     });
+})();
+
+// docs/36: AI settings page: show the Azure OpenAI fields only when Azure OpenAI is chosen.
+(function () {
+    var select = document.querySelector("[data-ai-provider]");
+    if (!select) return;
+    select.addEventListener("change", function () {
+        document.querySelectorAll(".ai-azure-only").forEach(function (el) { el.hidden = select.value !== "AzureOpenAI"; });
+    });
+})();
+
+// docs/37 CR5: when the process timeline scrolls (narrow screens), bring the current step into view.
+(function () {
+    // docs/37 C6: when the steps don't fit, size them so a whole number fits the card, then start at the step before the
+    // current one: every scroll position falls on a step edge, so no label is cut in half (the list is position: relative).
+    // Run again on load and on resize (the card's width settles once fonts and scroll bars are in place).
+    function fit() {
+        document.querySelectorAll(".process-timeline").forEach(function (list) {
+            var current = list.querySelector(".is-current, .is-stopped");
+            var steps = list.querySelectorAll(".pt-step");
+            if (!current) return;
+            steps.forEach(function (s) { s.style.flex = ""; s.style.minWidth = ""; });
+            if (list.scrollWidth <= list.clientWidth) return;
+            var per = Math.max(3, Math.floor(list.clientWidth / 88)), w = list.clientWidth / per;
+            steps.forEach(function (s) { s.style.flex = "0 0 " + w + "px"; s.style.minWidth = w + "px"; });
+            list.scrollLeft = (current.previousElementSibling || current).offsetLeft;
+        });
+    }
+    fit();
+    window.addEventListener("load", fit);
+    var timer;
+    window.addEventListener("resize", function () { clearTimeout(timer); timer = setTimeout(fit, 150); });
 })();

@@ -5,6 +5,7 @@
 }
 <article class="card glass offer-letter">
     <div class="card-body p-4 p-md-5">
+        <partial name="_LetterHead" />
         <p class="text-end small mb-4">Ref: @(Model.LetterNumber ?? "(draft)")<br />@((Model.LetterIssuedAt ?? DateTime.UtcNow).ToString("d MMMM yyyy", gb))</p>
         <p>Dear @Model.EmployeeName,</p>
         <h2 class="h5 my-3">Letter of appointment: @Model.JobTitle</h2>
@@ -16,7 +17,7 @@
             <tr><th scope="row">Department</th><td>@Model.DepartmentName</td></tr>
             <tr><th scope="row">Place of work</th><td>@Model.SiteName</td></tr>
             @if (Model.ReportingTo is not null) { <tr><th scope="row">Reporting to</th><td>@Model.ReportingTo</td></tr> }
-            <tr><th scope="row">Monthly salary</th><td>GHS @Model.MonthlySalary.ToString("N2", gb) (gross)</td></tr>
+            <tr><th scope="row">Remuneration</th><td>In line with GREL's conditions of service</td></tr>
             <tr><th scope="row">Date of appointment</th><td>@Model.StartDate.ToString("dddd d MMMM yyyy", gb)</td></tr>
             </tbody>
         </table>
@@ -27,7 +28,7 @@
         }
         <p>On your first day, please report at <strong>@Model.ReportTime.ToString("HH:mm")</strong> to <strong>@Model.ReportLocation</strong>@(Model.ContactPerson is null ? "" : $", where {Model.ContactPerson} will meet you").</p>
         <p>Please confirm your acceptance of this appointment by signing this letter.</p>
-        <p>Yours sincerely,<br /><br />Human Resources<br />Ghana Rubber Estates Limited</p>
+        <div class="mb-3"><partial name="_LetterSignature" /></div>
         @if (Model.LetterSignedAt is not null)
         {
             <div class="border-top pt-3 small">

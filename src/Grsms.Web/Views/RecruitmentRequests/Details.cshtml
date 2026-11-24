@@ -29,7 +29,7 @@
         <p>@Model.RequestNumber · @Model.DepartmentName@(Model.UnitName is null ? "" : $" → {Model.UnitName}") · @Model.SiteName</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
-        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All requests</a>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All requests</a>
         @if (Model.CanEdit)
         {
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
@@ -46,6 +46,13 @@
 }
 <partial name="_NextStepBanner" model="nextStep" />
 
+@* docs/37 CR5: the process guide (journey, next action, owner, waiting time, target); the old stepper is the fallback. *@
+@if (ViewBag.Process is Grsms.Application.Process.ProcessGuideDto process)
+{
+    <partial name="_ProcessGuide" model="process" />
+}
+else
+{
 <div class="card glass mb-3">
     <div class="card-body py-4">
         <partial name="_WorkflowStepper" model="Model" />
@@ -57,6 +64,7 @@
         }
     </div>
 </div>
+}
 
 <div class="row g-3">
     @* ------------------------------------------------------------ left column: the form + history *@
@@ -91,11 +99,11 @@
                     <dt>Submitted on</dt><dd>@(Model.DateRequested?.ToString("dd MMM yyyy") ?? "Not submitted yet")</dd>
                     @if (Model.AssignedRecruiterName is not null)
                     {
-                        <dt>Assigned recruiter</dt><dd>@Model.AssignedRecruiterName</dd>
+                        <dt>Recruitment Officer</dt><dd>@Model.AssignedRecruiterName</dd>
                     }
                     @if (Model.ApprovedAt is not null)
                     {
-                        <dt>Final approval</dt><dd>@Model.ApprovedAt.Value.ToString("dd MMM yyyy HH:mm")</dd>
+                        <dt>Approved by the MD</dt><dd>@Model.ApprovedAt.Value.ToString("dd MMM yyyy HH:mm")</dd>
                     }
                 </dl>
 
@@ -137,12 +145,6 @@
 
                 <h3 class="h6 mt-4">Budget</h3>
                 <dl class="details-grid mb-0">
-                    @if (!string.IsNullOrEmpty(Model.BudgetCode))
-                    {
-                        @* Only requests raised before QF-81-11 was digitised have a budget code and cost. *@
-                        <dt>Budget code</dt><dd><code>@Model.BudgetCode</code></dd>
-                        <dt>Estimated annual cost</dt><dd>GHS @Model.EstimatedAnnualCost.ToString("N2")</dd>
-                    }
                     <dt>Budget approval document</dt>
                     <dd>@(attachedCategories.Contains(AttachmentCategory.BudgetApproval) ? "Attached (see Supporting documents)" : "Not attached")</dd>
                     @if (Model.BudgetValidated)
@@ -238,6 +240,26 @@
                         <input type="hidden" name="ExpectedStatus" value="@Model.Status" />
 
                         @* 11 Nov 2026 (docs/29, change 1): the HR Manager no longer confirms the budget to approve. *@
+                        @if (Model.Status == RecruitmentRequestStatus.RecruitmentReview)
+                        {
+                            @* 17 Nov 2026: the Recruitment Officer review: three checks before the request goes to the MD. *@
+                            <fieldset class="mb-3">
+                                <legend class="form-label small fw-semibold mb-1">Your checks (all three are needed to approve)</legend>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="RequestVerified" name="RequestVerified" value="true" />
+                                    <label class="form-check-label small" for="RequestVerified">Request verified: department, purpose, justification and documents</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="VacancyDetailsValidated" name="VacancyDetailsValidated" value="true" />
+                                    <label class="form-check-label small" for="VacancyDetailsValidated">Vacancy details validated: position, number, engagement type, site and start date</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="RequirementsConfirmed" name="RequirementsConfirmed" value="true" />
+                                    <label class="form-check-label small" for="RequirementsConfirmed">Requirements confirmed: education, experience, certificates and licence</label>
+                                </div>
+                                <div class="form-text">Approving sends the request to the Managing Director, and you become its Recruitment Officer.</div>
+                            </fieldset>
+                        }
 
                         <div class="mb-3">
                             <label for="Comments" class="form-label small">Comments <span class="text-body-secondary">(required to return or reject)</span></label>
@@ -268,8 +290,13 @@
 
         @if (Model.Status == RecruitmentRequestStatus.Approved)
         {
+            @* 17 Nov 2026: the MD's approval is the last one; the Recruitment Officer owns the process from here. *@
             <div class="alert alert-success small">
-                <i class="fa-solid fa-circle-check me-1"></i>Fully approved: recruitment may begin.
+                <div><i class="fa-solid fa-circle-check me-1"></i><b>Approved for recruitment</b> by the Managing Director. No further approvals are required.</div>
+                <div class="mt-1">
+                    Process owner: <b>Recruitment Officer@(Model.AssignedRecruiterName is null ? "" : $" ({Model.AssignedRecruiterName})")</b>.
+                    @(Model.VacancyId is null ? "Next action: create the vacancy; after that, create and publish the job advertisement." : "The Recruitment Officer creates and publishes the job advertisement, then moves on to the candidates.")
+                </div>
                 @if (Model.VacancyId is int vacancyId)
                 {
                     <span>
@@ -280,14 +307,14 @@
                 {
                     <div class="mt-2">
                         <a asp-controller="Vacancies" asp-action="Create" asp-route-requestId="@Model.Id" class="btn btn-sm btn-success">
-                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Convert into a job vacancy
+                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Create the vacancy
                         </a>
-                        <div class="mt-1">The vacancy is filled in from this request; you add the requisition details (owner, closing date, internal or external).</div>
+                        <div class="mt-1">The vacancy is filled in from this request; you add the requisition details (owner, closing date, internal or external) and publish it yourself: no approval is needed.</div>
                     </div>
                 }
                 else
                 {
-                    <span>Waiting for a Recruitment Officer to convert it into a job vacancy.</span>
+                    <span>Waiting for the Recruitment Officer to create the vacancy.</span>
                 }
             </div>
         }
@@ -317,6 +344,7 @@
                             <i class="fa-regular @(a.ContentType == "application/pdf" ? "fa-file-pdf" : a.ContentType.Contains("spreadsheet") ? "fa-file-excel" : a.ContentType.Contains("word") ? "fa-file-word" : "fa-file-lines") fa-lg mt-1"></i>
                             <div class="flex-grow-1 text-break">
                                 <a asp-action="Download" asp-route-id="@Model.Id" asp-route-attachmentId="@a.Id" class="fw-semibold text-decoration-none">@a.FileName</a>
+                                <partial name="_PreviewButton" model='((string?)Url.Action("Download", new { id = Model.Id, attachmentId = a.Id }), (string?)a.FileName)' />
                                 <div class="small text-body-secondary">@a.Category.DisplayName() · @Size(a.SizeBytes) · @a.UploadedAt.ToString("dd MMM yyyy")</div>
                             </div>
                             @if (Model.CanEdit)
@@ -347,7 +375,7 @@
                             <input type="file" name="file" class="form-control form-control-sm" accept="@AttachmentService.RequestDocumentAcceptList" required />
                             <div class="form-text">PDF, Word (DOCX) or Excel (XLSX). Up to @Files.MaxFileSizeMb MB. Files are stored securely on the server, never in a public folder.</div>
                         </div>
-                        <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload me-1"></i>Upload</button>
+                        <button type="submit" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-upload me-1"></i>Upload</button>
                     </form>
                 }
             </div>

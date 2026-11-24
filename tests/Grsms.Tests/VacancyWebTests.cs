@@ -12,7 +12,7 @@ namespace Grsms.Tests;
 
 /// <summary>
 /// The vacancy journey through the real web pages: a Recruitment Officer finds an approved request under
-/// "Approved requests awaiting a vacancy", creates and submits the vacancy, and an HR Manager approves it,
+/// "Approved requests awaiting a vacancy", creates the vacancy and publishes it with no approval (17 Nov 2026),
 /// after which it is listed as open and the request page links to it.
 /// </summary>
 public class VacancyWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFactory>
@@ -87,17 +87,12 @@ public class VacancyWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebFa
         Assert.Contains("Cisco routing", page);
         Assert.Contains("Draft", page);
 
-        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(detailsUrl, $"/Vacancies/Submit/{id}", new())).StatusCode);
-
-        // ---- HR Manager approves (publishes)
+        // ---- 17 Nov 2026: the Recruitment Officer publishes it; no HR Manager approval
+        Assert.Contains("Publish the vacancy", page);
+        Assert.Contains("No further approval is needed", page);
+        Assert.Equal(HttpStatusCode.Redirect, (await recruiter.PostFormAsync(detailsUrl, $"/Vacancies/Publish/{id}", new())).StatusCode);
         var hrm = await SignedInAsync("v.hrm@grel.test");
-        Assert.Contains($"/Vacancies/Details/{id}", await hrm.GetStringAsync("/Vacancies?tab=pending"));
-        var decided = await hrm.PostFormAsync($"/Vacancies/Details/{id}", $"/Vacancies/Decide/{id}", new()
-        {
-            ["Decision"] = "Approve",
-            ["ExpectedStatus"] = "PendingApproval"
-        });
-        Assert.Equal(HttpStatusCode.Redirect, decided.StatusCode);
+        Assert.DoesNotContain($"/Vacancies/Details/{id}\"", await hrm.GetStringAsync("/Vacancies?tab=pending"));
 
         // ---- Now open, and linked from the request
         Assert.Contains($"/Vacancies/Details/{id}", await recruiter.GetStringAsync("/Vacancies?tab=open"));

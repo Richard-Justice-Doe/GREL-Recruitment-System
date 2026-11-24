@@ -25,6 +25,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="~/images/grel-icon-32.png" />
     <title>@ViewData["Title"] · GREL Recruitment</title>
     <script src="~/js/theme-init.js"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -100,12 +101,19 @@
                         @if (!User.IsInRole(Roles.Candidate))
                         {
                             @* Usability U1: a staff member's own job search and probation (they left the sidebar). *@
+                            @* 22 Nov 2026: the employee's own profile picture *@
+                            <li><a class="dropdown-item" asp-controller="MyPhoto" asp-action="Index"><i class="fa-regular fa-image me-2"></i>My photo</a></li>
                             <li><a class="dropdown-item" asp-controller="MyProbation" asp-action="Index"><i class="fa-solid fa-seedling me-2"></i>My probation</a></li>
                             <li><a class="dropdown-item" asp-controller="Careers" asp-action="Index"><i class="fa-solid fa-magnifying-glass me-2"></i>Job openings</a></li>
                             <li><a class="dropdown-item" asp-controller="MyApplications" asp-action="Index"><i class="fa-regular fa-paper-plane me-2"></i>My applications</a></li>
                         }
                         <li><a class="dropdown-item" asp-controller="MyAuditTrail" asp-action="Index"><i class="fa-solid fa-clock-rotate-left me-2"></i>My audit trail</a></li>
                         <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword"><i class="fa-solid fa-key me-2"></i>Change password</a></li>
+                        @if (!User.IsInRole(Roles.Candidate))
+                        {
+                            @* 22 Nov 2026 (docs/41, H2) *@
+                            <li><a class="dropdown-item" asp-controller="Account" asp-action="TwoStep"><i class="fa-solid fa-shield-halved me-2"></i>Two-step sign-in</a></li>
+                        }
                         <li>
                             <form asp-controller="Account" asp-action="Logout" method="post">
                                 <button type="submit" class="dropdown-item"><i class="fa-solid fa-right-from-bracket me-2"></i>Sign out</button>
@@ -134,6 +142,10 @@
 <script src="~/lib/datatables/dataTables.bootstrap5.min.js"></script>
 <script src="~/lib/sweetalert2/dist/sweetalert2.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
+<script src="~/js/ai-panel.js" asp-append-version="true"></script>
+<script src="~/js/onboarding-assistant.js" asp-append-version="true"></script>
+<script src="~/js/document-preview.js" asp-append-version="true"></script>
+<script src="~/js/document-checklist.js" asp-append-version="true"></script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

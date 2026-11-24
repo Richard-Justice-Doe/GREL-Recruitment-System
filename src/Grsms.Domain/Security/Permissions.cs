@@ -17,7 +17,7 @@ public record PermissionInfo(string Name, string Group, string Label, string Des
 /// Roles &amp; permissions screen. Changes take effect within a minute, without anyone signing out.
 ///
 /// Rules that are NOT permissions, on purpose (they are segregation of duties, so no setting may switch them off):
-///   * Who acts at each workflow step (the HOD raises, the HR Manager approves, the MD gives final approval, ...) stays
+///   * Who acts at each workflow step (the HOD approves, the Recruitment Officer reviews, the MD gives the last approval, ...) stays
 ///     tied to the role, as written in each workflow class.
 ///   * The Super Admin always holds every permission. Permissions marked <see cref="PermissionInfo.SuperAdminOnly"/>
 ///     can never be given to another role.
@@ -92,8 +92,16 @@ public static class Permissions
     /// <summary>Register existing staff (one by one or by CSV import) and update employees' job details.</summary>
     public const string ManageEmployees = "employees.manage";
 
-    /// <summary>Keep GREL's list of salary grades.</summary>
+    /// <summary>Keep GREL's list of job grades.</summary>
     public const string ManageGrades = "grades.manage";
+
+    // ---------------------------------------------------------------- docs/36 AI-7
+    /// <summary>Upload, edit and archive the policies and procedures in the knowledge base.</summary>
+    public const string ManageKnowledge = "knowledge.manage";
+
+    // ---------------------------------------------------------------- docs/36 AI-3
+    /// <summary>The executive dashboard: recruitment, onboarding and workforce figures with trends and the AI summary.</summary>
+    public const string ViewExecutiveDashboard = "executive.view";
 
     // ---------------------------------------------------------------- Data visibility
     /// <summary>See the records of every department (otherwise a HOD sees only their own departments).</summary>
@@ -132,14 +140,14 @@ public static class Permissions
             "Create and submit new recruitment requests for their department."),
         new(ViewVacancies, "Recruitment", "Open vacancies", "See vacancies and their history."),
         new(ViewAdverts, "Recruitment", "Open job adverts", "See job adverts and where they are posted."),
-        new(ReviewAdvertsHr, "Job adverts", "Review job adverts (HR)",
-            "Check a job advert sent in by the Recruitment Officer: approve it for the IT Manager, or reject it."),
-        new(ReviewAdvertsIt, "Job adverts", "Review job adverts (IT)",
-            "See the job adverts waiting for IT approval and reject one."),
-        new(PublishAdverts, "Job adverts", "Approve and publish job adverts",
-            "Give the final approval of a job advert the HR Manager has reviewed, which publishes it (now or on its start date), and record where it is posted."),
+        new(ReviewAdvertsHr, "Job adverts", "Review job adverts (HR, earlier workflow)",
+            "Only for adverts sent for the HR review before 17 Nov 2026: reject one. New adverts are published by the Recruitment Officer with no review."),
+        new(ReviewAdvertsIt, "Job adverts", "Review job adverts (IT, earlier workflow)",
+            "Only for adverts waiting for IT approval since before 17 Nov 2026: reject one."),
+        new(PublishAdverts, "Job adverts", "Publish job adverts and record postings",
+            "Publish a job advert (now or on its start date) and record where it is posted. Recruitment Officers and HR Managers do this for adverts without this permission."),
         new(ReturnAdverts, "Job adverts", "Return job adverts for correction",
-            "Send a job advert under review back to the Recruitment Officer with the changes needed."),
+            "Send a job advert left in the earlier review back to the Recruitment Officer with the changes needed."),
         new(UnpublishAdverts, "Job adverts", "Take job adverts offline",
             "Take a published or scheduled job advert offline and send it back to the Recruitment Officer for correction."),
         new(ViewApplications, "Recruitment", "Open applications",
@@ -166,7 +174,11 @@ public static class Permissions
             "See the employee list, each employee's record and job history (a Head of Department sees their own departments)."),
         new(ManageEmployees, "Employees", "Manage employees",
             "Register existing staff (one by one or by CSV import) and update employees' job details: position, grade, reporting line, contract, place of work."),
-        new(ManageGrades, "Employees", "Maintain grades", "Add and edit GREL's salary grades."),
+        new(ManageGrades, "Employees", "Maintain grades", "Add and edit GREL's job grades."),
+        new(ManageKnowledge, "Administration", "Maintain the knowledge base",
+            "Upload, update and archive GREL's policies and procedures (handbook, conditions of service, SOPs), which staff can search and the AI answers from."),
+        new(ViewExecutiveDashboard, "Reports", "Open the executive dashboard",
+            "Recruitment, onboarding and workforce figures for all departments, with trends and the written summary (docs/36)."),
 
         new(SeeAllDepartments, "Data visibility", "See all departments",
             "See the records of every department. Without it, a Head of Department sees only their own departments."),
@@ -197,18 +209,18 @@ public static class Permissions
         [Roles.HrAdministrator] =
         [
             ManageUsers, ManageMasterData, ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts,
-            ViewApplications, ViewReports, SeeAllDepartments, ViewEmployees, ManageEmployees, ManageGrades
+            ViewApplications, ViewReports, SeeAllDepartments, ViewEmployees, ManageEmployees, ManageGrades, ManageKnowledge
         ],
         [Roles.HrManager] =
         [
             ViewAuditTrail, ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports,
             ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles, ViewOnboarding, CompleteOnboarding, ViewProbation, DecideProbation,
-            ReviewAdvertsHr, ReturnAdverts, ViewEmployees, ManageEmployees, ManageGrades
+            ReviewAdvertsHr, ReturnAdverts, ViewEmployees, ManageEmployees, ManageGrades, ViewExecutiveDashboard, ManageKnowledge
         ],
-        // 11 Nov 2026 (docs/29 change 2): approves, publishes and takes down job adverts after the HR Manager's review.
+        // 11 Nov 2026 (docs/29 change 2); since 17 Nov 2026 adverts need no IT approval: records postings and takes adverts offline.
         [Roles.ItManager] = [ViewAdverts, SeeAllDepartments, ReviewAdvertsIt, PublishAdverts, ReturnAdverts, UnpublishAdverts],
         [Roles.ManagingDirector] =
-            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewEmployees],
+            [ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewEmployees, ViewExecutiveDashboard],
         [Roles.RecruitmentOfficer] =
         [
             ViewRecruitmentRequests, ViewVacancies, ViewAdverts, ViewApplications, ViewReports, ViewSurveyResults, SeeAllDepartments, ViewPersonnelFiles,

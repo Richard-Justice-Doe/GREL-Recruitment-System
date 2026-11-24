@@ -37,6 +37,8 @@ public class AppClaimsPrincipalFactory(
 {
     public const string FullNameClaim = "full_name";
     public const string MustChangePasswordClaim = "must_change_password";
+    /// <summary>22 Nov 2026 (docs/41 H2): the Super Admin requires two-step sign-in for this person; read by TwoStepRequiredFilter.</summary>
+    public const string TwoStepRequiredClaim = "two_step_required";
 
     protected override async Task<System.Security.Claims.ClaimsIdentity> GenerateClaimsAsync(ApplicationUser user)
     {
@@ -49,6 +51,8 @@ public class AppClaimsPrincipalFactory(
         identity.AddClaim(new(FullNameClaim, user.FullName));
         if (user.MustChangePassword)
             identity.AddClaim(new(MustChangePasswordClaim, "true"));
+        if (user.RequireTwoStep)
+            identity.AddClaim(new(TwoStepRequiredClaim, "true"));
         return identity;
     }
 }

@@ -19,9 +19,9 @@ namespace Grsms.Application.Hiring;
 ///
 /// WHO MAY DO WHAT (every rule is checked here, on the server):
 ///   * Record checks, propose / withdraw a recommendation, send / withdraw an offer : Recruitment Officer or HR Manager.
-///   * Endorse or not                                                            : the department's Head of Department.
-///   * Approve / reject (HR stage)                                               : HR Manager (with a reason if the HOD did not endorse).
-///   * Approve / reject (final)                                                  : Managing Director.
+///   * Approve the hire (9 Nov 2026)                                             : the Recruitment Officer alone; the offer is drafted.
+///   * Older recommendations still in the earlier chain                         : endorse or not (the department's HOD), then
+///                                                                                 approve / reject (HR Manager, then Managing Director).
 ///   * Accept / decline an offer                                                 : the applicant, in their portal.
 /// Nobody acts on their own application, approves a recommendation they proposed, or approves at two stages.
 /// </summary>
@@ -71,6 +71,7 @@ public class HiringService(
 
         var current = recs.FirstOrDefault(r => r.Status != HiringStatus.Withdrawn && r.Status != HiringStatus.Rejected);
         var offer = appOffers.FirstOrDefault(o => o.Status is OfferStatus.Sent or OfferStatus.Accepted);
+        var draft = offer is null ? appOffers.FirstOrDefault(o => o.Status == OfferStatus.Draft) : null;
         var names = await users.GetDisplayNamesAsync(
             recs.SelectMany(r => new[] { r.CreatedByUserId, r.HodUserId, r.HrUserId, r.MdUserId }).Concat(appChecks.Select(c => c.RecordedByUserId))
                 .OfType<string>().Distinct(), ct);
@@ -108,7 +109,13 @@ public class HiringService(
             Recommendation = current is null ? null : ToDto(current),
             PastRecommendations = recs.Where(r => r != current).Select(ToDto).ToList(),
             Offer = offer is null ? null : ToOffer(offer),
-            PastOffers = appOffers.Where(o => o != offer).Select(ToOffer).ToList(),
+            PastOffers = appOffers.Where(o => o != offer && o.Status != OfferStatus.Draft).Select(ToOffer).ToList(),
+            OfferDraft = draft is null ? null : ToOffer(draft),
+            CanEditOffer = IsRecruiter && !own && current?.Status == HiringStatus.Approved && offer is null && app.Status == ApplicationStatus.Interview,
+            FormSalary = draft?.MonthlySalary ?? current?.ProposedSalary ?? 0,
+            FormStartDate = draft?.StartDate ?? current?.ProposedStartDate ?? Today,
+            FormExpiresOn = draft?.ExpiresOn ?? DefaultReplyBy(current?.ProposedStartDate ?? Today),
+            FormTerms = draft is null ? DefaultTerms : draft.Terms,
             CanRecordChecks = IsRecruiter && !own && HiringWorkflow.CanCheck(app.Status),
             CanRecommend = IsRecruiter && !own && recommendBlocked is null,
             RecommendBlockedReason = IsRecruiter && !own && current is null ? recommendBlocked : null,
@@ -140,6 +147,16 @@ public class HiringService(
         var ownerValidates = !string.IsNullOrEmpty(recruiterUserId) && await users.IsActiveUserInRoleAsync(recruiterUserId, Roles.RecruitmentOfficer, ct);
         var validator = ownerValidates ? N(recruiterUserId) : "a Recruitment Officer";
 
+        // docs/37 CR2: the reason given for each score, from validated sessions only (they carry the criteria and ratings).
+        var comments = new Dictionary<(int Session, string Panel), IReadOnlyList<string>>();
+        foreach (var done in sessions.Where(s => s.Status == InterviewStatus.Completed))
+            if (await interviews.GetWithDetailsAsync(done.Id, ct) is { } full)
+                foreach (var card in InterviewWorkflow.ValidatedScorecards(full))
+                    comments[(full.Id, card.PanelUserId)] = full.Criteria.OrderBy(c => c.SortOrder)
+                        .Select(c => (c, r: card.Ratings.FirstOrDefault(r => r.CriterionId == c.Id)))
+                        .Where(x => !string.IsNullOrWhiteSpace(x.r?.Comment))
+                        .Select(x => $"{x.c.Name} ({x.r!.Score}/5): {x.r.Comment}").ToList();
+
         return sessions.OrderBy(s => s.Round).Select(s =>
         {
             var validCards = s.Scorecards.Where(c => c.IsValid).ToList();
@@ -155,7 +172,7 @@ public class HiringService(
             };
             var scores = validated
                 .Select(c => new PanelScoreDto(N(c.PanelUserId), s.Panel.Any(p => p.UserId == c.PanelUserId && p.IsChair), c.WeightedScore,
-                    c.Recommendation, c.Strengths, c.Concerns))
+                    c.Recommendation, c.Strengths, c.Concerns, comments.GetValueOrDefault((s.Id, c.PanelUserId))))
                 .OrderByDescending(x => x.IsChair).ThenByDescending(x => x.Score).ToList();
             return new InterviewRoundScoresDto(s.Id, s.Round, s.Type, s.StartsAt, s.Status, validCards.Count, s.Panel.Count,
                 validated.Count == 0 ? null : Math.Round(validated.Average(c => c.WeightedScore), 1),
@@ -233,9 +250,9 @@ public class HiringService(
                 DivisionId = app.DivisionId,
                 DepartmentId = app.DepartmentId,
                 RequestingHodUserId = app.RequestingHodUserId,
-                ProposedSalary = v?.SalaryMin ?? 0,
+                ProposedSalary = 0, // docs/37 CR1: no salary
                 ProposedStartDate = Today.AddDays(HiringWorkflow.DraftStartInDays),
-                Justification = ScoreJustification(sessions),
+                Justification = ScoreJustification(await WithRatingsAsync(sessions, ct)),
                 CreatedByUserId = MyId,
                 Status = HiringStatus.Draft
             };
@@ -269,6 +286,15 @@ public class HiringService(
     }
 
     /// <summary>The start of a draft's justification: the validated interview scores, round by round.</summary>
+    /// <summary>The validated sessions again with their criteria and ratings (for the score reasons, docs/37 CR2).</summary>
+    private async Task<IReadOnlyList<Interview>> WithRatingsAsync(IReadOnlyList<Interview> sessions, CancellationToken ct)
+    {
+        var list = new List<Interview>();
+        foreach (var s in sessions)
+            list.Add(s.Status == InterviewStatus.Completed && await interviews.GetWithDetailsAsync(s.Id, ct) is { } full ? full : s);
+        return list;
+    }
+
     private static string ScoreJustification(IReadOnlyList<Interview> sessions)
     {
         var lines = sessions.Where(s => s.Status == InterviewStatus.Completed).OrderBy(s => s.Round).Select(s =>
@@ -276,11 +302,19 @@ public class HiringService(
             var cards = InterviewWorkflow.ValidatedScorecards(s).ToList();
             var votes = string.Join(", ", cards.GroupBy(c => c.Recommendation).OrderBy(g => g.Key)
                 .Select(g => $"{g.Count()} {EnumText.Label(g.Key).ToLowerInvariant()}"));
+            // docs/37 CR2: the panel's reasons for their scores, criterion by criterion.
+            var reasons = s.Criteria.OrderBy(c => c.SortOrder).SelectMany(c => cards
+                .Select(card => card.Ratings.FirstOrDefault(r => r.CriterionId == c.Id))
+                .Where(r => !string.IsNullOrWhiteSpace(r?.Comment))
+                .Select(r => $"  • {c.Name} ({r!.Score}/5): {r.Comment!.Trim()}"));
             return $"Round {s.Round} ({EnumText.Label(s.Type).ToLowerInvariant()}): " +
                    $"{(cards.Count == 0 ? 0 : Math.Round(cards.Average(c => c.WeightedScore), 1)).ToString("0.0", Gb)}/100 " +
-                   $"from {cards.Count} validated scorecard{(cards.Count == 1 ? "" : "s")}; {votes}.";
+                   $"from {cards.Count} validated scorecard{(cards.Count == 1 ? "" : "s")}; {votes}." +
+                   string.Concat(reasons.Select(r => "\n" + r));
         });
-        return $"Interview results:\n{string.Join("\n", lines)}\n\nReferences and fit: ";
+        var text = $"Interview results:\n{string.Join("\n", lines)}\n\nReferences and fit: ";
+        // The justification is limited to 4,000 characters; keep room for the recruiter's own words.
+        return text.Length > 3500 ? text[..3480] + "…\n\nReferences and fit: " : text;
     }
 
     /// <summary>
@@ -298,7 +332,9 @@ public class HiringService(
         if (RecommendProblem(app, draft is null ? current : null, sessions) is { } problem) return Result.Failure<int>(problem);
 
         justification = Clean(justification);
-        if (salary is not { } pay || pay <= 0 || pay > 10_000_000) return Result.Failure<int>("Enter the proposed monthly salary in GHS.");
+        // docs/37 CR1 (13 Nov 2026): GRSMS no longer handles money. The salary argument is ignored; new records store 0 and
+        // earlier values stay in the database, hidden.
+        const decimal pay = 0;
         if (startDate is not { } start || start < Today) return Result.Failure<int>("Choose a start date from today onwards.");
         if (justification is null || justification.Length < 20) return Result.Failure<int>("Explain the recommendation in at least 20 characters (interview results, references, ...).");
         if (justification.Length > 4000) return Result.Failure<int>("The justification must be 4,000 characters or fewer.");
@@ -312,7 +348,6 @@ public class HiringService(
         if (draft is not null)
         {
             // Approving the draft started by "Proceed": same record and number.
-            draft.ProposedSalary = pay;
             draft.ProposedStartDate = start;
             draft.Justification = justification;
             draft.Status = HiringStatus.Approved;
@@ -320,9 +355,11 @@ public class HiringService(
             draft.CreatedAt = now;
             draft.Version = Guid.NewGuid();
             app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName,
-                $"{draft.Number}: hire approved by the Recruitment Officer, GHS {pay:N2} per month from {start:dd MMM yyyy}", now);
+                $"{draft.Number}: hire approved by the Recruitment Officer, start {start:dd MMM yyyy}", now);
             var approved = await SaveAsync(ct);
-            return approved.Succeeded ? Result.Success(draft.Id) : Result.Failure<int>([.. approved.Errors]);
+            if (!approved.Succeeded) return Result.Failure<int>([.. approved.Errors]);
+            await DraftOfferAndSaveAsync(app, draft, ct);
+            return Result.Success(draft.Id);
         }
 
         var n = await numbers.NextAsync($"HIR-{DateTime.UtcNow.Year}", ct);
@@ -342,9 +379,18 @@ public class HiringService(
         };
         recommendations.Add(rec);
         app.RecordStep(ApplicationAction.HiringDecided, app.Status, MyId, scope.UserName,
-            $"{rec.Number}: hire approved by the Recruitment Officer, GHS {pay:N2} per month from {start:dd MMM yyyy}", now);
+            $"{rec.Number}: hire approved by the Recruitment Officer, start {start:dd MMM yyyy}", now);
         var saved = await SaveAsync(ct);
-        return saved.Succeeded ? Result.Success(rec.Id) : Result.Failure<int>([.. saved.Errors]);
+        if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
+        await DraftOfferAndSaveAsync(app, rec, ct);
+        return Result.Success(rec.Id);
+    }
+
+    /// <summary>After the approval is saved: the offer draft (13 Nov 2026). If it can't be saved, the RO creates it from the case page.</summary>
+    private async Task DraftOfferAndSaveAsync(JobApplication app, HiringRecommendation rec, CancellationToken ct)
+    {
+        await DraftOfferAsync(app, rec, ct);
+        await SaveAsync(ct);
     }
 
     /// <summary>
@@ -419,6 +465,7 @@ public class HiringService(
             $"{stage}: {EnumText.Label(decision)}{(comment is null ? "" : $" ({comment})")}", now);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return saved;
+        if (rec.Status == HiringStatus.Approved) await DraftOfferAndSaveAsync(app, rec, ct); // older chain: final approval drafts the offer too
 
         // Tell whoever acts next, and the recruiter about the outcome.
         var link = links.HiringCase(app.Id);
@@ -453,32 +500,33 @@ public class HiringService(
 
     // ===================================================================== Offers
 
-    public async Task<Result<int>> SendOfferAsync(int applicationId, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, CancellationToken ct = default)
+    // ---- 13 November 2026 (docs/26 Phase 24): offer drafts. When the hire is approved, the offer is drafted with the approved
+    // salary and start date, the default reply-by date and terms (System settings) and its reference number. The RO checks it,
+    // previews the letter, and sends it with one click. The candidate never sees a draft.
+
+    private string? DefaultTerms => Clean(settings.Get(Domain.Settings.SettingCatalogue.OfferDefaultTerms)?.Replace("\\n", "\n"));
+
+    private DateOnly DefaultReplyBy(DateOnly start)
     {
-        var (app, error) = await LoadForRecruiterAsync(applicationId, ct);
-        if (app is null) return Result.Failure<int>(error!);
-        var rec = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id && r.Status == HiringStatus.Approved, ct)).OrderByDescending(r => r.Id).FirstOrDefault();
-        if (rec is null) return Result.Failure<int>("The hiring recommendation must be approved by the Managing Director first.");
+        var replyBy = Today.AddDays(Math.Max(1, settings.GetInt(Domain.Settings.SettingCatalogue.OfferDefaultReplyDays)));
+        return replyBy > start ? (start < Today ? Today : start) : replyBy;
+    }
+
+    /// <summary>Adds a draft offer for an approved hire (nothing if the application already has a draft, sent or accepted offer).</summary>
+    private async Task DraftOfferAsync(JobApplication app, HiringRecommendation rec, CancellationToken ct)
+    {
+        if ((await offers.ListAsync(o => o.JobApplicationId == app.Id, ct)).Any(o => o.Status is OfferStatus.Draft or OfferStatus.Sent or OfferStatus.Accepted))
+            return;
         var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
-        var appChecks = await checks.ListAsync(c => c.JobApplicationId == app.Id, ct);
-        var open = (await offers.ListAsync(o => o.JobApplicationId == app.Id, ct)).FirstOrDefault(o => o.Status is OfferStatus.Sent or OfferStatus.Accepted);
-        if (OfferProblem(app, rec, appChecks, open, await PositionsTakenAsync(v.Id, ct), v.NumberOfPositions) is { } problem)
-            return Result.Failure<int>(problem);
+        offers.Add(await NewOfferAsync(app, rec, v, rec.ProposedSalary, rec.ProposedStartDate, DefaultReplyBy(rec.ProposedStartDate), DefaultTerms, OfferStatus.Draft, ct));
+    }
 
-        var pay = salary ?? rec.ProposedSalary;
-        var start = startDate ?? rec.ProposedStartDate;
-        var expiry = expiresOn ?? Today.AddDays(7);
-        terms = Clean(terms);
-        if (pay <= 0 || pay > rec.ProposedSalary) return Result.Failure<int>($"The salary must be more than 0 and no more than the approved GHS {rec.ProposedSalary:N2}.");
-        if (start < Today) return Result.Failure<int>("The start date cannot be in the past.");
-        var maxDays = settings.GetInt(Domain.Settings.SettingCatalogue.OfferReplyMaxDays); // Phase 16: System settings
-        if (expiry < Today || expiry > Today.AddDays(maxDays) || expiry > start)
-            return Result.Failure<int>($"The reply-by date must be within the next {maxDays} days and no later than the start date.");
-        if (terms?.Length > 8000) return Result.Failure<int>("The terms must be 8,000 characters or fewer.");
-
+    private async Task<Offer> NewOfferAsync(JobApplication app, HiringRecommendation rec, Domain.Vacancies.Vacancy v, decimal pay, DateOnly start, DateOnly expiry,
+        string? terms, OfferStatus status, CancellationToken ct)
+    {
         var n = await numbers.NextAsync($"OFF-{DateTime.UtcNow.Year}", ct);
         var now = DateTime.UtcNow;
-        var offer = new Offer
+        return new Offer
         {
             Number = $"OFF-{now.Year}-{n:0000}",
             JobApplicationId = app.Id,
@@ -492,10 +540,103 @@ public class HiringService(
             StartDate = start,
             ExpiresOn = expiry,
             Terms = terms,
+            Status = status,
             SentAt = now,
             SentByUserId = MyId
         };
-        offers.Add(offer);
+    }
+
+    /// <summary>The checks shared by saving a draft and sending: dates and terms length (docs/37 CR1: no salary).</summary>
+    private string? OfferTermsProblem(HiringRecommendation rec, decimal pay, DateOnly start, DateOnly expiry, string? terms)
+    {
+        if (start < Today) return "The start date cannot be in the past.";
+        var maxDays = settings.GetInt(Domain.Settings.SettingCatalogue.OfferReplyMaxDays); // Phase 16: System settings
+        if (expiry < Today || expiry > Today.AddDays(maxDays) || expiry > start)
+            return $"The reply-by date must be within the next {maxDays} days and no later than the start date.";
+        if (terms?.Length > 8000) return "The terms must be 8,000 characters or fewer.";
+        return null;
+    }
+
+    /// <summary>Saves the offer draft (creating it for a hire approved before drafts existed). Sending is a separate click.</summary>
+    public async Task<Result<int>> SaveOfferDraftAsync(int applicationId, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, CancellationToken ct = default)
+    {
+        var (app, error) = await LoadForRecruiterAsync(applicationId, ct);
+        if (app is null) return Result.Failure<int>(error!);
+        var rec = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id && r.Status == HiringStatus.Approved, ct)).OrderByDescending(r => r.Id).FirstOrDefault();
+        if (rec is null) return Result.Failure<int>("The hire must be approved by the Recruitment Officer first.");
+        var appOffers = await offers.ListAsync(o => o.JobApplicationId == app.Id, ct);
+        if (appOffers.Any(o => o.Status is OfferStatus.Sent or OfferStatus.Accepted)) return Result.Failure<int>("The offer has already been sent.");
+        if (app.Status != ApplicationStatus.Interview) return Result.Failure<int>("Offers can only be made to applicants at the interview stage.");
+
+        var draft = appOffers.FirstOrDefault(o => o.Status == OfferStatus.Draft);
+        var pay = draft?.MonthlySalary ?? 0m; // docs/37 CR1: salary not handled; the argument is ignored
+        var start = startDate ?? draft?.StartDate ?? rec.ProposedStartDate;
+        var expiry = expiresOn ?? draft?.ExpiresOn ?? DefaultReplyBy(start);
+        terms = Clean(terms);
+        if (OfferTermsProblem(rec, pay, start, expiry, terms) is { } problem) return Result.Failure<int>(problem);
+
+        if (draft is null)
+        {
+            var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
+            draft = await NewOfferAsync(app, rec, v, pay, start, expiry, terms, OfferStatus.Draft, ct);
+            offers.Add(draft);
+        }
+        else
+        {
+            (draft.MonthlySalary, draft.StartDate, draft.ExpiresOn, draft.Terms) = (pay, start, expiry, terms);
+            (draft.SentAt, draft.SentByUserId) = (DateTime.UtcNow, MyId);
+            draft.Version = Guid.NewGuid();
+        }
+        var saved = await SaveAsync(ct);
+        return saved.Succeeded ? Result.Success(draft.Id) : Result.Failure<int>([.. saved.Errors]);
+    }
+
+    /// <summary>The offer letter for staff: the draft (preview) or the offer sent. Visible to whoever may open the hiring case.</summary>
+    public async Task<MyOfferDto?> GetOfferLetterAsync(int applicationId, CancellationToken ct = default)
+    {
+        var app = await applications.GetByIdAsync(applicationId, ct);
+        if (app is null || app.ApplicantUserId == me.UserId) return null;
+        if (!me.HasPermission(Permissions.SeeAllDepartments) && !await IsHodOfAsync(app.DepartmentId, ct)) return null;
+        var offer = (await offers.ListAsync(o => o.JobApplicationId == app.Id, ct))
+            .Where(o => o.Status is OfferStatus.Draft or OfferStatus.Sent or OfferStatus.Accepted).OrderByDescending(o => o.Id).FirstOrDefault();
+        return offer is null ? null : await LetterAsync(app, offer, ct);
+    }
+
+    public async Task<Result<int>> SendOfferAsync(int applicationId, decimal? salary, DateOnly? startDate, DateOnly? expiresOn, string? terms, CancellationToken ct = default)
+    {
+        var (app, error) = await LoadForRecruiterAsync(applicationId, ct);
+        if (app is null) return Result.Failure<int>(error!);
+        var rec = (await recommendations.ListAsync(r => r.JobApplicationId == app.Id && r.Status == HiringStatus.Approved, ct)).OrderByDescending(r => r.Id).FirstOrDefault();
+        if (rec is null) return Result.Failure<int>("The hire must be approved by the Recruitment Officer first.");
+        var v = (await vacancies.GetByIdAsync(app.VacancyId, ct))!;
+        var appChecks = await checks.ListAsync(c => c.JobApplicationId == app.Id, ct);
+        var appOffers = await offers.ListAsync(o => o.JobApplicationId == app.Id, ct);
+        var open = appOffers.FirstOrDefault(o => o.Status is OfferStatus.Sent or OfferStatus.Accepted);
+        if (OfferProblem(app, rec, appChecks, open, await PositionsTakenAsync(v.Id, ct), v.NumberOfPositions) is { } problem)
+            return Result.Failure<int>(problem);
+
+        var draft = appOffers.FirstOrDefault(o => o.Status == OfferStatus.Draft);
+        var pay = draft?.MonthlySalary ?? 0m; // docs/37 CR1: salary not handled; the argument is ignored
+        var start = startDate ?? draft?.StartDate ?? rec.ProposedStartDate;
+        var expiry = expiresOn ?? draft?.ExpiresOn ?? DefaultReplyBy(start);
+        terms = terms is null && draft is not null ? draft.Terms : Clean(terms); // not posted = keep the draft's
+        if (OfferTermsProblem(rec, pay, start, expiry, terms) is { } termsProblem) return Result.Failure<int>(termsProblem);
+
+        var now = DateTime.UtcNow;
+        Offer offer;
+        if (draft is not null)
+        {
+            // Sending the draft: same record and reference number.
+            offer = draft;
+            (offer.MonthlySalary, offer.StartDate, offer.ExpiresOn, offer.Terms) = (pay, start, expiry, terms);
+            (offer.Status, offer.SentAt, offer.SentByUserId) = (OfferStatus.Sent, now, MyId);
+            offer.Version = Guid.NewGuid();
+        }
+        else
+        {
+            offer = await NewOfferAsync(app, rec, v, pay, start, expiry, terms, OfferStatus.Sent, ct);
+            offers.Add(offer);
+        }
         app.RecordStep(ApplicationAction.OfferSent, ApplicationStatus.Offer, MyId, scope.UserName, $"{offer.Number}, reply by {expiry:dd MMM yyyy}", now);
         var saved = await SaveAsync(ct);
         if (!saved.Succeeded) return Result.Failure<int>([.. saved.Errors]);
@@ -539,8 +680,12 @@ public class HiringService(
         var app = await applications.GetByIdAsync(applicationId, ct);
         if (app is null || app.ApplicantUserId != me.UserId) return null;
         var offer = (await offers.ListAsync(o => o.JobApplicationId == app.Id, ct))
-            .Where(o => o.Status != OfferStatus.Withdrawn).OrderByDescending(o => o.Id).FirstOrDefault();
-        if (offer is null) return null;
+            .Where(o => o.Status is not (OfferStatus.Withdrawn or OfferStatus.Draft)).OrderByDescending(o => o.Id).FirstOrDefault();
+        return offer is null ? null : await LetterAsync(app, offer, ct);
+    }
+
+    private async Task<MyOfferDto> LetterAsync(JobApplication app, Offer offer, CancellationToken ct)
+    {
         var v = (await vacancies.GetByIdAsync(offer.VacancyId, ct))!;
         var manager = v.ReportingManagerUserId is null ? null : (await users.GetDisplayNamesAsync([v.ReportingManagerUserId], ct)).GetValueOrDefault(v.ReportingManagerUserId);
         return new MyOfferDto(offer.Id, offer.Number, app.FullName, offer.JobTitle,
@@ -571,7 +716,8 @@ public class HiringService(
         if (!saved.Succeeded) return saved;
 
         var text = accept
-            ? $"<b>{WorkflowMailer.Enc(app.FullName)}</b> has <b>accepted</b> the offer for {WorkflowMailer.Enc(offer.JobTitle)} (starts {offer.StartDate.ToString("d MMMM yyyy", Gb)})."
+            ? $"<b>{WorkflowMailer.Enc(app.FullName)}</b> has <b>accepted</b> the offer for {WorkflowMailer.Enc(offer.JobTitle)} (starts {offer.StartDate.ToString("d MMMM yyyy", Gb)})." +
+              WorkflowMailer.NextStep("Offer accepted", "Employee onboarding: start it from the hiring case", "Recruitment Officer")
             : $"<b>{WorkflowMailer.Enc(app.FullName)}</b> has <b>declined</b> the offer for {WorkflowMailer.Enc(offer.JobTitle)}.{(reason is null ? "" : $" Reason: {WorkflowMailer.Enc(reason)}")}";
         var subject = $"{offer.Number} {(accept ? "accepted" : "declined")}";
         var link = links.HiringCase(app.Id);

@@ -1,0 +1,20 @@
+@* docs/37 CR5: the Action Center for a candidate or new employee: their next steps (the same as on their home page). *@
+@inject Grsms.Application.Applications.MyNextStepService NextSteps
+@{
+    ViewData["Title"] = "Action Center";
+    var steps = await NextSteps.GetAsync();
+}
+<div class="page-header">
+    <div>
+        <h1>Action Center</h1>
+        <p>What you need to do next, most urgent first.</p>
+    </div>
+</div>
+@if (steps.Count == 0)
+{
+    <div class="dash-card dash-empty"><i class="fa-regular fa-circle-check d-block"></i>Nothing to do right now. We'll email you when something needs your attention.</div>
+}
+else
+{
+    <partial name="_MyNextSteps" model="steps" />
+}

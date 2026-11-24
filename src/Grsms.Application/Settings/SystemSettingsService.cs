@@ -25,8 +25,14 @@ public class SystemSettingsService(
 
     // ===================================================================== Settings
 
-    public IReadOnlyList<SettingRowDto> GetAll() =>
-        SettingCatalogue.All.Select(d =>
+    /// <summary>The settings of the System settings screen (groups with a page of their own, such as the letterhead, are left out).</summary>
+    public IReadOnlyList<SettingRowDto> GetAll() => Rows(SettingCatalogue.All.Where(d => !SettingCatalogue.OwnPageGroups.Contains(d.Group)));
+
+    /// <summary>The settings of one group, e.g. the letterhead page.</summary>
+    public IReadOnlyList<SettingRowDto> GetGroup(string group) => Rows(SettingCatalogue.All.Where(d => d.Group == group));
+
+    private List<SettingRowDto> Rows(IEnumerable<SettingDefinition> definitions) =>
+        definitions.Select(d =>
         {
             var value = store.Get(d.Key);
             var has = !string.IsNullOrEmpty(value);

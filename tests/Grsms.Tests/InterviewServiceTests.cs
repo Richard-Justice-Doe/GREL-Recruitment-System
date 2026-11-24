@@ -419,4 +419,204 @@ public class InterviewServiceTests : IAsyncLifetime
         As(_hrm, Roles.HrManager);
         Assert.Equal(80.0m, (await Run(s => s.GetDetailsAsync(id)))!.AverageScore);
     }
+
+    // ------------------------------------------------------------------ clash check (12 November 2026, docs/34 quick win)
+
+    [Fact]
+    public async Task Scheduling_warns_when_a_panel_member_or_the_candidate_is_already_booked()
+    {
+        var first = await ApplicationAsync(_candidate, "Ama Mensah");
+        var second = await ApplicationAsync(_candidate2, "Kofi Boateng");
+        var tomorrow10 = DateTime.UtcNow.Date.AddDays(1).AddHours(10);
+        await ScheduledAsync(first, tomorrow10);
+
+        // Same panel, overlapping (10:30-11:30 against 10:00-11:00): refused with one line per busy person.
+        AsRecruiter();
+        var clash = await Run(s => s.ScheduleAsync(Form(second, tomorrow10.AddMinutes(30))));
+        Assert.False(clash.Succeeded);
+        Assert.All(clash.Errors, e => Assert.StartsWith(InterviewService.ClashPrefix, e));
+        Assert.Equal(3, clash.Errors.Count); // the HOD, the engineer and the recruiter
+        Assert.Contains(clash.Errors, e => e.Contains("10:00-11:00") && e.Contains("Ama Mensah"));
+
+        // Right after the first one: no clash.
+        Assert.True((await Run(s => s.ScheduleAsync(Form(second, tomorrow10.AddHours(1))))).Succeeded);
+
+        // The candidate's own second round at the same time as the first.
+        var round2 = Form(first, tomorrow10.AddMinutes(15), _otherHod, _hrm, _hod);
+        var own = await Run(s => s.ScheduleAsync(round2));
+        Assert.Contains(own.Errors, e => e.Contains("the candidate already has a session"));
+
+        // "Schedule anyway" goes through.
+        round2.IgnoreClashes = true;
+        Assert.True((await Run(s => s.ScheduleAsync(round2))).Succeeded);
+    }
+
+    [Fact]
+    public async Task Rescheduling_checks_clashes_too_but_not_against_itself()
+    {
+        var first = await ApplicationAsync(_candidate, "Ama Mensah");
+        var second = await ApplicationAsync(_candidate2, "Kofi Boateng");
+        var tomorrow10 = DateTime.UtcNow.Date.AddDays(1).AddHours(10);
+        var a = await ScheduledAsync(first, tomorrow10);
+        var b = await ScheduledAsync(second, tomorrow10.AddHours(2));
+
+        AsRecruiter();
+        Assert.True((await Run(s => s.RescheduleAsync(a, tomorrow10.AddMinutes(15), null))).Succeeded); // moving within its own slot
+        var onto = await Run(s => s.RescheduleAsync(b, tomorrow10, null));
+        Assert.False(onto.Succeeded);
+        Assert.StartsWith(InterviewService.ClashPrefix, onto.Errors[0]);
+        Assert.True((await Run(s => s.RescheduleAsync(b, tomorrow10, null, default, ignoreClashes: true))).Succeeded);
+    }
+
+    // ------------------------------------------------------------------ panel replies and quorum (12 November 2026, docs/35)
+
+    private async Task QuorumOnAsync()
+    {
+        using var scope = _db.NewScope();
+        await scope.ServiceProvider.GetRequiredService<Grsms.Application.Settings.ISettingsStore>()
+            .SaveAsync(new Dictionary<string, string?> { [Grsms.Domain.Settings.SettingCatalogue.InterviewQuorum] = "true" });
+    }
+
+    [Fact]
+    public async Task With_quorum_a_panel_needs_three_people_including_an_hr_manager()
+    {
+        await QuorumOnAsync();
+        var app = await ApplicationAsync(_candidate, "Ama Mensah");
+        var when = DateTime.UtcNow.Date.AddDays(2).AddHours(9);
+        AsRecruiter();
+        var noHr = await Run(s => s.ScheduleAsync(Form(app, when, _hod, _engineer, _ro)));
+        Assert.Contains(noHr.Errors, e => e.Contains("An HR Manager must be on the panel"));
+        var tooSmall = await Run(s => s.ScheduleAsync(Form(app, when, _hod, _hrm)));
+        Assert.Contains(tooSmall.Errors, e => e.Contains("at least 3 people"));
+        var ok = await Run(s => s.ScheduleAsync(Form(app, when, _hod, _engineer, _hrm)));
+        Assert.True(ok.Succeeded, string.Join(" ", ok.Errors));
+        Assert.True(await Db(db => db.Interviews.Where(i => i.Id == ok.Value).Select(i => i.QuorumRequired).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task A_decline_alerts_the_recruiter_and_a_replacement_restores_quorum()
+    {
+        await QuorumOnAsync();
+        var app = await ApplicationAsync(_candidate, "Ama Mensah");
+        AsRecruiter();
+        var id = (await Run(s => s.ScheduleAsync(Form(app, DateTime.UtcNow.Date.AddDays(2).AddHours(9), _hod, _engineer, _hrm)))).Value;
+
+        As(_hrm, Roles.HrManager);
+        Assert.True((await Run(s => s.RespondAsync(id, true, null))).Succeeded);
+        As(_engineer, Roles.Employee);
+        Assert.False((await Run(s => s.RespondAsync(id, false, null))).Succeeded); // a reason is needed
+        Assert.True((await Run(s => s.RespondAsync(id, false, "On leave that week"))).Succeeded);
+        Assert.Contains(_db.SentEmails().Select(m => m.Replace("=\r\n", "")), m => m.Contains("To: ro@grel.test") && m.Contains("Panel member declined") && m.Contains("Quorum at risk"));
+
+        AsRecruiter();
+        var page = (await Run(s => s.GetDetailsAsync(id)))!;
+        Assert.Contains(page.QuorumProblems, p => p.Contains("at least 3"));
+        Assert.Equal(PanelResponse.Declined, page.Panel.Single(p => p.UserId == _engineer).Response);
+        Assert.True(page.CanReplace);
+
+        Assert.True((await Run(s => s.ReplacePanelMemberAsync(id, _engineer, _ro2))).Succeeded);
+        page = (await Run(s => s.GetDetailsAsync(id)))!;
+        Assert.Empty(page.QuorumProblems);
+        Assert.Contains(page.Panel, p => p.UserId == _ro2 && p.Response == PanelResponse.Pending);
+        Assert.Contains(_db.SentEmails().Select(m => m.Replace("=\r\n", "")), m => m.Contains("To: ro2@grel.test") && m.Contains("Please accept or decline"));
+    }
+
+    [Fact]
+    public async Task The_head_of_department_is_replaced_only_by_a_delegate_from_the_department()
+    {
+        await QuorumOnAsync();
+        var apmColleague = await _db.CreateUserAsync("apm2@grel.test", Apm, Roles.Employee);
+        var app = await ApplicationAsync(_candidate, "Ama Mensah");
+        AsRecruiter();
+        var id = (await Run(s => s.ScheduleAsync(Form(app, DateTime.UtcNow.Date.AddDays(2).AddHours(9), _hod, _engineer, _hrm)))).Value;
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.True((await Run(s => s.RespondAsync(id, false, "Travelling to Tsibu"))).Succeeded);
+
+        AsRecruiter();
+        Assert.Contains("same department", (await Run(s => s.ReplacePanelMemberAsync(id, _hod, _ro2))).Errors[0]);
+        Assert.True((await Run(s => s.ReplacePanelMemberAsync(id, _hod, apmColleague))).Succeeded);
+        var page = (await Run(s => s.GetDetailsAsync(id)))!;
+        var delegateMember = page.Panel.Single(p => p.UserId == apmColleague);
+        Assert.True(delegateMember.IsHodDelegate);
+        Assert.True(delegateMember.IsChair); // the chair moved with the replacement
+        Assert.Empty(page.QuorumProblems);
+    }
+
+    [Fact]
+    public async Task Scores_cannot_be_validated_when_quorum_was_not_present()
+    {
+        await QuorumOnAsync();
+        var app = await ApplicationAsync(_candidate, "Ama Mensah");
+        AsRecruiter();
+        var id = (await Run(s => s.ScheduleAsync(Form(app, DateTime.UtcNow.AddMinutes(-30), _hod, _engineer, _hrm)))).Value;
+        Assert.True((await ScoreAsync(id, _hod, 4)).Succeeded);
+        Assert.True((await ScoreAsync(id, _engineer, 4)).Succeeded);
+
+        AsValidator(); // the HR Manager did not attend
+        Assert.True((await Run(s => s.SetAttendanceAsync(id, _hrm, PanelAttendance.Absent, "Called away"))).Succeeded);
+        var blocked = await Run(s => s.ValidateAsync(id, null));
+        Assert.False(blocked.Succeeded);
+        Assert.Contains("Quorum was not met", blocked.Errors[0]);
+        Assert.Contains("an HR Manager", blocked.Errors[0]);
+    }
+
+    // ------------------------------------------------------------------ docs/37 CR2 and CR3 (13 November 2026)
+
+    [Fact]
+    public async Task A_reason_can_be_given_for_each_score_and_is_never_required()
+    {
+        var app = await ApplicationAsync(_candidate, "Ama Mensah");
+        var id = await ScheduledAsync(app);
+        var criteria = await Db(db => db.InterviewCriteria.Where(c => c.InterviewId == id).OrderBy(c => c.SortOrder).Select(c => c.Id).ToListAsync());
+
+        // Without any reason: fine.
+        Assert.True((await ScoreAsync(id, _engineer, 4)).Succeeded);
+        // With a reason for the first criterion (another one left empty), and one too long.
+        As(_hod, Roles.HeadOfDepartment);
+        Assert.False((await Run(s => s.SubmitScorecardAsync(id, criteria.ToDictionary(c => c, _ => 4), PanelRecommendation.Recommend, null, null,
+            comments: new Dictionary<int, string?> { [criteria[0]] = new string('x', 1001) }))).Succeeded);
+        Assert.True((await Run(s => s.SubmitScorecardAsync(id, criteria.ToDictionary(c => c, _ => 4), PanelRecommendation.Recommend, null, null,
+            comments: new Dictionary<int, string?> { [criteria[0]] = "  Strong on networking and troubleshooting. ", [criteria[1]] = " " }))).Succeeded);
+
+        var mine = (await Run(s => s.GetDetailsAsync(id)))!.MyScorecard!;
+        Assert.Equal("Strong on networking and troubleshooting.", mine.Comments![criteria[0]]);
+        Assert.False(mine.Comments.ContainsKey(criteria[1]));
+    }
+
+    [Fact]
+    public async Task The_recruiter_replaces_any_member_with_a_reason_adds_a_substitute_resends_and_every_change_is_kept()
+    {
+        var spare = await _db.CreateUserAsync("spare@grel.test", 1, Roles.Employee);
+        var app = await ApplicationAsync(_candidate, "Ama Mensah");
+        AsRecruiter();
+        var id = (await Run(s => s.ScheduleAsync(Form(app, DateTime.UtcNow.Date.AddDays(2).AddHours(9), _hod, _engineer, _hrm)))).Value;
+
+        // The engineer hasn't declined but phoned in: a reason is needed.
+        Assert.Contains("reason", (await Run(s => s.ReplacePanelMemberAsync(id, _engineer, _ro2))).Errors[0]);
+        Assert.True((await Run(s => s.ReplacePanelMemberAsync(id, _engineer, _ro2, reason: "On leave that day"))).Succeeded);
+        var mails = _db.SentEmails().Select(m => m.Replace("=\r\n", "")).ToList();
+        Assert.Contains(mails, m => m.Contains("To: eng@grel.test") && m.Contains("no longer needed"));
+        Assert.Contains(mails, m => m.Contains("To: ro2@grel.test") && m.Contains("Please accept or decline"));
+
+        // A substitute, then the invitation again for someone who hasn't replied.
+        Assert.True((await Run(s => s.AddPanelMemberAsync(id, spare, "Extra technical expert"))).Succeeded);
+        Assert.False((await Run(s => s.AddPanelMemberAsync(id, spare, null))).Succeeded); // already on the panel
+        Assert.True((await Run(s => s.ResendInvitationAsync(id, _hrm))).Succeeded);
+        As(_hrm, Roles.HrManager);
+        Assert.True((await Run(s => s.RespondAsync(id, true, null))).Succeeded);
+        AsRecruiter();
+        Assert.False((await Run(s => s.ResendInvitationAsync(id, _hrm))).Succeeded); // already replied
+
+        var page = (await Run(s => s.GetDetailsAsync(id)))!;
+        Assert.Equal(4, page.Panel.Count);
+        Assert.Equal([PanelChangeAction.Reinvited, PanelChangeAction.Added, PanelChangeAction.Replaced], page.PanelChanges.Select(c => c.Action));
+        var replaced = page.PanelChanges[^1];
+        Assert.Equal(("On leave that day", _ro), (replaced.Reason, replaced.Actor)); // the test helper signs in with the id as the name
+        Assert.NotNull(replaced.Original);
+        Assert.NotNull(replaced.Replacement);
+
+        // Only before the session, and only by the scheduler roles.
+        As(_engineer, Roles.Employee);
+        Assert.False((await Run(s => s.AddPanelMemberAsync(id, _ro, null))).Succeeded);
+    }
 }

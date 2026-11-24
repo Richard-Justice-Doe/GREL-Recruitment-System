@@ -106,6 +106,14 @@
                             {
                                 <span class="badge rounded-pill badge-soft-danger">Locked</span>
                             }
+                            @if (u.TwoStepEnabled)
+                            {
+                                <span class="badge rounded-pill badge-soft-success" title="Two-step sign-in is set up"><i class="fa-solid fa-shield-halved me-1"></i>2-step</span>
+                            }
+                            else if (u.TwoStepRequired)
+                            {
+                                <span class="badge rounded-pill badge-soft-warning" title="Required by the Super Admin; set up at their next sign-in">2-step to set up</span>
+                            }
                         </td>
                         <td data-order="@(u.LastSignInAt?.ToString("o"))" class="small text-nowrap">@(u.LastSignInAt?.ToString("dd MMM yyyy HH:mm") ?? "Never")</td>
                         <td class="text-end text-nowrap">
@@ -124,6 +132,32 @@
                                     <input type="hidden" name="candidates" value="@showCandidates" />
                                     <input type="hidden" name="returnUrl" value="@thisPage" />
                                     <button type="submit" class="btn btn-sm btn-outline-warning" title="Unlock"><i class="fa-solid fa-unlock"></i></button>
+                                </form>
+                            }
+                            @if (u.TwoStepEnabled && !u.IsCandidate)
+                            {
+                                @* 22 Nov 2026 (docs/41, H2): lost or new phone: they set up two-step sign-in again at their next sign-in. *@
+                                <form asp-action="ResetTwoStep" asp-route-id="@u.Id" method="post" class="d-inline">
+                                    <input type="hidden" name="candidates" value="@showCandidates" />
+                                    <input type="hidden" name="returnUrl" value="@thisPage" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Reset two-step sign-in (lost phone)"
+                                            data-confirm="Reset @u.FullName's two-step sign-in? Their authenticator app stops working and they set it up again at their next sign-in.">
+                                        <i class="fa-solid fa-mobile-screen"></i><span class="visually-hidden">Reset two-step sign-in</span>
+                                    </button>
+                                </form>
+                            }
+                            @if (!u.IsCandidate && isSuperAdmin)
+                            {
+                                @* 22 Nov 2026 (docs/41, H2): the Super Admin requires two-step sign-in for this person (they set it up at their next sign-in). *@
+                                <form asp-action="RequireTwoStep" asp-route-id="@u.Id" method="post" class="d-inline">
+                                    <input type="hidden" name="required" value="@(!u.TwoStepRequired)" />
+                                    <input type="hidden" name="candidates" value="@showCandidates" />
+                                    <input type="hidden" name="returnUrl" value="@thisPage" />
+                                    <button type="submit" class="btn btn-sm @(u.TwoStepRequired ? "btn-success" : "btn-outline-secondary")"
+                                            title="@(u.TwoStepRequired ? "Two-step sign-in required: click to stop requiring it" : "Require two-step sign-in for this person")"
+                                            data-confirm="@(u.TwoStepRequired ? $"Stop requiring two-step sign-in for {u.FullName}?" : $"Require two-step sign-in for {u.FullName}? They set it up at their next sign-in.")">
+                                        <i class="fa-solid fa-shield-halved"></i><span class="visually-hidden">@(u.TwoStepRequired ? "Two-step sign-in required" : "Require two-step sign-in")</span>
+                                    </button>
                                 </form>
                             }
                             @if (canChange)

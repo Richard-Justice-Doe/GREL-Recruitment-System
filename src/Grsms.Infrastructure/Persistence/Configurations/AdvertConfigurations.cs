@@ -23,6 +23,9 @@ internal class JobAdvertConfiguration : IEntityTypeConfiguration<JobAdvert>
         b.Property(a => a.Title).HasMaxLength(200).IsRequired();
         b.Property(a => a.Body).IsRequired();                        // LONGTEXT; the form limits it to 10,000 characters
         b.Property(a => a.HowToApply).HasMaxLength(2000).IsRequired();
+        b.Property(a => a.ExternalText).HasColumnType("text"); // docs/36 AI-1
+        b.Property(a => a.LinkedInText).HasMaxLength(3000);
+        b.Property(a => a.InternalNotice).HasColumnType("text");
         b.Property(a => a.Status).HasConversion<string>().HasMaxLength(30);   // 30 since 11 Nov 2026 ("ReturnedForCorrection")
         b.Property(a => a.RequestingHodUserId).HasMaxLength(255).IsRequired();
         b.Property(a => a.CreatedByUserId).HasMaxLength(255).IsRequired();

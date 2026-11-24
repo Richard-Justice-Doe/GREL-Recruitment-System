@@ -151,3 +151,18 @@ internal class ApplicationActionConfiguration : IEntityTypeConfiguration<Applica
         b.HasIndex(a => new { a.JobApplicationId, a.ActionAt });
     }
 }
+
+/// <summary>12 November 2026 (docs/34): table "JobAlertSubscriptions", one opt-in job alert per person.</summary>
+internal class JobAlertSubscriptionConfiguration : IEntityTypeConfiguration<Grsms.Domain.Applications.JobAlertSubscription>
+{
+    public void Configure(EntityTypeBuilder<Grsms.Domain.Applications.JobAlertSubscription> b)
+    {
+        b.ToTable("JobAlertSubscriptions");
+        b.ConfigureBase();
+        b.Property(s => s.UserId).HasMaxLength(255).IsRequired();
+        b.HasIndex(s => s.UserId).IsUnique();
+        b.Property(s => s.Keywords).HasMaxLength(300);
+        b.HasOne<Grsms.Infrastructure.Identity.ApplicationUser>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(s => s.IsActive);
+    }
+}

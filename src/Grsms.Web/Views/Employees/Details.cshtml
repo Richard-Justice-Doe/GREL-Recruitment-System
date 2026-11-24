@@ -1,132 +1,458 @@
-@* Phase 28 (docs/30): one employee's master record: current job, employment, links to the onboarding, personnel file and
-   probation, and the job history (newest first; lines are added, never changed). *@
+@* 17 November 2026: the employee profile workspace (redesign of the Phase 28 employee page). Header with the photo, profile
+   completion with what is missing, pending actions, then tabs: Personal, Employment, Documents (preview in the page), Onboarding
+   journey, Performance, Training, Leave, Organisation, Timeline and Audit trail. Each tab follows the rules of the module that owns
+   the data (personal record and documents: onboarding.view; audit trail: audit.view). *@
 @using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
 @inject IAuthorizationService Auth
-@model EmployeeDetailsDto
+@inject CelebrationService Celebrations
+@model Grsms.Web.Models.EmployeeProfileViewModel
 @{
-    ViewData["Title"] = Model.Name;
+    var e = Model.Employee;
+    var x = Model.Extras;
+    var c = x.Completion;
+    ViewData["Title"] = e.Name;
     var today = DateOnly.FromDateTime(DateTime.UtcNow);
     var canFiles = (await Auth.AuthorizeAsync(User, Policies.PersonnelFiles)).Succeeded;
-    var canApplications = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
+    var canProbation = (await Auth.AuthorizeAsync(User, Policies.Applications)).Succeeded;
     string D(DateOnly? d) => d?.ToString("d MMM yyyy") ?? "—";
+    string BarCss(int p) => p >= 85 ? "bg-success" : p >= 60 ? "bg-warning" : "bg-danger";
+    string? FixUrl(CompletionFix f) => f switch
+    {
+        CompletionFix.UpdateJob when e.CanManage => Url.Action("UpdateJob", new { id = e.Id }),
+        CompletionFix.Photo when e.CanManage => "#photo",
+        CompletionFix.Onboarding when e.OnboardingRecordId is { } ob && Model.CanSeePersonal => Url.Action("Details", "Onboarding", new { id = ob }),
+        CompletionFix.PersonnelFile when e.PersonnelFileId is { } pf && canFiles => Url.Action("Details", "PersonnelFiles", new { id = pf }),
+        _ => null
+    };
+    var firstFix = c.Missing.Select(m => FixUrl(m.Fix)).FirstOrDefault(u => u is not null);
+    var celebrate = await Celebrations.ForProfileAsync(e.Id, today); // 17 Nov 2026: birthday and work anniversary
+    string Mask(string? acc) => string.IsNullOrWhiteSpace(acc) ? "—" : acc.Length <= 4 ? acc : new string('•', acc.Length - 4) + acc[^4..];
 }
 
+@* ---------------------------------------------------------------- Header *@
 <div class="page-header">
     <div>
-        <h1>@Model.Name</h1>
-        <p>Staff number <strong>@Model.EmployeeNumber</strong> · @Model.PositionTitle, @Model.DepartmentName · <partial name="_EmployeeStatusBadge" model="Model.Status" /></p>
+        <h1>Employee profile</h1>
+        <p>@e.Name · @e.EmployeeNumber</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        @if (Model.CanManage)
+        <a asp-action="Index" class="btn btn-outline-secondary btn-back"><i class="fa-solid fa-arrow-left me-1"></i>All employees</a>
+        <a asp-action="Report" asp-route-id="@e.Id" class="btn btn-outline-secondary"><i class="fa-solid fa-print me-1"></i>Employee report</a>
+        @if (e.CanManage)
         {
-            <a asp-action="UpdateJob" asp-route-id="@Model.Id" class="btn btn-primary"><i class="fa-solid fa-pen me-1"></i>Update job details</a>
+            <a asp-action="UpdateJob" asp-route-id="@e.Id" class="btn btn-primary"><i class="fa-solid fa-pen me-1"></i>Update job details</a>
         }
-        <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>All employees</a>
     </div>
 </div>
 
-<div class="row g-3">
-    <div class="col-xl-8">
-        <div class="card glass mb-3">
-            <div class="card-body p-4">
-                <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-solid fa-briefcase me-1"></i>Current job</h2>
-                <dl class="details-grid mb-0">
-                    <dt>Position</dt><dd class="fw-semibold">@Model.PositionTitle</dd>
-                    <dt>Department</dt><dd>@Model.DepartmentName@(Model.DivisionName.Length > 0 ? $" ({Model.DivisionName})" : "")</dd>
-                    <dt>Place of work</dt><dd>@Model.SiteName</dd>
-                    <dt>Grade</dt><dd>@(Model.GradeName ?? "Not given yet")</dd>
-                    <dt>Reports to</dt><dd>@(Model.ReportsTo ?? Model.LineManagerNote)</dd>
-                    <dt>Employment type</dt><dd>@Model.EmploymentType.DisplayName()@(Model.ContractEndDate is { } end ? $", until {end:d MMM yyyy}" : "")</dd>
-                </dl>
-                @if (Model.ContractEndDate is { } ends && ends >= today && ends <= today.AddDays(60))
+<section class="card glass mb-3 profile-hero">
+    <div class="card-body p-4">
+        <div class="d-flex flex-wrap gap-4 align-items-start">
+            <div id="photo" class="text-center">
+                <partial name="_EmployeeAvatar" model='(e.Id, e.Name, x.HasPhoto, "xl")' />
+                @if (e.CanManage)
                 {
-                    <div class="alert alert-warning small mt-3 mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>The contract ends on @ends.ToString("d MMMM yyyy"), in @((ends.DayNumber - today.DayNumber)) days.</div>
+                    <details class="profile-photo-edit mt-2">
+                        <summary class="small">@(x.HasPhoto ? "Change photo" : "Add photo")</summary>
+                        <form asp-action="UploadPhoto" asp-route-id="@e.Id" method="post" enctype="multipart/form-data" class="mt-2">
+                            <input type="file" name="photo" accept=".jpg,.jpeg,.png" class="form-control form-control-sm mb-2" required aria-label="Photo" />
+                            <button type="submit" class="btn btn-sm btn-outline-primary w-100"><i class="fa-solid fa-upload me-1"></i>Upload</button>
+                            <div class="form-text">JPEG or PNG, up to 3 MB.</div>
+                        </form>
+                        @if (x.HasPhoto)
+                        {
+                            <form asp-action="RemovePhoto" asp-route-id="@e.Id" method="post" class="mt-1">
+                                <button type="submit" class="btn btn-sm btn-link text-danger p-0">Remove photo</button>
+                            </form>
+                        }
+                    </details>
                 }
-                else if (Model.ContractEndDate is { } ended && ended < today && Model.Status != EmployeeStatus.Separated)
+            </div>
+            <div class="flex-grow-1 min-w-0">
+                <h2 class="profile-name mb-1">@e.Name <partial name="_EmployeeStatusBadge" model="e.Status" />
+                    @if (e.EmploymentType != EmploymentType.Permanent) { <span class="badge rounded-pill badge-soft-secondary">@e.EmploymentType.DisplayName()</span> }</h2>
+                <div class="text-body-secondary mb-2">Employee ID: <strong class="text-body">@e.EmployeeNumber</strong></div>
+                <div class="profile-role">@e.PositionTitle</div>
+                <div class="text-body-secondary">@e.DepartmentName@(e.DivisionName.Length > 0 ? $" ({e.DivisionName})" : "") · @e.SiteName</div>
+                <dl class="profile-facts mt-3 mb-0">
+                    <div><dt>Joined</dt><dd>@D(e.HireDate)</dd></div>
+                    <div><dt>Years of service</dt><dd>@e.ServiceLength(today)</dd></div>
+                    <div><dt>Reporting to</dt><dd>@(x.Team.Manager?.Name ?? "—")@(x.Team.ManagerIsHod ? " (Head of Department)" : "")</dd></div>
+                    <div><dt>Email</dt><dd class="text-break">@if (e.Email is not null) { <a href="mailto:@e.Email">@e.Email</a> } else { <text>—</text> }</dd></div>
+                    <div><dt>Phone</dt><dd>@if (e.Phone is not null) { <a href="tel:@e.Phone">@e.Phone</a> } else { <text>—</text> }</dd></div>
+                    @if (celebrate is { } cel)
+                    {
+                        <div><dt>Birthday</dt><dd>@(cel.NextBirthday is { } nb ? $"{nb:d MMMM} · in {cel.DaysToBirthday} day{(cel.DaysToBirthday == 1 ? "" : "s")}" : "Not in GRSMS")@(cel.DaysToBirthday == 0 ? " 🎂" : "")</dd></div>
+                        <div><dt>Next work anniversary</dt><dd>@cel.NextAnniversary.ToString("d MMM yyyy") · @cel.AnniversaryYears year@(cel.AnniversaryYears == 1 ? "" : "s")</dd></div>
+                    }
+                </dl>
+                @if (celebrate is { } celebration && e.CanManage)
                 {
-                    <div class="alert alert-danger small mt-3 mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>The contract ended on @ended.ToString("d MMMM yyyy"). Update the job details with the renewed contract.</div>
+                    @* 17 Nov 2026: HR records the employee's wish not to have their birthday or work anniversary shown or announced. *@
+                    <form asp-controller="Celebrations" asp-action="OptOut" method="post" class="small mt-2">
+                        <input type="hidden" name="employeeId" value="@e.Id" />
+                        <input type="hidden" name="optOut" value="@(celebration.OptedOut ? "false" : "true")" />
+                        @if (celebration.OptedOut) { <span class="text-body-secondary"><i class="fa-solid fa-eye-slash me-1"></i>Not shown in celebrations, at their request.</span> }
+                        <button type="submit" class="btn btn-link btn-sm p-0 ms-1">@(celebration.OptedOut ? "Celebrate again" : "Don't celebrate (at their request)")</button>
+                    </form>
+                    @* 22 Nov 2026: staff without a personal record (imported or registered by hand): HR enters the date of birth for birthdays. *@
+                    @if (!celebration.FromPersonalRecord)
+                    {
+                        <form asp-controller="Celebrations" asp-action="Birthday" method="post" class="d-flex flex-wrap gap-2 align-items-end small mt-2">
+                            <input type="hidden" name="employeeId" value="@e.Id" />
+                            <div>
+                                <label for="emp-dob" class="form-label small mb-1">Date of birth (for birthdays)</label>
+                                <input id="emp-dob" name="dateOfBirth" type="date" class="form-control form-control-sm"
+                                       min="@today.AddYears(-100).AddDays(1).ToString("yyyy-MM-dd")" max="@today.AddYears(-15).ToString("yyyy-MM-dd")"
+                                       value="@celebration.EnteredDateOfBirth?.ToString("yyyy-MM-dd")" />
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Save date of birth</button>
+                        </form>
+                    }
+                }
+            </div>
+            <div class="profile-completion">
+                <div class="small text-body-secondary">Profile</div>
+                <div class="profile-completion-n">@c.Percent%</div>
+                <div class="small mb-2">completed</div>
+                <div class="progress emp-progress mb-2" role="progressbar" aria-label="Profile completion" aria-valuenow="@c.Percent" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar @BarCss(c.Percent)" style="width: @c.Percent%"></div></div>
+                @if (c.Missing.Count > 0)
+                {
+                    <div class="small text-body-secondary">Missing:</div>
+                    <ul class="small ps-3 mb-2">@foreach (var m in c.Missing) { <li>@m.Section</li> }</ul>
+                    @if (firstFix is not null) { <a href="@firstFix" class="btn btn-sm btn-outline-primary w-100">Complete profile</a> }
                 }
             </div>
         </div>
+    </div>
+</section>
 
-        <div class="card glass mb-3">
-            <div class="card-body p-4">
-                <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-solid fa-clock-rotate-left me-1"></i>Job history</h2>
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0">
-                        <thead><tr><th>From</th><th>To</th><th>Position</th><th class="d-none d-md-table-cell">Department · site</th><th class="d-none d-lg-table-cell">Grade</th><th>Why</th></tr></thead>
-                        <tbody>
-                        @if (Model.History.Count == 0)
-                        {
-                            <tr><td colspan="6" class="text-body-secondary">No job history yet.</td></tr>
-                        }
-                        @foreach (var h in Model.History)
-                        {
-                            <tr class="@(h.EffectiveTo is null ? "fw-semibold" : "")">
-                                <td class="text-nowrap small">@D(h.EffectiveFrom)</td>
-                                <td class="text-nowrap small">@(h.EffectiveTo is null ? "now" : D(h.EffectiveTo))</td>
-                                <td>@h.PositionTitle<div class="small text-body-secondary fw-normal">@h.EmploymentType.DisplayName()@(h.ReportsTo is null ? "" : $" · reports to {h.ReportsTo}")</div></td>
-                                <td class="d-none d-md-table-cell small">@h.DepartmentName · @h.SiteName</td>
-                                <td class="d-none d-lg-table-cell small">@(h.GradeName ?? "—")</td>
-                                <td class="small fw-normal">@h.Source.DisplayName()@(h.Note is null ? "" : $": {h.Note}")@(h.RecordedBy is null ? "" : $" ({h.RecordedBy})")</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
+@* ---------------------------------------------------------------- Pending actions *@
+@if (x.Alerts.Count > 0)
+{
+    <section class="card glass mb-3 profile-alerts" aria-label="Pending actions">
+        <div class="card-body p-3 px-4">
+            <h2 class="h6 text-uppercase text-body-secondary mb-2">Pending actions (@x.Alerts.Count)</h2>
+            <ul class="list-unstyled mb-0">
+                @foreach (var a in x.Alerts)
+                {
+                    var url = FixUrl(a.Fix);
+                    <li class="profile-alert is-@a.Severity">
+                        <i class="fa-solid @(a.Severity == "info" ? "fa-circle-info" : "fa-triangle-exclamation")" aria-hidden="true"></i>
+                        <span>@a.Text</span>
+                        @if (url is not null) { <a href="@url" class="small ms-1">Fix</a> }
+                    </li>
+                }
+            </ul>
+        </div>
+    </section>
+}
+
+@* ---------------------------------------------------------------- Tabs (js/section-tabs.js) *@
+<div class="row g-3" data-section-tabs data-section-default="Employment">
+    <div class="col-12" data-section="Personal">
+        <div class="card glass"><div class="card-body p-4" id="personal">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Personal information</h2>
+            @if (!Model.CanSeePersonal)
+            {
+                <p class="text-body-secondary mb-0">Personal details are visible to HR only.</p>
+            }
+            else if (e.OnboardingRecordId is null)
+            {
+                <p class="text-body-secondary mb-0">Hired before GRSMS: personal details are not in GRSMS yet. They will be collected through employee self-service (docs/30, Phase 29).</p>
+            }
+            else if (Model.Personal is not { } p || !p.Saved)
+            {
+                <p class="text-body-secondary mb-0">The personal record has not been filled in yet.</p>
+            }
+            else
+            {
+                var f = p.Form;
+                <dl class="details-grid">
+                    <dt>Full name</dt><dd>@e.Name</dd>
+                    <dt>Date of birth</dt><dd>@D(f.DateOfBirth)@(p.Age is { } age ? $" ({age} years)" : "")</dd>
+                    <dt>Nationality</dt><dd class="text-body-secondary">Not recorded in GRSMS</dd>
+                    <dt>Marital status</dt><dd>@(f.Spouses.Count > 0 ? "Married" : "Not recorded")</dd>
+                    <dt>Residential address</dt><dd>@(f.ResidentialAddress ?? "—")</dd>
+                    <dt>Home town · region</dt><dd>@(f.HomeTown ?? "—")@(f.Region is { } r ? $" · {r.DisplayName()}" : "")</dd>
+                    <dt>Mobile</dt><dd>@(f.MobileNumber ?? "—")</dd>
+                    <dt>Email</dt><dd>@(f.Email ?? "—")</dd>
+                    <dt>SSNIT number</dt><dd>@(f.SsnitNumber ?? "—")</dd>
+                    <dt>Highest qualification</dt><dd>@(f.Qualification ?? "—")</dd>
+                    <dt>Next of kin</dt><dd>@(f.NextOfKinName is null ? "—" : $"{f.NextOfKinName} ({f.NextOfKinRelationship}), {f.NextOfKinTelephone}")</dd>
+                </dl>
+                <h3 class="h6 mt-3">Emergency contacts</h3>
+                @if (f.EmergencyContacts.Count == 0) { <p class="small text-body-secondary">None.</p> }
+                else
+                {
+                    <ul class="small">@foreach (var ec in f.EmergencyContacts) { <li>@ec.Name (@ec.Relationship): @ec.Telephone1@(string.IsNullOrWhiteSpace(ec.Telephone2) ? "" : $", {ec.Telephone2}")</li> }</ul>
+                }
+                <h3 class="h6 mt-3">Bank account</h3>
+                @if (f.BankAccounts.Count == 0) { <p class="small text-body-secondary">None.</p> }
+                else
+                {
+                    <ul class="small mb-0">@foreach (var b in f.BankAccounts) { <li>@b.BankName: @Mask(b.AccountNumber)@(b.IsPrimary ? " (primary)" : "")</li> }</ul>
+                }
+                <p class="small text-body-secondary mt-3 mb-0">@(p.Signed ? $"Declaration signed on {p.DeclaredAt:d MMM yyyy}." : "The declaration is not signed yet.")
+                    <a asp-controller="Onboarding" asp-action="PersonalRecord" asp-route-id="@p.OnboardingId">Open the full personal record</a></p>
+            }
+        </div></div>
+    </div>
+
+    <div class="col-12" data-section="Employment">
+        <div class="row g-3" id="employment">
+            <div class="col-xl-7">
+                <div class="card glass h-100"><div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Employment information</h2>
+                    <dl class="details-grid mb-0">
+                        <dt>Employee number</dt><dd>@e.EmployeeNumber</dd>
+                        <dt>Position</dt><dd class="fw-semibold">@e.PositionTitle</dd>
+                        <dt>Department</dt><dd>@e.DepartmentName@(e.DivisionName.Length > 0 ? $" ({e.DivisionName})" : "")</dd>
+                        <dt>Place of work</dt><dd>@e.SiteName</dd>
+                        <dt>Grade</dt><dd>@(e.GradeName ?? "Not given yet")</dd>
+                        <dt>Reporting manager</dt><dd>@(e.ReportsTo ?? e.LineManagerNote)</dd>
+                        <dt>Date joined</dt><dd>@D(e.HireDate)</dd>
+                        <dt>Contract type</dt><dd>@e.EmploymentType.DisplayName()@(e.ContractEndDate is { } end ? $", until {end:d MMM yyyy}" : "")</dd>
+                        <dt>Confirmation date</dt><dd>@(e.ConfirmationDate is null ? (e.Status == EmployeeStatus.OnProbation ? "On probation" : "—") : D(e.ConfirmationDate))</dd>
+                        <dt>Sign-in</dt><dd>@(e.AccountActive ? "Account active" : "Account deactivated")</dd>
+                    </dl>
+                </div></div>
+            </div>
+            <div class="col-xl-5">
+                <div class="card glass h-100"><div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Records</h2>
+                    <ul class="list-unstyled small mb-0">
+                        <li class="mb-2"><i class="fa-solid fa-door-open me-1"></i>
+                            @if (e.OnboardingRecordId is { } oid && Model.CanSeePersonal) { <a asp-controller="Onboarding" asp-action="Details" asp-route-id="@oid">Onboarding @e.OnboardingNumber</a> }
+                            else if (e.OnboardingNumber is not null) { <span>Onboarding @e.OnboardingNumber</span> }
+                            else { <span class="text-body-secondary">Hired before GRSMS (no onboarding)</span> }</li>
+                        <li class="mb-2"><i class="fa-regular fa-folder-open me-1"></i>
+                            @if (e.PersonnelFileId is { } fid && canFiles) { <a asp-controller="PersonnelFiles" asp-action="Details" asp-route-id="@fid">Personnel file @e.PersonnelFileNumber</a> }
+                            else if (e.PersonnelFileNumber is not null) { <span>Personnel file @e.PersonnelFileNumber</span> }
+                            else { <span class="text-body-secondary">No personnel file yet</span> }</li>
+                        <li><i class="fa-solid fa-user-clock me-1"></i>
+                            @if (e.ProbationId is { } pid && canProbation) { <a asp-controller="Probation" asp-action="Details" asp-route-id="@pid">Probation @e.ProbationNumber</a> <span class="text-body-secondary">(@e.ProbationStatus?.DisplayName())</span> }
+                            else if (e.ProbationNumber is not null) { <span>Probation @e.ProbationNumber (@e.ProbationStatus?.DisplayName())</span> }
+                            else { <span class="text-body-secondary">No probation in GRSMS</span> }</li>
+                    </ul>
+                </div></div>
+            </div>
+            <div class="col-12">
+                <div class="card glass"><div class="card-body p-4">
+                    <h2 class="h6 text-uppercase text-body-secondary mb-3">Job history</h2>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>From</th><th>To</th><th>Position</th><th class="d-none d-md-table-cell">Department · site</th><th class="d-none d-lg-table-cell">Grade</th><th>Why</th></tr></thead>
+                            <tbody>
+                            @if (e.History.Count == 0) { <tr><td colspan="6" class="text-body-secondary">No job history yet.</td></tr> }
+                            @foreach (var h in e.History)
+                            {
+                                <tr class="@(h.EffectiveTo is null ? "fw-semibold" : "")">
+                                    <td class="text-nowrap small">@D(h.EffectiveFrom)</td>
+                                    <td class="text-nowrap small">@(h.EffectiveTo is null ? "now" : D(h.EffectiveTo))</td>
+                                    <td>@h.PositionTitle<div class="small text-body-secondary fw-normal">@h.EmploymentType.DisplayName()@(h.ReportsTo is null ? "" : $" · reports to {h.ReportsTo}")</div></td>
+                                    <td class="d-none d-md-table-cell small">@h.DepartmentName · @h.SiteName</td>
+                                    <td class="d-none d-lg-table-cell small">@(h.GradeName ?? "—")</td>
+                                    <td class="small fw-normal">@h.Source.DisplayName()@(h.Note is null ? "" : $": {h.Note}")@(h.RecordedBy is null ? "" : $" ({h.RecordedBy})")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div></div>
             </div>
         </div>
     </div>
 
-    <div class="col-xl-4">
-        <div class="card glass mb-3">
-            <div class="card-body p-4">
-                <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-regular fa-id-badge me-1"></i>Employment</h2>
-                <dl class="details-grid small mb-0">
-                    <dt>Joined GREL</dt><dd>@D(Model.HireDate)</dd>
-                    <dt>Length of service</dt><dd>@Model.ServiceLength(today)</dd>
-                    <dt>Confirmed</dt><dd>@(Model.ConfirmationDate is null ? (Model.Status == EmployeeStatus.OnProbation ? "On probation" : "—") : D(Model.ConfirmationDate))</dd>
-                    <dt>Email</dt><dd class="text-break">@(Model.Email ?? "—")</dd>
-                    <dt>Phone</dt><dd>@(Model.Phone ?? "—")</dd>
-                    <dt>Sign-in</dt><dd>@(Model.AccountActive ? "Account active" : "Account deactivated")</dd>
-                </dl>
-            </div>
-        </div>
-
-        <div class="card glass mb-3">
-            <div class="card-body p-4">
-                <h2 class="h6 text-uppercase text-body-secondary mb-3"><i class="fa-solid fa-link me-1"></i>Records</h2>
-                <ul class="list-unstyled small mb-0">
-                    <li class="mb-2">
-                        <i class="fa-solid fa-door-open me-1"></i>
-                        @if (Model.OnboardingRecordId is { } oid && canApplications)
-                        {
-                            <a asp-controller="Onboarding" asp-action="Details" asp-route-id="@oid">Onboarding @Model.OnboardingNumber</a>
-                        }
-                        else if (Model.OnboardingNumber is not null) { <span>Onboarding @Model.OnboardingNumber</span> }
-                        else { <span class="text-body-secondary">Hired before GRSMS (no onboarding)</span> }
-                    </li>
-                    <li class="mb-2">
-                        <i class="fa-regular fa-folder-open me-1"></i>
-                        @if (Model.PersonnelFileId is { } fid && canFiles)
-                        {
-                            <a asp-controller="PersonnelFiles" asp-action="Details" asp-route-id="@fid">Personnel file @Model.PersonnelFileNumber</a>
-                        }
-                        else if (Model.PersonnelFileNumber is not null) { <span>Personnel file @Model.PersonnelFileNumber</span> }
-                        else { <span class="text-body-secondary">No personnel file yet</span> }
-                    </li>
-                    <li>
-                        <i class="fa-solid fa-user-clock me-1"></i>
-                        @if (Model.ProbationId is { } pid && canApplications)
-                        {
-                            <a asp-controller="Probation" asp-action="Details" asp-route-id="@pid">Probation @Model.ProbationNumber</a>
-                            <span class="text-body-secondary">(@Model.ProbationStatus?.DisplayName())</span>
-                        }
-                        else if (Model.ProbationNumber is not null) { <span>Probation @Model.ProbationNumber (@Model.ProbationStatus?.DisplayName())</span> }
-                        else { <span class="text-body-secondary">No probation in GRSMS</span> }
-                    </li>
+    <div class="col-12" data-section="Documents">
+        <div class="card glass"><div class="card-body p-4" id="documents">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Documents</h2>
+            @if (Model.Documents is { } docs)
+            {
+                <p class="small text-body-secondary">The new-hire documents from onboarding @e.OnboardingNumber. <strong>Preview</strong> opens them in the page (PDF, pictures, Word).</p>
+                <ul class="profile-docs list-unstyled mb-0">
+                    @foreach (var d in docs.Visible.Where(d => d.Files.Count > 0 || d.IsRequired))
+                    {
+                        <li>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <span class="fw-semibold">@d.Name</span>
+                                <span class="badge rounded-pill @(d.Status == EmployeeDocumentStatus.Verified ? "badge-soft-success" : d.Status == EmployeeDocumentStatus.Rejected ? "badge-soft-danger" : d.Status == EmployeeDocumentStatus.Pending ? "badge-soft-secondary" : "badge-soft-warning")">@d.Status.DisplayName()</span>
+                            </div>
+                            @foreach (var file in d.Files)
+                            {
+                                var url = Url.Action("DownloadDocument", "Onboarding", new { id = docs.OnboardingId, documentId = d.Id, attachmentId = file.AttachmentId });
+                                <div class="small d-flex flex-wrap gap-3 align-items-center">
+                                    <span><i class="fa-regular fa-file me-1"></i>@file.FileName</span>
+                                    <partial name="_PreviewButton" model='((string?)url, (string?)file.FileName)' />
+                                    <a href="@url">Download</a>
+                                </div>
+                            }
+                        </li>
+                    }
                 </ul>
-            </div>
+                @if (e.PersonnelFileId is { } pfid && canFiles)
+                {
+                    <p class="small mt-3 mb-0">More documents (appointment letter, contract, induction record): <a asp-controller="PersonnelFiles" asp-action="Details" asp-route-id="@pfid">personnel file @e.PersonnelFileNumber</a>.</p>
+                }
+            }
+            else if (e.PersonnelFileId is { } pfid2 && canFiles)
+            {
+                <p class="mb-0">This employee's documents are in <a asp-controller="PersonnelFiles" asp-action="Details" asp-route-id="@pfid2">personnel file @e.PersonnelFileNumber</a>, where each one can be previewed.</p>
+            }
+            else
+            {
+                <p class="text-body-secondary mb-0">@(Model.CanSeePersonal ? "No documents in GRSMS for this employee yet." : "Employee documents are visible to HR only.")</p>
+            }
+        </div></div>
+    </div>
+
+    <div class="col-12" data-section="Onboarding">
+        <div id="onboarding">
+            @if (Model.Journey is { } journey)
+            {
+                <partial name="_OnboardingJourney" model="journey" />
+            }
+            else
+            {
+                <div class="card glass"><div class="card-body p-4 text-body-secondary">
+                    @(e.OnboardingRecordId is null ? "Hired before GRSMS: there is no onboarding in GRSMS." : "The onboarding is visible to HR only.")
+                </div></div>
+            }
         </div>
     </div>
+
+    <div class="col-12" data-section="Performance">
+        <div class="card glass"><div class="card-body p-4" id="performance">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Performance</h2>
+            @if (x.Probation is { } pr)
+            {
+                <dl class="details-grid">
+                    <dt>Probation</dt><dd>@if (canProbation) { <a asp-controller="Probation" asp-action="Details" asp-route-id="@pr.Id">@pr.Number</a> } else { @pr.Number } · @pr.Status.DisplayName()</dd>
+                    <dt>Period</dt><dd>@D(pr.StartDate) to @D(pr.EndDate)</dd>
+                </dl>
+                <p class="small text-body-secondary mb-0">The probation's objectives, assessments and ratings are on the probation page.</p>
+            }
+            else { <p class="text-body-secondary">No probation in GRSMS.</p> }
+            <p class="small text-body-secondary mt-3 mb-0"><i class="fa-solid fa-circle-info me-1"></i>Annual appraisals, KPIs and achievements come with the performance module (docs/30, Phase 32).</p>
+        </div></div>
+    </div>
+
+    <div class="col-12" data-section="Training">
+        <div class="card glass"><div class="card-body p-4" id="training">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Training</h2>
+            @if (Model.Journey?.Stages.FirstOrDefault(s => s.Title == "Department induction") is { } induction)
+            {
+                <p class="mb-2">Induction: <strong>@induction.Status</strong></p>
+            }
+            <p class="small text-body-secondary mb-0"><i class="fa-solid fa-circle-info me-1"></i>Training history, certifications and upcoming training come with employee self-service and training records (docs/30, Phase 29).</p>
+        </div></div>
+    </div>
+
+    <div class="col-12" data-section="Leave">
+        <div class="card glass"><div class="card-body p-4" id="leave">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Leave</h2>
+            <p class="small text-body-secondary mb-0"><i class="fa-solid fa-circle-info me-1"></i>Leave balances, history and requests come with the leave module (docs/30, Phase 30).</p>
+        </div></div>
+    </div>
+
+    <div class="col-12" data-section="Organisation">
+        <div class="card glass"><div class="card-body p-4" id="organisation">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Organisation</h2>
+            <div class="org-view">
+                @if (x.Team.Manager is { } mgr)
+                {
+                    <div class="org-person">
+                        @if (mgr.EmployeeId is { } mid) { <a asp-action="Details" asp-route-id="@mid"><partial name="_EmployeeAvatar" model='(mid, mgr.Name, mgr.HasPhoto, "sm")' /></a> }
+                        else { <partial name="_EmployeeAvatar" model='(0, mgr.Name, false, "sm")' /> }
+                        <div><div class="fw-semibold">@mgr.Name</div><div class="small text-body-secondary">@(mgr.Position ?? (x.Team.ManagerIsHod ? "Head of Department" : "Line manager"))</div></div>
+                    </div>
+                    <div class="org-arrow" aria-hidden="true"><i class="fa-solid fa-arrow-down"></i></div>
+                }
+                <div class="org-person is-me">
+                    <partial name="_EmployeeAvatar" model='(e.Id, e.Name, x.HasPhoto, "sm")' />
+                    <div><div class="fw-semibold">@e.Name</div><div class="small text-body-secondary">@e.PositionTitle</div></div>
+                </div>
+                @if (x.Team.Reports.Count > 0)
+                {
+                    <div class="org-arrow" aria-hidden="true"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="org-reports">
+                        @foreach (var r in x.Team.Reports)
+                        {
+                            <a class="org-person" asp-action="Details" asp-route-id="@r.EmployeeId">
+                                <partial name="_EmployeeAvatar" model='(r.EmployeeId ?? 0, r.Name, r.HasPhoto, "sm")' />
+                                <div><div class="fw-semibold">@r.Name</div><div class="small text-body-secondary">@r.Position</div></div>
+                            </a>
+                        }
+                    </div>
+                }
+                else { <p class="small text-body-secondary mt-2 mb-0">No direct reports.</p> }
+            </div>
+            <a asp-action="OrgChart" asp-route-departmentId="@e.DepartmentId" class="small d-inline-block mt-3">Open the @e.DepartmentName organisation chart</a>
+        </div></div>
+    </div>
+
+    <div class="col-12" data-section="Timeline">
+        <div class="card glass"><div class="card-body p-4" id="timeline">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Employee timeline (@Model.Timeline.Count)</h2>
+            @if (Model.Timeline.Count == 0) { <p class="text-body-secondary mb-0">Nothing recorded yet.</p> }
+            <ol class="emp-timeline">
+                @foreach (var t in Model.Timeline.Reverse())
+                {
+                    <li class="emp-tl-item tl-@t.Stage.ToLowerInvariant()">
+                        <div class="small text-body-secondary">@t.At.ToString("d MMM yyyy")</div>
+                        <div><span class="badge rounded-pill badge-soft-secondary me-1">@t.Stage</span><span class="fw-semibold">@t.Title</span></div>
+                        @if (t.Detail is not null) { <div class="small text-body-secondary">@t.Detail</div> }
+                        @if (!string.IsNullOrWhiteSpace(t.By)) { <div class="small text-body-secondary fst-italic">by @t.By</div> }
+                    </li>
+                }
+            </ol>
+        </div></div>
+    </div>
+
+    @if (Model.CanSeeAudit)
+    {
+        <div class="col-12" data-section="Audit trail">
+            <div class="card glass"><div class="card-body p-4" id="audit">
+                <h2 class="h6 text-uppercase text-body-secondary mb-3">Audit trail of this record</h2>
+                @if (Model.Audit is not { Count: > 0 } audit) { <p class="text-body-secondary mb-0">No changes recorded.</p> }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Changes</th></tr></thead>
+                            <tbody>
+                                @foreach (var a in audit)
+                                {
+                                    string Fields()
+                                    {
+                                        try
+                                        {
+                                            if (string.IsNullOrWhiteSpace(a.NewValues)) return "—";
+                                            using var doc = JsonDocument.Parse(a.NewValues);
+                                            return doc.RootElement.ValueKind == JsonValueKind.Object
+                                                ? string.Join(", ", doc.RootElement.EnumerateObject().Select(p => p.Name).Where(n => n is not ("Version" or "UpdatedAt" or "UpdatedBy")).Take(8))
+                                                : "—";
+                                        }
+                                        catch (JsonException) { return "—"; }
+                                    }
+                                    <tr>
+                                        <td class="small text-nowrap">@a.Timestamp.ToString("d MMM yyyy HH:mm")</td>
+                                        <td class="small">@(a.UserName ?? "system")</td>
+                                        <td class="small">@a.Action</td>
+                                        <td class="small">@Fields()</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <a asp-controller="AuditLogs" asp-action="Index" asp-route-entityName="Employee" asp-route-entityId="@e.Id" class="small d-inline-block mt-2">Full audit trail with old and new values</a>
+                }
+            </div></div>
+        </div>
+    }
 </div>
+
+@section Scripts {
+    <script src="~/js/section-tabs.js" asp-append-version="true"></script>
+}

@@ -69,6 +69,30 @@ public static class InterviewWorkflow
         i.Status = now >= i.StartsAt && AllScoresIn(i) ? InterviewStatus.AwaitingValidation : InterviewStatus.Scheduled;
     }
 
+    // ---------------------------------------------------------------- Quorum (12 November 2026, docs/35; approved 9 Nov in docs/26)
+
+    /// <summary>At least this many panel members must take part.</summary>
+    public const int QuorumSize = 3;
+
+    /// <summary>
+    /// What is missing for quorum, in plain words (empty = quorum met). Counts the members who have not declined and, once
+    /// <paramref name="onTheDay"/>, who are not marked Absent or Excused. Quorum: at least <see cref="QuorumSize"/> people,
+    /// including the department's Head of Department (or a delegate) and an HR Manager.
+    /// </summary>
+    public static IReadOnlyList<string> QuorumProblems(Interview i, IReadOnlySet<string> hodUserIds, IReadOnlySet<string> hrManagerUserIds, bool onTheDay)
+    {
+        var counted = i.Panel.Where(p => p.Response != PanelResponse.Declined
+                                         && (!onTheDay || p.Attendance is not (PanelAttendance.Absent or PanelAttendance.Excused))).ToList();
+        var problems = new List<string>();
+        if (counted.Count < QuorumSize) problems.Add($"at least {QuorumSize} panel members (now {counted.Count})");
+        if (!counted.Any(p => hodUserIds.Contains(p.UserId) || p.IsHodDelegate)) problems.Add("the Head of Department or a delegate from the department");
+        if (!counted.Any(p => hrManagerUserIds.Contains(p.UserId))) problems.Add("an HR Manager");
+        return problems;
+    }
+
+    /// <summary>Panel members can answer the invitation until the session starts (and while it is open).</summary>
+    public static bool CanRespond(Interview i, DateTime now) => i.Status == InterviewStatus.Scheduled && now < i.StartsAt;
+
     /// <summary>The scorecards that count: valid ones of a completed (validated) session.</summary>
     public static IEnumerable<Scorecard> ValidatedScorecards(Interview i) =>
         i.Status == InterviewStatus.Completed ? i.Scorecards.Where(s => s.IsValid) : [];

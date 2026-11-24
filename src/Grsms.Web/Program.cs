@@ -50,6 +50,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 builder.Services.AddScoped<IAppLinks, AppLinks>();
 builder.Services.AddScoped<Grsms.Web.Helpers.NavCounts>(); // sidebar badges + notification bell
+builder.Services.AddScoped<Grsms.Web.Helpers.LetterPdfBuilder>(); // 13 Nov 2026: offer and appointment letters as PDF
 builder.Services.AddMemoryCache(); // docs/32: the badges are kept per user for a few seconds (Navigation:CountsCacheSeconds)
 
 // Background job: every hourly date-driven job (vacancy closing, adverts, offer expiry, reminders, surveys; Workers/ScheduledJobsWorker.cs).
@@ -116,7 +117,19 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 // Re-check each signed-in user against the database every 5 minutes, so deactivated users and
 // role changes take effect quickly instead of when the cookie expires.
-builder.Services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.FromMinutes(5));
+builder.Services.Configure<SecurityStampValidatorOptions>(o =>
+{
+    o.ValidationInterval = TimeSpan.FromMinutes(5);
+    // 22 Nov 2026 (docs/41, H2): the periodic re-check rebuilds the sign-in from the database and would drop how the person
+    // signed in ("amr" = pwd / mfa, and the Microsoft 365 provider), so the two-step rule would ask again. Keep them.
+    o.OnRefreshingPrincipal = ctx =>
+    {
+        if (ctx.NewPrincipal?.Identity is System.Security.Claims.ClaimsIdentity id && ctx.CurrentPrincipal is { } old)
+            foreach (var c in old.Claims.Where(c => c.Type is TwoStepRequiredFilter.AmrClaim or System.Security.Claims.ClaimTypes.AuthenticationMethod))
+                if (!id.HasClaim(c.Type, c.Value)) id.AddClaim(new System.Security.Claims.Claim(c.Type, c.Value));
+        return Task.CompletedTask;
+    };
+});
 
 // Optional "Sign in with Microsoft 365" (Entra ID). Phase 16: always registered, configured from System settings
 // (falling back to the AzureAd section), and only offered once the tenant ID, client ID and secret are all set.
@@ -135,6 +148,7 @@ builder.Services.AddControllersWithViews(options =>
     // Anti-forgery: every POST must carry the hidden token that <form> tags add automatically.
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
     options.Filters.Add<MustChangePasswordFilter>();
+    options.Filters.Add<TwoStepRequiredFilter>(); // 22 Nov 2026 (docs/41, H2)
 });
 
 // The anti-forgery cookie gets the same protection as the sign-in cookie.

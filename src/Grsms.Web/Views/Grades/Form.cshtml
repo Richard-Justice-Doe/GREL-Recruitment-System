@@ -30,16 +30,6 @@
                     <input asp-for="SortOrder" class="form-control" type="number" min="0" />
                     <span asp-validation-for="SortOrder" class="text-danger small"></span>
                 </div>
-                <div class="col-md-4">
-                    <label asp-for="MinMonthlySalary" class="form-label"></label>
-                    <input asp-for="MinMonthlySalary" class="form-control" type="number" min="0" step="0.01" />
-                    <span asp-validation-for="MinMonthlySalary" class="text-danger small"></span>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="MaxMonthlySalary" class="form-label"></label>
-                    <input asp-for="MaxMonthlySalary" class="form-control" type="number" min="0" step="0.01" />
-                    <span asp-validation-for="MaxMonthlySalary" class="text-danger small"></span>
-                </div>
                 <div class="col-md-4 d-flex align-items-end">
                     <div class="form-check form-switch mb-2">
                         <input asp-for="IsActive" class="form-check-input" role="switch" />
@@ -47,7 +37,6 @@
                     </div>
                 </div>
             </div>
-            <p class="form-text mt-3 mb-0">The salary range is optional and only for reference. Salaries themselves come with payroll (a later phase).</p>
             <div class="mt-4">
                 <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
             </div>

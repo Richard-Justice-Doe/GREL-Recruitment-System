@@ -55,6 +55,9 @@ public sealed class TestDatabase : IDisposable
     public ServiceProvider Services { get; }
     public TestCurrentUser CurrentUser { get; } = new();
 
+    /// <summary>docs/36: the AI provider in tests.</summary>
+    public FakeAiClient Ai { get; } = new();
+
     /// <summary>Temporary folder for this test's uploaded files and saved emails; deleted afterwards.</summary>
     public string TempFolder { get; } = Path.Combine(Path.GetTempPath(), "grsms-test-" + Guid.NewGuid().ToString("N"));
 
@@ -76,6 +79,7 @@ public sealed class TestDatabase : IDisposable
                 ["Sms:PickupDirectory"] = Path.Combine(TempFolder, "sms"),
                 ["Uploads:MaxFileSizeMb"] = maxUploadMb.ToString(),
                 ["Email:FromName"] = "GREL Recruitment (tests)", // Phase 16: a server-configuration value, to test the fallback
+                ["Interviews:EnforceQuorum"] = "false", // docs/35: tests that check quorum switch it on themselves
                 ["Backups:Folder"] = Path.Combine(TempFolder, "backups")
             })
             .Build();
@@ -88,6 +92,8 @@ public sealed class TestDatabase : IDisposable
         UseSqlite(services, _connection);
         services.AddSingleton<ICurrentUserService>(CurrentUser);
         services.AddSingleton<IAppLinks, TestAppLinks>();
+        services.RemoveAll<Grsms.Application.Ai.IAiClient>(); // docs/36: never a real AI provider in tests
+        services.AddSingleton<Grsms.Application.Ai.IAiClient>(Ai);
         services.AddIdentityCore<ApplicationUser>(o => o.User.RequireUniqueEmail = true)
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -167,8 +173,11 @@ public class TestAppLinks : IAppLinks
     public string Interview(int id) => $"https://grsms.test/Interviews/Details/{id}";
     public string HiringCase(int applicationId) => $"https://grsms.test/Hiring/Case/{applicationId}";
     public string Onboarding(int id) => $"https://grsms.test/Onboarding/Details/{id}";
+    public string Celebrations() => "https://grsms.test/Celebrations";
     public string Probation(int id) => $"https://grsms.test/Probation/Details/{id}";
     public string MyProbation() => "https://grsms.test/MyProbation";
+    public string Employee(int id) => $"https://grsms.test/Employees/Details/{id}";
+    public string Home() => "https://grsms.test/";
     public string Survey(int invitationId) => $"https://grsms.test/Surveys/Take/{invitationId}";
     public string CareersJob(string advertNumber) => $"https://grsms.test/Careers/Details/{advertNumber}";
 }

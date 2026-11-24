@@ -77,7 +77,15 @@ public static class DependencyInjection
         services.Configure<StorageOptions>(config.GetSection("Storage"));
         services.Configure<UploadOptions>(config.GetSection("Uploads"));
         services.AddSingleton<IFileStorage, LocalFileStorage>();
-        services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>(); // Phase 27: placeholder, every file passes
+        // 22 Nov 2026 (docs/41, H3): ClamAV when Antivirus:Host is set (production: the "clamav" container), failing closed;
+        // the placeholder (every file passes) only when no scanner is configured (development, tests).
+        services.Configure<Storage.AntivirusOptions>(config.GetSection("Antivirus"));
+        if (!string.IsNullOrWhiteSpace(config["Antivirus:Host"])) services.AddSingleton<IVirusScanner, Storage.ClamAvScanner>();
+        else services.AddSingleton<IVirusScanner, Storage.NoVirusScanner>();
+        services.AddSingleton<IPdfRenderer, Documents.ChromiumPdfRenderer>(); // 13 Nov 2026: PDF letters through headless Chromium
+        services.AddSingleton<IDocumentHtmlPreview, Documents.DocxHtmlPreview>(); // docs/37 CR4: Word preview
+        services.AddSingleton<Application.Ai.IAiClient>(_ => new Ai.AiClient()); // docs/36: AI providers (Anthropic, OpenAI, Azure OpenAI)
+        services.AddSingleton<Application.Ai.IAiLogStore, Ai.AiLogStore>();
 
         // Phase 3: vacancies. The same repository also answers "is there a vacancy for this request?".
         services.AddScoped<IVacancyRepository, VacancyRepository>();
@@ -90,7 +98,8 @@ public static class DependencyInjection
         // Phase 15: ATS. CV text is read on this server; the Claude reader is optional and off without Ats:Ai:ApiKey.
         services.AddSingleton<Application.Applications.ICvTextExtractor, Ats.CvTextExtractor>();
         services.Configure<Ats.AtsAiOptions>(config.GetSection("Ats:Ai"));
-        services.AddSingleton<Application.Applications.IAiCvReader, Ats.ClaudeCvReader>();
+        services.AddSingleton<Ats.ClaudeCvReader>(); // the earlier reader, kept as the fallback (docs/36 AI-5)
+        services.AddScoped<Application.Applications.IAiCvReader, Ats.GatewayCvReader>();
 
         // Phase 16: system settings (database first, then configuration), backups folder. Both read the configuration
         // given here (the web app has already registered it; the tests have not).

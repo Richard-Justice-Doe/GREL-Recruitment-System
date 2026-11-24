@@ -17,6 +17,8 @@
     </div>
     <a asp-action="Index" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>My applications</a>
 </div>
+@* G3: the onboarding journey, once there is an onboarding *@
+@if (ViewBag.Appointment is MyAppointmentDto) { <partial name="_MyOnboardingJourney" model="Model.Id" /> }
 
 <div class="card glass mb-3">
     <div class="card-body py-4">
@@ -145,7 +147,7 @@
                     <div class="border-top mt-3 pt-3">
                         <p class="small mb-2">Onboarding: <strong>@appt.Status.DisplayName()</strong></p>
                         <a asp-action="Documents" asp-route-id="@Model.Id"
-                           class="btn btn-sm @(OnboardingWorkflow.EmployeeMayEditDocuments(appt.Status) ? "btn-primary" : "btn-outline-secondary")">
+                           class="btn btn-sm @(OnboardingWorkflow.EmployeeMayEditDocuments(appt.Status) ? (appt.LetterReady && appt.CanSign ? "btn-outline-primary" : "btn-primary") : "btn-outline-secondary")">
                             <i class="fa-solid fa-folder-open me-1"></i>@(OnboardingWorkflow.EmployeeMayEditDocuments(appt.Status) ? "Upload my new-hire documents" : "View my new-hire documents")
                         </a>
                         <a asp-action="PersonalRecord" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary ms-1"><i class="fa-regular fa-id-card me-1"></i>My personal record</a>
@@ -153,13 +155,15 @@
                 </div>
             </div>
         }
+        @* docs/36 AI-6: the onboarding assistant (only when switched on in AI settings) *@
+        @if (ViewBag.Appointment is MyAppointmentDto) { <partial name="_OnboardingAssistant" model="new Grsms.Web.Helpers.AssistantBox(Model.Id, null)" /> }
         @* ---- Phase 8: the offer *@
         @if (ViewBag.Offer is MyOfferDto offer)
         {
             <div class="card glass mb-3 @(offer.CanRespond ? "border border-success" : "")">
                 <div class="card-body p-4">
                     <h2 class="h6 text-uppercase text-body-secondary mb-2"><i class="fa-solid fa-envelope-open-text me-1"></i>Your offer</h2>
-                    <p class="small mb-2">@offer.JobTitle · GHS @offer.MonthlySalary.ToString("N2") per month · starts @offer.StartDate.ToString("dd MMM yyyy")<br />
+                    <p class="small mb-2">@offer.JobTitle · starts @offer.StartDate.ToString("dd MMM yyyy")<br />
                         <strong>@offer.Status.DisplayName()</strong>@(offer.CanRespond ? $" · reply by {offer.ExpiresOn:dd MMM yyyy}" : "")</p>
                     <a asp-action="Offer" asp-route-id="@Model.Id" class="btn btn-sm @(offer.CanRespond ? "btn-success" : "btn-outline-secondary")">@(offer.CanRespond ? "Read and reply to my offer" : "View my offer letter")</a>
                 </div>

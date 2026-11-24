@@ -48,6 +48,32 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         nameof(Domain.Applications.JobApplication.CvText),
     ];
 
+    /// <summary>
+    /// 22 Nov 2026 (docs/41, H1): the employee's personal record and everything in it (bank accounts, family, next of kin,
+    /// emergency contacts, beneficiaries and the signed declaration's snapshot). The audit trail records WHO changed WHICH field
+    /// and WHEN, never the value: audit readers (Admin, HR Administrator) must not see bank, SSNIT, religion or family details.
+    /// </summary>
+    public static readonly IReadOnlySet<Type> PersonalEntities = new HashSet<Type>
+    {
+        typeof(Domain.Onboarding.EmployeePersonalRecord), typeof(Domain.Onboarding.EmployeeBankAccount), typeof(Domain.Onboarding.EmployeeSpouse),
+        typeof(Domain.Onboarding.EmployeeChild), typeof(Domain.Onboarding.EmployeeDependant), typeof(Domain.Onboarding.EmployeeEmergencyContact),
+        typeof(Domain.Onboarding.EmployeeBeneficiary), typeof(Domain.Onboarding.EmployeeDeclaration)
+    };
+
+    /// <summary>Fields of those records that are kept as they are: links between records, flags and timestamps, nothing personal.</summary>
+    public static readonly IReadOnlySet<string> PersonalKeep = new HashSet<string>
+    {
+        "Id", "PersonalRecordId", "OnboardingRecordId", "EmployeeUserId", "IsPrimary", "IsDeleted", "Version", "DeclaredAt",
+        "CurrentDeclarationId", "SignedAt", "SnapshotSha256"
+    };
+
+    /// <summary>The value written instead of a personal field's value.</summary>
+    public const string Redacted = "(personal data)";
+
+    private static bool IsPersonal(EntityEntry entry, string property) =>
+        (PersonalEntities.Contains(entry.Metadata.ClrType) && !PersonalKeep.Contains(property))
+        || (entry.Entity is Domain.Employees.Employee && property == nameof(Domain.Employees.Employee.DateOfBirth));
+
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
     // State carried from "before save" to "after save" of one SaveChanges call.
@@ -152,7 +178,8 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         foreach (var entry in db.ChangeTracker.Entries().ToList())
         {
             // Audit rows themselves, and the technical reference-number counters, are not audited.
-            if (entry.Entity is AuditLog or NumberSequence or Domain.Security.KnownPermission) continue;
+            // 13 Nov 2026: the AI log and cache are logs themselves (docs/36).
+            if (entry.Entity is AuditLog or NumberSequence or Domain.Security.KnownPermission or Domain.Ai.AiRequestLog or Domain.Ai.AiCacheEntry) continue;
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
 
             // Phase 19: a signed Personal Record Declaration is immutable. Nothing may change or remove it, not even soft-delete.
@@ -216,6 +243,24 @@ public class AuditSaveChangesInterceptor(ICurrentUserService currentUser) : Save
         {
             var name = p.Metadata.Name;
             if (ExcludedProperties.Contains(name)) continue;
+
+            // docs/41 H1: a personal field is shown as changed, never with its value.
+            if (IsPersonal(entry, name))
+            {
+                switch (action)
+                {
+                    case AuditActions.Created:
+                        if (!p.IsTemporary && p.CurrentValue is not null) newValues[name] = Redacted;
+                        break;
+                    case AuditActions.Deleted:
+                        if (p.OriginalValue is not null) oldValues[name] = Redacted;
+                        break;
+                    default:
+                        if (p.IsModified && !Equals(p.OriginalValue, p.CurrentValue)) { oldValues[name] = Redacted; newValues[name] = "(changed)"; }
+                        break;
+                }
+                continue;
+            }
 
             switch (action)
             {

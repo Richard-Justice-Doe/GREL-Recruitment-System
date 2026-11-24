@@ -1,0 +1,29 @@
+@* 17 Nov 2026: today's birthdays and work anniversaries on Home (staff), with the next few days; links to the celebrations page. *@
+@model CelebrationsDto
+@if ((Model.BirthdaysOn || Model.AnniversariesOn) && (Model.Today.Count > 0 || Model.Upcoming.Count > 0))
+{
+    <section class="card glass mb-3 celebrate-widget @(Model.Today.Count > 0 ? "has-today" : "")" aria-label="Celebrations">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h2 class="h6 mb-0">
+                    @if (Model.Today.Count > 0) { <span>🎂 Today: @Model.BirthdaysToday birthday@(Model.BirthdaysToday == 1 ? "" : "s") · 🎉 @Model.AnniversariesToday work anniversar@(Model.AnniversariesToday == 1 ? "y" : "ies")</span> }
+                    else { <span>🎈 Coming up this week</span> }
+                </h2>
+                <a asp-controller="Celebrations" asp-action="Index" class="small">View celebrations <i class="fa-solid fa-chevron-right"></i></a>
+            </div>
+            <div class="celebrate-row">
+                @foreach (var c in Model.Today.Concat(Model.Upcoming).Take(8))
+                {
+                    var isToday = Model.Today.Contains(c);
+                    <a asp-controller="Celebrations" asp-action="Index" asp-fragment="c-@c.EmployeeId-@c.Kind" class="celebrate-chip @(isToday ? "is-today" : "")">
+                        <partial name="_CelebrantAvatar" model='(c, "sm")' />
+                        <span class="min-w-0">
+                            <span class="d-block fw-semibold text-truncate">@c.Name</span>
+                            <span class="d-block small text-body-secondary text-truncate">@(c.Kind == CelebrationKind.Birthday ? "🎂" : "🎉") @(isToday ? "Today" : c.Date.ToString("ddd d MMM")) · @(c.Kind == CelebrationKind.Anniversary ? $"{c.Years} yr{(c.Years == 1 ? "" : "s")} · " : "")@c.DepartmentName</span>
+                        </span>
+                    </a>
+                }
+            </div>
+        </div>
+    </section>
+}

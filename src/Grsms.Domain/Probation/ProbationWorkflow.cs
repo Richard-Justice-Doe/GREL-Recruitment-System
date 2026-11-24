@@ -22,6 +22,31 @@ public static class ProbationWorkflow
     public const int FirstAssessmentMonths = 3;
     public const int MaxExtensionMonths = 3;
 
+    /// <summary>The initial meeting may be held from two weeks before the start (17 Nov 2026).</summary>
+    public const int MeetingDaysBeforeStart = 14;
+
+    /// <summary>
+    /// 23 Nov 2026: the dates the initial meeting may be set to: from two weeks before the start up to the due date, so the HOD can
+    /// SCHEDULE it before the employee starts (the employee signs on or after that day), or up to today when it is held late.
+    /// </summary>
+    public static (DateOnly Earliest, DateOnly Latest) MeetingDateWindow(DateOnly start, DateOnly due, DateOnly today) =>
+        (start.AddDays(-MeetingDaysBeforeStart), today > due ? today : due);
+
+    /// <summary>
+    /// 23 Nov 2026: the date GRSMS suggests for the initial meeting: the first working day (Monday to Friday) from the employee's
+    /// start, or from today if they have already started, no later than the due date (when overdue: today).
+    /// </summary>
+    public static DateOnly SuggestedMeetingDate(DateOnly start, DateOnly due, DateOnly today)
+    {
+        var d = today > start ? today : start;
+        while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(1);
+        if (d > due) d = today > due ? today : due;
+        return d;
+    }
+
+    /// <summary>The last due date an objective may have: the end of the probation plus the longest extension.</summary>
+    public static DateOnly LatestObjectiveDue(DateOnly end) => end.AddMonths(MaxExtensionMonths);
+
     /// <summary>How early (days before the due date) an assessment may be recorded.</summary>
     public const int AssessmentWindowDays = 14;
 

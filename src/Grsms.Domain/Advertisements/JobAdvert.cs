@@ -37,6 +37,17 @@ public class JobAdvert : BaseEntity
     /// <summary>Application instructions, e.g. "Apply online through the GREL careers page".</summary>
     public string HowToApply { get; set; } = string.Empty;
 
+    // 13 Nov 2026 (docs/36 AI-1): optional versions for other channels (written by hand or with AI). Empty = built from Body.
+
+    /// <summary>Text for job boards and newspapers (Indeed, Jobberman, newspaper) instead of <see cref="Body"/>.</summary>
+    public string? ExternalText { get; set; }
+
+    /// <summary>Text for the LinkedIn post instead of <see cref="Body"/>.</summary>
+    public string? LinkedInText { get; set; }
+
+    /// <summary>An internal vacancy notice for staff (noticeboards, staff email), shown copy-ready on the advert page.</summary>
+    public string? InternalNotice { get; set; }
+
     // ---------------------------------------------------------------- Dates and state
 
     /// <summary>First day the advert runs. If it is in the future when published, the advert is Scheduled until then.</summary>

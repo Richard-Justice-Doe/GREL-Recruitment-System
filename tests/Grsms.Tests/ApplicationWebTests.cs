@@ -146,6 +146,18 @@ public class ApplicationWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsW
         var cv = await recruiter.GetAsync($"/Applications/Download/{appId}?attachmentId={attachmentId}");
         Assert.Equal(HttpStatusCode.OK, cv.StatusCode);
         Assert.StartsWith("%PDF", await cv.Content.ReadAsStringAsync());
+        Assert.Equal("attachment", cv.Content.Headers.ContentDisposition!.DispositionType);
+        // docs/37 CR4: the preview: a Preview button, the same file shown inline (not cached), PDF.js served as a JavaScript module.
+        Assert.Contains("data-preview-kind=\"pdf\"", details);
+        var inline = await recruiter.GetAsync($"/Applications/Download/{appId}?attachmentId={attachmentId}&view=inline");
+        Assert.Equal("inline", inline.Content.Headers.ContentDisposition!.DispositionType);
+        Assert.Equal("application/pdf", inline.Content.Headers.ContentType!.MediaType);
+        Assert.Contains("no-store", inline.Headers.CacheControl!.ToString());
+        var notWord = await recruiter.GetAsync($"/Applications/Download/{appId}?attachmentId={attachmentId}&view=html");
+        Assert.Equal("attachment", notWord.Content.Headers.ContentDisposition!.DispositionType); // not a Word file: downloaded as usual
+        var module = await recruiter.GetAsync("/lib/pdfjs/pdf.min.mjs");
+        Assert.Equal(HttpStatusCode.OK, module.StatusCode);
+        Assert.Contains("javascript", module.Content.Headers.ContentType!.MediaType);
 
         Assert.Equal(HttpStatusCode.Redirect,
             (await recruiter.PostFormAsync($"/Applications/Details/{appId}", $"/Applications/StartReview/{appId}", new())).StatusCode);

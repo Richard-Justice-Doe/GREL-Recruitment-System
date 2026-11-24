@@ -44,6 +44,10 @@ public class ScheduleFormDto
     [Display(Name = "Chair")]
     public string? ChairUserId { get; set; }
 
+    /// <summary>12 November 2026: schedule even though a panel member or the candidate already has a session at that time.</summary>
+    [Display(Name = "Schedule anyway")]
+    public bool IgnoreClashes { get; set; }
+
     /// <summary>Criteria, one per line as "Name | weight". Weights must add up to 100.</summary>
     [Required, StringLength(2000)]
     [Display(Name = "Scorecard criteria (one per line: name | weight)")]
@@ -94,13 +98,15 @@ public record InterviewListItemDto(
 
 /// <summary>A panel member. HasSubmitted = a valid scorecard; ScorecardReturned = theirs was sent back for correction.</summary>
 public record PanelMemberDto(string UserId, string Name, bool IsChair, bool HasSubmitted, bool ScorecardReturned = false,
-    PanelAttendance Attendance = PanelAttendance.NotRecorded, string? AttendanceNote = null);
+    PanelAttendance Attendance = PanelAttendance.NotRecorded, string? AttendanceNote = null,
+    PanelResponse Response = PanelResponse.Pending, string? DeclineReason = null, bool IsHodDelegate = false);
 
 public record CriterionDto(int Id, string Name, int Weight);
 
 public record ScorecardDto(string PanelUserId, string PanelName, PanelRecommendation Recommendation, decimal WeightedScore,
     IReadOnlyDictionary<int, int> Ratings, string? Strengths, string? Concerns, DateTime SubmittedAt,
-    DateTime? ReturnedAt = null, string? ReturnReason = null, string? ReturnedByName = null);
+    DateTime? ReturnedAt = null, string? ReturnReason = null, string? ReturnedByName = null,
+    IReadOnlyDictionary<int, string>? Comments = null); // docs/37 CR2: criterion id → the optional reason
 
 /// <summary>The interview page: details, panel, criteria, my scorecard, the scorecards I may see, and actions.</summary>
 public record InterviewDetailsDto
@@ -160,6 +166,26 @@ public record InterviewDetailsDto
     public string? ValidatedByName { get; init; }
     public DateTime? ValidatedAt { get; init; }
     public string? ValidationNote { get; init; }
+
+    // ---- 12 November 2026 (docs/35): panel replies and quorum
+    /// <summary>The session was scheduled with quorum enforced: scores can only be validated when quorum is met.</summary>
+    public bool QuorumRequired { get; init; }
+
+    /// <summary>What is missing for quorum (empty = met). Before the session: from the replies; from its start: also attendance.</summary>
+    public IReadOnlyList<string> QuorumProblems { get; init; } = [];
+
+    /// <summary>The current user is on the panel and can still accept or decline.</summary>
+    public bool CanRespond { get; init; }
+    public PanelResponse? MyResponse { get; init; }
+
+    /// <summary>A Recruitment Officer / HR Manager can replace a panel member who declined (before the session).</summary>
+    public bool CanReplace { get; init; }
+
+    /// <summary>Active staff who could replace a declined member (filled only when someone declined).</summary>
+    public IReadOnlyList<Grsms.Application.Organization.LookupItem> ReplacementOptions { get; init; } = [];
+
+    /// <summary>docs/37 CR3: the panel's change history (replacements, substitutes, re-invitations), newest first.</summary>
+    public IReadOnlyList<PanelChangeDto> PanelChanges { get; init; } = [];
 }
 
 /// <summary>One applicant's interview results for a vacancy (the results board).</summary>
@@ -180,7 +206,13 @@ public interface IInterviewRepository : IRepository<Interview>
     /// <summary>All interviews of these applications, with panel and scorecards.</summary>
     Task<IReadOnlyList<Interview>> ListForApplicationsAsync(IReadOnlyCollection<int> applicationIds, CancellationToken ct = default);
 
+    /// <summary>12 November 2026: scheduled sessions starting between the two times, with their panel (for the clash check).</summary>
+    Task<IReadOnlyList<Interview>> ListScheduledBetweenAsync(DateTime from, DateTime to, CancellationToken ct = default);
+
     /// <summary>The Interviews list. <paramref name="panelUserId"/> limits it to sessions with that person on the panel.</summary>
     Task<PagedResult<InterviewListItemDto>> SearchAsync(InterviewFilter filter, RequestVisibility visibility, string? panelUserId,
         bool onlyAwaitingMyScorecard, DateTime now, CancellationToken ct = default);
 }
+
+/// <summary>docs/37 CR3: one change to a panel.</summary>
+public record PanelChangeDto(PanelChangeAction Action, string? Original, string? Replacement, string? Reason, string Actor, DateTime At);

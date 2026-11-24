@@ -18,7 +18,7 @@ Onboarding starts when the Recruitment Officer clicks **Click to proceed to onbo
  1. Letter being ──► 2. Awaiting the ◄──────► 3. Awaiting document ──────► 4. Ready for ──activate──► 5. Induction in ──close──► ✅ Completed
     prepared            new employee            verification                 activation               progress
    (uploads already open)     ▲ a document rejected, a correction asked, the record changed ┘
- (any stage before Completed) ── cancel ──► ❌ Cancelled
+(any stage before Completed) ── cancel ──► ❌ Cancelled ── reopen (with a reason) ──► back to the stage it was in
 ```
 
 Stages 1 to 4 are **worked out automatically** after every upload, verification, rejection or signature:
@@ -108,6 +108,23 @@ Documents arrive one by one; you are emailed once the new employee has provided 
 
 **Only the new employee uploads documents** (since 11 November 2026). Staff open, review, verify and reject them, and can ask for a correction, but never upload, replace or remove a document on the new employee's behalf. If someone has trouble uploading, help them do it themselves in My onboarding (for example on an HR office computer).
 
+**Automatic checks (13 November 2026, docs/36):** under each document GRSMS notes, without AI:
+* an expired Ghana Card, passport or permit, one expiring within 90 days, or one with no *valid until* date (the new employee gives it when uploading; you can correct it);
+* the same file used for two documents, or uploaded by another new employee (*Act now*);
+* a photo or scan of low resolution.
+
+These remarks don't decide anything: you still verify or reject. **Reports → Document checks** lists them for all onboardings in progress.
+
+**AI check (optional, 15 November 2026).** When the Super Admin has switched on *Document type check* in *AI settings & usage*, documents with a picture or PDF get a **Check with AI** button, for whoever verifies documents.
+* The file (up to two files, at most 5 MB each) is sent to the AI service with the document type expected.
+* The answer appears as a note under the document, for staff only:
+  * *looks like a Ghana Card, readable*;
+  * *may be hard to read* (blurred, cut off, glare);
+  * *does not look like a Ghana Card; it looks like a bank statement*.
+* A new file makes the note **out of date**, so check again.
+* It never verifies or rejects: you still compare with the original.
+* Because ID images leave GREL, the switch stays off until GREL's data-protection sign-off is in place.
+
 ### Activation and induction
 When the onboarding is **Ready for activation**, the *Next step* panel shows the **departmental induction areas** (the defaults already ticked) and the **staff number** box. Click **Activate the employee**: the account becomes a staff account (Employee role added, Candidate role removed, staff number, department and site set), the probation starts, the personnel file is filled, and each ticked area's tasks are added to the checklist, given to the area's owner and due a week later. The new employee (template *Onboarding: staff account active*), the task owners and the HOD are emailed.
 
@@ -168,6 +185,13 @@ An onboarding completed before personnel files existed shows **Open the personne
 
 ### Notes and cancelling
 **HR notes** are for HR only (never shown to the new employee). **Cancel onboarding** (the RO) needs a reason and works at any stage before Completed.
+
+**Reopening (17 November 2026).** A cancelled onboarding, including an induction cancelled after activation, can be reopened by the RO.
+* Open it and give the reason (e.g. *cancelled by mistake*, *the new employee reported after all*), then click **Reopen onboarding**.
+* It goes back to the stage it was in when cancelled. Before activation, the stage is then worked out again from the documents, letter and personal record.
+* Everything kept while it was cancelled carries on: letter, documents, tasks and induction.
+* The history shows *Reopened after cancellation* with the reason. The new employee and the Heads of Department are emailed.
+* A new onboarding can never be started for the same application, so reopening is the way back.
 
 ---
 

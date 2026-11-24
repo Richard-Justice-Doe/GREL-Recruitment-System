@@ -184,6 +184,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("ExternalText")
+                        .HasColumnType("text");
+
                     b.Property<string>("HowToApply")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -196,6 +199,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("InternalNotice")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
@@ -205,6 +211,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<string>("ItApprovedByUserId")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<string>("LinkedInText")
+                        .HasMaxLength(3000)
+                        .HasColumnType("varchar(3000)");
 
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("datetime(6)");
@@ -279,6 +289,227 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasIndex("VacancyId", "Status");
 
                     b.ToTable("JobAdverts", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Ai.AiCacheEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Feature")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Output")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("AiCacheEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Ai.AiInsight", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("Feature")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("GeneratedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("PromptVersion")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("RecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecordType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("RecordType", "RecordId", "Feature");
+
+                    b.ToTable("AiInsights", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Ai.AiRequestLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CostUsd")
+                        .HasPrecision(12, 6)
+                        .HasColumnType("decimal(12,6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("DurationMs")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("Feature")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<int>("InputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("OutputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Prompt")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PromptVersion")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int?>("RecordId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecordType")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("AiRequestLogs", (string)null);
                 });
 
             modelBuilder.Entity("Grsms.Domain.Applications.ApplicationActionEntry", b =>
@@ -525,6 +756,63 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("CandidateProfiles", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Applications.JobAlertSubscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Keywords")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<DateTime?>("LastSentAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("JobAlertSubscriptions", (string)null);
                 });
 
             modelBuilder.Entity("Grsms.Domain.Applications.JobApplication", b =>
@@ -849,6 +1137,78 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Celebrations.CelebrationMessage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("AuthorUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HiddenBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(280)
+                        .HasColumnType("varchar(280)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("EmployeeId", "Kind", "Year");
+
+                    b.ToTable("CelebrationMessages", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Documents.Attachment", b =>
                 {
                     b.Property<int>("Id")
@@ -878,6 +1238,12 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<string>("DeletedBy")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
+
+                    b.Property<int?>("ImageHeight")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ImageWidth")
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
@@ -933,6 +1299,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    b.Property<bool>("CelebrationsOptOut")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<DateTime?>("ConfirmationDate")
                         .HasColumnType("date");
 
@@ -945,6 +1314,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.Property<string>("CreatedBy")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("date");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
@@ -976,6 +1348,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasColumnType("tinyint(1)");
 
                     b.Property<int?>("OnboardingRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PhotoAttachmentId")
                         .HasColumnType("int");
 
                     b.Property<string>("PositionTitle")
@@ -1594,6 +1969,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<bool>("QuorumRequired")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("RequestingHodUserId")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -1696,6 +2074,75 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("InterviewCriteria", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Interviews.InterviewPanelChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("ActorUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("InterviewId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("OriginalUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("ReplacementUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InterviewId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.ToTable("InterviewPanelChanges", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Interviews.InterviewPanelMember", b =>
                 {
                     b.Property<int>("Id")
@@ -1718,11 +2165,28 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("DeclineReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<int>("InterviewId")
                         .HasColumnType("int");
 
                     b.Property<bool>("IsChair")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsHodDelegate")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Response")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Pending");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -1823,6 +2287,10 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
                     b.Property<int>("CriterionId")
                         .HasColumnType("int");
 
@@ -1840,6 +2308,147 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ScorecardRatings", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Knowledge.KnowledgeDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("AttachmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<int>("CharacterCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("ReadProblem")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<int>("SectionCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.ToTable("KnowledgeDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Knowledge.KnowledgeSection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("Heading")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("KnowledgeDocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("KnowledgeDocumentId", "SortOrder");
+
+                    b.ToTable("KnowledgeSections", (string)null);
                 });
 
             modelBuilder.Entity("Grsms.Domain.Notifications.Notification", b =>
@@ -2140,6 +2749,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("ExpiresOn")
+                        .HasColumnType("date");
 
                     b.Property<bool>("IsApplicable")
                         .HasColumnType("tinyint(1)");
@@ -5806,6 +6418,65 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.ToTable("VacancyActions", (string)null);
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyInterviewQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("Guidance")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<int>("VacancyId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("VacancyId");
+
+                    b.ToTable("VacancyInterviewQuestions", (string)null);
+                });
+
             modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyKnockoutQuestion", b =>
                 {
                     b.Property<int>("Id")
@@ -5921,6 +6592,9 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("RequireTwoStep")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<string>("SecurityStamp")
@@ -6273,6 +6947,15 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Applications.JobAlertSubscription", b =>
+                {
+                    b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Grsms.Domain.Applications.JobApplication", b =>
                 {
                     b.HasOne("Grsms.Infrastructure.Identity.ApplicationUser", null)
@@ -6564,6 +7247,15 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Interviews.InterviewPanelChange", b =>
+                {
+                    b.HasOne("Grsms.Domain.Interviews.Interview", null)
+                        .WithMany()
+                        .HasForeignKey("InterviewId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Grsms.Domain.Interviews.InterviewPanelMember", b =>
                 {
                     b.HasOne("Grsms.Domain.Interviews.Interview", null)
@@ -6605,6 +7297,15 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                     b.HasOne("Grsms.Domain.Interviews.Scorecard", null)
                         .WithMany("Ratings")
                         .HasForeignKey("ScorecardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Knowledge.KnowledgeSection", b =>
+                {
+                    b.HasOne("Grsms.Domain.Knowledge.KnowledgeDocument", null)
+                        .WithMany("Sections")
+                        .HasForeignKey("KnowledgeDocumentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -7222,6 +7923,15 @@ namespace Grsms.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyInterviewQuestion", b =>
+                {
+                    b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
+                        .WithMany()
+                        .HasForeignKey("VacancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Grsms.Domain.Vacancies.VacancyKnockoutQuestion", b =>
                 {
                     b.HasOne("Grsms.Domain.Vacancies.Vacancy", null)
@@ -7335,6 +8045,11 @@ namespace Grsms.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Grsms.Domain.Interviews.Scorecard", b =>
                 {
                     b.Navigation("Ratings");
+                });
+
+            modelBuilder.Entity("Grsms.Domain.Knowledge.KnowledgeDocument", b =>
+                {
+                    b.Navigation("Sections");
                 });
 
             modelBuilder.Entity("Grsms.Domain.Onboarding.EmployeePersonalRecord", b =>

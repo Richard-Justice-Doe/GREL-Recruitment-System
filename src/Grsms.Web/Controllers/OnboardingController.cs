@@ -52,11 +52,12 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         return View(form);
     }
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await onboarding.GetAsync(id, ct);
         if (model is null) return NotFound();
         if (model.CanManage) ViewBag.Staff = new SelectList(await onboarding.StaffAsync(ct), "Value", "Text");
+        ViewBag.Process = await guide.ForApplicationAsync(model.ApplicationId, ct); // docs/37 CR5
         return View(model);
     }
 
@@ -67,6 +68,21 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         if (model is null) return NotFound();
         ViewBag.OnboardingId = id;
         return View(model);
+    }
+
+    /// <summary>13 Nov 2026: the appointment letter as a PDF (marked DRAFT until it is issued).</summary>
+    public async Task<IActionResult> LetterPdf(int id, [FromServices] Helpers.LetterPdfBuilder pdf, CancellationToken ct)
+    {
+        var model = await onboarding.GetLetterPreviewAsync(id, ct);
+        if (model is null) return NotFound();
+        var draft = model.LetterNumber is null;
+        var bytes = await pdf.BuildAsync(ControllerContext, $"Appointment letter {model.LetterNumber ?? "(draft)"}", "_AppointmentLetter", model, draft, ct);
+        if (bytes is null)
+        {
+            Error("The PDF could not be made on this server. Use Print instead (choose \"Save as PDF\").");
+            return RedirectToAction(nameof(Letter), new { id });
+        }
+        return File(bytes, "application/pdf", $"{model.LetterNumber ?? "appointment-letter-DRAFT"}.pdf");
     }
 
     [HttpPost]
@@ -170,6 +186,11 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
     [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
     public Task<IActionResult> VerifyDocument(int id, int documentId, CancellationToken ct) =>
         ActAt(id, documentId, () => documents.VerifyAsync(documentId, ct), "Document verified.");
+    /// <summary>docs/36 AI-4: the RO sets or corrects the "valid until" date of an ID-type document.</summary>
+    [HttpPost]
+    [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
+    public Task<IActionResult> SetDocumentExpiry(int id, int documentId, DateOnly? expiresOn, CancellationToken ct) =>
+        ActAt(id, documentId, () => documents.SetExpiryAsync(documentId, expiresOn, ct), "Valid-until date saved.");
 
     [HttpPost]
     [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
@@ -184,11 +205,22 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
 
     /// <summary>Downloads a new-hire document file (onboarding.view; always as a download, never shown inside the site; every opening is recorded).</summary>
     [Authorize(Policy = Policies.ViewOnboarding)]
-    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> DownloadDocument(int id, int documentId, int attachmentId, string? view, CancellationToken ct)
     {
         var file = await documents.OpenFileAsync(documentId, attachmentId, ct);
-        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+        return await ServeFileAsync(file, view, ct); // docs/37 CR4: download, or preview (?view=inline / html)
     }
+
+    /// <summary>Phase 27 stage C: more time for the documents, once.</summary>
+    [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
+    public Task<IActionResult> ExtendDeadline(int id, DateOnly? newDate, string? reason, CancellationToken ct) =>
+        Act(id, () => onboarding.ExtendDocumentDeadlineAsync(id, newDate, reason, ct), "Deadline extended. The new employee has been emailed.");
+
+    [HttpPost]
+    [Authorize(Policy = Policies.ManageOnboarding)]
+    public Task<IActionResult> Reopen(int id, string? reason, CancellationToken ct) => // 17 Nov 2026
+        Act(id, () => onboarding.ReopenAsync(id, reason, ct), "Onboarding reopened. The new employee and the Heads of Department have been told.");
 
     [HttpPost]
     [Authorize(Policy = Policies.ManageOnboarding)]
@@ -199,6 +231,18 @@ public class OnboardingController(OnboardingService onboarding, DocumentVerifica
         RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), new { id }));
 
     /// <summary>Usability U3: after acting on a document, come back to that document (not the top of the page).</summary>
+    /// <summary>docs/36 AI-8: the optional AI check of one uploaded document (advice for the RO, shown as a flag on the document).</summary>
+    [HttpPost]
+    [Authorize(Policy = Policies.VerifyOnboardingDocuments)]
+    public async Task<IActionResult> AiCheckDocument(int id, int documentId, [FromServices] DocumentAiCheckService checks, CancellationToken ct)
+    {
+        var r = await checks.CheckAsync(documentId, id, ct);
+        if (!r.Succeeded) Fail(r);
+        else if (!r.Value.MatchesExpected) Error($"AI check: this may not be the right document; it looks like {r.Value.DetectedType}. See the note on the document.");
+        else Success(r.Value.Readable && r.Value.Issues.Count == 0 ? "AI check: it looks like the right document and readable. Still compare it with the original." : "AI check done: see the note on the document.");
+        return RedirectToAction(nameof(Details), null, new { id }, $"doc-{documentId}");
+    }
+
     private Task<IActionResult> ActAt(int id, int documentId, Func<Task<Result>> action, string successMessage) =>
         RunAsync(action, successMessage, () => RedirectToAction(nameof(Details), null, new { id }, $"doc-{documentId}"));
 }

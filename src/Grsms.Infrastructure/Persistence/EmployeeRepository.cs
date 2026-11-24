@@ -22,6 +22,7 @@ public class EmployeeRepository(ApplicationDbContext context) : Repository<Emplo
         var q = Visible(visibility);
         q = filter.Status is { } status ? q.Where(e => e.Status == status) : q.Where(e => e.Status != EmployeeStatus.Separated);
         if (filter.DepartmentId is { } dep) q = q.Where(e => e.DepartmentId == dep);
+        if (filter.SiteId is { } site) q = q.Where(e => e.SiteId == site);
         if (filter.GradeId is { } grade) q = q.Where(e => e.GradeId == grade);
 
         var rows = from e in q
@@ -41,7 +42,7 @@ public class EmployeeRepository(ApplicationDbContext context) : Repository<Emplo
         var items = await rows.OrderBy(x => x.FullName).ThenBy(x => x.e.EmployeeNumber)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(x => new EmployeeRow(x.e.Id, x.e.EmployeeNumber, x.FullName, x.e.PositionTitle, x.e.DepartmentId, x.e.SiteId, x.e.GradeId,
-                x.e.EmploymentType, x.e.Status, x.e.HireDate))
+                x.e.EmploymentType, x.e.Status, x.e.HireDate, x.e.UserId, x.e.ReportsToUserId, x.e.OnboardingRecordId, x.e.PhotoAttachmentId, x.e.ContractEndDate))
             .ToListAsync(ct);
         return new PagedResult<EmployeeRow>(items, page, pageSize, total);
     }

@@ -62,6 +62,18 @@ public record HiringCaseDto
     public bool CanOffer { get; init; }
     public string? OfferBlockedReason { get; init; }
     public bool CanWithdrawOffer { get; init; }
+
+    /// <summary>13 November 2026: the offer drafted when the hire was approved (null when none, or once sent).</summary>
+    public OfferDto? OfferDraft { get; init; }
+
+    /// <summary>The Recruitment Officer may edit the draft (or create one) now, even while checks still block sending.</summary>
+    public bool CanEditOffer { get; init; }
+
+    /// <summary>The values the offer form starts with: the draft's, or the approved hire's with the default reply-by date and terms.</summary>
+    public decimal FormSalary { get; init; }
+    public DateOnly FormStartDate { get; init; }
+    public DateOnly FormExpiresOn { get; init; }
+    public string? FormTerms { get; init; }
 }
 
 /// <summary>Filters on the Hiring list.</summary>
@@ -94,7 +106,8 @@ public record InterviewRoundScoresDto(int InterviewId, int Round, InterviewType 
     IReadOnlyList<PanelScoreDto> Scores);
 
 /// <summary>One panel member's validated score on the hiring case.</summary>
-public record PanelScoreDto(string PanelName, bool IsChair, decimal Score, PanelRecommendation Recommendation, string? Strengths, string? Concerns);
+public record PanelScoreDto(string PanelName, bool IsChair, decimal Score, PanelRecommendation Recommendation, string? Strengths, string? Concerns,
+    IReadOnlyList<string>? CriterionComments = null); // docs/37 CR2: "Criterion (4/5): reason"
 
 /// <summary>A candidate whose interview scores are validated and who is ready for a hiring recommendation (9 Nov 2026).</summary>
 public record ReadyToRecommendDto(int ApplicationId, string ApplicationNumber, string ApplicantName, int VacancyId, string VacancyNumber,

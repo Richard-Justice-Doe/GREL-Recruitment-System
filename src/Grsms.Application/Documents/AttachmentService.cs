@@ -116,6 +116,8 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
         {
             buffer.Position = 0;
             var scan = await scanner.ScanAsync(buffer, safeName, ct);
+            if (scan.Unavailable)
+                return Result.Failure<int>($"'{safeName}' could not be checked for viruses right now, so it was not saved. Please try again in a few minutes.");
             if (!scan.Clean)
                 return Result.Failure<int>($"'{safeName}' was refused by the virus scan{(scan.Threat is null ? "" : $" ({scan.Threat})")}. Please upload a clean copy.");
         }
@@ -124,6 +126,8 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
         var sha = Convert.ToHexString(await SHA256.HashDataAsync(buffer, ct)).ToLowerInvariant();
         buffer.Position = 0;
         var storedName = await storage.SaveAsync(buffer, extension.ToLowerInvariant(), ct);
+        // docs/36 AI-4: pixel size of photos and scans, read from the header (for the low-resolution check).
+        var pixels = ImageSize.TryRead(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
 
         var entity = new Attachment
         {
@@ -134,7 +138,9 @@ public class AttachmentService(IRepository<Attachment> attachments, IFileStorage
             StoredFileName = storedName,
             ContentType = type.Mime,
             SizeBytes = buffer.Length,
-            Sha256 = sha
+            Sha256 = sha,
+            ImageWidth = pixels?.Width,
+            ImageHeight = pixels?.Height
         };
         attachments.Add(entity);
         await unitOfWork.SaveChangesAsync(ct);

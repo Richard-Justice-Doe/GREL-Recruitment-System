@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Grsms.Tests.Infrastructure;
 
@@ -39,6 +40,7 @@ public sealed class GrsmsWebFactory : WebApplicationFactory<Program>
         builder.UseSetting("Sms:PickupDirectory", Path.Combine(MailFolder, "sms"));
         // Every test client signs in from the same (empty) address; the limit itself is tested in SecurityWebTests.
         builder.UseSetting("Security:SignInAttemptsPerMinute", "10000");
+        builder.UseSetting("Security:RequireTwoStepForPrivileged", "false"); // docs/41 H2: on in TwoStepSignInWebTests
         // Keep test logs and key files out of the source folder.
         builder.UseSetting("Logs:Folder", Path.Combine(Path.GetTempPath(), "grsms-test-logs"));
         builder.UseSetting("DataProtection:KeysFolder", Path.Combine(MailFolder, "keys"));
@@ -46,19 +48,31 @@ public sealed class GrsmsWebFactory : WebApplicationFactory<Program>
         // The test database is one shared in-memory connection, which must not be used by a
         // background job at the same time as the test. Automatic closing is tested directly instead.
         builder.UseSetting("Vacancies:AutoClose", "false");
+        builder.UseSetting("Interviews:EnforceQuorum", "false"); // docs/35: tests that check quorum switch it on themselves
 
         builder.ConfigureTestServices(services =>
         {
             TestDatabase.UseSqlite(services, _connection);
+            // 13 Nov 2026: no browser in the tests; the real renderer is tested on its own (ChromiumPdfRendererTests).
+            services.RemoveAll<Grsms.Application.Common.Interfaces.IPdfRenderer>();
+            services.AddSingleton<Grsms.Application.Common.Interfaces.IPdfRenderer>(Pdf);
+            services.RemoveAll<Grsms.Application.Ai.IAiClient>(); // docs/36: never a real AI provider in tests
+            services.AddSingleton<Grsms.Application.Ai.IAiClient>(Ai);
         });
     }
 
-    /// <summary>An HTTPS client that keeps cookies but does NOT follow redirects, so tests can check where they point.</summary>
-    public HttpClient NewClient() => CreateClient(new WebApplicationFactoryClientOptions
-    {
-        BaseAddress = new Uri("https://localhost"),
-        AllowAutoRedirect = false
-    });
+    /// <summary>The AI provider the site uses in tests.</summary>
+    public FakeAiClient Ai { get; } = new();
+
+    /// <summary>The PDF renderer the site uses in tests (records the last letter page).</summary>
+    public FakePdfRenderer Pdf { get; } = new();
+
+    /// <summary>
+    /// An HTTPS client that keeps cookies but does NOT follow redirects, so tests can check where they point. It also checks
+    /// every record page it opens for "one primary button per page" (docs/37 C6, <see cref="PrimaryActionCheck"/>).
+    /// </summary>
+    public HttpClient NewClient() =>
+        CreateDefaultClient(new Uri("https://localhost"), new Microsoft.AspNetCore.Mvc.Testing.Handlers.CookieContainerHandler(), new PrimaryActionCheck());
 
     protected override void Dispose(bool disposing)
     {

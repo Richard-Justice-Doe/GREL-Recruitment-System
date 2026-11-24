@@ -48,7 +48,10 @@ public class MyNextStepService(
         {
             if (!OnboardingWorkflow.BeforeActivation(o.Status)) continue;
             var snap = await progress.SnapshotAsync(o, ct);
-            var due = o.DocumentsDueDate is { } d ? $" Please finish by {d:dddd d MMMM}." : "";
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var due = o.DocumentsDueDate is not { } d ? ""
+                : d < today ? $" These were due on {d:dddd d MMMM}: please upload them as soon as you can, or contact HR if you need more time."
+                : $" Please finish by {d:dddd d MMMM}.";
             if (o.CorrectionMessage is not null)
                 steps.Add(new(MyStepTarget.Documents, o.JobApplicationId, "HR asked for a correction", o.CorrectionMessage, "See what to correct", true));
             if (o.LetterIssued && !o.LetterAcknowledged)

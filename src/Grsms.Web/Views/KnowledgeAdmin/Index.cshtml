@@ -1,0 +1,48 @@
+@* docs/36 AI-7: Administration → Knowledge base (HR). Every document, archived ones too, with whether its text could be read. *@
+@model IReadOnlyList<KnowledgeDocumentListItem>
+@{
+    ViewData["Title"] = "Knowledge base";
+    var gb = System.Globalization.CultureInfo.GetCultureInfo("en-GB");
+}
+
+<div class="page-header">
+    <div>
+        <h1>Knowledge base</h1>
+        <p>GREL's policies and procedures. Staff search them under <a asp-controller="Knowledge" asp-action="Index">Policies &amp; procedures</a>@(ViewBag.AnswersOn is true ? ", and the AI answers from them" : "")
+            . Documents marked for new employees are also used by the onboarding assistant.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add a document</a>
+</div>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 table-stack">
+                <thead>
+                <tr><th>Document</th><th>Version</th><th>Effective</th><th>For</th><th class="text-end">Sections</th><th>Status</th><th class="text-end">Actions</th></tr>
+                </thead>
+                <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-body-secondary py-4">No documents yet. Add GREL's HR policies, handbook, conditions of service and SOPs (PDF or Word).</td></tr>
+                }
+                @foreach (var d in Model)
+                {
+                    <tr class="@(d.IsActive ? "" : "row-inactive")">
+                        <td data-label="Document"><a asp-action="Edit" asp-route-id="@d.Id" class="fw-semibold">@d.Title</a><div class="small text-body-secondary">@d.Owner · @d.FileName</div></td>
+                        <td data-label="Version">@d.Version</td>
+                        <td data-label="Effective" class="text-nowrap">@d.EffectiveDate.ToString("d MMM yyyy", gb)</td>
+                        <td data-label="For">@(d.Audience == KnowledgeAudience.StaffAndNewEmployees ? "Staff and new employees" : "Staff")</td>
+                        <td data-label="Sections" class="text-end">
+                            @if (d.ReadProblem is not null) { <span class="badge rounded-pill badge-soft-warning" title="@d.ReadProblem">No text</span> }
+                            else { @d.SectionCount }
+                        </td>
+                        <td data-label="Status">@(d.IsActive ? "In use" : "Archived")</td>
+                        <td data-label="" class="text-end"><a asp-action="Edit" asp-route-id="@d.Id" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-pen me-1"></i>Open</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -254,4 +254,51 @@ public interface IApplicationRepository : IRepository<JobApplication>
 
     /// <summary>The applicant's own applications, newest first.</summary>
     Task<IReadOnlyList<MyApplicationDto>> ListForApplicantAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// 12 November 2026 (talent pool): finished applications that did not lead to a hire (not successful, withdrawn, offer
+    /// declined, automatically rejected), newest first, at most <paramref name="max"/>, searched in the database. Only the
+    /// columns the talent pool shows (never the CV text).
+    /// </summary>
+    Task<IReadOnlyList<TalentApplicationRow>> TalentPoolRowsAsync(TalentPoolFilter filter, RequestVisibility visibility, int max, CancellationToken ct = default);
+
+    /// <summary>Which of these people were hired through any application (they are staff now, not in the pool).</summary>
+    Task<IReadOnlySet<string>> HiredApplicantsAsync(IReadOnlyCollection<string> userIds, CancellationToken ct = default);
 }
+
+// ---------------------------------------------------------------- Talent pool (12 November 2026, docs/34 quick win)
+
+/// <summary>The talent pool's search (all optional).</summary>
+public class TalentPoolFilter
+{
+    /// <summary>Part of the name, skills, field of study, current position or certifications.</summary>
+    public string? Search { get; set; }
+    public EducationLevel? MinEducation { get; set; }
+    public int? MinYears { get; set; }
+
+    /// <summary>"shortlisted", "interviewed" or "offered": at least that far in a past process.</summary>
+    public string? Reached { get; set; }
+    public int Page { get; set; } = 1;
+}
+
+/// <summary>One past application as the talent pool reads it.</summary>
+public record TalentApplicationRow(int ApplicationId, string ApplicantUserId, string FullName, string Email, string Phone, EducationLevel Education,
+    string? FieldOfStudy, int YearsExperience, string? Skills, string? CurrentPosition, int VacancyId, ApplicationStatus Status, int? ScreeningScore,
+    DateTime? ShortlistedAt, DateTime SubmittedAt);
+
+/// <summary>How far a person got in a past recruitment.</summary>
+public enum TalentStage
+{
+    [Display(Name = "Applied")] Applied,
+    [Display(Name = "Shortlisted")] Shortlisted,
+    [Display(Name = "Interviewed")] Interviewed,
+    [Display(Name = "Offered (declined)")] Offered
+}
+
+/// <summary>One person in the talent pool, from their furthest-reaching past application.</summary>
+public record TalentPoolPersonDto(string ApplicantUserId, string FullName, string Email, string Phone, EducationLevel Education, string? FieldOfStudy,
+    int YearsExperience, string? Skills, string? CurrentPosition, TalentStage Reached, int? BestScore, string LastVacancy, DateTime LastApplied,
+    int Applications, int LastApplicationId);
+
+/// <summary>A vacancy someone can be invited to (published, open, with a live advert).</summary>
+public record InvitableVacancyDto(int VacancyId, string VacancyNumber, string JobTitle, DateOnly ClosingDate);

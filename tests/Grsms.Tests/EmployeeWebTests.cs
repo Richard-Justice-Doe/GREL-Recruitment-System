@@ -76,6 +76,29 @@ public class EmployeeWebTests(GrsmsWebFactory factory) : IClassFixture<GrsmsWebF
         Assert.Contains("G7: Manager", page);
         Assert.Contains("Grade given in the 2026 grading exercise.", page);
 
+        // 17 Nov 2026: the directory (cards by default, a list on request) and the profile workspace.
+        var grid = await hr.GetStringAsync("/Employees");
+        Assert.Contains("emp-card", grid);
+        Assert.Contains("% complete", grid);
+        Assert.Contains(">EQ</span>", grid); // initials while there is no photo
+        Assert.Contains("emp-avatar-sm", await hr.GetStringAsync("/Employees?view=list"));
+        Assert.Contains("Pending actions", page);
+        Assert.Contains("data-section=\"Organisation\"", page);
+        Assert.Contains("Hired before GRSMS: personal details are not in GRSMS yet", page);
+        Assert.Contains("Employee report", await hr.GetStringAsync($"/Employees/Report/{id}"));
+
+        // A photo, through the profile's form: then shown instead of the initials.
+        var profile = await hr.GetStringAsync(detailsUrl);
+        var token = Regex.Match(profile, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
+        var png = new ByteArrayContent(Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="));
+        png.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        var upload = new MultipartFormDataContent { { new StringContent(WebUtility.HtmlDecode(token)), "__RequestVerificationToken" }, { png, "photo", "esi.png" } };
+        Assert.Equal(HttpStatusCode.Redirect, (await hr.PostAsync($"/Employees/UploadPhoto/{id}", upload)).StatusCode);
+        var photo = await hr.GetAsync($"/Employees/Photo/{id}");
+        Assert.Equal("image/png", photo.Content.Headers.ContentType!.MediaType);
+        Assert.Contains($"/Employees/Photo/{id}", await hr.GetStringAsync("/Employees"));
+
         // The CSV template.
         var template = await hr.GetAsync("/Employees/ImportTemplate");
         Assert.Equal("text/csv", template.Content.Headers.ContentType!.MediaType);

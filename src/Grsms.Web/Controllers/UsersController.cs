@@ -21,7 +21,8 @@ public class UsersController(
     ISiteService sites,
     IPasswordValidator<Infrastructure.Identity.ApplicationUser> passwordValidator,
     UserManager<Infrastructure.Identity.ApplicationUser> userManager,
-    Application.Common.WorkflowMailer mailer) : AppController
+    Application.Common.WorkflowMailer mailer,
+    Application.Auditing.IAuditLogService audit) : AppController
 {
     /// <param name="candidates">True to show candidate (portal) accounts instead of staff.</param>
     /// <remarks>docs/32: searched, sorted and paged in the database (candidates keep registering, so this list keeps growing).</remarks>
@@ -104,6 +105,33 @@ public class UsersController(
     {
         var result = await users.UnlockAsync(id, ct);
         if (result.Succeeded) Success("Account unlocked.");
+        else Fail(result);
+        return BackToList(returnUrl, candidates);
+    }
+
+    /// <summary>22 Nov 2026 (docs/41, H2): the Super Admin requires (or stops requiring) two-step sign-in for one person.</summary>
+    [HttpPost]
+    public async Task<IActionResult> RequireTwoStep(string id, bool required, bool candidates, string? returnUrl, CancellationToken ct)
+    {
+        var result = await users.SetTwoStepRequiredAsync(id, required, ct);
+        if (result.Succeeded)
+            Success(required
+                ? "Two-step sign-in is now required for this person. They set it up at their next sign-in (or within 5 minutes if signed in)."
+                : "Two-step sign-in is no longer required for this person. They can keep using it or turn it off.");
+        else Fail(result);
+        return BackToList(returnUrl, candidates);
+    }
+
+    /// <summary>22 Nov 2026 (docs/41, H2): lost or new phone; they set up two-step sign-in again at their next sign-in.</summary>
+    [HttpPost]
+    public async Task<IActionResult> ResetTwoStep(string id, bool candidates, string? returnUrl, CancellationToken ct)
+    {
+        var result = await users.ResetTwoStepAsync(id, ct);
+        if (result.Succeeded)
+        {
+            await audit.LogAsync(Domain.Auditing.AuditActions.TwoStepReset, id, null, $"Reset by {User.Identity?.Name}", ct);
+            Success("Two-step sign-in reset. They set it up again at their next sign-in.");
+        }
         else Fail(result);
         return BackToList(returnUrl, candidates);
     }

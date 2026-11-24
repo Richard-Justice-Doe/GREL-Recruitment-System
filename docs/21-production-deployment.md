@@ -80,30 +80,87 @@ The `backup` container makes, every night after 01:00 GMT (`BACKUP_HOUR_GMT`):
 
 | File | Contains |
 |---|---|
-| `grsms-db-YYYYMMDD-HHMM.sql.gz` | the whole database (consistent snapshot, no downtime) |
-| `grsms-files-YYYYMMDD-HHMM.tar.gz` | uploaded documents (CVs, certificates, job descriptions), the **data-protection keys**, saved emails |
+| `grsms-db-YYYYMMDD-HHMM.sql.gz.gpg` | the whole database (consistent snapshot, no downtime) |
+| `grsms-files-YYYYMMDD-HHMM.tar.gz.gpg` | uploaded documents (CVs, certificates, job descriptions) and saved emails |
+| `grsms-keys-YYYYMMDD-HHMM.tar.gz.gpg` | the **data-protection keys** (sign-in cookies, emailed links, encrypted settings), on their own since 22 Nov 2026 |
 
-They go to `deploy/backups/` (`BACKUP_FOLDER`) and are kept for 30 days (`BACKUP_KEEP_DAYS`).
+They go to `deploy/backups/` (`BACKUP_FOLDER`) and are kept for 30 days (`BACKUP_KEEP_DAYS`). The `.gpg` ending means the file is encrypted (below). Without a backup key the files are made without `.gpg`, **unencrypted**.
 
-**Copy them off the server every day** (GREL's backup system, another server or cloud storage). A backup that lives only on the server is lost with it. The files archive contains the keys that protect sign-in cookies and emailed links, so treat backups as confidential.
+**Copy them off the server every day** (GREL's backup system, another server or cloud storage). A backup that lives only on the server is lost with it.
 
 Take one at any time:
 ```bash
 docker compose -f docker-compose.prod.yml exec backup bash /backup.sh now
 ```
 
-**From GRSMS (Phase 16):** a Super Admin sees the backups on **Management → Backups**, can press **Back up now**, and can download a database dump. The `web` container sees the backup folder at `/app/backups` (`Backups__Folder`). For *Back up now*, GRSMS writes `requests/backup-request` there. The backup service creates that `requests` folder at start-up, owned by the app's non-root user (uid 1654), and checks it every 30 seconds. The *files and keys* archive can't be downloaded through the web. Restoring stays the procedure below. See [23 System settings → Backups](23-system-settings.md#3-backups).
+**From GRSMS (Phase 16):**
+* A Super Admin sees the backups on **Management → Backups**, can press **Back up now**, and can download an **encrypted** database dump.
+* **Plain (unencrypted) dumps, the files archive and the keys archive cannot be downloaded through the web.** IT copies them on the server.
+* How it works on the server:
+  * The `web` container sees the backup folder at `/app/backups` (`Backups__Folder`).
+  * For *Back up now*, GRSMS writes `requests/backup-request` there.
+  * The backup service creates that `requests` folder at start-up, owned by the app's non-root user (uid 1654), and checks it every 30 seconds.
+* Restoring stays the procedure below. See [23 System settings → Backups](23-system-settings.md#3-backups).
+
+### Encrypted backups (22 Nov 2026, docs/41 H4)
+
+Backups hold every candidate's and employee's personal data. They are encrypted with GREL's **backup public key**, so a stolen backup file is unreadable. Only the matching **private key** opens it, and it never goes on this server.
+
+**Once, on an IT workstation (not the server):**
+```bash
+gpg --quick-gen-key "GREL GRSMS backups <it@grel.com.gh>" rsa4096 encr never   # choose a strong passphrase
+gpg --armor --export "GREL GRSMS backups" > grsms-backup-public.asc            # the PUBLIC key: goes on the server
+gpg --armor --export-secret-keys "GREL GRSMS backups" > grsms-backup-PRIVATE.asc  # keep OFFLINE (safe, password manager)
+```
+
+**On the server:**
+1. Copy `grsms-backup-public.asc` into `deploy/backup-key/`.
+2. Restart the backup service: `docker compose -f docker-compose.prod.yml up -d --build backup`.
+3. Its log should say `backups are ENCRYPTED for GREL's backup key …` (`docker compose -f docker-compose.prod.yml logs backup`).
+
+Until a key is there, the backup service still makes backups, unencrypted. It warns in its log, and **Management → Backups** shows a red warning.
+
+**Store at least two copies of the private key and its passphrase offline** (e.g. GREL's safe and the IT password manager). Without them no backup can be restored.
 
 ### Restoring
+On the machine that holds the private key, decrypt the files first:
+```bash
+gpg --output grsms-db-20261104-0100.sql.gz    --decrypt grsms-db-20261104-0100.sql.gz.gpg
+gpg --output grsms-files-20261104-0100.tar.gz --decrypt grsms-files-20261104-0100.tar.gz.gpg
+gpg --output grsms-keys-20261104-0100.tar.gz  --decrypt grsms-keys-20261104-0100.tar.gz.gpg
+```
+Then copy the decrypted files into `deploy/backups/` on the server you restore to, and run:
 ```bash
 docker compose -f docker-compose.prod.yml stop web
 # Database
 gunzip -c backups/grsms-db-20261104-0100.sql.gz | docker compose -f docker-compose.prod.yml exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" grsms'
-# Files (uploads and keys)
-docker run --rm -v grsms_app-data:/data -v "$PWD/backups:/backups" alpine sh -c "rm -rf /data/* && tar -xzf /backups/grsms-files-20261104-0100.tar.gz -C /data"
+# Files (uploads), then the keys
+docker run --rm -v grsms_app-data:/data -v "$PWD/backups:/backups" alpine sh -c "rm -rf /data/* && tar -xzf /backups/grsms-files-20261104-0100.tar.gz -C /data && tar -xzf /backups/grsms-keys-20261104-0100.tar.gz -C /data"
 docker compose -f docker-compose.prod.yml start web
 ```
-**Test a restore at least every three months**, on a separate machine or under another project name (`-p grsms-restoretest`).
+Delete the decrypted copies afterwards (`shred -u backups/*.gz`). **Test a restore at least every three months**, on a separate machine or under another project name (`-p grsms-restoretest`).
+
+Backups made before 22 Nov 2026 are single `grsms-files-…` archives that include the keys, and are not encrypted. Restore them as before, and delete them once newer encrypted backups exist.
+
+### Virus scanning of uploads (22 Nov 2026, docs/41 H3)
+
+The `clamav` container scans every uploaded file (CVs, certificates, new-hire documents, letter signatures) before GRSMS stores it. It downloads new virus signatures by itself several times a day.
+* **Size:** it needs about **2 GB of memory**. Allow for this on the server.
+* **Start-up:** after a start it takes a few minutes to load the signatures. During that time, and whenever it is down, **uploads are refused** with "could not be checked for viruses right now … try again in a few minutes". Files are never let through unscanned.
+* **An infected file** is refused with the virus name and never stored; the app log records it.
+* **Check it:** `docker compose -f docker-compose.prod.yml logs clamav` should show `clamd` ready.
+* **Test it:** upload the harmless [EICAR test file](https://www.eicar.org/download-anti-malware-testfile/) renamed `eicar.pdf`. It must be refused.
+
+### Two-step sign-in (22 Nov 2026, docs/41 H2)
+
+**Off until the Super Admin switches it on** (System settings → Sign-in security), because GRSMS is still being tested. Once it is on, Super Admins, Admins, HR Administrators, HR Managers and Recruitment Officers who sign in with a password must use an authenticator app. It can also be required for **one person**: the Super Admin clicks the shield button next to them on **Users** (green = required; the *2-step* badge shows who has set it up). And **every member of staff** can turn it on for themselves under **Administration → Your account → Two-step sign-in** (or the account menu).
+* **First time:** once the rule is on, their next password sign-in sends them to **Two-step sign-in**. They scan the QR code, type the code, and save their 10 recovery codes. Microsoft 365 sign-in is not affected; GREL IT should require MFA for it in Microsoft Entra (Conditional Access).
+* **Lost phone:** the person uses a recovery code. Otherwise an administrator presses the phone button on **Users**; for privileged accounts only a Super Admin can do this.
+* **The Super Admin:** keep their recovery codes in the safe with the backup key. If the only Super Admin loses both phone and codes, IT clears it in the database:
+  ```bash
+  docker compose -f docker-compose.prod.yml exec db sh -c "mysql -uroot -p\"\$MYSQL_ROOT_PASSWORD\" grsms -e \"UPDATE Users SET TwoFactorEnabled=0, RequireTwoStep=0 WHERE Email='admin@grel.com.gh';\""
+  ```
+* **Switching it on:** a Super Admin ticks **Require two-step sign-in for privileged staff** under **System settings → Sign-in security**. Do this before go-live; set up your own first (account menu → *Two-step sign-in*). Switching it off again is not advised once live.
 
 ## 6. Monitoring
 
@@ -148,9 +205,82 @@ docker compose -f docker-compose.prod.yml start web
 
 **Operations**
 - [ ] First nightly backup present in `deploy/backups`; copied off the server; one **test restore** done
+- [ ] Backup public key in `deploy/backup-key/`; backup log says "ENCRYPTED"; private key and passphrase stored offline in two places (docs/41 H4)
+- [ ] `clamav` running; the EICAR test file is refused on upload (docs/41 H3)
+- [ ] Two-step sign-in switched **on** (System settings → Sign-in security); the Super Admin has set it up and stored the recovery codes offline (docs/41 H2)
 - [ ] `/health` added to the uptime monitor
 - [ ] Someone named to check the log and backups weekly
 - [ ] One full journey done on the live system with test data (request → vacancy → advert → application → shortlist → interview → offer → onboarding), then the test records removed or marked
+
+## 8b. Windows Server with Docker (first installation)
+
+The containers (GRSMS, MySQL 8.4, Caddy) are **Linux containers**. Windows Server's own Docker runs only Windows containers and Docker Desktop is not supported on Windows Server, so Docker runs inside a small Linux (Ubuntu) under **WSL2**, and Windows passes ports 80 and 443 to it. Needs **Windows Server 2022 or 2025** with current updates; if the server is a virtual machine, **nested virtualisation** must be on (Hyper-V: `Set-VMProcessor -VMName <vm> -ExposeVirtualizationExtensions $true`; VMware: "Expose hardware assisted virtualization"). On Windows Server 2019 or older, use IIS (section 9) instead.
+
+**Step 1: Ubuntu under WSL2** (PowerShell as Administrator):
+```powershell
+wsl --install -d Ubuntu-24.04      # restart the server if asked, then open "Ubuntu" and create a Linux user
+wsl --set-default-version 2
+wsl -l -v                          # Ubuntu-24.04 must show VERSION 2
+```
+
+**Step 2: Docker inside Ubuntu** (in the Ubuntu window):
+```bash
+sudo tee /etc/wsl.conf > /dev/null <<'EOF'
+[boot]
+systemd=true
+EOF
+```
+Back in PowerShell: `wsl --shutdown`, then open Ubuntu again and install Docker Engine:
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER      # then close and reopen the Ubuntu window
+docker compose version             # must print a version
+```
+
+**Step 3: the code** (keep it in the Linux file system, `~/grsms`, not under `/mnt/c`: much faster). The repository is private, so use a GitHub **personal access token** (GitHub → Settings → Developer settings → Fine-grained token, *Contents: read-only* on this repository) as the password when asked:
+```bash
+cd ~
+git clone -b feature/ats-and-super-admin https://github.com/Richard-Justice-Doe/GREL-Recruitment-System.git grsms
+cd grsms/deploy
+cp .env.production.example .env && chmod 600 .env && nano .env
+```
+Fill in `.env` as in section 2. For GREL's Hostinger mailbox: `SMTP_HOST=smtp.hostinger.com`, `SMTP_PORT=587` (**not 465**: .NET's mail client only does STARTTLS on 587), `SMTP_SSL=true`, `SMTP_USER` / `SMTP_PASSWORD` = the mailbox and its password, `EMAIL_FROM` = the same mailbox. `GRSMS_TLS`: empty for a public name (Let's Encrypt), `tls internal` for an intranet name, or GREL's certificate files (section 3).
+
+**Step 4: start it**:
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml logs -f web    # wait for "Now listening"; Ctrl+C to leave
+curl -k https://localhost/health                         # "Healthy"
+```
+The first build takes several minutes. All tables are created at start-up (`APPLY_MIGRATIONS=true`): **no SQL script needs running by hand** on a new installation.
+
+**Step 5: let other PCs reach it.** WSL2 is reachable from the server itself (`https://localhost`) but not from the network until Windows forwards the ports. PowerShell as Administrator, saved as `C:\grsms\wsl-ports.ps1`:
+```powershell
+$ip = (wsl -d Ubuntu-24.04 hostname -I).Trim().Split(' ')[0]
+foreach ($port in 80, 443) {
+    netsh interface portproxy delete v4tov4 listenport=$port listenaddress=0.0.0.0 2>$null
+    netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$ip
+}
+```
+Run it once, then open the firewall (once):
+```powershell
+New-NetFirewallRule -DisplayName "GRSMS HTTP/HTTPS" -Direction Inbound -Protocol TCP -LocalPort 80,443 -Action Allow
+```
+The WSL address changes when the server restarts, which is why the script is run again at start-up (step 6).
+
+**Step 6: start everything when the server starts** (Task Scheduler, PowerShell as Administrator):
+```powershell
+$keepUp = New-ScheduledTaskAction -Execute "wsl.exe" -Argument "-d Ubuntu-24.04 -u root -- bash -c 'sleep infinity'"
+$ports  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"Start-Sleep 60; & C:\grsms\wsl-ports.ps1`""
+$atBoot = New-ScheduledTaskTrigger -AtStartup
+Register-ScheduledTask -TaskName "GRSMS WSL" -Action $keepUp -Trigger $atBoot -User "SYSTEM" -RunLevel Highest
+Register-ScheduledTask -TaskName "GRSMS ports" -Action $ports -Trigger $atBoot -User "SYSTEM" -RunLevel Highest
+```
+The first task starts Ubuntu (systemd then starts Docker, and Docker restarts the containers: `restart: unless-stopped`); the second waits a minute and forwards the ports. **Test it once: restart the server** and open `https://<GRSMS_DOMAIN>` from another PC.
+
+**Step 7: first sign-in and checks**: as in section 2 (change the administrator password, remove `SEED_ADMIN_PASSWORD` from `.env`, create accounts and roles, give someone the **IT Manager** role), then **Administration → System settings → Send a test email**. Backups are written to `~/grsms/deploy/backups`, which Windows sees as `\\wsl$\Ubuntu-24.04\home\<linux user>\grsms\deploy\backups`: copy them off the server regularly (section 5).
+
+**Updating later**: section 4, in the Ubuntu window (`cd ~/grsms/deploy`, backup, `git pull`, `docker compose ... up -d --build`).
 
 ## 9. Without Docker (Windows Server + IIS)
 

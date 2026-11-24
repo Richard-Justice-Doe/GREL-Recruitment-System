@@ -13,7 +13,7 @@ namespace Grsms.Web.Controllers;
 /// can sit on a panel; what each person may see and do is decided by <see cref="InterviewService"/>.
 /// </summary>
 [Authorize(Policy = Policies.Staff)]
-public class InterviewsController(InterviewService interviews) : AppController
+public class InterviewsController(InterviewService interviews, Application.Vacancies.InterviewQuestionService questions) : AppController
 {
     /// <param name="filter">Tab "mine", "scorecards", "validate", "upcoming" or "all", plus the report filters.</param>
     public async Task<IActionResult> Index([FromQuery] InterviewFilter filter, CancellationToken ct)
@@ -45,26 +45,52 @@ public class InterviewsController(InterviewService interviews) : AppController
                 return RedirectToAction(nameof(Details), new { id = result.Value });
             }
             AddErrors(result);
+            // 12 Nov 2026: someone is busy at that time; the page offers "Schedule anyway".
+            ViewBag.Clash = result.Errors.Any(e => e.StartsWith(Application.Interviews.InterviewService.ClashPrefix));
         }
         await interviews.FillScheduleFormAsync(form, ct);
         return View(form);
     }
 
-    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    public async Task<IActionResult> Details(int id, [FromServices] Application.Process.ProcessGuideService guide, CancellationToken ct)
     {
         var model = await interviews.GetDetailsAsync(id, ct);
-        return model is null ? NotFound() : View(model);
+        if (model is null) return NotFound();
+        ViewBag.Guide = await questions.ForInterviewAsync(model.VacancyId, ct); // docs/36 AI-2
+        ViewBag.Process = await guide.ForApplicationAsync(model.ApplicationId, ct); // docs/37 CR5
+        return View(model);
     }
 
     /// <summary>The scorecard form posts "ratings[criterionId]=1..5" for every criterion.</summary>
     [HttpPost]
-    public Task<IActionResult> Scorecard(int id, Dictionary<int, int> ratings, PanelRecommendation? recommendation, string? strengths,
+    public Task<IActionResult> Scorecard(int id, Dictionary<int, int> ratings, Dictionary<int, string?>? comments, PanelRecommendation? recommendation, string? strengths,
         string? concerns, CancellationToken ct) =>
-        Act(id, () => interviews.SubmitScorecardAsync(id, ratings, recommendation, strengths, concerns, ct), "Scorecard saved. You can now see the other panel members' scorecards.");
+        Act(id, () => interviews.SubmitScorecardAsync(id, ratings, recommendation, strengths, concerns, ct, comments), "Scorecard saved. You can now see the other panel members' scorecards.");
+
+    /// <summary>docs/35: a panel member accepts or declines the invitation.</summary>
+    [HttpPost]
+    public Task<IActionResult> Respond(int id, bool accept, string? reason, CancellationToken ct) =>
+        Act(id, () => interviews.RespondAsync(id, accept, reason, ct),
+            accept ? "Thank you: you have accepted the panel invitation." : "You have declined. The Recruitment Officer has been told.");
+
+    /// <summary>docs/35: the RO or HR Manager replaces a panel member who declined.</summary>
+    [HttpPost]
+    public Task<IActionResult> ReplaceMember(int id, string? oldUserId, string? newUserId, string? reason, CancellationToken ct) =>
+        Act(id, () => interviews.ReplacePanelMemberAsync(id, oldUserId, newUserId, ct, reason), "Panel member replaced. The new member has been invited.");
+
+    /// <summary>docs/37 CR3: add a substitute panel member.</summary>
+    [HttpPost]
+    public Task<IActionResult> AddMember(int id, string? newUserId, string? reason, CancellationToken ct) =>
+        Act(id, () => interviews.AddPanelMemberAsync(id, newUserId, reason, ct), "Substitute added and invited.");
+
+    /// <summary>docs/37 CR3: send the invitation again to a member who has not replied.</summary>
+    [HttpPost]
+    public Task<IActionResult> ResendInvitation(int id, string? userId, CancellationToken ct) =>
+        Act(id, () => interviews.ResendInvitationAsync(id, userId, ct), "Invitation sent again.");
 
     [HttpPost]
-    public Task<IActionResult> Reschedule(int id, DateTime? startsAt, string? location, CancellationToken ct) =>
-        Act(id, () => interviews.RescheduleAsync(id, startsAt, location, ct), "Rescheduled. The applicant and the panel have been emailed.");
+    public Task<IActionResult> Reschedule(int id, DateTime? startsAt, string? location, bool ignoreClashes, CancellationToken ct) =>
+        Act(id, () => interviews.RescheduleAsync(id, startsAt, location, ct, ignoreClashes), "Rescheduled. The applicant and the panel have been emailed.");
 
     // ---- Score validation (9 Nov 2026): a Recruitment Officer checks the scores.
 
